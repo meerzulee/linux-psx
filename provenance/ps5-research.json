@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "researched_on": "2026-10-16",
+  "status": "source research only; no PS5 patch import, build or hardware validation",
+  "repository": "https://github.com/ps5-linux/ps5-linux-patches.git",
+  "commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+  "linux_base": {
+    "version_from_upstream_config": "7.2.3",
+    "repository": "https://github.com/gregkh/linux.git",
+    "tag": "v7.2.3",
+    "commit": "58e7295cfecaddec94629160386412e0f2b1e8fe"
+  },
+  "files": [
+    {
+      "path": ".config",
+      "size": 162596,
+      "sha256": "fdbadbdc952695ea34c7e1ead8cda1e8b375277ef7615fddcfc61d9eff29a1cb",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/.config"
+    },
+    {
+      "path": "linux.patch",
+      "size": 393716,
+      "sha256": "ee566a03963be6400474b778ef594c0bdfd4124b4aa8038a0cf57546ff808714",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/linux.patch"
+    },
+    {
+      "path": "README.md",
+      "size": 863,
+      "sha256": "20043065ba650631bbd2a690eb2ba5579cb2b275a367d86c8e1c76cb141f16bd",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/README.md"
+    }
+  ],
+  "touched_paths": {
+    "ps4_active": 311,
+    "ps5": 86,
+    "intersection": [
+      "arch/x86/Kconfig",
+      "arch/x86/include/asm/setup.h",
+      "arch/x86/include/uapi/asm/bootparam.h",
+      "arch/x86/kernel/head64.c",
+      "arch/x86/platform/Makefile",
+      "drivers/Makefile",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu.h",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_device.c",
+      "drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c",
+      "drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c",
+      "drivers/hwmon/k10temp.c",
+      "drivers/iommu/amd/init.c",
+      "drivers/pci/probe.c",
+      "drivers/usb/host/Makefile"
+    ],
+    "method": "Union of diff --git destination paths and +++ b/ unified-diff paths; includes plain unified patches."
+  },
+  "overlap_interpretation": "Shared touched paths identify review areas; they do not establish hunk conflicts or mergeability.",
+  "boot_loaders": [
+    {
+      "console": "PS4",
+      "repository": "https://github.com/ps4-linux/ps4-linux-loader.git",
+      "commit": "9acef9fbf79097a2bb39d6c9c17228198bc445cc",
+      "id_header": "linux/ps4-kexec-common/linux_boot.h",
+      "boot_code": "linux/ps4-kexec-common/linux_boot.c",
+      "hardware_subarch": 5
+    },
+    {
+      "console": "PS5",
+      "repository": "https://github.com/ps5-linux/ps5-linux-loader.git",
+      "commit": "64637c177eaed277fb6ccce394cbb29dd047b893",
+      "id_header": "include/linux.h",
+      "boot_code": "shellcode_hv/boot_linux.c",
+      "hardware_subarch": 5
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "validated_on": "2026-10-16",
+  "import_source_commit": "f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
+  "imported_files_byte_identical": 102,
+  "checksum_manifest": "provenance/ps4-SHA256SUMS",
+  "patch_files": 86,
+  "inactive_candidate_files": 4,
+  "active_patch_syntax": "passed; git apply --numstat; no binary patch payloads",
+  "target_path_references": "passed; resolved against platforms/ps4",
+  "patch_application": {
+    "base": {
+      "repository": "https://github.com/gregkh/linux.git",
+      "tag": "v6.18.44",
+      "commit": "1efe5d048a391de3ead2804b2e7f86376c356cc5"
+    },
+    "method": "git apply --check --whitespace=nowarn, then git apply --whitespace=nowarn, in ordered series; experimental target reuses verified identical baseline prefix",
+    "checkout": "fresh sparse checkout of all touched upstream paths",
+    "targets": [
+      {
+        "target": "6.18-baikal",
+        "active_patches": 54,
+        "reused_identical_prefix": 0,
+        "new_patches_applied": 54,
+        "result": "passed"
+      },
+      {
+        "target": "6.18-baikal-ultrawide",
+        "active_patches": 55,
+        "reused_identical_prefix": 54,
+        "new_patches_applied": 1,
+        "result": "passed"
+      }
+    ]
+  },
+  "upstream_references": {
+    "total": 31,
+    "original_locations_available": 17,
+    "exact_commits_at_alternate_locations": 14,
+    "all_resolved": true
+  },
+  "kernel_compilation_run": false,
+  "console_operation_run": false,
+  "new_hardware_acceptance": false,
+  "universal_kernel_built": false
+}

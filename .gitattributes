@@ -1,0 +1,6 @@
+# Preserve imported source bytes, including non-UTF-8 vendor patches.
+platforms/ps4/patches/** -text -whitespace
+platforms/ps4/config/** -text -whitespace
+platforms/ps4/targets/** -text -whitespace
+provenance/linux-ps4-ledger.md -text
+LICENSE -text

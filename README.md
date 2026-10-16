@@ -22,8 +22,8 @@ while sharing the tools and knowledge that make sense across generations.
 
 | Console | Project status |
 | --- | --- |
-| **PlayStation 4** | Existing PS4 port; integration into psX is planned. |
-| **PlayStation 5** | Planned port and integration of community kernel work. |
+| **PlayStation 4** | Linux 6.18.44 patch snapshot imported; existing Baikal evidence remains scoped to its recorded hardware. |
+| **PlayStation 5** | Community sources researched and pinned; kernel integration is planned. |
 | **Future PlayStation consoles** | Long-term exploration as hardware access and public research become available. |
 
 ## What we're building
@@ -45,14 +45,21 @@ repository will let us share tooling while qualifying each console separately.
 
 ## Current stage
 
-**Project setup and documentation.** This repository is being prepared for the
-existing [PS4 kernel work](https://github.com/meerzulee/linux-ps4) and the planned
-PS5 port. Source integration, build instructions and releases will follow.
+**Patch foundation.** The PS4 Linux 6.18.44 patches, configs and target metadata
+are imported from a pinned revision of the existing PS4 project, with original
+headers and bytes preserved. The normal series has 54 active patches; a
+separate experimental ultrawide series adds one delta.
 
-Community PS5 kernel patches and configurations are available at
-[ps5-linux/ps5-linux-patches](https://github.com/ps5-linux/ps5-linux-patches).
-Upstream authorship, licenses and patch provenance will be preserved as work is
-integrated.
+| Read next | Contents |
+| --- | --- |
+| [PS4 patch guide](docs/PS4-PATCHES.md) | Scope, ordering, base pin and checksum verification. |
+| [Credits and sources](CREDITS.md) | Original contributors, exact source trees and recovered upstream links. |
+| [Universal-kernel research](docs/UNIVERSAL-KERNEL.md) | Shared-source feasibility and the work needed for one PS4/PS5 binary. |
+| [Import manifest](provenance/ps4-import.json) | Per-file hashes, immutable source paths and ordered series. |
+
+Build tooling and releases are not yet migrated. This source import and its
+checks do not establish new hardware support. PS5 and future-console support
+remain planned.
 
 ---
 

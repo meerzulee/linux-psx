@@ -1,0 +1,356 @@
+{
+  "verified_on": "2026-10-16",
+  "sources": [
+    {
+      "repository": "crashniels/linux",
+      "commit": "b3b6b1e4fe8754482186f1d894a8eda431dbcd05",
+      "available": true,
+      "resolved_commit": "b3b6b1e4fe8754482186f1d894a8eda431dbcd05",
+      "url": "https://github.com/crashniels/linux/commit/b3b6b1e4fe8754482186f1d894a8eda431dbcd05",
+      "author": "Niels Westphal (crashniels)",
+      "subject": "Add baikal checks"
+    },
+    {
+      "repository": "feeRnt/ps4-linux-12xx",
+      "commit": "1fdfbd9a4c5690602893f6d5f65e154c6d9ba711",
+      "available": true,
+      "resolved_commit": "1fdfbd9a4c5690602893f6d5f65e154c6d9ba711",
+      "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/1fdfbd9a4c5690602893f6d5f65e154c6d9ba711",
+      "author": "feeRnt",
+      "subject": "ps4-bpcie: Add and remove a couple of pr_infos"
+    },
+    {
+      "repository": "feeRnt/ps4-linux-12xx",
+      "commit": "b0969f7d101f89cfe6f60c42d607aff9d35b142a",
+      "available": true,
+      "resolved_commit": "b0969f7d101f89cfe6f60c42d607aff9d35b142a",
+      "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/b0969f7d101f89cfe6f60c42d607aff9d35b142a",
+      "author": "feeRnt",
+      "subject": "Fix(?) xhci_hcd_pci_shutdown for Baikals"
+    },
+    {
+      "repository": "feeRnt/ps4-linux-12xx",
+      "commit": "c46339880113ef935c10dd1f781c4bcf7df621fc",
+      "available": true,
+      "resolved_commit": "c46339880113ef935c10dd1f781c4bcf7df621fc",
+      "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/c46339880113ef935c10dd1f781c4bcf7df621fc",
+      "author": "feeRnt",
+      "subject": "net: wireless: mt76x8/MT6632: fix dev_addr API and pointer type errors for 6.15+"
+    },
+    {
+      "repository": "gregkh/linux",
+      "commit": "1efe5d048a391de3ead2804b2e7f86376c356cc5",
+      "available": true,
+      "resolved_commit": "1efe5d048a391de3ead2804b2e7f86376c356cc5",
+      "url": "https://github.com/gregkh/linux/commit/1efe5d048a391de3ead2804b2e7f86376c356cc5",
+      "author": "Greg Kroah-Hartman",
+      "subject": "Linux 6.18.44"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "4311cddd0a9dbabf94978e6ea4056af9a18c160a",
+      "available": true,
+      "resolved_commit": "4311cddd0a9dbabf94978e6ea4056af9a18c160a",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/4311cddd0a9dbabf94978e6ea4056af9a18c160a",
+      "author": "Meerzulee",
+      "subject": "v67: MT7668 internal WiFi + zram + sky2 chip_id + 14\u00d7 boot speedup"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "4ec638d8462e7ba6189e62f2be32da74990590fc",
+      "available": true,
+      "resolved_commit": "4ec638d8462e7ba6189e62f2be32da74990590fc",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/4ec638d8462e7ba6189e62f2be32da74990590fc",
+      "author": "Meerzulee",
+      "subject": "v69: sky2 MDIO scan proves PHY not on bus \u2014 ethernet path closed"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "671128be35a5ab978c653482ac03807a72088edb",
+      "available": true,
+      "resolved_commit": "671128be35a5ab978c653482ac03807a72088edb",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/671128be35a5ab978c653482ac03807a72088edb",
+      "author": "Meerzulee",
+      "subject": "xhci-aeolia: imod_interval=40000 + caps validate-and-retry on Baikal"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
+      "available": true,
+      "resolved_commit": "82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
+      "author": "Meerzulee",
+      "subject": "v76e-B1.1-\u03b1: drop DEPTH=0 override \u2014 GFX VMID 1 page-616 \u2705, Hyprland GL-renders \ud83c\udf89"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
+      "available": true,
+      "resolved_commit": "e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
+      "author": "Meerzulee",
+      "subject": "v40 (CANDIDATE): pre-allocate IRQ 9 desc for ACPI SCI - THE actual fix"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
+      "available": true,
+      "resolved_commit": "f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
+      "author": "Meerzulee",
+      "subject": "v60: HDMI WORKING \u2014 preserve firmware-trained DP TX state on Liverpool"
+    },
+    {
+      "repository": "meerzulee/linux-ps4",
+      "commit": "f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
+      "available": true,
+      "resolved_commit": "f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
+      "url": "https://github.com/meerzulee/linux-ps4/commit/f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
+      "author": "Meerzulee",
+      "subject": "Document development hosts and pinned source acquisition"
+    },
+    {
+      "repository": "ps4-linux/ps4-linux-loader",
+      "commit": "9acef9fbf79097a2bb39d6c9c17228198bc445cc",
+      "available": true,
+      "resolved_commit": "9acef9fbf79097a2bb39d6c9c17228198bc445cc",
+      "url": "https://github.com/ps4-linux/ps4-linux-loader/commit/9acef9fbf79097a2bb39d6c9c17228198bc445cc",
+      "author": "ArabPixel",
+      "subject": "PS4 13.52 support + edid fix"
+    },
+    {
+      "repository": "ps5-linux/ps5-linux-loader",
+      "commit": "64637c177eaed277fb6ccce394cbb29dd047b893",
+      "available": true,
+      "resolved_commit": "64637c177eaed277fb6ccce394cbb29dd047b893",
+      "url": "https://github.com/ps5-linux/ps5-linux-loader/commit/64637c177eaed277fb6ccce394cbb29dd047b893",
+      "author": "Andy Nguyen",
+      "subject": "Remove --no-warn-rwx-segments flag."
+    },
+    {
+      "repository": "ps5-linux/ps5-linux-patches",
+      "commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "available": true,
+      "resolved_commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/commit/753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "author": "rmuxnet",
+      "subject": "drm/amdgpu: use CONFIG_X86_PS5 for VCN support (#39)"
+    },
+    {
+      "repository": "rmuxnet/linux",
+      "commit": "2a5e792097d550be08e239da8b0741465746d265",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "2a5e792097d550be08e239da8b0741465746d265",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/2a5e792097d550be08e239da8b0741465746d265",
+        "author": "rmuxnet",
+        "subject": "net/wireless/mt76x8: fix fortified copy_from_user build error"
+      }
+    },
+    {
+      "repository": "rmuxnet/linux",
+      "commit": "3a8f6997c56b64321f3ced03886a2dda69835cb6",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "3a8f6997c56b64321f3ced03886a2dda69835cb6",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/3a8f6997c56b64321f3ced03886a2dda69835cb6",
+        "author": "rmxunet",
+        "subject": "amdgpu: apply custom PS4 bridge and encoder patches"
+      }
+    },
+    {
+      "repository": "rmuxnet/linux",
+      "commit": "a30953ce2d1c0f7fdf78e55f4deba64f5cbf5d1a",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "a30953ce2d1c0f7fdf78e55f4deba64f5cbf5d1a",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/a30953ce2d1c0f7fdf78e55f4deba64f5cbf5d1a",
+        "author": "rmuxnet",
+        "subject": "ps4: disable MediaTek WiFi power save"
+      }
+    },
+    {
+      "repository": "rmuxnet/linux",
+      "commit": "d8cbb8e912f59c352479f1158103e8ce7b6ca8c4",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "d8cbb8e912f59c352479f1158103e8ce7b6ca8c4",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/d8cbb8e912f59c352479f1158103e8ce7b6ca8c4",
+        "author": "rmux",
+        "subject": "Merge pull request #17 from Comfy702/fix/mt7668-bluetooth"
+      }
+    },
+    {
+      "repository": "rmuxnet/linux",
+      "commit": "ec88cc9699fd4f35bd4145b8d4ea8b7947b4b738",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "ec88cc9699fd4f35bd4145b8d4ea8b7947b4b738",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/ec88cc9699fd4f35bd4145b8d4ea8b7947b4b738",
+        "author": "rmxunet",
+        "subject": "net: wireless: mt76x8: fix build for Linux 6.15+"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "0ffd91bf838b2cef8dfaf83e00574322d769d383",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "0ffd91bf838b2cef8dfaf83e00574322d769d383",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/0ffd91bf838b2cef8dfaf83e00574322d769d383",
+        "author": "rmuxnet",
+        "subject": "Revert \"usb: xhci-aeolia: use per-subfunction MSI-X vectors on Baikal\""
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "19ec7f4d1d9af199ec93ad6be8e635b38f735b86",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "19ec7f4d1d9af199ec93ad6be8e635b38f735b86",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/19ec7f4d1d9af199ec93ad6be8e635b38f735b86",
+        "author": "rmuxnet",
+        "subject": "ps4: implement Baikal southbridge glue and fix PCI/MSI subsystems"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "6513cc8e3f7ac011a0f5c8a5a0d1716371ed03ed",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "6513cc8e3f7ac011a0f5c8a5a0d1716371ed03ed",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/6513cc8e3f7ac011a0f5c8a5a0d1716371ed03ed",
+        "author": "rmuxnet",
+        "subject": "usb: xhci-aeolia: replace printk timing hack with usleep"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "732f6ec470af3e66fa1e05b73bcf99cae4d41b16",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "732f6ec470af3e66fa1e05b73bcf99cae4d41b16",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/732f6ec470af3e66fa1e05b73bcf99cae4d41b16",
+        "author": "rmuxnet",
+        "subject": "amdgpu: require MSI/MSI-X for PS4 Liverpool IRQs"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "a827d7936c44e672138f269297965817f2e2a8f4",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "a827d7936c44e672138f269297965817f2e2a8f4",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/a827d7936c44e672138f269297965817f2e2a8f4",
+        "author": "rmuxnet",
+        "subject": "ps4: wire up Baikal support for AHCI, xHCI, and SDHCI"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "c4e7f040d08f37e2cedac4920183913aac242556",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "c4e7f040d08f37e2cedac4920183913aac242556",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/c4e7f040d08f37e2cedac4920183913aac242556",
+        "author": "rmuxnet",
+        "subject": "iommu/amd: fix PS4 Baikal IOMMU/IR table preservation and cleanup"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "c9e16f3ad2591c5e35fbe1fb81f02a8e799775ac",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "c9e16f3ad2591c5e35fbe1fb81f02a8e799775ac",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/c9e16f3ad2591c5e35fbe1fb81f02a8e799775ac",
+        "author": "rmuxnet",
+        "subject": "gpu/amdgpu: fix PS4 Liverpool/Gladius display paths and firmware ignore"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "d5e2c79bffe4be6a48d34eaca07139c82a629434",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "d5e2c79bffe4be6a48d34eaca07139c82a629434",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/d5e2c79bffe4be6a48d34eaca07139c82a629434",
+        "author": "rmuxnet",
+        "subject": "iommu/amd: fix PS4 Baikal coherent DMA"
+      }
+    },
+    {
+      "repository": "rmuxnet/ps4-linux-12xx",
+      "commit": "f6cf0e0de15d49ca5b54de536dcf6b6865d49a14",
+      "available": false,
+      "error": "gh: Not Found (HTTP 404)",
+      "alternate_location": {
+        "repository": "feeRnt/ps4-linux-12xx",
+        "available": true,
+        "commit": "f6cf0e0de15d49ca5b54de536dcf6b6865d49a14",
+        "url": "https://github.com/feeRnt/ps4-linux-12xx/commit/f6cf0e0de15d49ca5b54de536dcf6b6865d49a14",
+        "author": "rmuxnet",
+        "subject": "ps4/baikal: USB working motherfuckers"
+      }
+    },
+    {
+      "repository": "whitehax0r/ps4-linux-baikal",
+      "commit": "c9adfeef300197d8139f352203f1f78fd5161c2e",
+      "available": true,
+      "resolved_commit": "c9adfeef300197d8139f352203f1f78fd5161c2e",
+      "url": "https://github.com/whitehax0r/ps4-linux-baikal/commit/c9adfeef300197d8139f352203f1f78fd5161c2e",
+      "author": "whitehax0r",
+      "subject": "Update README.md",
+      "role": "historical-reference"
+    },
+    {
+      "repository": "fail0verflow/ps4-linux",
+      "commit": "ef83f1c67ae5a57ef6fe2d3d5a6b54a33d64f3ef",
+      "available": true,
+      "resolved_commit": "ef83f1c67ae5a57ef6fe2d3d5a6b54a33d64f3ef",
+      "url": "https://github.com/fail0verflow/ps4-linux/commit/ef83f1c67ae5a57ef6fe2d3d5a6b54a33d64f3ef",
+      "author": "Hector Martin",
+      "subject": "ahci: add PS4 Aeolia support",
+      "role": "platform-lineage-reference"
+    }
+  ]
+}
