@@ -291,7 +291,22 @@ rollback.
 
 ### Official builds
 
-Pending: `build.sh -t 7.2-ps4-baikal` on the native and OrbStack paths.
+On 2026-10-17 `build.sh -t 7.2-ps4-baikal` passed on both supported paths.
+Every series entry applied with `git apply`, and both runs recorded the series
+and patch-set hashes in the provenance (`e1dfa3388176…`, `05fee65c046f…`):
+
+| Host | Compiler | Result |
+| --- | --- | --- |
+| Arch Linux x86-64, native | GCC 16.2.1 | `PASS: 7.2.11-psx-ps4-baikal-dev1`, 359 distinct warnings |
+| macOS ARM64, `scripts/build-kernel-orbstack` | Debian trixie `x86_64-linux-gnu-gcc` 14.2.0 | `PASS: 7.2.11-psx-ps4-baikal-dev1`, 360 distinct warnings |
+
+All warnings are in code the 6.18 series adds: about 306 in the mt76x8 vendor
+driver (mostly missing prototypes), 39 in `drivers/ps4`, 10 in `ps4_bridge.c`
+and 4 in the x86 PS4 platform code. The one in a port fix is the mt76x8
+`kalStrnCpy()` call in `wlanCfgSetChip()`, which copies with the destination
+size as the bound, as the `strncpy()` it replaces did. The native run reused a
+local clone of the pinned v7.2.11 commit. The artifacts stay local and have
+not been booted.
 
 ## Baikal reference audit
 
