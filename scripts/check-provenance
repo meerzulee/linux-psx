@@ -88,6 +88,9 @@ def check_rmux_import():
             raise ValueError(f"rmux import must pin full commits: {imp['name']}")
         if any(not re.fullmatch(r"[0-9a-f]{40}", p["commit"]) for p in imp["patches"]):
             raise ValueError(f"rmux import patch lacks a source commit: {imp['name']}")
+    for env in list((ROOT / "targets").glob("*.env")) + list((ROOT / "platforms/ps4/targets").glob("*.env")):
+        if "rmux-reference" in env.read_text():
+            raise ValueError(f"target must not use rmux reference configs: {env.name}")
     return count
 
 

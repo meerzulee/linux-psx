@@ -59,7 +59,9 @@ with a reason. No generated patch byte was edited.
 rmux's full configs and build fragments are copied verbatim to
 [`platforms/ps4/config/rmux-reference/`](../platforms/ps4/config/rmux-reference)
 for comparison only. The root `config` embeds proprietary firmware through
-`CONFIG_EXTRA_FIRMWARE` and is not used by any psX target.
+`CONFIG_EXTRA_FIRMWARE` and points `CONFIG_EXTRA_FIRMWARE_DIR` at the
+maintainer's home directory. Never merge those lines into a psX config; no
+target may reference these files, and `make check` enforces that.
 
 ## Validation
 

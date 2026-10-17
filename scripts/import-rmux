@@ -128,13 +128,16 @@ def repair_shallow(repo):
 def fetch(repo, imp):
     if not (Path(repo) / ".git").exists() and not (Path(repo) / "HEAD").exists():
         subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    # Keep every fetched tip under refs/rmux-import/ so later fetches can
+    # advertise it during negotiation and its objects stay reachable.
     base = imp["base"]
     if not have(repo, base["commit"]):
-        git(repo, "fetch", "--no-tags", "--depth=1", SOURCE, f"refs/heads/{base['ref']}")
+        git(repo, "fetch", "--no-tags", "--depth=1", SOURCE,
+            f"+refs/heads/{base['ref']}:refs/rmux-import/{base['ref']}")
     for seg in imp["segments"]:
         if not have(repo, seg["to"]):
             git(repo, "fetch", "--no-tags", f"--shallow-exclude={base['ref']}", SOURCE,
-                f"refs/heads/{seg['ref']}")
+                f"+refs/heads/{seg['ref']}:refs/rmux-import/{seg['ref']}")
     repair_shallow(repo)
 
 
