@@ -64,7 +64,7 @@ is evidence, not acceptance.
 Required evidence before any support claim, on a fresh boot from Orbis each
 time:
 
-1. cold boot with the cable connected: autoload, first open, DHCP, traffic
+1. boot with the cable connected: autoload, first open, DHCP, traffic
    (passed once in EXP-20261017-019);
 2. boot without a cable, then connect it: link and DHCP without user action
    (next: EXP-20261017-020);
