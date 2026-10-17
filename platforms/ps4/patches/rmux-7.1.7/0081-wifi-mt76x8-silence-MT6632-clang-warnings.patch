@@ -2,13 +2,6 @@ From 5c7d99cd3418f9cb1a7a6b21ab7deae7e59e8065 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 15 Apr 2026 02:38:55 +0200
 Subject: [PATCH] wifi: mt76x8: silence MT6632 clang warnings
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../drv_wlan/MT6632/wlan/common/wlan_p2p.c    |  2 +-
@@ -36,12 +29,6 @@ Content-Transfer-Encoding: 8bit
  .../MT6632/wlan/os/linux/gl_wext_priv.c       | 23 +++++++++++++++----
  .../MT6632/wlan/os/linux/hif/sdio/hal_api.c   |  3 +--
  24 files changed, 63 insertions(+), 47 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0081-wifi-mt76x8-silence-MT6632-clang-warnings.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0081-wifi-mt76x8-silence-MT6632-clang-warnings.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_p2p.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_p2p.c
 index 21362d9b9199df6d5bee22f00fdf611688548b28..75cd86edf2e96f6b83e87031f52333f6f682b93a 100755
@@ -563,7 +550,3 @@ index a346cb41e7419d43873b3fd68b6adb63d4f93de0..6f6175896d806c920f5e7dce8deab5c9
  }
  
 -
-
---------------false--
-
-

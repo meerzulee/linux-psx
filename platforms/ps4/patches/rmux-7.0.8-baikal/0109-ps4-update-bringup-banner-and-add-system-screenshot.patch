@@ -2,23 +2,10 @@ From 01804d6e194d7f9fc0071f3c7c7a3d57576e4bec Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:39 +0200
 Subject: [PATCH] ps4: update bringup banner and add system screenshot
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  init/version-timestamp.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0109-ps4-update-bringup-banner-and-add-system-screenshot.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0109-ps4-update-bringup-banner-and-add-system-screenshot.patch"
 
 diff --git a/init/version-timestamp.c b/init/version-timestamp.c
 index 8a52e10ccd32d0e1656a4ec8b83a5d2011c81fee..074aaa9ad02b42c4863744a743fc2a6d83e626ea 100644
@@ -33,7 +20,3 @@ index 8a52e10ccd32d0e1656a4ec8b83a5d2011c81fee..074aaa9ad02b42c4863744a743fc2a6d
  	"  Release   : " UTS_RELEASE "\n"
  	"  Builder   : " LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST "\n"
  	"  Toolchain : " LINUX_COMPILER "\n"
-
---------------false--
-
-

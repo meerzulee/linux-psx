@@ -2,25 +2,11 @@ From 0f88de9dbaf1d061416c521c539550d7ee36f7d7 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 28 Apr 2026 10:16:13 +0200
 Subject: [PATCH] amdgpu: require MSI/MSI-X for PS4 Liverpool IRQs
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c | 37 +++++++++++++++++++++++--
  1 file changed, 34 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0084-amdgpu-require-MSI-MSI-X-for-PS4-Liverpool-IRQs.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0084-amdgpu-require-MSI-MSI-X-for-PS4-Liverpool-IRQs.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
 index 40b8506ac66f9817d63276320bfb6b4670385348..fee61bdaaf18c5c7e8211a9b289213fe54767ec3 100644
@@ -99,7 +85,3 @@ index 40b8506ac66f9817d63276320bfb6b4670385348..fee61bdaaf18c5c7e8211a9b289213fe
  	dev_dbg(adev->dev, "irq initialized.\n");
  	return 0;
  
-
---------------false--
-
-

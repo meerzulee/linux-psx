@@ -3,14 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 15 May 2026 10:49:30 +0000
 Subject: [PATCH] drm/amdgpu: gmc7: report correct VRAM type for PS4
  Liverpool/Gladius
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Liverpool and Gladius APUs use unified GDDR5 memory.  Report the
 correct type instead of UNKNOWN so userspace tooling displays
@@ -18,12 +10,6 @@ accurate memory information.
 ---
  drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c | 3 +++
  1 file changed, 3 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0101-drm-amdgpu-gmc7-report-correct-VRAM-type-for-PS4-Liv.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0101-drm-amdgpu-gmc7-report-correct-VRAM-type-for-PS4-Liv.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
 index 879fc66f77058fb3cf09affb29c1e2009990fab9..1daedecf8362632ce83a467e8589f59601243991 100644
@@ -39,7 +25,3 @@ index 879fc66f77058fb3cf09affb29c1e2009990fab9..1daedecf8362632ce83a467e8589f596
  	} else {
  		u32 tmp = RREG32(mmMC_SEQ_MISC0);
  
-
---------------false--
-
-

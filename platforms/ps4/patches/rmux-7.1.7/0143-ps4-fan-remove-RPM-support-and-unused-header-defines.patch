@@ -2,24 +2,11 @@ From 06f85ac4336aea3d5703d6539fc60bc9abb55416 Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 15 Jul 2026 17:14:18 +0200
 Subject: [PATCH] ps4-fan: remove RPM support and unused header defines
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-fan.c | 127 +++++++++++-------------------------------
  drivers/ps4/ps4-fan.h |   8 ---
  2 files changed, 32 insertions(+), 103 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0143-ps4-fan-remove-RPM-support-and-unused-header-defines.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0143-ps4-fan-remove-RPM-support-and-unused-header-defines.patch"
 
 diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
 index c329a4ee3f59bb82d5e22409867e055c6d21d4b9..ebc4f08fcb45470c8803d49a367503c4dafc051b 100644
@@ -252,7 +239,3 @@ index 267c201210f4f47263ef57cd1a4efbabd0194453..ba6dec65e2c8acdbc1e1e2ccb9e4c66f
  #define PS4_FAN_THRESH_MIN_C            20
  #define PS4_FAN_THRESH_MAX_C            85
  #define PS4_FAN_THRESH_DEFAULT_C        75
-
---------------false--
-
-

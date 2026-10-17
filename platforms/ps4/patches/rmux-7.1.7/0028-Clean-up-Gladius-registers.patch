@@ -2,14 +2,6 @@ From 435b405f285d14d5916afd42bac38094e50a580c Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 10 Jul 2025 17:58:42 +0200
 Subject: [PATCH] Clean up Gladius registers
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 CB_HW_CONTROL change in liverpool untested. Hawaii also does this and Bonaire only the second CB_HW_CONTROL.
 
@@ -17,12 +9,6 @@ Mostly a copy of Liverpool (which is a copy of Bonaire) with some extras related
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c | 202 ++++++++++++++++++++++++++-----
  1 file changed, 170 insertions(+), 32 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0028-Clean-up-Gladius-registers.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0028-Clean-up-Gladius-registers.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index f9d0316d77bb07b9c91fc297b91f6cf4b55d8cb6..079fe1d757fb31e0ebd875b0c7bf581151ec2888 100644
@@ -276,7 +262,3 @@ index f9d0316d77bb07b9c91fc297b91f6cf4b55d8cb6..079fe1d757fb31e0ebd875b0c7bf5811
 -}
 +}
 \ No newline at end of file
-
---------------false--
-
-

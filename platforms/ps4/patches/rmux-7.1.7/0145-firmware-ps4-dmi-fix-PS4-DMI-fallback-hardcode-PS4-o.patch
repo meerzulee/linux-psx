@@ -3,25 +3,12 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 17 Jul 2026 19:10:26 +0000
 Subject: [PATCH] firmware: ps4-dmi: fix PS4 DMI fallback, hardcode PS4-only
  values
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/firmware/dmi_scan.c | 19 ++++++++--------
  drivers/firmware/ps4-dmi.c  | 44 ++++++++++---------------------------
  drivers/firmware/ps4-dmi.h  |  7 ------
  3 files changed, 20 insertions(+), 50 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0145-firmware-ps4-dmi-fix-PS4-DMI-fallback-hardcode-PS4-o.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0145-firmware-ps4-dmi-fix-PS4-DMI-fallback-hardcode-PS4-o.patch"
 
 diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
 index c3f6749ec49696f763c17e255f21b802c2b5b39e..b0e887e3c4307fc3f5f74689bfe7d5c851b01e7d 100644
@@ -188,7 +175,3 @@ index 5336485fabc6889cf94333f1e08dde4db28e64e5..181b8f66b059d3e8d269fbd473792f31
  static inline void ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
  {
  }
-
---------------false--
-
-

@@ -3,14 +3,6 @@ From: Peter Jung <admin@ptr1337.dev>
 Date: Wed, 8 Apr 2026 19:07:32 +0200
 Subject: [PATCH] cgroup: extend dmem controller with VRAM protection tiers for
  TTM
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Add min/low protection awareness to TTM's VRAM eviction path via the
 dmem cgroup controller. Protected cgroup allocations are no longer
@@ -25,12 +17,6 @@ Signed-off-by: Peter Jung <admin@ptr1337.dev>
  include/linux/cgroup_dmem.h        |  25 ++++
  kernel/cgroup/dmem.c               |  91 ++++++++++++
  6 files changed, 369 insertions(+), 43 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0062-cgroup-extend-dmem-controller-with-VRAM-protection-t.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0062-cgroup-extend-dmem-controller-with-VRAM-protection-t.patch"
 
 diff --git a/drivers/gpu/drm/ttm/ttm_bo.c b/drivers/gpu/drm/ttm/ttm_bo.c
 index 0765d69423d2f4028bf2effd21af53e117ee7a29..73b19c5d06f74bc990151623c95f1b5f1a48580f 100644
@@ -606,7 +592,3 @@ index 9d95824dc6fa09422274422313b63c25986596de..29197d3801ac4cda4a643330885d6cfd
  static int dmem_cgroup_region_capacity_show(struct seq_file *sf, void *v)
  {
  	struct dmem_cgroup_region *region;
-
---------------false--
-
-

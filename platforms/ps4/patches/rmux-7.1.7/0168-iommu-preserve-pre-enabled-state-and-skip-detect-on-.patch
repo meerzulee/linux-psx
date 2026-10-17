@@ -2,13 +2,6 @@ From 853d3557f1834fa4d9dea4e1e5dabaeaa47d19d4 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 8 Aug 2026 18:51:10 +0200
 Subject: [PATCH] iommu: preserve pre-enabled state and skip detect on Baikal
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/include/asm/ps4.h  |  1 +
@@ -16,12 +9,6 @@ Content-Transfer-Encoding: 8bit
  drivers/iommu/amd/init.c    | 27 +++++++++++++++++++++++----
  kernel/irq/irqdomain.c      |  3 ++-
  4 files changed, 47 insertions(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0168-iommu-preserve-pre-enabled-state-and-skip-detect-on-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0168-iommu-preserve-pre-enabled-state-and-skip-detect-on-.patch"
 
 diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
 index 8fcae43172781c8031f469a2aa86d7246b62d4db..70f9a90cb7ee8575cc5069a52d1c7d7e4c2150c1 100644
@@ -140,7 +127,3 @@ index c26345686f78337951e11547199e418647921880..12058279c6ec62231ba2bd28e3a8237e
  #else
  		if (h->ops->select)
  #endif
-
---------------false--
-
-

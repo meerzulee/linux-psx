@@ -2,24 +2,11 @@ From 44c13dd71048d54637498a15450d438b9a39afed Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 21:25:44 +0200
 Subject: [PATCH] wifi: mt76x8: fix p2p cfg80211_ops signatures for 7.1 kernel
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../MT6632/wlan/os/linux/gl_p2p_cfg80211.c    | 131 +++++++++++++++++-
  .../wlan/os/linux/include/gl_p2p_ioctl.h      |  36 ++++-
  2 files changed, 158 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0127-wifi-mt76x8-fix-p2p-cfg80211_ops-signatures-for-7.1-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0127-wifi-mt76x8-fix-p2p-cfg80211_ops-signatures-for-7.1-.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c
 index dd47ea9b5d456f309979b68d0b466b0c90381618..1eb77848d9ffebf0d0415e60aeda17acc37848f9 100755
@@ -273,7 +260,3 @@ index f199e26ebaa20a4f52aad901e20df7760b5db856..b135436629c7d8145663b02b47655b3e
  int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev, struct station_del_parameters *params);
  #elif KERNEL_VERSION(3, 16, 0) <= CFG80211_VERSION_CODE
  int mtk_p2p_cfg80211_del_station(struct wiphy *wiphy, struct net_device *dev, const u8 *mac);
-
---------------false--
-
-

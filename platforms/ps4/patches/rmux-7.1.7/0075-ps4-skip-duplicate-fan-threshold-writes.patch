@@ -2,14 +2,6 @@ From 0e47b893a4239f186f8e5c4e5ea1f7404a45c7e9 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 26 Apr 2026 10:04:31 +0200
 Subject: [PATCH] ps4: skip duplicate fan threshold writes
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The PS4 fan hwmon driver caches successful fan reads, but repeated
 userspace writes of the same temp1_crit value can still trigger the full
@@ -26,12 +18,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/ps4/ps4-fan.c | 13 +++++++++++--
  1 file changed, 11 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0075-ps4-skip-duplicate-fan-threshold-writes.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0075-ps4-skip-duplicate-fan-threshold-writes.patch"
 
 diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
 index efbafcfb3a64550deb4ac84a86f26a11f1a59741..87a4cfb6f1f8e3e2ee567f62607c0450346ff016 100644
@@ -58,7 +44,3 @@ index efbafcfb3a64550deb4ac84a86f26a11f1a59741..87a4cfb6f1f8e3e2ee567f62607c0450
  	mutex_unlock(&priv->lock);
  
  	return ret;
-
---------------false--
-
-

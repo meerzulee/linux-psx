@@ -2,13 +2,6 @@ From 37e98da0472530458e7a6a80d7d602e12ab77b19 Mon Sep 17 00:00:00 2001
 From: crashniels <nielswest@live.de>
 Date: Wed, 12 Mar 2025 18:23:28 +0100
 Subject: [PATCH] feat: radeon patches
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/drm_crtc_helper.c          |  38 +
@@ -36,12 +29,6 @@ Content-Transfer-Encoding: 8bit
  include/drm/drm_pciids.h                   |   4 +
  23 files changed, 1737 insertions(+), 39 deletions(-)
  create mode 100644 drivers/gpu/drm/radeon/ps4_bridge.c
-
-
---------------false
-Content-Type: text/x-patch; name="0010-feat-radeon-patches.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0010-feat-radeon-patches.patch"
 
 diff --git a/drivers/gpu/drm/drm_crtc_helper.c b/drivers/gpu/drm/drm_crtc_helper.c
 index 5de9aaa5ba04343b7e0c419c2b720a4b36c8365a..eef14612a27529c5bb5bfd63d39149e628d752eb 100644
@@ -2363,7 +2350,3 @@ index 90e8abc086530cdd3e1775b6b4338468b4bfdee7..8e673590629c3f3495f8e22dd780f012
  	{0x1002, 0x6800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_PITCAIRN|RADEON_IS_MOBILITY|RADEON_NEW_MEMMAP}, \
  	{0x1002, 0x6801, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_PITCAIRN|RADEON_IS_MOBILITY|RADEON_NEW_MEMMAP}, \
  	{0x1002, 0x6802, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CHIP_PITCAIRN|RADEON_IS_MOBILITY|RADEON_NEW_MEMMAP}, \
-
---------------false--
-
-

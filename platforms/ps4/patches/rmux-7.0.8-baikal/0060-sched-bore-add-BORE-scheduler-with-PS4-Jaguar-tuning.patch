@@ -2,14 +2,6 @@ From 173fb9bc10ba6fab1ad0783a97a65c7e027af096 Mon Sep 17 00:00:00 2001
 From: Piotr Gorski <lucjan.lucjanov@gmail.com>
 Date: Thu, 5 Mar 2026 18:13:03 +0100
 Subject: [PATCH] sched/bore: add BORE scheduler with PS4/Jaguar tuning
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Add BORE (Burst-Oriented Response Enhancer) CPU scheduler v6.7.3
 by Masahito Suzuki, targeting reduced scheduling latency and stutter
@@ -41,12 +33,6 @@ Signed-off-by: Piotr Gorski <lucjan.lucjanov@gmail.com>
  14 files changed, 814 insertions(+), 11 deletions(-)
  create mode 100644 include/linux/sched/bore.h
  create mode 100644 kernel/sched/bore.c
-
-
---------------false
-Content-Type: text/x-patch; name="0060-sched-bore-add-BORE-scheduler-with-PS4-Jaguar-tuning.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0060-sched-bore-add-BORE-scheduler-with-PS4-Jaguar-tuning.patch"
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
 index d41e7a8f9c85f6f08e99ac405bb048def3a48e48..e19b6d0c097fe807a80c6460cff09b1b9c01afbd 100644
@@ -1291,7 +1277,3 @@ index 0d068b2f3718909ca279c7e977811f491ab699a9..cfe2a84b52257936bf97acef4597fb92
  
  extern int sysctl_resched_latency_warn_ms;
  extern int sysctl_resched_latency_warn_once;
-
---------------false--
-
-

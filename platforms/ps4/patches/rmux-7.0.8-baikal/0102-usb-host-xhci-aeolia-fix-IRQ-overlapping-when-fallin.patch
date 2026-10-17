@@ -3,25 +3,11 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Thu, 7 May 2026 12:57:02 +0200
 Subject: [PATCH] usb: host: xhci-aeolia: fix IRQ overlapping when falling back
  to INTx
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
  Ensure that IRQs are only incremented per device index if MSI is enabled.
 ---
  drivers/usb/host/xhci-aeolia.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0102-usb-host-xhci-aeolia-fix-IRQ-overlapping-when-fallin.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0102-usb-host-xhci-aeolia-fix-IRQ-overlapping-when-fallin.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index d63b85926a2b1e557e6964cf60cf7337aae9ee5d..a72fe1134ae85d4d44247daead8329b3ccde4c62 100644
@@ -36,7 +22,3 @@ index d63b85926a2b1e557e6964cf60cf7337aae9ee5d..a72fe1134ae85d4d44247daead8329b3
  
  	dev_dbg(&dev->dev, "xhci_aeolia_probe_one %d\n", index);
  	/* hardware stabilisation, see git log */
-
---------------false--
-
-

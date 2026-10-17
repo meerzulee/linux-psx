@@ -2,23 +2,10 @@ From 9336110edf02e8a84161edc42b64139818530c06 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 12:58:44 +0200
 Subject: [PATCH] amdgpu: ps4_bridge: fix Belize enable retry loop
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 11 ++++-------
  1 file changed, 4 insertions(+), 7 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0094-amdgpu-ps4_bridge-fix-Belize-enable-retry-loop.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0094-amdgpu-ps4_bridge-fix-Belize-enable-retry-loop.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 8ce75cb9dea6723693d9a2e4a25f3bc9931c5e37..ac30fbf42f32b4420a91a2a433138cb3261d8d7e 100644
@@ -44,7 +31,3 @@ index 8ce75cb9dea6723693d9a2e4a25f3bc9931c5e37..ac30fbf42f32b4420a91a2a433138cb3
  			if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
  				msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
  		}
-
---------------false--
-
-

@@ -2,23 +2,10 @@ From 3dde150fe1ad654e1f3f3f63f6f43ed7b410fe60 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Sat, 21 Jun 2025 22:06:59 +0200
 Subject: [PATCH] Add 1080p120 mode
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 12 +++++++++++-
  1 file changed, 11 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0020-Add-1080p120-mode.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0020-Add-1080p120-mode.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index d63ae6dddbb2b973b66c14fac9d995a29ca08df9..f29bdd9c4344d97d31c47ed5e1222f2a3a848f0f 100644
@@ -57,7 +44,3 @@ index d63ae6dddbb2b973b66c14fac9d995a29ca08df9..f29bdd9c4344d97d31c47ed5e1222f2a
  		return MODE_BAD;
  	}
  
-
---------------false--
-
-

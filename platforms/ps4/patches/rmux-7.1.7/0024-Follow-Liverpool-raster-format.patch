@@ -2,23 +2,10 @@ From bd318043cf15f4cda77ca8d1e82eccb164e868f0 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 3 Jul 2025 18:26:29 +0200
 Subject: [PATCH] Follow Liverpool raster format
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 8 ++++++--
  1 file changed, 6 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0024-Follow-Liverpool-raster-format.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0024-Follow-Liverpool-raster-format.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
 index 3afbe141f9a2988488f3e21660e072274194e0fa..092cfbbf4556d1001dc14401dc40c0895544bf2c 100644
@@ -39,7 +26,3 @@ index 3afbe141f9a2988488f3e21660e072274194e0fa..092cfbbf4556d1001dc14401dc40c089
  		break;
  	default:
  		DRM_ERROR("unknown asic: 0x%x\n", adev->asic_type);
-
---------------false--
-
-

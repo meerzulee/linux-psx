@@ -2,14 +2,6 @@ From 2bfabfa5aaa458a7bb96833de1bc5d2b4db9aa7e Mon Sep 17 00:00:00 2001
 From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Sat, 30 Aug 2025 16:15:02 +0000
 Subject: [PATCH] drm: amdgpu/ps4_bridge - Use MODE_TYPE_PREFERRED
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Try using MODE_TYPE_PREFERRED in ps4_bridge.c,
 only for the 1920x1080-60 Hz mode.
@@ -20,12 +12,6 @@ for older monitors and lower resolutions.
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 15 ++++++---------
  1 file changed, 6 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0041-drm-amdgpu-ps4_bridge-Use-MODE_TYPE_PREFERRED.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0041-drm-amdgpu-ps4_bridge-Use-MODE_TYPE_PREFERRED.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index e1f7807749831ee63291b21f734731bf589b4daf..117c8322d8449ae72900776c5318d2fa33e3ae12 100644
@@ -88,7 +74,3 @@ index e1f7807749831ee63291b21f734731bf589b4daf..117c8322d8449ae72900776c5318d2fa
  	return MODE_OK;
  }
  
-
---------------false--
-
-

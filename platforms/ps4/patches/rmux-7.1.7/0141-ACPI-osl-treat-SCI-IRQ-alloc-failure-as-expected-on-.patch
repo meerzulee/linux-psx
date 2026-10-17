@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 7 Jul 2026 00:19:06 +0200
 Subject: [PATCH] ACPI: osl: treat SCI IRQ alloc failure as expected on
  PS4/Aeolia
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/acpi/osl.c | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0141-ACPI-osl-treat-SCI-IRQ-alloc-failure-as-expected-on-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0141-ACPI-osl-treat-SCI-IRQ-alloc-failure-as-expected-on-.patch"
 
 diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
 index ed2162a97bd2aa3f7c79706d238092a6b0399332..cfff42d764e0e74d510c67bb05f09b2b91714077 100644
@@ -39,7 +26,3 @@ index ed2162a97bd2aa3f7c79706d238092a6b0399332..cfff42d764e0e74d510c67bb05f09b2b
  		return AE_NOT_ACQUIRED;
  	}
  	acpi_sci_irq = irq;
-
---------------false--
-
-

@@ -3,14 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Thu, 7 May 2026 13:23:09 +0200
 Subject: [PATCH] acpi: osl: bypass SCI allocation on PS4 to prevent
  CPU-burning polling
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
  The PS4 DSDT is broken and lacks proper IOAPIC routing for the SCI. This
  causes acpi_os_install_interrupt_handler to fail, which forces the ACPI
@@ -19,12 +11,6 @@ Content-Transfer-Encoding: 8bit
 ---
  drivers/acpi/osl.c | 11 +++++++++++
  1 file changed, 11 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0104-acpi-osl-bypass-SCI-allocation-on-PS4-to-prevent-CPU.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0104-acpi-osl-bypass-SCI-allocation-on-PS4-to-prevent-CPU.patch"
 
 diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
 index 62b9c83d4f20b75180ec39893c4eddec811da65d..bfa96a892c90bf9923f064a84b81047df8c2174f 100644
@@ -48,7 +34,3 @@ index 62b9c83d4f20b75180ec39893c4eddec811da65d..bfa96a892c90bf9923f064a84b81047d
  	if (acpi_gsi_to_irq(gsi, &irq) < 0) {
  		pr_err("SCI (ACPI GSI %d) not registered\n", gsi);
  		return AE_OK;
-
---------------false--
-
-

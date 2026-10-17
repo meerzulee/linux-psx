@@ -2,24 +2,11 @@ From 36d9481d94f37157886b46aa58c0fd54f50d7959 Mon Sep 17 00:00:00 2001
 From: crashniels <nielswest@live.de>
 Date: Wed, 12 Mar 2025 18:27:29 +0100
 Subject: [PATCH] feat: ethernet support
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/net/ethernet/marvell/sky2.c | 168 ++++++++++++++++++++++++----
  drivers/net/ethernet/marvell/sky2.h |   3 +
  2 files changed, 152 insertions(+), 19 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0006-feat-ethernet-support.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0006-feat-ethernet-support.patch"
 
 diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
 index 30facdece3e29c16d4e54f179e1aed5fdb24a0de..d6c2c607186af174f7bf23759491938a28f05759 100644
@@ -336,7 +323,3 @@ index 8d0bacf4e49ccceb2331f14ac2f21cba485940e9..33f5145ede89bc2822cbb81b6fe3ab24
  	char		     irq_name[];
  };
  
-
---------------false--
-
-

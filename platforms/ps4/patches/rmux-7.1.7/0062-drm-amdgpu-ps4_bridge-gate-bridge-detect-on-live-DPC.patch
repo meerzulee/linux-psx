@@ -3,14 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Mon, 20 Apr 2026 23:51:05 +0200
 Subject: [PATCH] drm/amdgpu/ps4_bridge: gate bridge detect on live DPCD
  readiness
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Belize can report monitor presence in TMONREG before the bridge AUX/DPCD side is actually ready. That lets amdgpu mark the sink connected too early, start DP link training against a half-awake bridge, and fail clock recovery.
 
@@ -20,12 +12,6 @@ Keep 1080p120 mode advertisement unchanged.
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 22 +++++++++++++---------
  1 file changed, 13 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0062-drm-amdgpu-ps4_bridge-gate-bridge-detect-on-live-DPC.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0062-drm-amdgpu-ps4_bridge-gate-bridge-detect-on-live-DPC.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 7dd2993e6e8d2d24c471f43fa15fc45b7452c739..716a7aa602a9e09fd0c9ae2709185a9fd76098fc 100644
@@ -69,7 +55,3 @@ index 7dd2993e6e8d2d24c471f43fa15fc45b7452c739..716a7aa602a9e09fd0c9ae2709185a9f
  }
  
  enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
-
---------------false--
-
-

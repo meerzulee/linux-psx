@@ -3,13 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:49 +0200
 Subject: [PATCH] ps4: implement Baikal southbridge glue and fix PCI/MSI
  subsystems
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/include/asm/msi.h        |   3 +
@@ -35,12 +28,6 @@ Content-Transfer-Encoding: 8bit
  create mode 100644 drivers/ps4/ps4-bpcie-icc.c
  create mode 100644 drivers/ps4/ps4-bpcie-uart.c
  create mode 100644 drivers/ps4/ps4-bpcie.c
-
-
---------------false
-Content-Type: text/x-patch; name="0112-ps4-implement-Baikal-southbridge-glue-and-fix-PCI-MS.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0112-ps4-implement-Baikal-southbridge-glue-and-fix-PCI-MS.patch"
 
 diff --git a/arch/x86/include/asm/msi.h b/arch/x86/include/asm/msi.h
 index 935c6d4703418f86cd7b6e2734504d1c0419ef7c..630d103e23be98d87fcff444b338c08ee9ed8511 100644
@@ -2251,7 +2238,3 @@ index 09346cf1fc90f97420947cf5bcf0fcdb39d45a74..cc93abf009e88754a13cd8ae50043f96
  			rc = h->ops->select(h, fwspec, bus_token);
  		else if (h->ops->match)
  			rc = h->ops->match(h, to_of_node(fwnode), bus_token);
-
---------------false--
-
-

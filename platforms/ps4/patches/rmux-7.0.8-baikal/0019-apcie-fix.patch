@@ -2,26 +2,12 @@ From bdf8be034533266dcc53f9ee826cddf89825d3ce Mon Sep 17 00:00:00 2001
 From: M H <mircoho@gmail.com>
 Date: Sat, 21 Jun 2025 18:11:24 +0200
 Subject: [PATCH] apcie fix
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 fixed slow boot time. also fixes ata and bt / wifi errors caused by ata not getting an irq in time
 ---
  drivers/ps4/aeolia.h    |  1 +
  drivers/ps4/ps4-apcie.c | 28 +++++++++++++++++++++++++++-
  2 files changed, 28 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0019-apcie-fix.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0019-apcie-fix.patch"
 
 diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
 index 5319822ca818cc30aa8b92426cd59c90d3a003b8..7840aec71f28b95bb88fc64913ebecfc00986eb4 100644
@@ -88,7 +74,3 @@ index cd332c4db65553ac8576e48c94e2133227cbcd7a..db7eafd0211f6d1db6184412ceddbd6f
  	pci_set_drvdata(dev, sc);
  
  	// eMMC ... unused?
-
---------------false--
-
-

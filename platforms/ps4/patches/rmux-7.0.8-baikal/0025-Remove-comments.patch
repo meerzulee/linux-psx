@@ -2,24 +2,11 @@ From 1bb97a9bdb5f40a06355130d4ee622fad088ed2b Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 3 Jul 2025 19:00:34 +0200
 Subject: [PATCH] Remove comments
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c      | 4 ----
  drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
  2 files changed, 1 insertion(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0025-Remove-comments.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0025-Remove-comments.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 18884b9fc3fe412970d1a950ffdb31a5e74f6bf2..98613b21fb645bff08586c47e2d28c8799b53565 100644
@@ -56,7 +43,3 @@ index 092cfbbf4556d1001dc14401dc40c0895544bf2c..0a31146cc775e5222624445994b34d6e
  		break;
  	case CHIP_KABINI:
  	case CHIP_MULLINS:
-
---------------false--
-
-

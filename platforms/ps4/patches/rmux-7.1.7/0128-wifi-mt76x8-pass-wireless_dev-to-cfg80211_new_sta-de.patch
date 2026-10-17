@@ -2,23 +2,10 @@ From c913927b03af5a24963ac27c97eeaefbc657e32a Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 21:33:05 +0200
 Subject: [PATCH] wifi: mt76x8: pass wireless_dev to cfg80211_new_sta/del_sta
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c       | 6 ++----
  1 file changed, 2 insertions(+), 4 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0128-wifi-mt76x8-pass-wireless_dev-to-cfg80211_new_sta-de.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0128-wifi-mt76x8-pass-wireless_dev-to-cfg80211_new_sta-de.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
 index 5f5c953304bbb3a1b7282127ab100a03eb70caec..3456aaa8616b9d1ad9108942481df21bed3cc5e3 100755
@@ -41,7 +28,3 @@ index 5f5c953304bbb3a1b7282127ab100a03eb70caec..3456aaa8616b9d1ad9108942481df21b
  					 prCliStaRec->aucMacAddr, GFP_KERNEL);
  		}
  
-
---------------false--
-
-

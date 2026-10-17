@@ -2,23 +2,10 @@ From 9c33c6966b71f0ae54bd3b6b28acb3ac09eb6bdb Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 12:03:56 +0000
 Subject: [PATCH] ps4-hwinfo: log southbridge silicon stepping
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-hwinfo.c | 15 +++++++++++++--
  1 file changed, 13 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0119-ps4-hwinfo-log-southbridge-silicon-stepping.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0119-ps4-hwinfo-log-southbridge-silicon-stepping.patch"
 
 diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
 index 63d7ad9350ee53033e4ebfa2150ff140f10ec041..b1a603ad2509cce4e808b468dd4fa186f4f9e82f 100644
@@ -64,7 +51,3 @@ index 63d7ad9350ee53033e4ebfa2150ff140f10ec041..b1a603ad2509cce4e808b468dd4fa186
 -		sb_name, PCI_VENDOR_ID_SONY, sb_dev);
 +		sb_name, stepping, PCI_VENDOR_ID_SONY, sb_dev);
  }
-
---------------false--
-
-

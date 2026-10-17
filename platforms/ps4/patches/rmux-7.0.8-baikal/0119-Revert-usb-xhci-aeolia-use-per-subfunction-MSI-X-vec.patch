@@ -4,13 +4,8 @@ Date: Mon, 11 May 2026 12:31:18 +0200
 Subject: [PATCH] Revert "usb: xhci-aeolia: use per-subfunction MSI-X vectors
  on Baikal"
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-
 
 The direct PCI MSI allocation bypasses the bpcie interrupt demux,
 which is required for proper interrupt delivery on Baikal. The hardware
@@ -29,12 +24,6 @@ This reverts commit 5dd545431a398f12763dc546f3679300dbd962c9.
 ---
  drivers/usb/host/xhci-aeolia.c | 36 +++++-----------------------------
  1 file changed, 5 insertions(+), 31 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0119-Revert-usb-xhci-aeolia-use-per-subfunction-MSI-X-vec.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0119-Revert-usb-xhci-aeolia-use-per-subfunction-MSI-X-vec.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index 1868ab3bf11798ee62cb9df0657097a63cae9dc9..24cf0ef79362f6057af517a047cf3358e9e9cd7d 100644
@@ -110,7 +99,3 @@ index 1868ab3bf11798ee62cb9df0657097a63cae9dc9..24cf0ef79362f6057af517a047cf3358
  		return;
  	}
  
-
---------------false--
-
-

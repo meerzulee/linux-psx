@@ -2,25 +2,11 @@ From ad14262e07b583599322a0a8a8ec80e2c1823fa2 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Sun, 13 Jul 2025 13:17:25 +0200
 Subject: [PATCH] remove redundant dma_set_mask
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 dma_set_mask_and_coherent also does dma_set_mask
 ---
  drivers/net/ethernet/marvell/sky2.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0032-remove-redundant-dma_set_mask.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0032-remove-redundant-dma_set_mask.patch"
 
 diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
 index c47c7b991de3f417e1524e9cbfc76800cdafdced..2c83c17ea20a99e34949b65d0f54328135183cc0 100644
@@ -36,7 +22,3 @@ index c47c7b991de3f417e1524e9cbfc76800cdafdced..2c83c17ea20a99e34949b65d0f543281
  			dev_err(&pdev->dev, "no usable DMA configuration\n");
  			goto err_out_free_regions;
  		}
-
---------------false--
-
-

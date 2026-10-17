@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 3 Jul 2026 11:57:17 +0000
 Subject: [PATCH] drm/amdgpu: log AUX transfer addr/ret/ack/buf in native read
  path
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/atombios_dp.c | 3 +++
  1 file changed, 3 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0132-drm-amdgpu-log-AUX-transfer-addr-ret-ack-buf-in-nati.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0132-drm-amdgpu-log-AUX-transfer-addr-ret-ack-buf-in-nati.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
 index 685309ca50cf15dba3290c44979691e29aa5634d..4501b636abfcedace13d6769babb04bc349e336c 100644
@@ -35,7 +22,3 @@ index 685309ca50cf15dba3290c44979691e29aa5634d..4501b636abfcedace13d6769babb04bc
  		break;
  	default:
  		ret = -EINVAL;
-
---------------false--
-
-

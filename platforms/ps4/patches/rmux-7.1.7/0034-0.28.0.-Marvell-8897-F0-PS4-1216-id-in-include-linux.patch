@@ -4,23 +4,10 @@ Date: Sat, 7 Jun 2025 10:04:58 +0000
 Subject: [PATCH] 0.28.0. Marvell 8897 F0 PS4-1216 id in
  include/linux/mmc/sdio_ids.h. To hopefully be polled by mwifiex during func
  initialization.
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  include/linux/mmc/sdio_ids.h | 1 +
  1 file changed, 1 insertion(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0034-0.28.0.-Marvell-8897-F0-PS4-1216-id-in-include-linux.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0034-0.28.0.-Marvell-8897-F0-PS4-1216-id-in-include-linux.patch"
 
 diff --git a/include/linux/mmc/sdio_ids.h b/include/linux/mmc/sdio_ids.h
 index 0685dd717e855c6084666a3f52838d4671032522..160e4a6923a3de254c19bc8f9a7f9d3e46c22be8 100644
@@ -34,7 +21,3 @@ index 0685dd717e855c6084666a3f52838d4671032522..160e4a6923a3de254c19bc8f9a7f9d3e
  #define SDIO_DEVICE_ID_MARVELL_8897_WLAN	0x912d
  #define SDIO_DEVICE_ID_MARVELL_8897_BT		0x912e
  #define SDIO_DEVICE_ID_MARVELL_8887_F0		0x9134
-
---------------false--
-
-

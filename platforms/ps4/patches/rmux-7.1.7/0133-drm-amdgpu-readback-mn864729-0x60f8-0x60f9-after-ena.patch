@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 3 Jul 2026 12:48:46 +0000
 Subject: [PATCH] drm/amdgpu: readback mn864729 0x60f8/0x60f9 after enable
  sequence
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 9 +++++++++
  1 file changed, 9 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0133-drm-amdgpu-readback-mn864729-0x60f8-0x60f9-after-ena.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0133-drm-amdgpu-readback-mn864729-0x60f8-0x60f9-after-ena.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index d384b0209aec1e454d8bd149e6354b383038de34..d5a2a10c3ae5942641e4eeea2cc0593295cd2101 100644
@@ -41,7 +28,3 @@ index d384b0209aec1e454d8bd149e6354b383038de34..d5a2a10c3ae5942641e4eeea2cc05932
  	mutex_unlock(&mn_bridge->mutex);
  
  	return ret < 0 ? ret : 0;
-
---------------false--
-
-

@@ -3,23 +3,10 @@ From: rmux <armandas.kvietkus@proton.me>
 Date: Fri, 15 May 2026 12:55:54 +0000
 Subject: [PATCH] drm/amdgpu: cik: report correct default SCLK/MCLK for PS4
  APUs
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c | 17 +++++++++++++++++
  1 file changed, 17 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0122-drm-amdgpu-cik-report-correct-default-SCLK-MCLK-for-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0122-drm-amdgpu-cik-report-correct-default-SCLK-MCLK-for-.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 4be2a468702a5b7587daaedb32daade4e0031195..ec8c5f0b3fd1ec2651e2928b793b738a6fa76e5c 100644
@@ -49,7 +36,3 @@ index 4be2a468702a5b7587daaedb32daade4e0031195..ec8c5f0b3fd1ec2651e2928b793b738a
  	return 0;
  }
  
-
---------------false--
-
-

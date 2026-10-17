@@ -2,23 +2,10 @@ From da64305632370070379c3692b8ef39048d4d0d56 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 3 Jul 2026 10:21:48 +0000
 Subject: [PATCH] ps4-fan: set default fan threshold to 65C
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-fan.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0131-ps4-fan-set-default-fan-threshold-to-65C.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0131-ps4-fan-set-default-fan-threshold-to-65C.patch"
 
 diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
 index 4dcba4db8450e39aeb266cc3fa1fdcdff7537493..d57f949eeb1b0717e23e4ec13d420a806c1f6e1e 100644
@@ -33,7 +20,3 @@ index 4dcba4db8450e39aeb266cc3fa1fdcdff7537493..d57f949eeb1b0717e23e4ec13d420a80
  
  #define PS4_FAN_THRESH_MIN_MC           ((long)(PS4_FAN_THRESH_MIN_C) * 1000L)
  #define PS4_FAN_THRESH_MAX_MC           ((long)(PS4_FAN_THRESH_MAX_C) * 1000L)
-
---------------false--
-
-

@@ -3,14 +3,6 @@ From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Thu, 12 Mar 2026 18:28:15 +0000
 Subject: [PATCH] net: wireless: mt76x8/MT6632: fix dev_addr API and pointer
  type errors for 6.15+
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The net_device->dev_addr field was made const in Linux ~5.16 and direct
 writes were replaced with helper functions (eth_hw_addr_set etc.).
@@ -33,12 +25,6 @@ Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
  .../mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p.c  |  9 +++++++++
  .../MT6632/wlan/os/linux/gl_p2p_cfg80211.c         | 11 ++++++++++-
  5 files changed, 47 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0044-net-wireless-mt76x8-MT6632-fix-dev_addr-API-and-poin.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0044-net-wireless-mt76x8-MT6632-fix-dev_addr-API-and-poin.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_bow.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_bow.c
 index 05d9a36558e3ed31ec04c0af0e1424c5a10ceb2f..4fe1c0c3f09d269f50508904c0de9457dcd245f9 100755
@@ -194,7 +180,3 @@ index f8388fadbac9b70d9b3c5b26e44b1bcd17b226f8..085dd2e190a9d29fc96458f5a8124cf5
  
  		DBGLOG(P2P, TRACE, "Assoc Req IE Buffer Length:%d\n", sme->ie_len);
  		kalMemCopy(prConnReqMsg->aucIEBuf, sme->ie, sme->ie_len);
-
---------------false--
-
-

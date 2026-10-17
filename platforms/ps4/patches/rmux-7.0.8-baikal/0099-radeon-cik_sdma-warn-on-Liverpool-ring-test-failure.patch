@@ -2,23 +2,10 @@ From e6a05b59979564c3dc798fb78604e22c8cd3fd67 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 13:00:26 +0200
 Subject: [PATCH] radeon: cik_sdma: warn on Liverpool ring test failure
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/radeon/cik_sdma.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0099-radeon-cik_sdma-warn-on-Liverpool-ring-test-failure.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0099-radeon-cik_sdma-warn-on-Liverpool-ring-test-failure.patch"
 
 diff --git a/drivers/gpu/drm/radeon/cik_sdma.c b/drivers/gpu/drm/radeon/cik_sdma.c
 index 0840f96d081365453070cdb74fe66e67909ab893..5fd4c7c577e29d114db54898d893db8f19f87180 100644
@@ -36,7 +23,3 @@ index 0840f96d081365453070cdb74fe66e67909ab893..5fd4c7c577e29d114db54898d893db8f
  		}
  	}
  	return r;
-
---------------false--
-
-

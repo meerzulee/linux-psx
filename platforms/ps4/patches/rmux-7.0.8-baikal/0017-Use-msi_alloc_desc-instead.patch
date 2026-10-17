@@ -2,14 +2,6 @@ From c37ec2a97aa3b8ecb40dc96567ab7b60a98d5ac9 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Sat, 21 Jun 2025 16:54:46 +0200
 Subject: [PATCH] Use msi_alloc_desc instead
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 msi_alloc_desc is the rename of the older function we used to use called alloc_msi_entry.
 ---
@@ -17,12 +9,6 @@ msi_alloc_desc is the rename of the older function we used to use called alloc_m
  include/linux/msi.h     | 3 +++
  kernel/irq/msi.c        | 2 +-
  3 files changed, 6 insertions(+), 8 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0017-Use-msi_alloc_desc-instead.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0017-Use-msi_alloc_desc-instead.patch"
 
 diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
 index fc5582518c80b484b66cd2aac9e09f029502b47e..cd332c4db65553ac8576e48c94e2133227cbcd7a 100644
@@ -78,7 +64,3 @@ index 3cafa40e6ce3429df2434903dc383df556311301..0cb70a500e846697917f5eb6f7d673db
  				       const struct irq_affinity_desc *affinity)
  {
  	struct msi_desc *desc = kzalloc_obj(*desc);
-
---------------false--
-
-

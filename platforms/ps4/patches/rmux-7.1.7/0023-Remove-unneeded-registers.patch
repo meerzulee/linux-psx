@@ -2,25 +2,11 @@ From 65ec0d52080242d9fb782604c19144eadf92d107 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 3 Jul 2025 18:26:04 +0200
 Subject: [PATCH] Remove unneeded registers
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 These are already handled elsewhere
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c | 20 --------------------
  1 file changed, 20 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0023-Remove-unneeded-registers.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0023-Remove-unneeded-registers.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 32d2c372f95ff5bb0c584e3a4b6e10ea45dca6b0..f9d0316d77bb07b9c91fc297b91f6cf4b55d8cb6 100644
@@ -67,7 +53,3 @@ index 32d2c372f95ff5bb0c584e3a4b6e10ea45dca6b0..f9d0316d77bb07b9c91fc297b91f6cf4
  		amdgpu_device_program_register_sequence(adev,
  						 gladius_golden_registers,
  						 ARRAY_SIZE(gladius_golden_registers));
-
---------------false--
-
-

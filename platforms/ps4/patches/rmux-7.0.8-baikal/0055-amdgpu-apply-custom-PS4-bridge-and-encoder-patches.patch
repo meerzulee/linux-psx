@@ -2,24 +2,11 @@ From 3a8f6997c56b64321f3ced03886a2dda69835cb6 Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Thu, 2 Apr 2026 21:22:22 +0200
 Subject: [PATCH] amdgpu: apply custom PS4 bridge and encoder patches
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c |  5 +-
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c      | 51 ++++++++++++++++----
  2 files changed, 45 insertions(+), 11 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0055-amdgpu-apply-custom-PS4-bridge-and-encoder-patches.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0055-amdgpu-apply-custom-PS4-bridge-and-encoder-patches.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
 index 24387600afdce45d568d2e016a076d222580ffc1..c8f71d02c71d62658413b446aae844cea20a806a 100644
@@ -148,7 +135,3 @@ index db6b842d2fa915845d6fce7c1302fa4b3352a173..c092845d186fd01d8d2c7558a7eb42b8
 +
  	return 0;
  }
-
---------------false--
-
-

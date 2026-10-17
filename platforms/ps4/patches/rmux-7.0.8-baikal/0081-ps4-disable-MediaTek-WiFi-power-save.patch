@@ -2,14 +2,6 @@ From c2791c170c0d910ceaacbf7448ed15a93c0e3b46 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 26 Apr 2026 12:35:18 +0200
 Subject: [PATCH] ps4: disable MediaTek WiFi power save
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 PS4 testers using MediaTek WiFi drivers can hit unstable connectivity
 while userspace or the driver enables WiFi power saving. Match the PS4
@@ -30,12 +22,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  .../MT6632/wlan/os/linux/gl_cfg80211.c        | 17 ++++++++++++++++-
  .../drv_wlan/MT6632/wlan/os/linux/gl_init.c   | 19 ++++++++++++++++++-
  2 files changed, 34 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0081-ps4-disable-MediaTek-WiFi-power-save.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0081-ps4-disable-MediaTek-WiFi-power-save.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c
 index 9f3537f8e2a7274374d132526d199d0e7c6c6dca..aed0ce6b8b63b2f1322336a864dc50c613eeb0de 100755
@@ -113,7 +99,3 @@ index 89447c9b3941dbf58c50b078fc224447e4a989a1..f426aaec1146aeaf76a46c0ea4bd4133
  #if 0
  		prRegInfo->fgEnArpFilter = TRUE;
  #endif
-
---------------false--
-
-

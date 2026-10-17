@@ -2,14 +2,6 @@ From 7c354d89e4eee0f0cf1d4c43e14df4f863bb2e0e Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 20:11:07 +0200
 Subject: [PATCH] ps4: use blocking LED callbacks
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The PS4 LED driver sends manual LED updates through apcie_icc_cmd(). ICC commands can sleep while waiting for a reply, so use the LED class blocking brightness callback instead of the non-blocking brightness callback.
 
@@ -21,12 +13,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/ps4/ps4-led.c | 168 +++++++++++++++++++++++++++++-------------
  1 file changed, 117 insertions(+), 51 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0075-ps4-use-blocking-LED-callbacks.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0075-ps4-use-blocking-LED-callbacks.patch"
 
 diff --git a/drivers/ps4/ps4-led.c b/drivers/ps4/ps4-led.c
 index e1751d4cd60f8579c25daa4d8b448a9c0a388581..938987485391985d92688ec9e4c56e435978e2dd 100644
@@ -233,7 +219,3 @@ index e1751d4cd60f8579c25daa4d8b448a9c0a388581..938987485391985d92688ec9e4c56e43
  		if (ret) {
  			dev_err(&pdev->dev,
  				"failed to register LED node %d: %d\n",
-
---------------false--
-
-

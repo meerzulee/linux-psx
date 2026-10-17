@@ -2,14 +2,6 @@ From 025ae33ca2761452b6d0b0e832710215e2ed2e18 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 18:09:02 +0200
 Subject: [PATCH] ps4: reduce APCIE/ICC overhead and clean teardown paths
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Use severity-correct APCIE logging helpers, demote normal APCIE/MSI routing logs to debug, and clean ICC chrdev/ioctl buffer teardown.
 
@@ -19,12 +11,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  drivers/ps4/ps4-apcie-icc.c | 12 ++++++++++--
  drivers/ps4/ps4-apcie.c     | 15 +++++++--------
  3 files changed, 21 insertions(+), 14 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0071-ps4-reduce-APCIE-ICC-overhead-and-clean-teardown-pat.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0071-ps4-reduce-APCIE-ICC-overhead-and-clean-teardown-pat.patch"
 
 diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
 index db386ace94344867b9f965648c89226643d81df2..2551003e27ebf8d72dbb196974996957c9d295e7 100644
@@ -149,7 +135,3 @@ index 5956cfe0ac921983a0714e1f8cda5194dc157ac8..a031d7ba51828004dc830543b16fb613
  	if (sc_dev)
  		pci_dev_put(sc_dev);
  	return ret;
-
---------------false--
-
-

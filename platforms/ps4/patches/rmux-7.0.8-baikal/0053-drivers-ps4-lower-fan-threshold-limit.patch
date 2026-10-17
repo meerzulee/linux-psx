@@ -2,23 +2,10 @@ From 09df41372f3523fa0314d5fdd82e57861950188a Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Sat, 28 Mar 2026 14:54:10 +0100
 Subject: [PATCH] drivers/ps4: lower fan threshold limit
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-fan.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0053-drivers-ps4-lower-fan-threshold-limit.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0053-drivers-ps4-lower-fan-threshold-limit.patch"
 
 diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
 index 8515fb298c78a80f041f183ed9ca1228dac1263f..20664a92cda5104b10ee61fd15f5ccd97cd9b72b 100644
@@ -33,7 +20,3 @@ index 8515fb298c78a80f041f183ed9ca1228dac1263f..20664a92cda5104b10ee61fd15f5ccd9
  #define PS4_FAN_THRESH_MAX_C            85
  #define PS4_FAN_THRESH_DEFAULT_C        79    /* hardware power-on default */
  
-
---------------false--
-
-

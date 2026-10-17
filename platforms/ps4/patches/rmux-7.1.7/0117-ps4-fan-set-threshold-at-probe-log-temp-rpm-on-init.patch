@@ -2,23 +2,10 @@ From ce9dd552a70d5c7ef53cefe08e840ba35e880395 Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 12:38:18 +0200
 Subject: [PATCH] ps4-fan: set threshold at probe, log temp/rpm on init
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-fan.c | 19 ++++++++++++++++---
  1 file changed, 16 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0117-ps4-fan-set-threshold-at-probe-log-temp-rpm-on-init.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0117-ps4-fan-set-threshold-at-probe-log-temp-rpm-on-init.patch"
 
 diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
 index 53f0d336b4f90c066f36a1d865f5620a81059b03..c329a4ee3f59bb82d5e22409867e055c6d21d4b9 100644
@@ -58,7 +45,3 @@ index 53f0d336b4f90c066f36a1d865f5620a81059b03..c329a4ee3f59bb82d5e22409867e055c
  	return 0;
  }
  
-
---------------false--
-
-

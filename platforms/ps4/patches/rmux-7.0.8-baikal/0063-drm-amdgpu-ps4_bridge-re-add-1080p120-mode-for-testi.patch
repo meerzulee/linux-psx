@@ -2,14 +2,6 @@ From 3044088dab59d40c1f51294269405ba81e6389a5 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 15 Apr 2026 19:24:14 +0200
 Subject: [PATCH] drm/amdgpu/ps4_bridge: re-add 1080p120 mode for testing
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Add mode_1080p120 back to ps4_bridge_get_modes() in both the
 EDID-success and fallback paths so userspace can confirm whether
@@ -19,12 +11,6 @@ Leave mode_valid() unchanged.
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 11 +++++++++++
  1 file changed, 11 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0063-drm-amdgpu-ps4_bridge-re-add-1080p120-mode-for-testi.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0063-drm-amdgpu-ps4_bridge-re-add-1080p120-mode-for-testi.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 188ad5be99e2736f8df788fa35bad22478fdac19..47c149b64a25043eda635d10097920a156907271 100644
@@ -55,7 +41,3 @@ index 188ad5be99e2736f8df788fa35bad22478fdac19..47c149b64a25043eda635d10097920a1
  	//newmode = drm_mode_duplicate(dev, &mode_720p);
  	//drm_mode_probed_add(connector, newmode);
  	//newmode = drm_mode_duplicate(dev, &mode_480p);
-
---------------false--
-
-

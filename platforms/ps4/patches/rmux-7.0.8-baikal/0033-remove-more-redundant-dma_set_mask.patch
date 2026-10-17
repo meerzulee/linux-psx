@@ -2,26 +2,12 @@ From f2a4bf9f2681986cb5f62ff1fa423bdba9aa758f Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Sun, 13 Jul 2025 13:23:28 +0200
 Subject: [PATCH] remove more redundant dma_set_mask
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 dma_set_mask is already handled by dma_set_mask_and_coherent
 ---
  drivers/mmc/host/sdhci-pci-core.c | 3 ---
  drivers/usb/host/xhci-aeolia.c    | 3 +--
  2 files changed, 1 insertion(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0033-remove-more-redundant-dma_set_mask.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0033-remove-more-redundant-dma_set_mask.patch"
 
 diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
 index 91433c6152467327592b93d344a39f341a689773..4b9af99408306dd0ddd92d034d4a59b4d5887860 100644
@@ -51,7 +37,3 @@ index 14037f8d7aa62e8c39d44877d5f79399778d6a5f..0b048ca119ad13cfae1ec9e4d835defd
  		return -ENODEV;
  	}
  
-
---------------false--
-
-

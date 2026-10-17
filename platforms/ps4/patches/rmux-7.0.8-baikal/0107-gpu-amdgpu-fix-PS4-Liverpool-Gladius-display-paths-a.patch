@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:34 +0200
 Subject: [PATCH] gpu/amdgpu: fix PS4 Liverpool/Gladius display paths and
  firmware ignore
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../gpu/drm/amd/amdgpu/amdgpu_connectors.c    | 28 ++++++++++---------
  1 file changed, 15 insertions(+), 13 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0107-gpu-amdgpu-fix-PS4-Liverpool-Gladius-display-paths-a.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0107-gpu-amdgpu-fix-PS4-Liverpool-Gladius-display-paths-a.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
 index f991b83f2c17e06863a646d92e183d29280d4259..a46a7a4456eb1b5204e84f3aa31d13bbebb28ba3 100644
@@ -74,7 +61,3 @@ index f991b83f2c17e06863a646d92e183d29280d4259..a46a7a4456eb1b5204e84f3aa31d13bb
  	connector = &amdgpu_connector->base;
  
  	amdgpu_connector->connector_id = connector_id;
-
---------------false--
-
-

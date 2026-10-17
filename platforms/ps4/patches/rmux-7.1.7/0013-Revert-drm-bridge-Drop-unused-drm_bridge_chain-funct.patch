@@ -2,26 +2,12 @@ From cac3ae4daf50622bdf45de2b2d49852f72941a0c Mon Sep 17 00:00:00 2001
 From: crashniels <39709384+crashniels@users.noreply.github.com>
 Date: Thu, 30 Jan 2025 17:32:09 +0100
 Subject: [PATCH] Revert "drm/bridge: Drop unused drm_bridge_chain functions"
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 This reverts commit 4e910d9d13e122a7a1263cd820d164c409d6a766.
 ---
  drivers/gpu/drm/drm_bridge.c | 110 +++++++++++++++++++++++++++++++++++
  include/drm/drm_bridge.h     |  28 +++++++++
  2 files changed, 138 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0013-Revert-drm-bridge-Drop-unused-drm_bridge_chain-funct.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0013-Revert-drm-bridge-Drop-unused-drm_bridge_chain-funct.patch"
 
 diff --git a/drivers/gpu/drm/drm_bridge.c b/drivers/gpu/drm/drm_bridge.c
 index d6f512b733896d21d7330442a0375222c2113155..dd663bf30b200dd6b0e22363687a19e83e290b63 100644
@@ -221,7 +207,3 @@ index a8d67bd9ee505fde4b3798f8ddcbde1c5b00ab0f..2ed1e4449a6284e387f87ddda9f7da84
  
  int drm_atomic_bridge_chain_check(struct drm_bridge *bridge,
  				  struct drm_crtc_state *crtc_state,
-
---------------false--
-
-

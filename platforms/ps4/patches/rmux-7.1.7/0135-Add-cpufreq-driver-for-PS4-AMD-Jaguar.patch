@@ -2,13 +2,6 @@ From b1af49f6d97566cadfb8a693cf46b363fe3d7a49 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 4 Jul 2026 23:53:32 +0200
 Subject: [PATCH] Add cpufreq driver for PS4 (AMD Jaguar)
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/cpufreq/Kconfig.x86   |   8 ++
@@ -16,12 +9,6 @@ Content-Transfer-Encoding: 8bit
  drivers/cpufreq/ps4-cpufreq.c | 140 ++++++++++++++++++++++++++++++++++
  3 files changed, 149 insertions(+)
  create mode 100644 drivers/cpufreq/ps4-cpufreq.c
-
-
---------------false
-Content-Type: text/x-patch; name="0135-Add-cpufreq-driver-for-PS4-AMD-Jaguar.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0135-Add-cpufreq-driver-for-PS4-AMD-Jaguar.patch"
 
 diff --git a/drivers/cpufreq/Kconfig.x86 b/drivers/cpufreq/Kconfig.x86
 index a9093cd5e5d1bf44543272b341448b80a8f25aa1..1d1f5c14444e285e22a36d1225012fba60510e8c 100644
@@ -200,7 +187,3 @@ index 0000000000000000000000000000000000000000..22b15de95da7265f46ad67772888f74e
 +
 +MODULE_AUTHOR("Armandas Kvietkus <armandas.kvietkus@proton.me>");
 +MODULE_DESCRIPTION("cpufreq driver for PS4 (AMD Jaguar, Family 16h)");
-
---------------false--
-
-

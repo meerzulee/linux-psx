@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 7 Jul 2026 00:19:05 +0200
 Subject: [PATCH] firmware: ps4-dmi: replace joke fallback strings with full
  generic DMI table
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/firmware/ps4-dmi.c | 43 +++++++++++++++++++-------------------
  1 file changed, 22 insertions(+), 21 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0139-firmware-ps4-dmi-replace-joke-fallback-strings-with-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0139-firmware-ps4-dmi-replace-joke-fallback-strings-with-.patch"
 
 diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
 index 3ced6eec2c6a4710dc3264b667a536475aaabe29..f92e1b52aa449a2c6807e182b0d530fc7dd832f5 100644
@@ -78,7 +65,3 @@ index 3ced6eec2c6a4710dc3264b667a536475aaabe29..f92e1b52aa449a2c6807e182b0d530fc
  };
  
  void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
-
---------------false--
-
-

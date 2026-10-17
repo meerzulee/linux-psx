@@ -3,13 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 1 Aug 2026 15:22:54 +0200
 Subject: [PATCH] drm/amdgpu: remove liverpool_clk SCLK force driver, removed
  due to unuse
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/Makefile        |   1 -
@@ -19,12 +12,6 @@ Content-Transfer-Encoding: 8bit
  4 files changed, 172 deletions(-)
  delete mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_clk.c
  delete mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_clk.h
-
-
---------------false
-Content-Type: text/x-patch; name="0163-drm-amdgpu-remove-liverpool_clk-SCLK-force-driver-re.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0163-drm-amdgpu-remove-liverpool_clk-SCLK-force-driver-re.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
 index c4069b7898b9daaa6a03841e2cd374e468d5323a..4261d043a6829430b5818323d65c57a37326fa55 100644
@@ -239,7 +226,3 @@ index 2189a0777ec8a9790ef6b27ceb3c2fa79ed2ca8d..00000000000000000000000000000000
 -#endif
 -
 -#endif /* LIVERPOOL_CLK_H */
-
---------------false--
-
-

@@ -2,23 +2,10 @@ From 6aae468aad81ef448d8f135adfce9c8f9ed161d3 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 21:02:05 +0200
 Subject: [PATCH] drm/amdgpu: ps4_bridge: fix drm_edid type mismatches
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0124-drm-amdgpu-ps4_bridge-fix-drm_edid-type-mismatches.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0124-drm-amdgpu-ps4_bridge-fix-drm_edid-type-mismatches.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 3f971cb9d216a0aa98284f94275bea8c1a83f2c9..d384b0209aec1e454d8bd149e6354b383038de34 100644
@@ -42,7 +29,3 @@ index 3f971cb9d216a0aa98284f94275bea8c1a83f2c9..d384b0209aec1e454d8bd149e6354b38
  		drm_edid_connector_update(connector, drm_edid);
  		count = drm_edid_connector_add_modes(connector);
  		newmode = drm_mode_duplicate(dev, &mode_1080p);
-
---------------false--
-
-

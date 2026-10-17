@@ -2,14 +2,6 @@ From bf1dce2f9fe15d62743a3fe8fff052972e3f7c5f Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 20:21:32 +0200
 Subject: [PATCH] ps4: fix power button input teardown
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The PS4 ICC power-button driver allocates an input device and registers
 it with input_register_device(). Once registration succeeds, teardown
@@ -26,12 +18,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  drivers/ps4/ps4-apcie-pwrbutton.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-
---------------false
-Content-Type: text/x-patch; name="0076-ps4-fix-power-button-input-teardown.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0076-ps4-fix-power-button-input-teardown.patch"
-
 diff --git a/drivers/ps4/ps4-apcie-pwrbutton.c b/drivers/ps4/ps4-apcie-pwrbutton.c
 index 0fef75c4aae67edbda4c9d2d2f9741c6357765c3..af0f12add6adc6f69e36b14bad60c5c27055ba63 100644
 --- a/drivers/ps4/ps4-apcie-pwrbutton.c
@@ -44,7 +30,3 @@ index 0fef75c4aae67edbda4c9d2d2f9741c6357765c3..af0f12add6adc6f69e36b14bad60c5c2
 +		input_unregister_device(sc->icc.pwrbutton_dev);
  	sc->icc.pwrbutton_dev = NULL;
  }
-
---------------false--
-
-

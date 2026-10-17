@@ -2,14 +2,6 @@ From 12ab2dab0a34911b039b7e3e5e337ba344b32fac Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Tue, 24 Mar 2026 21:16:11 +0100
 Subject: [PATCH] sound/hda: atihdmi: enable IEC958 on R6xx converters at init
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The Liverpool APU (0x1002aa01, PS4 CUH-12xx) uses a Panasonic
 MN864729/MN86471A DP-to-HDMI bridge that requires AC_DIG1_ENABLE
@@ -21,12 +13,6 @@ Signed-off-by: rmux <armandas.kvietkus@proton.me>
 ---
  sound/hda/codecs/hdmi/atihdmi.c | 16 ++++++++++++++++
  1 file changed, 16 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0054-sound-hda-atihdmi-enable-IEC958-on-R6xx-converters-a.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0054-sound-hda-atihdmi-enable-IEC958-on-R6xx-converters-a.patch"
 
 diff --git a/sound/hda/codecs/hdmi/atihdmi.c b/sound/hda/codecs/hdmi/atihdmi.c
 index 44366f75de336f7bc6c4163327701f027115899c..50c656089ee0b5ecf249118052e58352149ea73b 100644
@@ -55,7 +41,3 @@ index 44366f75de336f7bc6c4163327701f027115899c..50c656089ee0b5ecf249118052e58352
  	codec->auto_runtime_pm = 1;
  
  	return 0;
-
---------------false--
-
-

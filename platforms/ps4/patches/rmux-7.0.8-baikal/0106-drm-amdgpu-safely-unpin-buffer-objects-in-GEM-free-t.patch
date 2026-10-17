@@ -3,14 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Thu, 7 May 2026 13:23:25 +0200
 Subject: [PATCH] drm/amdgpu: safely unpin buffer objects in GEM free to fix
  TTM warnings
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
  In certain PS4 display sharing (ICC) or compositor crash scenarios,
  DMA-BUF exported buffer objects might be released without being unpinned
@@ -20,12 +12,6 @@ Content-Transfer-Encoding: 8bit
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c | 9 +++++++++
  1 file changed, 9 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0106-drm-amdgpu-safely-unpin-buffer-objects-in-GEM-free-t.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0106-drm-amdgpu-safely-unpin-buffer-objects-in-GEM-free-t.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
 index a6107109a2b8624c5670e25f28e89872b159eeca..91bb72fef797c1dd5970f1c8522b3554c4fc0bb1 100644
@@ -47,7 +33,3 @@ index a6107109a2b8624c5670e25f28e89872b159eeca..91bb72fef797c1dd5970f1c8522b3554
  	ttm_bo_fini(&aobj->tbo);
  }
  
-
---------------false--
-
-

@@ -2,14 +2,6 @@ From c6558513867f2f6f262171005feda83bad3cb133 Mon Sep 17 00:00:00 2001
 From: crashniels <nielswest@live.de>
 Date: Wed, 12 Mar 2025 18:28:28 +0100
 Subject: [PATCH] feat: Aeolia driver
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Adds support for Aeolia / Belize Southbridge
 ---
@@ -29,12 +21,6 @@ Adds support for Aeolia / Belize Southbridge
  create mode 100644 drivers/ps4/ps4-apcie-pwrbutton.c
  create mode 100644 drivers/ps4/ps4-apcie-uart.c
  create mode 100644 drivers/ps4/ps4-apcie.c
-
-
---------------false
-Content-Type: text/x-patch; name="0004-feat-Aeolia-driver.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0004-feat-Aeolia-driver.patch"
 
 diff --git a/drivers/Makefile b/drivers/Makefile
 index 0841ea851847e8d3466b5459ee29d2a0efbe11c8..48e45520ddfac38a226620945551f50bde3b5a18 100644
@@ -1783,7 +1769,3 @@ index 0000000000000000000000000000000000000000..fc5582518c80b484b66cd2aac9e09f02
 +#endif
 +};
 +module_pci_driver(apcie_driver);
-
---------------false--
-
-

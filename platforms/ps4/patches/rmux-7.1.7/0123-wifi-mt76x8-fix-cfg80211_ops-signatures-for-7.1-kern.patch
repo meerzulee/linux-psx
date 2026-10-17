@@ -2,24 +2,11 @@ From ade0c426579f1ecfc7ba8ccad252ac1443f386f4 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 21:02:05 +0200
 Subject: [PATCH] wifi: mt76x8: fix cfg80211_ops signatures for 7.1 kernel
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../MT6632/wlan/os/linux/gl_cfg80211.c        | 299 +++++++++++++++++-
  .../wlan/os/linux/include/gl_cfg80211.h       |  32 +-
  2 files changed, 325 insertions(+), 6 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0123-wifi-mt76x8-fix-cfg80211_ops-signatures-for-7.1-kern.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0123-wifi-mt76x8-fix-cfg80211_ops-signatures-for-7.1-kern.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c
 index 65217e97ffc75781c38fdfdc53aa333fd27a1330..a48d7879ddba27c46119d48ae1cce1dbe8d6923d 100755
@@ -446,7 +433,3 @@ index 4958a8593052a8895bb6442df7136f11421fc5ca..f0846b663c75528544312b30956f5dbd
  int
  mtk_cfg80211_change_station(struct wiphy *wiphy, struct net_device *ndev,
  			    const u8 *mac, struct station_parameters *params);
-
---------------false--
-
-

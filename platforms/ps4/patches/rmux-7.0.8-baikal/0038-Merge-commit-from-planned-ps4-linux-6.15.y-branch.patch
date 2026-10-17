@@ -2,14 +2,6 @@ From 8202268d0b8b66131a612a04219c5ae2aa439e75 Mon Sep 17 00:00:00 2001
 From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Sun, 24 Aug 2025 20:47:51 +0000
 Subject: [PATCH] Merge commit from planned ps4-linux-6.15.y branch.
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 mmc: Fix SDIO WiFi + Bluetooth for Marvell 88w8897
 
@@ -51,12 +43,6 @@ Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
  drivers/mmc/host/sdhci-pci-core.c | 26 ++++++++++++++++++++++++++
  include/linux/mmc/sdio_ids.h      |  2 +-
  4 files changed, 35 insertions(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0038-Merge-commit-from-planned-ps4-linux-6.15.y-branch.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0038-Merge-commit-from-planned-ps4-linux-6.15.y-branch.patch"
 
 diff --git a/drivers/mmc/core/quirks.h b/drivers/mmc/core/quirks.h
 index b1c52b319acf4f1751ae962dbcbf2ba1287d52aa..83f097fea0e3ebed86fd21240e5f71feb16f470d 100644
@@ -144,7 +130,3 @@ index 67df5cc2a369e5c74b43dd5da5fa6fe6161eae23..0ef0f10780aa970e2e23a1623f444964
  #define SDIO_DEVICE_ID_MARVELL_8897_WLAN	0x912d
  #define SDIO_DEVICE_ID_MARVELL_8897_BT		0x912e
  #define SDIO_DEVICE_ID_MARVELL_8887_F0		0x9134
-
---------------false--
-
-

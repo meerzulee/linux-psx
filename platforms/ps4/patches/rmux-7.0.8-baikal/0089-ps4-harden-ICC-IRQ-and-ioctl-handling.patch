@@ -2,14 +2,6 @@ From acc89fca3eee0f62a5d5903f9ea2146287d92536 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 5 May 2026 12:36:02 +0200
 Subject: [PATCH] ps4: harden ICC IRQ and ioctl handling
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Mask ICC IRQ status down to the Aeolia SEND/ACK bits and cap the handler loop so stray status bits cannot trap the CPU in shared IRQ context.
 
@@ -21,12 +13,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/ps4/ps4-apcie-icc.c | 88 ++++++++++++++++++++++++++-----------
  1 file changed, 62 insertions(+), 26 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0089-ps4-harden-ICC-IRQ-and-ioctl-handling.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0089-ps4-harden-ICC-IRQ-and-ioctl-handling.patch"
 
 diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
 index 18b014bad046d90b75347523d0754ed1629cbcef..45e9b47cdd7c62cd2925290d52446716b36b3857 100644
@@ -215,7 +201,3 @@ index 18b014bad046d90b75347523d0754ed1629cbcef..45e9b47cdd7c62cd2925290d52446716
  	pm_power_off = NULL;
  	icc_pwrbutton_remove(sc);
  	icc_i2c_remove(sc);
-
---------------false--
-
-

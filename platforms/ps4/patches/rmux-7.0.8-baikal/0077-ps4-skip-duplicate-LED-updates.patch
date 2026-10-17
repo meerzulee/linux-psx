@@ -2,14 +2,6 @@ From bce9c2d9323f8c1816ec594df41238934f0f0814 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 21:04:21 +0200
 Subject: [PATCH] ps4: skip duplicate LED updates
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The PS4 LED driver sends manual LED updates through ICC. Repeated
 userspace writes of the same brightness state can send identical ICC
@@ -26,12 +18,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/ps4/ps4-led.c | 17 ++++++++++++++++-
  1 file changed, 16 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0077-ps4-skip-duplicate-LED-updates.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0077-ps4-skip-duplicate-LED-updates.patch"
 
 diff --git a/drivers/ps4/ps4-led.c b/drivers/ps4/ps4-led.c
 index 938987485391985d92688ec9e4c56e435978e2dd..6c4e6cbb5c31e0b90870dc258a9aadef9f269143 100644
@@ -72,7 +58,3 @@ index 938987485391985d92688ec9e4c56e435978e2dd..6c4e6cbb5c31e0b90870dc258a9aadef
  
  	return 0;
  }
-
---------------false--
-
-

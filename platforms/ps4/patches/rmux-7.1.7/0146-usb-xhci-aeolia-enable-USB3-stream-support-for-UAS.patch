@@ -2,23 +2,10 @@ From 42a4dab59bef31f28383aa4650563f7ce145ac44 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 17 Jul 2026 20:55:09 +0000
 Subject: [PATCH] usb: xhci-aeolia: enable USB3 stream support for UAS
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/xhci-aeolia.c | 8 ++++++++
  1 file changed, 8 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0146-usb-xhci-aeolia-enable-USB3-stream-support-for-UAS.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0146-usb-xhci-aeolia-enable-USB3-stream-support-for-UAS.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index 44dd41b95266d9c5c9f0781f91dabe421994e451..16c82421f0855c291eff7134488422955d03ead0 100644
@@ -39,7 +26,3 @@ index 44dd41b95266d9c5c9f0781f91dabe421994e451..16c82421f0855c291eff713448842295
  	retval = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
  	if (retval)
  		goto dealloc_usb2_hcd;
-
---------------false--
-
-

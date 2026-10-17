@@ -2,13 +2,6 @@ From 4aee6afd8ee45112d0aaa1901fa2631282b78013 Mon Sep 17 00:00:00 2001
 From: crashniels <nielswest@live.de>
 Date: Wed, 12 Mar 2025 18:27:12 +0100
 Subject: [PATCH] feat: USB support
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/Kconfig       |   8 +
@@ -20,12 +13,6 @@ Content-Transfer-Encoding: 8bit
  6 files changed, 618 insertions(+), 14 deletions(-)
  create mode 100644 drivers/usb/host/xhci-aeolia.c
  create mode 100644 drivers/usb/host/xhci-aeolia.h
-
-
---------------false
-Content-Type: text/x-patch; name="0005-feat-USB-support.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0005-feat-USB-support.patch"
 
 diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
 index 0a277a07cf7062a0a63e22959f1ce80f8d6f0977..98d9aeab4e7626e33aa98ba0857cfd1e4a0bfe5f 100644
@@ -715,7 +702,3 @@ index 2b0796f6d00eaefb530df70e7c21b61a17004734..0debf085cde9efa80fe09d0335f9e9ad
  #define XHCI_RESET_TO_DEFAULT	BIT_ULL(44)
  #define XHCI_TRB_OVERFETCH	BIT_ULL(45)
  #define XHCI_ZHAOXIN_HOST	BIT_ULL(46)
-
---------------false--
-
-

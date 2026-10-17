@@ -2,23 +2,10 @@ From 3a47d21ebdf470e5b88ec1cd26b33f3d2aff89f0 Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Sun, 15 Mar 2026 18:30:17 +0100
 Subject: [PATCH] drm/amdgpu: fix ps4_bridge attach callback signature for 6.18
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0046-drm-amdgpu-fix-ps4_bridge-attach-callback-signature-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0046-drm-amdgpu-fix-ps4_bridge-attach-callback-signature-.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 925986f2bdb876d4a3bff2922306d2750c31f681..6d2a86c0b3a0a7f00bf1027ec01028428ff2b0f7 100644
@@ -34,7 +21,3 @@ index 925986f2bdb876d4a3bff2922306d2750c31f681..6d2a86c0b3a0a7f00bf1027ec0102842
  {
  	/* struct ps4_bridge *mn_bridge = bridge_to_ps4_bridge(bridge); */
  
-
---------------false--
-
-

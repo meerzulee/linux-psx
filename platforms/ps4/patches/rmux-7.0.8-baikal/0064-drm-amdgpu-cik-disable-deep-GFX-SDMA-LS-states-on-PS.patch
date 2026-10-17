@@ -2,14 +2,6 @@ From dbc9d1408b5d5d1e4ae4b94f7877852473ef6f1b Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 15 Apr 2026 19:55:07 +0200
 Subject: [PATCH] drm/amdgpu/cik: disable deep GFX/SDMA LS states on PS4
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Adjust Liverpool and Gladius clock-gating defaults to keep the
 regular MGCG/CG paths enabled while leaving the deeper GFX and
@@ -20,12 +12,6 @@ on PS4 hardware at the cost of some additional power usage.
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c | 18 ++++++++++--------
  1 file changed, 10 insertions(+), 8 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0064-drm-amdgpu-cik-disable-deep-GFX-SDMA-LS-states-on-PS.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0064-drm-amdgpu-cik-disable-deep-GFX-SDMA-LS-states-on-PS.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 0a9f820db6f2be463574529601514a0039c3cd36..4be2a468702a5b7587daaedb32daade4e0031195 100644
@@ -75,7 +61,3 @@ index 0a9f820db6f2be463574529601514a0039c3cd36..4be2a468702a5b7587daaedb32daade4
  				AMD_CG_SUPPORT_VCE_MGCG |
  				AMD_CG_SUPPORT_UVD_MGCG |
  				AMD_CG_SUPPORT_HDP_MGCG;
-
---------------false--
-
-

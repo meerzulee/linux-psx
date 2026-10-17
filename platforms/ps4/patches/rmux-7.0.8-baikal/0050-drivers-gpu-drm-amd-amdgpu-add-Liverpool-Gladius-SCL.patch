@@ -4,13 +4,8 @@ Date: Tue, 24 Mar 2026 11:28:15 +0100
 Subject: [PATCH] drivers/gpu/drm/amd/amdgpu: add Liverpool/Gladius SCLK force
  driver
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-
 
 Adds liverpool_clk.c and liverpool_clk.h, a minimal one-shot SCLK
 force for the PS4 Liverpool and Gladius GPUs.
@@ -47,12 +42,6 @@ Signed-off-by: rmux <armandas.kvietkus@proton.me>
  4 files changed, 304 insertions(+), 2 deletions(-)
  create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_clk.c
  create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_clk.h
-
-
---------------false
-Content-Type: text/x-patch; name="0050-drivers-gpu-drm-amd-amdgpu-add-Liverpool-Gladius-SCL.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0050-drivers-gpu-drm-amd-amdgpu-add-Liverpool-Gladius-SCL.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
 index fc59c61c401738e4ac966c1806eefa095acd3822..23fed66c279c2bf6b50512493927115109a14dbd 100644
@@ -406,7 +395,3 @@ index 0000000000000000000000000000000000000000..14d5e00f2350540446b8d9585757fe37
 +#endif
 +
 +#endif /* LIVERPOOL_CLK_H */
-
---------------false--
-
-

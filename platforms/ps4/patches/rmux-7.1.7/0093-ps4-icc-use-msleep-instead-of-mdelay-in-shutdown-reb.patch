@@ -2,23 +2,10 @@ From c96951134a11f0ae69829d279ca0efd7176a87e1 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 12:59:42 +0200
 Subject: [PATCH] ps4: icc: use msleep instead of mdelay in shutdown/reboot
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-apcie-icc.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0093-ps4-icc-use-msleep-instead-of-mdelay-in-shutdown-reb.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0093-ps4-icc-use-msleep-instead-of-mdelay-in-shutdown-reb.patch"
 
 diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
 index 45e9b47cdd7c62cd2925290d52446716b36b3857..d6f497b72bd1af51aba51a7e1c41d5854b5129a6 100644
@@ -42,7 +29,3 @@ index 45e9b47cdd7c62cd2925290d52446716b36b3857..d6f497b72bd1af51aba51a7e1c41d585
  	WARN_ON(1);
  }
  
-
---------------false--
-
-

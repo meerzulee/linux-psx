@@ -2,14 +2,6 @@ From 30a47de4e1420a9cc40ae59dab46b67b6ff25268 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 18:37:33 +0200
 Subject: [PATCH] ps4: quiet ICC normal-path boot logs
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Successful ICC boot/init reply dumps are now debug-only, while ICC error paths remain visible.
 
@@ -19,12 +11,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/ps4/ps4-apcie-icc.c | 63 +++++++++++++++++++++----------------
  1 file changed, 36 insertions(+), 27 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0069-ps4-quiet-ICC-normal-path-boot-logs.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0069-ps4-quiet-ICC-normal-path-boot-logs.patch"
 
 diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
 index b43dc676b3eb2734b01b4cb1c31f429fe84ca435..18b014bad046d90b75347523d0754ed1629cbcef 100644
@@ -140,7 +126,3 @@ index b43dc676b3eb2734b01b4cb1c31f429fe84ca435..18b014bad046d90b75347523d0754ed1
  }
  
  static void icc_shutdown(void)
-
---------------false--
-
-

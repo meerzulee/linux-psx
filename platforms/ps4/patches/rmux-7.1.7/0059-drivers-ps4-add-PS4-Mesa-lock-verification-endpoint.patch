@@ -2,14 +2,6 @@ From ee625b099c01e0233664e9d0aec7ea1fc856a674 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 11 Apr 2026 03:25:25 +0200
 Subject: [PATCH] drivers/ps4: add PS4 Mesa lock verification endpoint
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Add /dev/ps4-mesa-lock as a write-only misc device for Mesa/kernel
 compat verification using a build-time token.
@@ -29,12 +21,6 @@ Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
  3 files changed, 117 insertions(+), 1 deletion(-)
  create mode 100644 drivers/ps4/ps4-mesa-lock.c
  create mode 100644 drivers/ps4/ps4-mesa-lock.h
-
-
---------------false
-Content-Type: text/x-patch; name="0059-drivers-ps4-add-PS4-Mesa-lock-verification-endpoint.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0059-drivers-ps4-add-PS4-Mesa-lock-verification-endpoint.patch"
 
 diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
 index e4728125d394a5fd9d38e6a22fceafce73867291..d0851f1ca224534f3d9ece59377d739cb2d4af2f 100644
@@ -176,7 +162,3 @@ index 0000000000000000000000000000000000000000..585ea16e796fee57f6eb7e252684a3aa
 +#define PS4_MESA_LOCK_DEV_NAME "ps4-mesa-lock"
 +
 +#endif /* _PS4_MESA_LOCK_H_ */
-
---------------false--
-
-

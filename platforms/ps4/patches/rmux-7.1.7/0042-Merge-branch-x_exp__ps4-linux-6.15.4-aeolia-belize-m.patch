@@ -3,14 +3,6 @@ From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Tue, 10 Mar 2026 09:51:43 +0000
 Subject: [PATCH] Merge branch 'x_exp__ps4-linux-6.15.4-aeolia-belize-mt7668'
  into 6.15.4-aeolia-belize-crashniels
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 // Squashed merge //
 
@@ -461,12 +453,6 @@ Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
  create mode 100755 drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/version.h
  create mode 100755 drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/prealloc/include/prealloc.h
  create mode 100755 drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/prealloc/prealloc.c
-
-
---------------false
-Content-Type: text/x-patch; name="0042-Merge-branch-x_exp__ps4-linux-6.15.4-aeolia-belize-m.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0042-Merge-branch-x_exp__ps4-linux-6.15.4-aeolia-belize-m.patch"
 
 diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
 index 60ee1c4f4f18414de2304b4dd068b9bb9bb3ac93..09d6f9ec22b8f2cea3585f95b4f1df026578ad6d 100644
@@ -215238,7 +215224,3 @@ index a164842796539a50a67cd127731571a8b1c63f55..55c40d4cd4763111553b350b1ca3c9ba
  remove_glue:
  	apcie_glue_remove(sc);
  free_bars:
-
---------------false--
-
-

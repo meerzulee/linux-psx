@@ -3,23 +3,10 @@ From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Thu, 24 Jul 2025 14:05:29 +0000
 Subject: [PATCH] 3 retries on each MMC CMD52 or 53. Possibly needed for
  Marvell cards according to patch.
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/mmc/core/sdio_ops.c | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0036-3-retries-on-each-MMC-CMD52-or-53.-Possibly-needed-f.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0036-3-retries-on-each-MMC-CMD52-or-53.-Possibly-needed-f.patch"
 
 diff --git a/drivers/mmc/core/sdio_ops.c b/drivers/mmc/core/sdio_ops.c
 index 4c229dd2b6e543d2318d83888e8a9d1798335dd3..955f03214646f641b42aa2b8ba3f29cf1a5df969 100644
@@ -38,7 +25,3 @@ index 4c229dd2b6e543d2318d83888e8a9d1798335dd3..955f03214646f641b42aa2b8ba3f29cf
  	if (err)
  		return err;
  
-
---------------false--
-
-

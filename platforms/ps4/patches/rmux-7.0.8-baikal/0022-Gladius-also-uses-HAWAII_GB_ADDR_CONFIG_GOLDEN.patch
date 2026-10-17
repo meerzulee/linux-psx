@@ -2,24 +2,11 @@ From fa266e75ad5abe845b25d81c7bcf8776bbc6e62f Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 3 Jul 2025 18:25:23 +0200
 Subject: [PATCH] Gladius also uses HAWAII_GB_ADDR_CONFIG_GOLDEN
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c      | 2 +-
  drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
  2 files changed, 2 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0022-Gladius-also-uses-HAWAII_GB_ADDR_CONFIG_GOLDEN.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0022-Gladius-also-uses-HAWAII_GB_ADDR_CONFIG_GOLDEN.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 11a8c08cbc3ca952ed57b28745b6e2e3e2fc23aa..d17e977e877692423b2321947b8b1eaf05cca6d4 100644
@@ -47,7 +34,3 @@ index 61ecbb4d064d9065ea59cc792965f6597f64f3fc..3afbe141f9a2988488f3e21660e07227
  		break;
  	case CHIP_KABINI:
  	case CHIP_MULLINS:
-
---------------false--
-
-

@@ -2,23 +2,10 @@ From ca422371c9b0ec320970f3f0218f6f7580e99123 Mon Sep 17 00:00:00 2001
 From: Regie Vorkman <97987863+TheVorkMan@users.noreply.github.com>
 Date: Tue, 21 Apr 2026 02:23:01 +0200
 Subject: [PATCH] Update PS4 DMI strings with new values
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/firmware/ps4-dmi.c | 35 ++++++++++++++++++++++++-----------
  1 file changed, 24 insertions(+), 11 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0066-Update-PS4-DMI-strings-with-new-values.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0066-Update-PS4-DMI-strings-with-new-values.patch"
 
 diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
 index a181a84056870b508312ff9a3ae7516e89e81726..47563f6edde806f3b87cda08d29cce6a50c50c53 100644
@@ -66,7 +53,3 @@ index a181a84056870b508312ff9a3ae7516e89e81726..47563f6edde806f3b87cda08d29cce6a
  };
  
  void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
-
---------------false--
-
-

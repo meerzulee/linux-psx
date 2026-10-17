@@ -2,14 +2,6 @@ From c205594daca14de0ab5fd66e85f3b207aa96c620 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 5 May 2026 12:36:53 +0200
 Subject: [PATCH] ps4: bound EMC timer stabilization reads
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The early PS4 TSC calibration path polled the Aeolia EMC timer until two consecutive reads matched, with no escape if the register never stabilized.
 
@@ -21,12 +13,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  arch/x86/platform/ps4/calibrate.c | 51 +++++++++++++++++++++++++------
  1 file changed, 42 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0091-ps4-bound-EMC-timer-stabilization-reads.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0091-ps4-bound-EMC-timer-stabilization-reads.patch"
 
 diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
 index 681e5954f1b60f8fed1f4288296cecce91bd13a8..c54520bd53e27c48d50ae40367632df9751a1ad3 100644
@@ -123,7 +109,3 @@ index 681e5954f1b60f8fed1f4288296cecce91bd13a8..c54520bd53e27c48d50ae40367632df9
  	tsc2 = rdtsc();
  
  	// TSC rate is 32 times the elapsed time
-
---------------false--
-
-

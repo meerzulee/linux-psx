@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Jul 2026 15:51:45 +0000
 Subject: [PATCH] usb: xhci-aeolia: set ATA_HOST_NO_{PART,SSC,DEVSLP} per HBA
  caps
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/xhci-aeolia.c | 9 +++++++++
  1 file changed, 9 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0156-usb-xhci-aeolia-set-ATA_HOST_NO_-PART-SSC-DEVSLP-per.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0156-usb-xhci-aeolia-set-ATA_HOST_NO_-PART-SSC-DEVSLP-per.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index 538d37c00f68d27732bf1dbf11b0a604ab9b7d81..2b2f0589dafd854cf9f02f3d8856bcb1155e4387 100644
@@ -41,7 +28,3 @@ index 538d37c00f68d27732bf1dbf11b0a604ab9b7d81..2b2f0589dafd854cf9f02f3d8856bcb1
  	if (pi.flags & ATA_FLAG_EM)
  		ahci_reset_em(host);
  
-
---------------false--
-
-

@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 30 Jun 2026 23:44:31 +0200
 Subject: [PATCH] ps4-apcie: fix serial_line left zero-initialized, corrupting
  ttyS0 on remove
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-apcie.c | 1 +
  1 file changed, 1 insertion(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0105-ps4-apcie-fix-serial_line-left-zero-initialized-corr.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0105-ps4-apcie-fix-serial_line-left-zero-initialized-corr.patch"
 
 diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
 index a35294ea884f1f57a55f24c20f1397ae8778a364..4fa6450c8502ca861430421d6735f057147f7f12 100644
@@ -33,7 +20,3 @@ index a35294ea884f1f57a55f24c20f1397ae8778a364..4fa6450c8502ca861430421d6735f057
  	pci_set_drvdata(dev, sc);
  
  	// eMMC ... unused?
-
---------------false--
-
-

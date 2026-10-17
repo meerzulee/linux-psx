@@ -3,23 +3,10 @@ From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 15:00:23 +0000
 Subject: [PATCH] ps4-hwinfo: read stepping from CHIPREV MMIO register instead
  of PCI revision byte
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-hwinfo.c | 34 +++++++++++++++++++++++-----------
  1 file changed, 23 insertions(+), 11 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0122-ps4-hwinfo-read-stepping-from-CHIPREV-MMIO-register-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0122-ps4-hwinfo-read-stepping-from-CHIPREV-MMIO-register-.patch"
 
 diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
 index 7c47fc40d8608035598a8b53ad2e06f12c83392a..3b65214ed058631453e0c7b17755a14e200f013b 100644
@@ -99,7 +86,3 @@ index 7c47fc40d8608035598a8b53ad2e06f12c83392a..3b65214ed058631453e0c7b17755a14e
  	if (wlan_dev)
  		pr_info("GPU: %s [%04x:%04x]  southbridge: %s %s [%04x:%04x]  WLAN: [%04x:%04x]\n",
  			gpu_name, AMD_VENDOR, gpu_dev,
-
---------------false--
-
-

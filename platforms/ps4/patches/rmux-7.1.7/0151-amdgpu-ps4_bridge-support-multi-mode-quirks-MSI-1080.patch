@@ -2,25 +2,12 @@ From 7d116af5822e55f47a64321eef324f90d5efebab Mon Sep 17 00:00:00 2001
 From: Armandas Kvietkus <armandas.kvietkus@proton.me>
 Date: Mon, 20 Jul 2026 11:56:35 +0000
 Subject: [PATCH] amdgpu/ps4_bridge: support multi-mode quirks, MSI 1080p100
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 44 ++++++++++++++-----
  .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    | 15 ++++---
  .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    | 11 +++--
  3 files changed, 45 insertions(+), 25 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0151-amdgpu-ps4_bridge-support-multi-mode-quirks-MSI-1080.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0151-amdgpu-ps4_bridge-support-multi-mode-quirks-MSI-1080.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index d95ebcfe32f3b6278cd466cfa5510b62f66517df..64d701da85d909e98ebceac19117ea0ffd7b2bff 100644
@@ -154,7 +141,3 @@ index 8227fb3a786ea9e589d122b8ab3bdfd4eeb946cd..0e23809ccb9e6b10cf84e98ce98f0c2e
 +unsigned int ps4_bridge_quirk_forced_modes(const struct edid *edid);
  
  #endif
-
---------------false--
-
-

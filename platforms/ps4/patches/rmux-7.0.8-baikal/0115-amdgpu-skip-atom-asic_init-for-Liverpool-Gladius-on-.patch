@@ -4,13 +4,8 @@ Date: Mon, 11 May 2026 10:02:56 +0200
 Subject: [PATCH] amdgpu: skip atom asic_init for Liverpool/Gladius on reset
  path
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-
 
 PS4 Liverpool/Gladius have no AtomBIOS. The GPU reset path calls
 amdgpu_device_asic_init() which unconditionally invokes
@@ -25,12 +20,6 @@ continue gracefully after a ring timeout.
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 7 +++++++
  1 file changed, 7 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0115-amdgpu-skip-atom-asic_init-for-Liverpool-Gladius-on-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0115-amdgpu-skip-atom-asic_init-for-Liverpool-Gladius-on-.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 index d39bde97ee2ddeb56e053ef74cec6995d4bd32b9..829dd44e93afdd63868a8f0f97ccee6e80b8f38b 100644
@@ -50,7 +39,3 @@ index d39bde97ee2ddeb56e053ef74cec6995d4bd32b9..829dd44e93afdd63868a8f0f97ccee6e
  	flags = amdgpu_device_get_vbios_flags(adev);
  	optional = !!(flags & (AMDGPU_VBIOS_OPTIONAL | AMDGPU_VBIOS_SKIP));
  
-
---------------false--
-
-

@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 30 Jun 2026 23:46:08 +0200
 Subject: [PATCH] xhci-aeolia: fix NULL deref in suspend rollback for
  Belize/Baikal AHCI slot
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/xhci-aeolia.c | 2 ++
  1 file changed, 2 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0106-xhci-aeolia-fix-NULL-deref-in-suspend-rollback-for-B.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0106-xhci-aeolia-fix-NULL-deref-in-suspend-rollback-for-B.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index db6e1347708bd2db881c253f8f06f113b9265ea9..44dd41b95266d9c5c9f0781f91dabe421994e451 100644
@@ -34,7 +21,3 @@ index db6e1347708bd2db881c253f8f06f113b9265ea9..44dd41b95266d9c5c9f0781f91dabe42
  		xhci = hcd_to_xhci(axhci->hcd[idx]);
  		xhci_resume(xhci, false, false);
  	}
-
---------------false--
-
-

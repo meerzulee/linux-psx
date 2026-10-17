@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 00:09:32 +0200
 Subject: [PATCH] ps4-led: check ICC reply status and log failures, avoid stale
  cache on error
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-led.c | 7 +++++++
  1 file changed, 7 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0110-ps4-led-check-ICC-reply-status-and-log-failures-avoi.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0110-ps4-led-check-ICC-reply-status-and-log-failures-avoi.patch"
 
 diff --git a/drivers/ps4/ps4-led.c b/drivers/ps4/ps4-led.c
 index 72493a3f835071c3ea9ad2531d8375487e9a161c..2faeacf4095c22a88d1d83d87f8dfc7f95db01f6 100644
@@ -41,7 +28,3 @@ index 72493a3f835071c3ea9ad2531d8375487e9a161c..2faeacf4095c22a88d1d83d87f8dfc7f
  
  	ps4_led_current_payload = data;
  	mutex_unlock(&ps4_led_lock);
-
---------------false--
-
-

@@ -3,13 +3,6 @@ From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 11:15:52 +0000
 Subject: [PATCH] ps4-apcie: detect and log southbridge variant, GPU, and
  function map at boot
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/Makefile     |  1 +
@@ -20,12 +13,6 @@ Content-Transfer-Encoding: 8bit
  5 files changed, 109 insertions(+), 5 deletions(-)
  create mode 100644 drivers/ps4/ps4-hwinfo.c
  create mode 100644 drivers/ps4/ps4-hwinfo.h
-
-
---------------false
-Content-Type: text/x-patch; name="0118-ps4-apcie-detect-and-log-southbridge-variant-GPU-and.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0118-ps4-apcie-detect-and-log-southbridge-variant-GPU-and.patch"
 
 diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
 index bea98a74c6ff665946a52e004b30de606d86c201..996d839c639eed7ecfbee50f386f1ecdc65a322c 100644
@@ -215,7 +202,3 @@ index 46df1eeed10f7728df0f11caf6cb11c5b24ffdfd..6d633498244a9d1bd3823b90cc6a7fd9
  	"  Release   : " UTS_RELEASE "\n"
  	"  Builder   : " LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST "\n"
  	"  Toolchain : " LINUX_COMPILER "\n"
-
---------------false--
-
-

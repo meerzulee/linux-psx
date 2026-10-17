@@ -2,23 +2,10 @@ From 0bac262ea93ed3edeaf965905e27766f15953233 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 5 May 2026 13:00:00 +0200
 Subject: [PATCH] init: add strawberry banner
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  init/version-timestamp.c | 19 +++++++++++++++++--
  1 file changed, 17 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0089-init-add-strawberry-banner.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0089-init-add-strawberry-banner.patch"
 
 diff --git a/init/version-timestamp.c b/init/version-timestamp.c
 index 375726e05f690fea975a6781499b8e181cef4269..46df1eeed10f7728df0f11caf6cb11c5b24ffdfd 100644
@@ -49,7 +36,3 @@ index 375726e05f690fea975a6781499b8e181cef4269..46df1eeed10f7728df0f11caf6cb11c5
 +	"  Toolchain : " LINUX_COMPILER "\n"
 +	"  Build     : " UTS_VERSION "\n"
 +	"\n";
-
---------------false--
-
-

@@ -2,23 +2,10 @@ From d98d3e9e0df2e18c05cb014cb770c95d35ebea3e Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:54 +0200
 Subject: [PATCH] net/wireless/mt76x8: fix fortified copy_from_user build error
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../drv_wlan/MT6632/wlan/os/linux/gl_proc.c       | 15 ++++++---------
  1 file changed, 6 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0114-net-wireless-mt76x8-fix-fortified-copy_from_user-bui.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0114-net-wireless-mt76x8-fix-fortified-copy_from_user-bui.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
 index 7ed8e3286fa860a1513b241f3e0adb84ab9ffe4b..94479965641113dc8dc82d4cc0fa41ddda075595 100755
@@ -67,7 +54,3 @@ index 7ed8e3286fa860a1513b241f3e0adb84ab9ffe4b..94479965641113dc8dc82d4cc0fa41dd
  		DBGLOG(INIT, ERROR, "error of copy from user\n");
  		return -EFAULT;
  	}
-
---------------false--
-
-

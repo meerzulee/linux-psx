@@ -2,23 +2,10 @@ From e0b5527c4b87020c8c5ec96959f3e7c96eb55208 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 12:59:18 +0200
 Subject: [PATCH] usb: xhci-aeolia: fix AHCI host activation error path
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/xhci-aeolia.c | 1 +
  1 file changed, 1 insertion(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0092-usb-xhci-aeolia-fix-AHCI-host-activation-error-path.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0092-usb-xhci-aeolia-fix-AHCI-host-activation-error-path.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index a47dcfdacf45bfed3474a102f8a6058b1174aa6f..fc5293bc6ee8a3d29d944aa1f61651d3e62f9558 100644
@@ -32,7 +19,3 @@ index a47dcfdacf45bfed3474a102f8a6058b1174aa6f..fc5293bc6ee8a3d29d944aa1f61651d3
  	release_host:
  	unmap_registers:
  		iounmap(hpriv->mmio);
-
---------------false--
-
-

@@ -3,23 +3,10 @@ From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Mon, 21 Jul 2025 18:48:01 +0000
 Subject: [PATCH] 0.29.9. Added SDR104 mode w/ 150 MHz quirk in
  drivers/mmc/core/quirks.h.
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/mmc/core/quirks.h | 15 ++++++++++++++-
  1 file changed, 14 insertions(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0035-0.29.9.-Added-SDR104-mode-w-150-MHz-quirk-in-drivers.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0035-0.29.9.-Added-SDR104-mode-w-150-MHz-quirk-in-drivers.patch"
 
 diff --git a/drivers/mmc/core/quirks.h b/drivers/mmc/core/quirks.h
 index 940549d3b95d548bc46facc0490d421cf6ef77be..f8a94dbe067a934ba815526c6fd0f855b79861d3 100644
@@ -47,7 +34,3 @@ index 940549d3b95d548bc46facc0490d421cf6ef77be..f8a94dbe067a934ba815526c6fd0f855
  	END_FIXUP
  };
  
-
---------------false--
-
-

@@ -4,14 +4,6 @@ Date: Thu, 24 Jul 2025 15:44:43 +0000
 Subject: [PATCH] FIX: SDIO Card. Added SDHCI host controller quirks that might
  be needed for SDIO function. Only the last two commits will give error at
  initialization and tuning.
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
        .quirks         = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
                          SDHCI_QUIRK_DELAY_AFTER_POWER |
@@ -22,12 +14,6 @@ Content-Transfer-Encoding: 8bit
 ---
  drivers/mmc/host/sdhci-pci-core.c | 6 ++++++
  1 file changed, 6 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0037-FIX-SDIO-Card.-Added-SDHCI-host-controller-quirks-th.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0037-FIX-SDIO-Card.-Added-SDHCI-host-controller-quirks-th.patch"
 
 diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
 index ca92b97169ae6aa052b78191cc64dae27744a179..e8632b203ab06380f76aceac82c093610c9f7c2a 100644
@@ -46,7 +32,3 @@ index ca92b97169ae6aa052b78191cc64dae27744a179..e8632b203ab06380f76aceac82c09361
  };
  #endif
  
-
---------------false--
-
-

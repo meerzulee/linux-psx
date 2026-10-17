@@ -2,23 +2,10 @@ From 7e9598c2021c21d831b508da7f93addd26f057d8 Mon Sep 17 00:00:00 2001
 From: Armandas Kvietkus <armandas.kvietkus@proton.me>
 Date: Sun, 19 Jul 2026 22:31:07 +0000
 Subject: [PATCH] amdgpu/ps4_bridge: use edid modes only
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 44 ++-----------------------
  1 file changed, 3 insertions(+), 41 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0148-amdgpu-ps4_bridge-use-edid-modes-only.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0148-amdgpu-ps4_bridge-use-edid-modes-only.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 939dac9a62bc395e62e0cff0f0f6fd3f32d3dbaa..ecbe23b307b18311a98c587a3479af433d4eb646 100644
@@ -104,7 +91,3 @@ index 939dac9a62bc395e62e0cff0f0f6fd3f32d3dbaa..ecbe23b307b18311a98c587a3479af43
  	return MODE_OK;
  }
  
-
---------------false--
-
-

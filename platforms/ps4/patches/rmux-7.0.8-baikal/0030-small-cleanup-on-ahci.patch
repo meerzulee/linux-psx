@@ -2,25 +2,12 @@ From e961ad3b21346dff417a6646a62feda179d030c5 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Thu, 10 Jul 2025 23:13:04 +0200
 Subject: [PATCH] small cleanup on ahci
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ata/ahci.c             | 35 +++++++++++++++-------------------
  drivers/ata/ahci.h             |  1 +
  drivers/usb/host/xhci-aeolia.c |  1 +
  3 files changed, 17 insertions(+), 20 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0030-small-cleanup-on-ahci.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0030-small-cleanup-on-ahci.patch"
 
 diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
 index 243e4b8e49b21b805396afff938f24f56c610396..a72e4fd1581e7e1abea19cde43af4cc5b8d82953 100644
@@ -124,7 +111,3 @@ index 509b0a19c4df988a8f905d1e2997c1a15c015653..14037f8d7aa62e8c39d44877d5f79399
  	.flags		= AHCI_FLAG_COMMON,
  	.pio_mask	= ATA_PIO4,
  	.udma_mask	= ATA_UDMA6,
-
---------------false--
-
-

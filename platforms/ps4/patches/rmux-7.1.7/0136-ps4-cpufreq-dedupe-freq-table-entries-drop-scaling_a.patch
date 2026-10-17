@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Mon, 6 Jul 2026 00:16:01 +0200
 Subject: [PATCH] ps4-cpufreq: dedupe freq-table entries, drop
  scaling_available_freqs attr
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/cpufreq/ps4-cpufreq.c | 22 +++++++++++++++-------
  1 file changed, 15 insertions(+), 7 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0136-ps4-cpufreq-dedupe-freq-table-entries-drop-scaling_a.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0136-ps4-cpufreq-dedupe-freq-table-entries-drop-scaling_a.patch"
 
 diff --git a/drivers/cpufreq/ps4-cpufreq.c b/drivers/cpufreq/ps4-cpufreq.c
 index 22b15de95da7265f46ad67772888f74e1babb878..2cc4975d1e713d104aa9381565a57206fafd0e66 100644
@@ -74,7 +61,3 @@ index 22b15de95da7265f46ad67772888f74e1babb878..2cc4975d1e713d104aa9381565a57206
  		n++;
  	}
  	ps4_freq_table[n].driver_data = 0;
-
---------------false--
-
-

@@ -2,23 +2,10 @@ From b3f16771c26a5b9840bdbf56313d58f8c5242b5a Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 22 Aug 2026 21:32:02 +0200
 Subject: [PATCH] amdgpu: ps4_bridge: drop vendor guard exp
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 5 -----
  1 file changed, 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0170-amdgpu-ps4_bridge-drop-vendor-guard-exp.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0170-amdgpu-ps4_bridge-drop-vendor-guard-exp.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 261a70e2646f7a4ce02a86de8d406e36f2b30a45..eaae94044e99f7b5e175fda91048824825def89d 100644
@@ -36,7 +23,3 @@ index 261a70e2646f7a4ce02a86de8d406e36f2b30a45..eaae94044e99f7b5e175fda910488248
  	DRM_DEBUG_KMS("ps4_bridge_enable (mode: %d)\n", mn_bridge->mode);
  
  	/* Here come the dragons */
-
---------------false--
-
-

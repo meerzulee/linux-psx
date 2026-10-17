@@ -2,24 +2,11 @@ From bba86671490495a3a6aa42a38b602774a496fe96 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Fri, 11 Jul 2025 17:08:47 +0200
 Subject: [PATCH] Proper way to add XHCI_PLAT_DMA
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/net/ethernet/marvell/sky2.c | 1 +
  drivers/usb/host/xhci.h             | 6 +++---
  2 files changed, 4 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0031-Proper-way-to-add-XHCI_PLAT_DMA.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0031-Proper-way-to-add-XHCI_PLAT_DMA.patch"
 
 diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
 index be6fcd55e48c31265f2d886511cb5c3d9e60220b..c47c7b991de3f417e1524e9cbfc76800cdafdced 100644
@@ -55,7 +42,3 @@ index 2b75d646b5173c0e27e32b55f566fc47d4548d90..66fead399ef9841998eb2ebb45d054d0
  
  	unsigned int		num_active_eps;
  	unsigned int		limit_active_eps;
-
---------------false--
-
-

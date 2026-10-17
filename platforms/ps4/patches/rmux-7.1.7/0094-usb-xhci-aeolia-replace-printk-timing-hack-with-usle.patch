@@ -2,23 +2,10 @@ From 11458aed65b732e81533c12b53c15b5b8ecc4d27 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 13:00:05 +0200
 Subject: [PATCH] usb: xhci-aeolia: replace printk timing hack with usleep
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/usb/host/xhci-aeolia.c | 7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0094-usb-xhci-aeolia-replace-printk-timing-hack-with-usle.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0094-usb-xhci-aeolia-replace-printk-timing-hack-with-usle.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index fc5293bc6ee8a3d29d944aa1f61651d3e62f9558..b18d9f786fd4368fa34b90a7729e6090a181e058 100644
@@ -45,7 +32,3 @@ index fc5293bc6ee8a3d29d944aa1f61651d3e62f9558..b18d9f786fd4368fa34b90a7729e6090
  
  	hcd = usb_create_hcd(driver, &dev->dev, pci_name(dev));
  	pci_set_drvdata(dev, axhci); /* usb_create_hcd clobbers this */
-
---------------false--
-
-

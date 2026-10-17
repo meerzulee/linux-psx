@@ -2,13 +2,6 @@ From 0b9c4952248ebb7a0f39c4a30d484eada5e32eee Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Mon, 6 Apr 2026 22:28:07 +0200
 Subject: [PATCH] drm/amdgpu: fix PS4 bridge hotplug detection
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../gpu/drm/amd/amdgpu/amdgpu_connectors.c    |  11 +-
@@ -16,12 +9,6 @@ Content-Transfer-Encoding: 8bit
  drivers/gpu/drm/amd/amdgpu/dce_v8_0.c         |  15 +-
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 275 ++++++++++++++++--
  4 files changed, 283 insertions(+), 25 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0056-drm-amdgpu-fix-PS4-bridge-hotplug-detection.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0056-drm-amdgpu-fix-PS4-bridge-hotplug-detection.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
 index e5ee8ab44a7834263974d8db53f29e876f0acf04..491e67f5c5039a797579f166cced53cb3b2b5674 100644
@@ -529,7 +516,3 @@ index a7f053cd6d39fa24c92b2fccadd56d271d3ceece..b24c30685b2eeb51e3bee2712cd84f79
  		return connector_status_connected;
  	else
  		return connector_status_disconnected;
-
---------------false--
-
-

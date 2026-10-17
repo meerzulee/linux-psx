@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 3 Jul 2026 18:17:57 +0000
 Subject: [PATCH] drm/amdgpu: bypass DP CR/EQ status poll for MN864729 fixed
  link
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/atombios_dp.c | 14 ++++++++++++++
  1 file changed, 14 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0134-drm-amdgpu-bypass-DP-CR-EQ-status-poll-for-MN864729-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0134-drm-amdgpu-bypass-DP-CR-EQ-status-poll-for-MN864729-.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
 index 4501b636abfcedace13d6769babb04bc349e336c..9a42f17adb7a41d1fcbe10d9844f17433df476fb 100644
@@ -74,7 +61,3 @@ index 4501b636abfcedace13d6769babb04bc349e336c..9a42f17adb7a41d1fcbe10d9844f1743
  
  	if (amdgpu_atombios_dp_link_train_init(&dp_info))
  		goto done;
-
---------------false--
-
-

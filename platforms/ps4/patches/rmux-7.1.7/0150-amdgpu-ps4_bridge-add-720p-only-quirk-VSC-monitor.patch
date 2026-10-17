@@ -2,25 +2,12 @@ From df220a159e7a056db2cff0a3cc4ea9f321be771e Mon Sep 17 00:00:00 2001
 From: Armandas Kvietkus <armandas.kvietkus@proton.me>
 Date: Mon, 20 Jul 2026 10:44:42 +0000
 Subject: [PATCH] amdgpu/ps4_bridge: add 720p-only quirk, VSC monitor
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 28 ++++++++++++-------
  .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    | 12 ++++----
  .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    |  8 +++++-
  3 files changed, 32 insertions(+), 16 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0150-amdgpu-ps4_bridge-add-720p-only-quirk-VSC-monitor.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0150-amdgpu-ps4_bridge-add-720p-only-quirk-VSC-monitor.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 1f7fac8a170e85003ef8f879a19d48328caab04d..d95ebcfe32f3b6278cd466cfa5510b62f66517df 100644
@@ -127,7 +114,3 @@ index 432c79b65309d3e5e4bde2cbf6abbd41f484dcce..8227fb3a786ea9e589d122b8ab3bdfd4
 +enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid);
  
  #endif
-
---------------false--
-
-

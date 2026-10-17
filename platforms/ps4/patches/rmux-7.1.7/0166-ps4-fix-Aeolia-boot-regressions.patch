@@ -2,13 +2,6 @@ From e66b4f3790ae2d796f8834801e9329bc3b11a1cb Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 8 Aug 2026 15:49:12 +0200
 Subject: [PATCH] ps4: fix Aeolia boot regressions
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/pci/acpi.c            |  8 ++++++++
@@ -17,12 +10,6 @@ Content-Transfer-Encoding: 8bit
  drivers/usb/host/xhci-aeolia.c |  2 +-
  kernel/irq/irqdomain.c         |  2 +-
  5 files changed, 33 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0166-ps4-fix-Aeolia-boot-regressions.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0166-ps4-fix-Aeolia-boot-regressions.patch"
 
 diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
 index 7cd5388edc756f483cd807c3169e7b2edb2ee5de..536b4c3ec0fe7d2e17d243944bba0e8463999725 100644
@@ -114,7 +101,3 @@ index cc93abf009e88754a13cd8ae50043f96d52eb76c..09346cf1fc90f97420947cf5bcf0fcdb
  			rc = h->ops->select(h, fwspec, bus_token);
  		else if (h->ops->match)
  			rc = h->ops->match(h, to_of_node(fwnode), bus_token);
-
---------------false--
-
-

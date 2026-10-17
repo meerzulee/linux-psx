@@ -2,26 +2,12 @@ From e34125e04992da3e05bc1aae59f866c50cb180db Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Fri, 4 Jul 2025 21:40:15 +0200
 Subject: [PATCH] .mode_valid changes
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 now requires enum drm_mode_status as return and drm_display_mode is now a const
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c | 4 ++--
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c        | 4 ++--
  2 files changed, 4 insertions(+), 4 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0027-.mode_valid-changes.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0027-.mode_valid-changes.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
 index 71604b7f652c9657e2fdc3909cec901551936582..e5ee8ab44a7834263974d8db53f29e876f0acf04 100644
@@ -53,7 +39,3 @@ index 612f85b55f4d879f06da354578d2a06c5f2b7a6f..8aeec67c4124c250817c4d58cd8d0755
  {
  	int vic = drm_match_cea_mode(mode);
  
-
---------------false--
-
-

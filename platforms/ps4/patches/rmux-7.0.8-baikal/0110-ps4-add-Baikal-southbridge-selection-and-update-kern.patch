@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:41 +0200
 Subject: [PATCH] ps4: add Baikal southbridge selection and update kernel
  config
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/Kconfig | 7 +++++++
  1 file changed, 7 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0110-ps4-add-Baikal-southbridge-selection-and-update-kern.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0110-ps4-add-Baikal-southbridge-selection-and-update-kern.patch"
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
 index 4c11f258361802b9b9430c9245b79598dc69422b..0113dd674f8e4a31dbe78aca5d3e164e3174274a 100644
@@ -39,7 +26,3 @@ index 4c11f258361802b9b9430c9245b79598dc69422b..0113dd674f8e4a31dbe78aca5d3e164e
   
  config X86_VSMP
  	bool "ScaleMP vSMP"
-
---------------false--
-
-

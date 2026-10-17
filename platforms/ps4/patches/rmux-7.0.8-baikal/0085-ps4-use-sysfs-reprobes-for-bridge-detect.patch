@@ -2,14 +2,6 @@ From 6e4dfd3fbaa1b59da8c2ed17c3cbf2decc0d42af Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 26 Apr 2026 17:26:43 +0200
 Subject: [PATCH] ps4: use sysfs reprobes for bridge detect
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Stop reading TMONREG in the PS4 bridge detect path and stop enabling periodic connector polling on the stable branch.
 
@@ -21,12 +13,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 57 +++++++------------------
  1 file changed, 16 insertions(+), 41 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0085-ps4-use-sysfs-reprobes-for-bridge-detect.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0085-ps4-use-sysfs-reprobes-for-bridge-detect.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 9fff44d3acf1155f18e448c2596730929201830d..0f3c269224a3355aa8adcd96978f098a30f64ae6 100644
@@ -137,7 +123,3 @@ index 9fff44d3acf1155f18e448c2596730929201830d..0f3c269224a3355aa8adcd96978f098a
  
  	ret = devm_drm_bridge_add(dev, &mn_bridge->bridge);
  	if (ret)
-
---------------false--
-
-

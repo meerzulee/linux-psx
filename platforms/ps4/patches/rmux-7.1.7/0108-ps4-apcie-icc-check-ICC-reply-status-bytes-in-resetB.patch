@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 00:07:11 +0200
 Subject: [PATCH] ps4-apcie-icc: check ICC reply status bytes in
  resetBtWlan/resetUsbPort
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-apcie-icc.c | 15 +++++++++++++++
  1 file changed, 15 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0108-ps4-apcie-icc-check-ICC-reply-status-bytes-in-resetB.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0108-ps4-apcie-icc-check-ICC-reply-status-bytes-in-resetB.patch"
 
 diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
 index d6f497b72bd1af51aba51a7e1c41d5854b5129a6..01656be1b0c9afdae9b31b5d68e893ff75be8b2f 100644
@@ -61,7 +48,3 @@ index d6f497b72bd1af51aba51a7e1c41d5854b5129a6..01656be1b0c9afdae9b31b5d68e893ff
  	pr_debug("icc: BT/WLAN enable ret=%d, reply %02x %02x %02x %02x\n",
  		 ret, resp[0], resp[1], resp[2], resp[3]);
  }
-
---------------false--
-
-

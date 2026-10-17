@@ -2,24 +2,11 @@ From 9a2207e3586cd425a7ec2c7e031eeab8a8e71da5 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:46 +0200
 Subject: [PATCH] docs: add PS4 Baikal 7.0 bringup devlog
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  BAIKAL_DEVLOG.md | 165 +++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 165 insertions(+)
  create mode 100644 BAIKAL_DEVLOG.md
-
-
---------------false
-Content-Type: text/x-patch; name="0111-docs-add-PS4-Baikal-7.0-bringup-devlog.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0111-docs-add-PS4-Baikal-7.0-bringup-devlog.patch"
 
 diff --git a/BAIKAL_DEVLOG.md b/BAIKAL_DEVLOG.md
 new file mode 100644
@@ -192,7 +179,3 @@ index 0000000000000000000000000000000000000000..eb2fd40cf8d73ba5f3f1f0c54e0c950c
 +---
 +
 +*Written 2026-05-10. Kernel 7.0.0-Strawberry-NoLTO-Baikal.*
-
---------------false--
-
-

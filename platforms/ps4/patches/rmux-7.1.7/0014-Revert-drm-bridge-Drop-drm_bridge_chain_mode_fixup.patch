@@ -2,26 +2,12 @@ From d10c17147aba2989deb45b4a38eb746819bf6dcc Mon Sep 17 00:00:00 2001
 From: crashniels <39709384+crashniels@users.noreply.github.com>
 Date: Thu, 30 Jan 2025 17:41:38 +0100
 Subject: [PATCH] Revert "drm/bridge: Drop drm_bridge_chain_mode_fixup"
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 This reverts commit 1f020495458396766496ee067130f507a4d718e4.
 ---
  drivers/gpu/drm/drm_bridge.c | 37 ++++++++++++++++++++++++++++++++++++
  include/drm/drm_bridge.h     |  3 +++
  2 files changed, 40 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0014-Revert-drm-bridge-Drop-drm_bridge_chain_mode_fixup.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0014-Revert-drm-bridge-Drop-drm_bridge_chain_mode_fixup.patch"
 
 diff --git a/drivers/gpu/drm/drm_bridge.c b/drivers/gpu/drm/drm_bridge.c
 index dd663bf30b200dd6b0e22363687a19e83e290b63..bbefad87de8e6588114d32dd550ed7d870f46f23 100644
@@ -85,7 +71,3 @@ index 2ed1e4449a6284e387f87ddda9f7da8458ca3e26..64691f9ebf90fd0a3631a6b3bd1119e3
  enum drm_mode_status
  drm_bridge_chain_mode_valid(struct drm_bridge *bridge,
  			    const struct drm_display_info *info,
-
---------------false--
-
-

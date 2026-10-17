@@ -2,23 +2,10 @@ From a85d48908813a7c6dc1e7dcce8998c8498ee565b Mon Sep 17 00:00:00 2001
 From: M H <mircoho@gmail.com>
 Date: Sat, 21 Jun 2025 12:25:16 +0000
 Subject: [PATCH] ioremap fix
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/platform/ps4/calibrate.c | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0016-ioremap-fix.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0016-ioremap-fix.patch"
 
 diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
 index 2328668165124a7379dff0bdc41565eba6937f13..681e5954f1b60f8fed1f4288296cecce91bd13a8 100644
@@ -50,7 +37,3 @@ index 2328668165124a7379dff0bdc41565eba6937f13..681e5954f1b60f8fed1f4288296cecce
  		emc_timer = NULL;
  	}
  	return ret;
-
---------------false--
-
-

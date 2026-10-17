@@ -2,23 +2,10 @@ From b6a5d0f7982cbace2690bfa8b0e75ca176945d18 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 13:00:38 +0200
 Subject: [PATCH] x86: ps4: calibrate: add deadline to measurement loop
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/platform/ps4/calibrate.c | 5 +++++
  1 file changed, 5 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0096-x86-ps4-calibrate-add-deadline-to-measurement-loop.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0096-x86-ps4-calibrate-add-deadline-to-measurement-loop.patch"
 
 diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
 index c54520bd53e27c48d50ae40367632df9751a1ad3..59969060c5437aad57cd899fb01700c55dd4ee61 100644
@@ -43,7 +30,3 @@ index c54520bd53e27c48d50ae40367632df9751a1ad3..59969060c5437aad57cd899fb01700c5
  	}
  	tsc2 = rdtsc();
  
-
---------------false--
-
-

@@ -2,14 +2,6 @@ From cedf644fcb4dfd35ff4e4a70f3f96d18fd244fdb Mon Sep 17 00:00:00 2001
 From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Thu, 21 Aug 2025 18:58:02 +0000
 Subject: [PATCH] drm: amdgpu - Fix blackscreen at Display Manager
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Should fix the blackscreen that occurs when going from kernel
 and initramfs to a distro's graphical display manager.
@@ -28,12 +20,6 @@ Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 33 ++++++++++++++++++++-----
  1 file changed, 27 insertions(+), 6 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0039-drm-amdgpu-Fix-blackscreen-at-Display-Manager.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0039-drm-amdgpu-Fix-blackscreen-at-Display-Manager.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 8aeec67c4124c250817c4d58cd8d07554c081f23..f890b65a43319b34e1d189564bc0849c82f80555 100644
@@ -113,7 +99,3 @@ index 8aeec67c4124c250817c4d58cd8d07554c081f23..f890b65a43319b34e1d189564bc0849c
  	if (ret) {
  		DRM_ERROR("Failed to initialize bridge with drm\n");
  		return -EINVAL;
-
---------------false--
-
-

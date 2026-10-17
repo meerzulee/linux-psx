@@ -2,23 +2,10 @@ From 6aa28c085cbd89febbad510a21d49687dccfdfcf Mon Sep 17 00:00:00 2001
 From: Armandas Kvietkus <armandas.kvietkus@proton.me>
 Date: Mon, 20 Jul 2026 15:33:26 +0000
 Subject: [PATCH] ps4/icc: fix reply header offset to match real ICC protocol
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/icc/i2c.c | 20 +++++++++++++-------
  1 file changed, 13 insertions(+), 7 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0153-ps4-icc-fix-reply-header-offset-to-match-real-ICC-pr.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0153-ps4-icc-fix-reply-header-offset-to-match-real-ICC-pr.patch"
 
 diff --git a/drivers/ps4/icc/i2c.c b/drivers/ps4/icc/i2c.c
 index ac8dca8ab1fdf1f0caff3934aebb03145df76a27..551d5f016b42d70d7abc2c8747ca009292299820 100644
@@ -79,7 +66,3 @@ index ac8dca8ab1fdf1f0caff3934aebb03145df76a27..551d5f016b42d70d7abc2c8747ca0092
  			       data->block[0]);
  			break;
  		}
-
---------------false--
-
-

@@ -2,14 +2,6 @@ From c821267f4771310633057d33edd42f307667d483 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 19:46:11 +0200
 Subject: [PATCH] ps4: remove LED thermal mode and cache fan reads
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Remove the PS4 LED thermal indicator mode. The delayed worker and
 platform sysfs attributes for automatic temperature-based LED changes are
@@ -31,12 +23,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  drivers/ps4/ps4-led.c | 432 ++----------------------------------------
  drivers/ps4/ps4-led.h |  85 +--------
  3 files changed, 71 insertions(+), 506 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0074-ps4-remove-LED-thermal-mode-and-cache-fan-reads.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0074-ps4-remove-LED-thermal-mode-and-cache-fan-reads.patch"
 
 diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
 index 868ae9c37661a1dfa1fdf33faf9ef6decc1771f3..9e359f6ea70d6ce97bbd0ec11962bc1216429ef1 100644
@@ -804,7 +790,3 @@ index e2d695ef7fd86ded22d3e71f88796023ca340993..489fc7f4df0b8ef8591b4c337e6c6b9e
 -#endif /* _PS4_LED_H */
 \ No newline at end of file
 +#endif /* _PS4_LED_H */
-
---------------false--
-
-

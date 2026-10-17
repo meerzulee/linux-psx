@@ -50,7 +50,9 @@ GIT_CONFIG = [
     "diff.relative=false", "diff.renames=true", "diff.suppressBlankEmpty=false",
     "diff.indentHeuristic=true", "core.quotePath=true", "format.signature=",
     "format.coverLetter=false", "format.numbered=false", "format.subjectPrefix=PATCH",
-    "format.signOff=false", "format.attach=false", "format.thread=false",
+    # An empty format.attach disables attachments; any other value, including
+    # "false", turns on multipart/mixed output and is used as the boundary.
+    "format.signOff=false", "format.attach=", "format.thread=false",
 ]
 FORMAT_ARGS = ["--no-signature", "--no-numbered", "--full-index", "--binary", "-M",
                "--no-zero-commit", "--no-cover-letter"]

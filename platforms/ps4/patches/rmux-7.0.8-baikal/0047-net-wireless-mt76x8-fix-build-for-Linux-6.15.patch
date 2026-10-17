@@ -2,14 +2,6 @@ From eb94d698b38172e2525ee893e528e2166da20186 Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Sun, 15 Mar 2026 18:37:19 +0100
 Subject: [PATCH] net: wireless: mt76x8: fix build for Linux 6.15+
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 - get_tx_power: update adapter signature, dbm is now passed by value;
   forward to underlying implementation via local variable
@@ -21,12 +13,6 @@ Content-Transfer-Encoding: 8bit
  .../drv_wlan/MT6632/wlan/os/linux/gl_kal.c    |  2 +-
  .../drv_wlan/MT6632/wlan/os/linux/gl_p2p.c    | 30 +++++++++++++++++--
  3 files changed, 29 insertions(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0047-net-wireless-mt76x8-fix-build-for-Linux-6.15.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0047-net-wireless-mt76x8-fix-build-for-Linux-6.15.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c
 index 895c0e53781297cc6167475b83cc878f3905f5e2..89447c9b3941dbf58c50b078fc224447e4a989a1 100755
@@ -109,7 +95,3 @@ index cf8d7a5c682789b6d5067339081a4a92e95d068f..af2bd37e795d6885f780be80b2240793
  	.set_power_mgmt = mtk_p2p_cfg80211_set_power_mgmt,
  #if (CFG_SUPPORT_DFS_MASTER == 1)
  	.start_radar_detection = mtk_p2p_cfg80211_start_radar_detection,
-
---------------false--
-
-

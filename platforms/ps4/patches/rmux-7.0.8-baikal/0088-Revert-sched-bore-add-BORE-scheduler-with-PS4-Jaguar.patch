@@ -3,14 +3,6 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 5 May 2026 11:48:46 +0200
 Subject: [PATCH] Revert "sched/bore: add BORE scheduler with PS4/Jaguar
  tuning"
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 This reverts commit f8dcbeb44a2e7d55799b2d836e9447bbc06f4ec0.
 ---
@@ -31,12 +23,6 @@ This reverts commit f8dcbeb44a2e7d55799b2d836e9447bbc06f4ec0.
  14 files changed, 11 insertions(+), 812 deletions(-)
  delete mode 100644 include/linux/sched/bore.h
  delete mode 100644 kernel/sched/bore.c
-
-
---------------false
-Content-Type: text/x-patch; name="0088-Revert-sched-bore-add-BORE-scheduler-with-PS4-Jaguar.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0088-Revert-sched-bore-add-BORE-scheduler-with-PS4-Jaguar.patch"
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
 index e19b6d0c097fe807a80c6460cff09b1b9c01afbd..d41e7a8f9c85f6f08e99ac405bb048def3a48e48 100644
@@ -1279,7 +1265,3 @@ index cfe2a84b52257936bf97acef4597fb9293d7fe5b..0d068b2f3718909ca279c7e977811f49
  
  extern int sysctl_resched_latency_warn_ms;
  extern int sysctl_resched_latency_warn_once;
-
---------------false--
-
-

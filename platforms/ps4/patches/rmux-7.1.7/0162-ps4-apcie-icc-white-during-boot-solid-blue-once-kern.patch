@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 1 Aug 2026 15:11:40 +0200
 Subject: [PATCH] ps4: apcie-icc: white during boot, solid blue once kernel is
  up, no orange loop
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-apcie-icc.c | 35 +++++++++++++++++++++++++++--------
  1 file changed, 27 insertions(+), 8 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0162-ps4-apcie-icc-white-during-boot-solid-blue-once-kern.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0162-ps4-apcie-icc-white-during-boot-solid-blue-once-kern.patch"
 
 diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
 index b7f5665de0d035ddef7d1531e6188f856561a8c3..4581ba7853551d3cff9586b61b05b9d4fcf45594 100644
@@ -75,7 +62,3 @@ index b7f5665de0d035ddef7d1531e6188f856561a8c3..4581ba7853551d3cff9586b61b05b9d4
  static void icc_shutdown(void)
  {
  	uint8_t command[] = {
-
---------------false--
-
-

@@ -2,14 +2,6 @@ From b147cda32be7c4e2f22dd7d70073db814cc87c46 Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Fri, 13 Mar 2026 11:36:01 +0100
 Subject: [PATCH] net: sky2: fix interrupt storm on PS4 Aeolia (CXD90025G)
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 The Aeolia NIC (CXD90025G) does not implement the standard Yukon-2
 ISRC2/LISR read side-effects that mask interrupts. Without explicit
@@ -25,12 +17,6 @@ All changes gated on CONFIG_X86_PS4.
  drivers/net/ethernet/marvell/sky2.c | 13 ++++++++++---
  drivers/net/ethernet/marvell/sky2.h |  5 +++++
  2 files changed, 15 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0045-net-sky2-fix-interrupt-storm-on-PS4-Aeolia-CXD90025G.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0045-net-sky2-fix-interrupt-storm-on-PS4-Aeolia-CXD90025G.patch"
 
 diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
 index 2c83c17ea20a99e34949b65d0f54328135183cc0..44866d80ceeae068086bd8a524f93971658bbfd8 100644
@@ -86,7 +72,3 @@ index 33f5145ede89bc2822cbb81b6fe3ab24505898f4..2e6d7ac4c3c13c4153c9220955149e87
  
  	B2_MAC_1	= 0x0100,
  	B2_MAC_2	= 0x0108,
-
---------------false--
-
-

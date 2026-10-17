@@ -2,23 +2,10 @@ From d396c10d41e2c835c5b0bd3ddd80cd73c37ab237 Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 12:57:16 +0000
 Subject: [PATCH] ps4-hwinfo: fix sdio iter macro name (dev_to_sdio_func)
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ps4/ps4-hwinfo.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0121-ps4-hwinfo-fix-sdio-iter-macro-name-dev_to_sdio_func.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0121-ps4-hwinfo-fix-sdio-iter-macro-name-dev_to_sdio_func.patch"
 
 diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
 index 78d559e8837c178b2719afbf289bdd71c031439b..7c47fc40d8608035598a8b53ad2e06f12c83392a 100644
@@ -33,7 +20,3 @@ index 78d559e8837c178b2719afbf289bdd71c031439b..7c47fc40d8608035598a8b53ad2e06f1
  
  	if (func->num == 1)
  		pr_info("WLAN: [%04x:%04x] via SDIO\n", func->vendor, func->device);
-
---------------false--
-
-

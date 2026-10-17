@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 21:15:52 +0200
 Subject: [PATCH] wifi: mt76x8: declare tdls_mgmt/tdls_oper in the wdev branch
  too
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  .../drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h   | 8 ++++++++
  1 file changed, 8 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0125-wifi-mt76x8-declare-tdls_mgmt-tdls_oper-in-the-wdev-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0125-wifi-mt76x8-declare-tdls_mgmt-tdls_oper-in-the-wdev-.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
 index f0846b663c75528544312b30956f5dbdd1b6eee8..59c46c5b89e0dcbef338c73659ce41fbbe55dc91 100755
@@ -40,7 +27,3 @@ index f0846b663c75528544312b30956f5dbdd1b6eee8..59c46c5b89e0dcbef338c73659ce41fb
  #elif KERNEL_VERSION(3, 16, 0) <= CFG80211_VERSION_CODE
  int
  mtk_cfg80211_change_station(struct wiphy *wiphy, struct net_device *ndev,
-
---------------false--
-
-

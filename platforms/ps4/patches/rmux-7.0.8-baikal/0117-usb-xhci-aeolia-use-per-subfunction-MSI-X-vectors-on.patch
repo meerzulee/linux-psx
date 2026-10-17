@@ -3,13 +3,8 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Mon, 11 May 2026 10:08:18 +0200
 Subject: [PATCH] usb: xhci-aeolia: use per-subfunction MSI-X vectors on Baikal
 MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
-
 
 On Baikal, bpcie_assign_irqs() clamps nvec=1 for non-glue PCI
 functions, forcing all 3 subfunctions (USB0, AHCI, USB2) of
@@ -31,12 +26,6 @@ AHCI interrupts, reducing boot time from 27-130s to ~6s.
 ---
  drivers/usb/host/xhci-aeolia.c | 41 +++++++++++++++++++++++++++++-----
  1 file changed, 36 insertions(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0117-usb-xhci-aeolia-use-per-subfunction-MSI-X-vectors-on.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0117-usb-xhci-aeolia-use-per-subfunction-MSI-X-vectors-on.patch"
 
 diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
 index 4540326f1ce2472df98bd0eddc88199975a810fa..1868ab3bf11798ee62cb9df0657097a63cae9dc9 100644
@@ -109,7 +98,3 @@ index 4540326f1ce2472df98bd0eddc88199975a810fa..1868ab3bf11798ee62cb9df0657097a6
  }
  
  static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
-
---------------false--
-
-

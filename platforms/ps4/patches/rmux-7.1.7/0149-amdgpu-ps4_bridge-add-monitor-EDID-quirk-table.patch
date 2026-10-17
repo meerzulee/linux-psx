@@ -2,13 +2,6 @@ From 971e3b153266798cf5b53b2cc5a537c46ab8265d Mon Sep 17 00:00:00 2001
 From: Armandas Kvietkus <armandas.kvietkus@proton.me>
 Date: Mon, 20 Jul 2026 08:04:12 +0000
 Subject: [PATCH] amdgpu/ps4_bridge: add monitor EDID quirk table
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/Makefile           |  2 +-
@@ -18,12 +11,6 @@ Content-Transfer-Encoding: 8bit
  4 files changed, 57 insertions(+), 3 deletions(-)
  create mode 100644 drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
  create mode 100644 drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
-
-
---------------false
-Content-Type: text/x-patch; name="0149-amdgpu-ps4_bridge-add-monitor-EDID-quirk-table.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0149-amdgpu-ps4_bridge-add-monitor-EDID-quirk-table.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
 index f6d984a9e19f85a77c40dac7bd11dc12dd9c5c9e..c4069b7898b9daaa6a03841e2cd374e468d5323a 100644
@@ -133,7 +120,3 @@ index 0000000000000000000000000000000000000000..432c79b65309d3e5e4bde2cbf6abbd41
 +bool ps4_bridge_quirk_force_1080p(const struct edid *edid);
 +
 +#endif
-
---------------false--
-
-

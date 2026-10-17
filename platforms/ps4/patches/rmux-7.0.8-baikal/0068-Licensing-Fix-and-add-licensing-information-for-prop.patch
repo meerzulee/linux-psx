@@ -3,26 +3,12 @@ From: feeRnt <81442162+feeRnt@users.noreply.github.com>
 Date: Wed, 8 Apr 2026 19:54:21 +0000
 Subject: [PATCH] Licensing: Fix and add licensing information for proprietary
  firmware, and mt76x8 driver
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
 ---
  .../net/wireless/mediatek/mt76x8/README.license  | 16 ++++++++++++++++
  1 file changed, 16 insertions(+)
  create mode 100644 drivers/net/wireless/mediatek/mt76x8/README.license
-
-
---------------false
-Content-Type: text/x-patch; name="0068-Licensing-Fix-and-add-licensing-information-for-prop.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0068-Licensing-Fix-and-add-licensing-information-for-prop.patch"
 
 diff --git a/drivers/net/wireless/mediatek/mt76x8/README.license b/drivers/net/wireless/mediatek/mt76x8/README.license
 new file mode 100644
@@ -46,7 +32,3 @@ index 0000000000000000000000000000000000000000..96c96815ccbc938201a553b31dd5888e
 +
 +See the original license header in the source files for the
 +full license text.
-
---------------false--
-
-

@@ -2,24 +2,11 @@ From 11d28c52d69cdab6ab5832fbf9ff2d2e096be940 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Fri, 10 Apr 2026 18:13:03 +0200
 Subject: [PATCH] drm/amdgpu: optimize PS4 PCIe ASPM and clock states
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c           | 59 +++++++++++++++++++---
  drivers/gpu/drm/amd/amdgpu/liverpool_clk.c |  4 +-
  2 files changed, 55 insertions(+), 8 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0057-drm-amdgpu-optimize-PS4-PCIe-ASPM-and-clock-states.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0057-drm-amdgpu-optimize-PS4-PCIe-ASPM-and-clock-states.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 9eb652390d3f5c5377aa8075bb71125e4e19600d..9194c4404d555482e00e5696cd6dee4421abbee1 100644
@@ -149,7 +136,3 @@ index 048a871a5641ae23accec04dc7dd08c5cf596d66..60a5cc05c8548f23984b54b3294fb5b4
  			break;
  		udelay(LIVERPOOL_CLK_TIMEOUT_US);
  	}
-
---------------false--
-
-

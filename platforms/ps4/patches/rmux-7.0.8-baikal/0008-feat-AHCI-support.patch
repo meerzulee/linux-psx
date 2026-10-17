@@ -2,24 +2,11 @@ From 52652f77d82cf2388874ace7802de02cfb0f0c42 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Fri, 4 Jul 2025 20:12:54 +0200
 Subject: [PATCH] feat: AHCI support
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ata/ahci.c | 289 +++++++++++++++++++++++++++++++++++++++++++++
  drivers/ata/ahci.h |  28 +++++
  2 files changed, 317 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0008-feat-AHCI-support.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0008-feat-AHCI-support.patch"
 
 diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
 index 1d73a53370cf3ea79229850dd8243c7afc6800d2..ed80976eee77ef9bad6e049bdd5db77478199542 100644
@@ -395,7 +382,3 @@ index 293b7fb216b51738e94998704998cec2100f2d0f..ac61e479a195fd0d9114a802833e3fb4
 +
 +
  #endif /* _AHCI_H */
-
---------------false--
-
-

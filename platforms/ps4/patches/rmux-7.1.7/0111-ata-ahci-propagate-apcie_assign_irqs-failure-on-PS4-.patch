@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 00:23:59 +0200
 Subject: [PATCH] ata/ahci: propagate apcie_assign_irqs failure on PS4 instead
  of ignoring it
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ata/ahci.c | 21 +++++++++++++--------
  1 file changed, 13 insertions(+), 8 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0111-ata-ahci-propagate-apcie_assign_irqs-failure-on-PS4-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0111-ata-ahci-propagate-apcie_assign_irqs-failure-on-PS4-.patch"
 
 diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
 index a72e4fd1581e7e1abea19cde43af4cc5b8d82953..4f8ddc43eb53a26441a315928e5c5848716dc474 100644
@@ -85,7 +72,3 @@ index a72e4fd1581e7e1abea19cde43af4cc5b8d82953..4f8ddc43eb53a26441a315928e5c5848
  
  	hpriv->irq = pci_irq_vector(pdev, 0);
  
-
---------------false--
-
-

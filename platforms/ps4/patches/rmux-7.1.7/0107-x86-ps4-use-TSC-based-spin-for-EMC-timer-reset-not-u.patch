@@ -3,24 +3,11 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Tue, 30 Jun 2026 23:51:15 +0200
 Subject: [PATCH] x86/ps4: use TSC-based spin for EMC timer reset, not
  uncalibrated udelay
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/include/asm/ps4.h        | 1 +
  arch/x86/platform/ps4/calibrate.c | 8 +++++---
  2 files changed, 6 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0107-x86-ps4-use-TSC-based-spin-for-EMC-timer-reset-not-u.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0107-x86-ps4-use-TSC-based-spin-for-EMC-timer-reset-not-u.patch"
 
 diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
 index 09d6f9ec22b8f2cea3585f95b4f1df026578ad6d..6bfda6afdbfa1ab03f30037dc1bde9a8bdeefc19 100644
@@ -53,7 +40,3 @@ index 59969060c5437aad57cd899fb01700c55dd4ee61..500c3e154bf1e001c9fa071eccb02c41
  	emctimer_write32(0x00, emctimer_read32(0x00) | 0x01);
  	emctimer_write32(0x84, emctimer_read32(0x84) | 0x01);
  
-
---------------false--
-
-

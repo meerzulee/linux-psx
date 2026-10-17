@@ -2,14 +2,6 @@ From 96baa15c98d9504191e671b8c2ba876fd3e49518 Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Fri, 15 May 2026 13:05:50 +0000
 Subject: [PATCH] drivers/ps4: add Aeolia front panel buzzer driver
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Adds a sysfs-driven buzzer driver for the PS4 front-panel piezo.
 The buzzer shares the indicator ICC channel (major 0x09, minor 0x20)
@@ -30,12 +22,6 @@ Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
  3 files changed, 140 insertions(+)
  create mode 100644 drivers/ps4/ps4-buzzer.c
  create mode 100644 drivers/ps4/ps4-buzzer.h
-
-
---------------false
-Content-Type: text/x-patch; name="0123-drivers-ps4-add-Aeolia-front-panel-buzzer-driver.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0123-drivers-ps4-add-Aeolia-front-panel-buzzer-driver.patch"
 
 diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
 index 6cf0aaaf5ed72aadc314ecf915c20becac71e6a3..5060b2d11925fae5aeb45e6d929c6b2508cb57b7 100644
@@ -200,7 +186,3 @@ index 0000000000000000000000000000000000000000..95d0a3061be55340cf02387eacef3ad9
 +#define PS4_BUZZER_PAYLOAD_LEN	1
 +
 +#endif /* _PS4_BUZZER_H */
-
---------------false--
-
-

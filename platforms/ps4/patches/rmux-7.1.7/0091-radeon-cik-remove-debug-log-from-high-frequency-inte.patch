@@ -2,23 +2,10 @@ From ae3933b0d6829c51fcb6938128bb4e22792be54e Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 6 May 2026 12:58:57 +0200
 Subject: [PATCH] radeon: cik: remove debug log from high-frequency interrupt
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/radeon/cik.c | 1 -
  1 file changed, 1 deletion(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0091-radeon-cik-remove-debug-log-from-high-frequency-inte.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0091-radeon-cik-remove-debug-log-from-high-frequency-inte.patch"
 
 diff --git a/drivers/gpu/drm/radeon/cik.c b/drivers/gpu/drm/radeon/cik.c
 index 2b87eb4a0d3a9424734a1f76bf32d16956fa1537..44b83a5960f4948ee33c3718d29228ca568c30a0 100644
@@ -32,7 +19,3 @@ index 2b87eb4a0d3a9424734a1f76bf32d16956fa1537..44b83a5960f4948ee33c3718d29228ca
  			radeon_fence_process(rdev, RADEON_RING_TYPE_GFX_INDEX);
  			break;
  		case 181: /* CP EOP event */
-
---------------false--
-
-

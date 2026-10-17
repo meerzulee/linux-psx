@@ -2,14 +2,6 @@ From ccc45d224d7c3a540bb00233ce14af7c8e8867bd Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 26 Apr 2026 10:25:49 +0200
 Subject: [PATCH] ps4: retrain DP after Belize bridge enable
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Belize systems use the Panasonic MN864729 DP-to-HDMI bridge. Logs show
 that AUX DDC and EDID can work while the first AMD DP link training pass
@@ -27,12 +19,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 50 +++++++++++++++++++++++--
  1 file changed, 46 insertions(+), 4 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0079-ps4-retrain-DP-after-Belize-bridge-enable.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0079-ps4-retrain-DP-after-Belize-bridge-enable.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 683c77d51a905ffc9dc07d11ef6f9fadb4a87d7a..1055b6bbefde98f9ed88132d53ff8871e51fb3e4 100644
@@ -136,7 +122,3 @@ index 683c77d51a905ffc9dc07d11ef6f9fadb4a87d7a..1055b6bbefde98f9ed88132d53ff8871
  
  out:
  	mutex_lock(&mn_bridge->mutex);
-
---------------false--
-
-

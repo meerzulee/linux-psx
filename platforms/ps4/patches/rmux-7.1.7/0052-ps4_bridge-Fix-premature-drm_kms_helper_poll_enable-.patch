@@ -2,14 +2,6 @@ From fa4dc08f5d79c5ea90b370d929ef6990986ad250 Mon Sep 17 00:00:00 2001
 From: rmxunet <armandas.kvietkus@proton.me>
 Date: Sat, 28 Mar 2026 14:33:01 +0100
 Subject: [PATCH] ps4_bridge: Fix premature drm_kms_helper_poll_enable() call
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 ps4_bridge_register() is called before drm_kms_helper_poll_init(),
 so poll_enabled is still false at that point, triggering a WARN_ON
@@ -25,12 +17,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 2 --
  drivers/gpu/drm/radeon/ps4_bridge.c     | 2 --
  2 files changed, 4 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0052-ps4_bridge-Fix-premature-drm_kms_helper_poll_enable-.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0052-ps4_bridge-Fix-premature-drm_kms_helper_poll_enable-.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 2511f6c05fb3db8dcd913b635e9013a02ff51f39..6483789b48e3807da69ed932b6baeb632bb03af0 100644
@@ -56,7 +42,3 @@ index e5d15dc5c209bcb7d1ad7115313f04f3e05f3667..751a01ad41c1905faa4a9039734e90f6
 -
  	return 0;
  }
-
---------------false--
-
-

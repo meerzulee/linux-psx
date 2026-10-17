@@ -2,23 +2,10 @@ From d3bb7cf7a93d5d012ac9bd51b001d53081e1c822 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Mon, 13 Apr 2026 22:27:11 +0200
 Subject: [PATCH] sched/bore: tune burst parameters for PS4/Jaguar
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  kernel/sched/bore.c | 12 +++++-------
  1 file changed, 5 insertions(+), 7 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0061-sched-bore-tune-burst-parameters-for-PS4-Jaguar.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0061-sched-bore-tune-burst-parameters-for-PS4-Jaguar.patch"
 
 diff --git a/kernel/sched/bore.c b/kernel/sched/bore.c
 index 6060e7746b6e0f9d561002d53966bbbcb1b1ef4d..6b02349b125cead5b004e7902d6a3c844a15e8d7 100644
@@ -45,7 +32,3 @@ index 6060e7746b6e0f9d561002d53966bbbcb1b1ef4d..6b02349b125cead5b004e7902d6a3c84
  static u32 __read_mostly scaled_tolerance;
  static int __maybe_unused maxval_prio    =   39;
  static int __maybe_unused maxval_6_bits  =   63;
-
---------------false--
-
-

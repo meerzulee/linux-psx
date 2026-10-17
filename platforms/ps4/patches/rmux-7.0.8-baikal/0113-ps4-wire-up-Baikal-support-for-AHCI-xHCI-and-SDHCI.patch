@@ -2,13 +2,6 @@ From a827d7936c44e672138f269297965817f2e2a8f4 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 10 May 2026 20:02:51 +0200
 Subject: [PATCH] ps4: wire up Baikal support for AHCI, xHCI, and SDHCI
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/ata/ahci.c                |  77 +++++++++++++-
@@ -16,12 +9,6 @@ Content-Transfer-Encoding: 8bit
  drivers/mmc/host/sdhci-pci-core.c |  29 ++++-
  drivers/usb/host/xhci-aeolia.c    | 171 +++++++++++++++++++-----------
  4 files changed, 219 insertions(+), 67 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0113-ps4-wire-up-Baikal-support-for-AHCI-xHCI-and-SDHCI.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0113-ps4-wire-up-Baikal-support-for-AHCI-xHCI-and-SDHCI.patch"
 
 diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
 index a72e4fd1581e7e1abea19cde43af4cc5b8d82953..f8610b861f5cab3e316be553829b52128478c9fd 100644
@@ -569,7 +556,3 @@ index a72fe1134ae85d4d44247daead8329b3ccde4c62..4540326f1ce2472df98bd0eddc881999
  		if (retval < 0)
  			return retval;
  	}
-
---------------false--
-
-

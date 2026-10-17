@@ -2,14 +2,6 @@ From 4216b4707c5482fe953c625e1301315c96e5a2a1 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sun, 26 Apr 2026 12:48:37 +0200
 Subject: [PATCH] ps4: retry Belize bridge enable attempts
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Belize systems can still miss HDMI output on the first boot modeset even
 when DPCD, AUX DDC, and EDID work. Manual TTY switches or display-manager
@@ -29,12 +21,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 271 +++++++++++++-----------
  1 file changed, 153 insertions(+), 118 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0079-ps4-retry-Belize-bridge-enable-attempts.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0079-ps4-retry-Belize-bridge-enable-attempts.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index 0e6fa91be32fe321a5938bb54eaaa338b095d948..8e34685f950cdf4dff98cdbb9da3cea81ae8de58 100644
@@ -355,7 +341,3 @@ index 0e6fa91be32fe321a5938bb54eaaa338b095d948..8e34685f950cdf4dff98cdbb9da3cea8
  	}
  
  out:
-
---------------false--
-
-

@@ -3,25 +3,11 @@ From: crashniels <39709384+crashniels@users.noreply.github.com>
 Date: Thu, 30 Jan 2025 17:31:45 +0100
 Subject: [PATCH] Revert "x86/ioapic: Don't return 0 from
  arch_dynirq_lower_bound()"
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 This reverts commit 5af507bef93c09a94fb8f058213b489178f4cbe5.
 ---
  arch/x86/kernel/apic/io_apic.c | 14 +++++---------
  1 file changed, 5 insertions(+), 9 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0012-Revert-x86-ioapic-Don-t-return-0-from-arch_dynirq_lo.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0012-Revert-x86-ioapic-Don-t-return-0-from-arch_dynirq_lo.patch"
 
 diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
 index 352ed5558cbc0b11c42c0ccc863be867728938ab..1fd199ec39a1407ad1c0c9aa7e7c283f6733ab49 100644
@@ -54,7 +40,3 @@ index 352ed5558cbc0b11c42c0ccc863be867728938ab..1fd199ec39a1407ad1c0c9aa7e7c283f
  }
  
  #ifdef CONFIG_X86_32
-
---------------false--
-
-

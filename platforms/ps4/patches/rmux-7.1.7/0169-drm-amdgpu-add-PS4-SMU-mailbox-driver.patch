@@ -2,13 +2,6 @@ From d533149b8ed228bfd1c5a439618e7d1dc510928b Mon Sep 17 00:00:00 2001
 From: rmux <armandas.kvietkus@proton.me>
 Date: Tue, 18 Aug 2026 18:14:41 +0200
 Subject: [PATCH] drm/amdgpu: add PS4 SMU mailbox driver
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/Makefile        |   1 +
@@ -19,12 +12,6 @@ Content-Transfer-Encoding: 8bit
  5 files changed, 280 insertions(+)
  create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_smu.c
  create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_smu.h
-
-
---------------false
-Content-Type: text/x-patch; name="0169-drm-amdgpu-add-PS4-SMU-mailbox-driver.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0169-drm-amdgpu-add-PS4-SMU-mailbox-driver.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
 index 4261d043a6829430b5818323d65c57a37326fa55..98c40445e4fbe60c89a3108cf4a4a7f6f5370018 100644
@@ -358,7 +345,3 @@ index aa3f427819a097dd0e3c6875ad8cd8ee27203a09..1b20f1408631d0ba9e3992846ebac6cf
  
  	bool			pp_force_state_enabled;
  
-
---------------false--
-
-

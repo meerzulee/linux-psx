@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Wed, 1 Jul 2026 00:31:08 +0200
 Subject: [PATCH] mmc: sdhci-pci: enable PS4 Baikal SDHCI quirk entry, was
  commented out
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/mmc/host/sdhci-pci-core.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0113-mmc-sdhci-pci-enable-PS4-Baikal-SDHCI-quirk-entry-wa.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0113-mmc-sdhci-pci-enable-PS4-Baikal-SDHCI-quirk-entry-wa.patch"
 
 diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
 index 691255dc172ca2f5a5dcf01196370aa84102f63e..9828e73d242c589af3d4925e6103bf04a2137cfd 100644
@@ -45,7 +32,3 @@ index 691255dc172ca2f5a5dcf01196370aa84102f63e..9828e73d242c589af3d4925e6103bf04
  	#endif
  	SDHCI_PCI_DEVICE(GLI, 9750, gl9750),
  	SDHCI_PCI_DEVICE(GLI, 9755, gl9755),
-
---------------false--
-
-

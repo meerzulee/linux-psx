@@ -2,13 +2,6 @@ From ad61075172f1d246a15108edae535f2bc0e9b7d7 Mon Sep 17 00:00:00 2001
 From: Comfy702 <minecraftbarham123@gmail.com>
 Date: Sun, 31 May 2026 20:36:26 +0300
 Subject: [PATCH] Fixed bluetooth code for Baikal
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/bluetooth/btmtksdio.c    |  4 +-
@@ -16,12 +9,6 @@ Content-Transfer-Encoding: 8bit
  net/bluetooth/hci_event.c        |  5 --
  net/bluetooth/hci_sync.c         | 86 +++++++++++++++-----------------
  4 files changed, 45 insertions(+), 55 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0124-Fixed-bluetooth-code-for-Baikal.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0124-Fixed-bluetooth-code-for-Baikal.patch"
 
 diff --git a/drivers/bluetooth/btmtksdio.c b/drivers/bluetooth/btmtksdio.c
 index e986e5af51ae1250e9a0151f91ebf5070b94c4bd..7680fd15ac00d6e8c77aee990eddf4e91ace19f7 100644
@@ -269,7 +256,3 @@ index 919ec275dd237d301b13734d2c2b5d8486df933b..3c4219c870c8b59da7059f5e61524c56
  			*own_addr_type = ADDR_LE_DEV_RANDOM_RESOLVED;
  		else
  			*own_addr_type = ADDR_LE_DEV_RANDOM;
-
---------------false--
-
-

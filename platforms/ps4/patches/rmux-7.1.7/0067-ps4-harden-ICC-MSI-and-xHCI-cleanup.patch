@@ -2,14 +2,6 @@ From 2e12b464c9e086a9c51b004555d2c07b1175ccc5 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 25 Apr 2026 13:04:02 +0200
 Subject: [PATCH] ps4: harden ICC, MSI and xHCI cleanup
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Fix the ICC mutex leak and tighten ICC ioctl bounds handling.
 
@@ -22,12 +14,6 @@ Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
  drivers/ps4/ps4-apcie.c        |  31 ++++++++--
  drivers/usb/host/xhci-aeolia.c |  24 ++++----
  4 files changed, 113 insertions(+), 53 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0067-ps4-harden-ICC-MSI-and-xHCI-cleanup.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0067-ps4-harden-ICC-MSI-and-xHCI-cleanup.patch"
 
 diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
 index 7840aec71f28b95bb88fc64913ebecfc00986eb4..db386ace94344867b9f965648c89226643d81df2 100644
@@ -352,7 +338,3 @@ index 0b048ca119ad13cfae1ec9e4d835defd60310482..a47dcfdacf45bfed3474a102f8a6058b
  	kfree(axhci);
  
  	pci_disable_device(dev);
-
---------------false--
-
-

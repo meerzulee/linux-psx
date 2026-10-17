@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 18 Jul 2026 12:50:02 +0000
 Subject: [PATCH] amdgpu: ps4_bridge: log EDID source, size and probed modes at
  info level
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 30 ++++++++++++++++++++-----
  1 file changed, 25 insertions(+), 5 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0147-amdgpu-ps4_bridge-log-EDID-source-size-and-probed-mo.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0147-amdgpu-ps4_bridge-log-EDID-source-size-and-probed-mo.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
 index d5a2a10c3ae5942641e4eeea2cc0593295cd2101..939dac9a62bc395e62e0cff0f0f6fd3f32d3dbaa 100644
@@ -106,7 +93,3 @@ index d5a2a10c3ae5942641e4eeea2cc0593295cd2101..939dac9a62bc395e62e0cff0f0f6fd3f
  
  fallback_modes:
  	newmode = drm_mode_duplicate(dev, &mode_1080p);
-
---------------false--
-
-

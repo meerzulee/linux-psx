@@ -3,23 +3,10 @@ From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Thu, 2 Jul 2026 11:48:50 +0000
 Subject: [PATCH] drm/amdgpu: restore CHIP_LIVERPOOL and CHIP_GLADIUS in device
  init paths
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 6 ++++++
  1 file changed, 6 insertions(+)
-
-
---------------false
-Content-Type: text/x-patch; name="0129-drm-amdgpu-restore-CHIP_LIVERPOOL-and-CHIP_GLADIUS-i.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0129-drm-amdgpu-restore-CHIP_LIVERPOOL-and-CHIP_GLADIUS-i.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
 index eceaff3c4f4f32bfb3029438774d49a11634ae21..0622450266815bd7dbbed25cc7210205940ce855 100644
@@ -52,7 +39,3 @@ index eceaff3c4f4f32bfb3029438774d49a11634ae21..0622450266815bd7dbbed25cc7210205
  #endif
  	case CHIP_TONGA:
  	case CHIP_FIJI:
-
---------------false--
-
-

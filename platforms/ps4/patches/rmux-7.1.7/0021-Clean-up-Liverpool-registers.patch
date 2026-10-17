@@ -2,23 +2,10 @@ From eb8cbc645e1140235420b368727adc7cec3e09d2 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Sun, 22 Jun 2025 22:54:56 +0200
 Subject: [PATCH] Clean up Liverpool registers
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  drivers/gpu/drm/amd/amdgpu/cik.c | 90 +++++++++++++++-----------------
  1 file changed, 42 insertions(+), 48 deletions(-)
-
-
---------------false
-Content-Type: text/x-patch; name="0021-Clean-up-Liverpool-registers.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0021-Clean-up-Liverpool-registers.patch"
 
 diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
 index 4c57dea05675576433233cc32027ea0b92d9aa4d..fb5dee9dca09a7e3ba3359e17e55e1dfaef7c145 100644
@@ -164,7 +151,3 @@ index 4c57dea05675576433233cc32027ea0b92d9aa4d..fb5dee9dca09a7e3ba3359e17e55e1df
  		break;
  	case CHIP_GLADIUS:
  		amdgpu_device_program_register_sequence(adev,
-
---------------false--
-
-

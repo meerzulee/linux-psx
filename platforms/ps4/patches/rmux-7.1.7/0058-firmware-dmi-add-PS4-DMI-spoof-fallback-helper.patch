@@ -2,14 +2,6 @@ From c97042b6df9ca127918d22c83bc12f2b2da42019 Mon Sep 17 00:00:00 2001
 From: rmuxnet <armandas.kvietkus@proton.me>
 Date: Sat, 11 Apr 2026 03:17:38 +0200
 Subject: [PATCH] firmware: dmi: add PS4 DMI spoof fallback helper
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
-
 
 Add a PlayStation 4-specific DMI fallback helper for systems where
 SMBIOS is present but DMI strings are blank or malformed.
@@ -31,12 +23,6 @@ Signed-off-by: Your Name <armandas.kvietkus@proton.me>
  5 files changed, 101 insertions(+)
  create mode 100644 drivers/firmware/ps4-dmi.c
  create mode 100644 drivers/firmware/ps4-dmi.h
-
-
---------------false
-Content-Type: text/x-patch; name="0058-firmware-dmi-add-PS4-DMI-spoof-fallback-helper.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0058-firmware-dmi-add-PS4-DMI-spoof-fallback-helper.patch"
 
 diff --git a/drivers/firmware/Kconfig b/drivers/firmware/Kconfig
 index bbd2155d8483860f2287f021ae60f6392be035d1..e7de4e553bc687161819fbae461982c36ec1036f 100644
@@ -191,7 +177,3 @@ index 0000000000000000000000000000000000000000..5336485fabc6889cf94333f1e08dde4d
 +#endif
 +
 +#endif /* _DRIVERS_FIRMWARE_PS4_DMI_H */
-
---------------false--
-
-

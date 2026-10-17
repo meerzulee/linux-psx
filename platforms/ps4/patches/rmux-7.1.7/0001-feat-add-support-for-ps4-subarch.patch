@@ -2,13 +2,6 @@ From bc0482574622a90ecb8110aed36f1a2f7d2e6117 Mon Sep 17 00:00:00 2001
 From: "Niels Westphal (crashniels)" <nielswest@live.de>
 Date: Fri, 4 Jul 2025 20:06:48 +0200
 Subject: [PATCH] feat: add support for ps4 subarch
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="------------false"
-
-This is a multi-part message in MIME format.
---------------false
-Content-Type: text/plain; charset=UTF-8; format=fixed
-Content-Transfer-Encoding: 8bit
 
 ---
  arch/x86/Kconfig                      |  10 ++-
@@ -29,12 +22,6 @@ Content-Transfer-Encoding: 8bit
  create mode 100644 arch/x86/platform/ps4/Makefile
  create mode 100644 arch/x86/platform/ps4/calibrate.c
  create mode 100644 arch/x86/platform/ps4/ps4.c
-
-
---------------false
-Content-Type: text/x-patch; name="0001-feat-add-support-for-ps4-subarch.patch"
-Content-Transfer-Encoding: 8bit
-Content-Disposition: attachment; filename="0001-feat-add-support-for-ps4-subarch.patch"
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
 index f3f7cb01d69d022538d283f6c7049ba8bd4c3792..41baabcb942d279c3bafde1f3128fa826c064894 100644
@@ -484,7 +471,3 @@ index 1c9d40e09107dc1ac64f61c44ef5001defa89f9e..514cc35c34fc6ddaf9f5d111c9053e96
  
  /* Winbond have two vendor IDs! See 0x10ad as well */
  #define PCI_VENDOR_ID_WINBOND2		0x1050
-
---------------false--
-
-
