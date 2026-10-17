@@ -296,9 +296,10 @@ rollback.
 
 ### Official builds
 
-On 2026-10-17 `build.sh -t 7.2-ps4-baikal` passed on both supported paths.
-Every series entry applied with `git apply`, and both runs recorded the series
-and patch-set hashes in the provenance (`e1dfa3388176…`, `05fee65c046f…`):
+On 2026-10-17 `build.sh -t 7.2-ps4-baikal` passed on both supported paths
+with the 61-entry series, proc write fix included. Every entry applied with
+`git apply`, and both runs recorded the series and patch-set hashes in the
+provenance (`4ac75f4e898e…`, `99eb341e71a6…`):
 
 | Host | Compiler | Result |
 | --- | --- | --- |
