@@ -1,0 +1,73 @@
+From cf5f9ef49e523e2fad9b9259c6250310b333351a Mon Sep 17 00:00:00 2001
+From: crashniels <39709384+crashniels@users.noreply.github.com>
+Date: Thu, 30 Jan 2025 17:41:38 +0100
+Subject: [PATCH] Revert "drm/bridge: Drop drm_bridge_chain_mode_fixup"
+
+This reverts commit 1f020495458396766496ee067130f507a4d718e4.
+---
+ drivers/gpu/drm/drm_bridge.c | 37 ++++++++++++++++++++++++++++++++++++
+ include/drm/drm_bridge.h     |  3 +++
+ 2 files changed, 40 insertions(+)
+
+diff --git a/drivers/gpu/drm/drm_bridge.c b/drivers/gpu/drm/drm_bridge.c
+index 1d02b870107a139c732eae5b7a94307fa0150996..891a678c5a1480231ef0f3866af174e5daf09a80 100644
+--- a/drivers/gpu/drm/drm_bridge.c
++++ b/drivers/gpu/drm/drm_bridge.c
+@@ -684,6 +684,43 @@ void drm_bridge_detach(struct drm_bridge *bridge)
+  *   needed, in order to gradually transition to the new model.
+  */
+ 
++/**
++ * drm_bridge_chain_mode_fixup - fixup proposed mode for all bridges in the
++ *				 encoder chain
++ * @bridge: bridge control structure
++ * @mode: desired mode to be set for the bridge
++ * @adjusted_mode: updated mode that works for this bridge
++ *
++ * Calls &drm_bridge_funcs.mode_fixup for all the bridges in the
++ * encoder chain, starting from the first bridge to the last.
++ *
++ * Note: the bridge passed should be the one closest to the encoder
++ *
++ * RETURNS:
++ * true on success, false on failure
++ */
++bool drm_bridge_chain_mode_fixup(struct drm_bridge *bridge,
++				 const struct drm_display_mode *mode,
++				 struct drm_display_mode *adjusted_mode)
++{
++	struct drm_encoder *encoder;
++
++	if (!bridge)
++		return true;
++
++	encoder = bridge->encoder;
++	list_for_each_entry_from(bridge, &encoder->bridge_chain, chain_node) {
++		if (!bridge->funcs->mode_fixup)
++			continue;
++
++		if (!bridge->funcs->mode_fixup(bridge, mode, adjusted_mode))
++			return false;
++	}
++
++	return true;
++}
++EXPORT_SYMBOL(drm_bridge_chain_mode_fixup);
++
+ /**
+  * drm_bridge_chain_mode_valid - validate the mode against all bridges in the
+  *				 encoder chain.
+diff --git a/include/drm/drm_bridge.h b/include/drm/drm_bridge.h
+index 5c28cb64e8cf6802638be933d14419d90392d3bd..74c113e4ed868eb4731a7d34cbba7c07fe0147ce 100644
+--- a/include/drm/drm_bridge.h
++++ b/include/drm/drm_bridge.h
+@@ -1536,6 +1536,9 @@ drm_bridge_get_next_bridge_and_put(struct drm_bridge *bridge)
+ 	     bridge;							\
+ 	     bridge = drm_bridge_get_next_bridge_and_put(bridge))
+ 
++bool drm_bridge_chain_mode_fixup(struct drm_bridge *bridge,
++				 const struct drm_display_mode *mode,
++				 struct drm_display_mode *adjusted_mode);
+ enum drm_mode_status
+ drm_bridge_chain_mode_valid(struct drm_bridge *bridge,
+ 			    const struct drm_display_info *info,

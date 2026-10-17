@@ -1,0 +1,59 @@
+From 73b787202142eb6234d2c3885fcb9c6b8a628f19 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 14:35:26 +0200
+Subject: [PATCH] ps4: default bridge modes to 60 Hz
+
+The PS4 bridge driver advertised a hardcoded 1920x1080@120 mode by
+default. Existing comments note that this can make display managers or
+GUIs select a 120 Hz mode on sinks that do not handle it correctly,
+leading to black screen.
+
+Keep the default bridge mode list conservative by advertising 1080p60 as
+the preferred mode and 720p60 as a fallback, while still accepting
+valid 1080p120 modes when explicitly requested.
+
+The bridge register sequences, EDID/DDC handling, retrain logic, and
+enable state handling are unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 74ec588538591ce9b6eb6ae79defbfef95f17aa8..9fff44d3acf1155f18e448c2596730929201830d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -1032,7 +1032,7 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		amdgpu_connector->edid = drm_edid_duplicate(raw_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
+-		newmode = drm_mode_duplicate(dev, &mode_1080p120);
++		newmode = drm_mode_duplicate(dev, &mode_1080p);
+ 		if (newmode) {
+ 			drm_mode_probed_add(connector, newmode);
+ 			count++;
+@@ -1052,7 +1052,7 @@ fallback_modes:
+ 		count++;
+ 	}
+ 
+-	newmode = drm_mode_duplicate(dev, &mode_1080p120);
++	newmode = drm_mode_duplicate(dev, &mode_720p);
+ 	if (newmode) {
+ 		drm_mode_probed_add(connector, newmode);
+ 		count++;
+@@ -1133,13 +1133,8 @@ enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
+ {
+ 	int vic = drm_match_cea_mode(mode);
+ 
+-	/* Allow anything that we can match up to a VIC (CEA modes) */
++	/* Keep 60 Hz defaults conservative without forbidding valid 120 Hz VICs. */
+ 	if (!vic || (vic != 16 && vic != 4 && vic != 63)) {
+-	// Might need to disable 63 (1920x1080-120Hz)
+-
+-	/*
+-	if (!vic || (vic != 16 && vic != 4)) {
+-	*/
+ 		return MODE_BAD;
+ 	}
+ 	return MODE_OK;

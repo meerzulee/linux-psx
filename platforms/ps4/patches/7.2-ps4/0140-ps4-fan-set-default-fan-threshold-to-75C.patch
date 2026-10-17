@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 15 Jul 2026 17:02:47 +0200
+Subject: [PATCH] ps4-fan: set default fan threshold to 75C
+
+---
+ drivers/ps4/ps4-fan.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+index d57f949eeb1b0717e23e4ec13d420a806c1f6e1e..267c201210f4f47263ef57cd1a4efbabd0194453 100644
+--- a/drivers/ps4/ps4-fan.h
++++ b/drivers/ps4/ps4-fan.h
+@@ -28,7 +28,7 @@
+ 
+ #define PS4_FAN_THRESH_MIN_C            20
+ #define PS4_FAN_THRESH_MAX_C            85
+-#define PS4_FAN_THRESH_DEFAULT_C        65
++#define PS4_FAN_THRESH_DEFAULT_C        75
+ 
+ #define PS4_FAN_THRESH_MIN_MC           ((long)(PS4_FAN_THRESH_MIN_C) * 1000L)
+ #define PS4_FAN_THRESH_MAX_MC           ((long)(PS4_FAN_THRESH_MAX_C) * 1000L)

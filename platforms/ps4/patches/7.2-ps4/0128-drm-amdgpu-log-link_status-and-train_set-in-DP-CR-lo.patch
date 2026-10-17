@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 3 Jul 2026 10:17:42 +0000
+Subject: [PATCH] drm/amdgpu: log link_status and train_set in DP CR loop
+
+---
+ drivers/gpu/drm/amd/amdgpu/atombios_dp.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+index 518707bc9cbdbcf3c62c57fcf989bbcb5e0e9770..685309ca50cf15dba3290c44979691e29aa5634d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
++++ b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+@@ -635,6 +635,7 @@ amdgpu_atombios_dp_link_train_cr(struct amdgpu_atombios_dp_link_train_info *dp_i
+ 			DRM_ERROR("displayport link status failed\n");
+ 			break;
+ 		}
++		DRM_DEBUG_KMS("dp cr: link_status raw=%6ph\n", dp_info->link_status);
+ 
+ 		if (drm_dp_clock_recovery_ok(dp_info->link_status, dp_info->dp_lane_count)) {
+ 			clock_recovery = true;
+@@ -664,6 +665,7 @@ amdgpu_atombios_dp_link_train_cr(struct amdgpu_atombios_dp_link_train_info *dp_i
+ 		/* Compute new train_set as requested by sink */
+ 		amdgpu_atombios_dp_get_adjust_train(dp_info->link_status, dp_info->dp_lane_count,
+ 					     dp_info->train_set);
++		DRM_DEBUG_KMS("dp cr: train_set=%4ph\n", dp_info->train_set);
+ 
+ 		amdgpu_atombios_dp_update_vs_emph(dp_info);
+ 	}

@@ -1,0 +1,144 @@
+From bb4080d6080e5fa5fd10a016b43ec203372a8e15 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 20:10:12 +0200
+Subject: [PATCH] feat: SDHCI support
+
+---
+ drivers/mmc/host/sdhci-pci-core.c | 67 +++++++++++++++++++++++++++++++
+ drivers/mmc/host/sdhci-pci.h      |  2 +
+ 2 files changed, 69 insertions(+)
+
+diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
+index c347fac24515ac603533864734893ffa03a1e673..03f3b9a5cb1f157c83d8f43097ee3b83a2d2ecb1 100644
+--- a/drivers/mmc/host/sdhci-pci-core.c
++++ b/drivers/mmc/host/sdhci-pci-core.c
+@@ -37,6 +37,10 @@
+ 
+ #include "cqhci.h"
+ 
++#ifdef CONFIG_X86_PS4
++#include <asm/ps4.h>
++#endif
++
+ #include "sdhci.h"
+ #include "sdhci-cqhci.h"
+ #include "sdhci-pci.h"
+@@ -325,6 +329,54 @@ static const struct sdhci_pci_fixes sdhci_intel_qrk = {
+ 	.quirks		= SDHCI_QUIRK_NO_HISPD_BIT,
+ };
+ 
++#ifdef CONFIG_X86_PS4
++static int aeolia_probe(struct sdhci_pci_chip *chip)
++{
++	chip->num_slots = 1;
++	chip->first_bar = 0;
++	if (apcie_status() == 0)
++		return -EPROBE_DEFER;
++
++	chip->pdev->class &= ~0x0000FF;
++	chip->pdev->class |= PCI_SDHCI_IFDMA;
++	return 0;
++}
++
++static int aeolia_probe_slot(struct sdhci_pci_slot *slot)
++{
++	int err = apcie_assign_irqs(slot->chip->pdev, 1);
++	if (err <= 0) {
++		dev_err(&slot->chip->pdev->dev, "failed to get IRQ: %d\n", err);
++		return -ENODEV;
++	}
++	slot->host->irq = slot->chip->pdev->irq;
++	return 0;
++}
++
++static void aeolia_remove_slot(struct sdhci_pci_slot *slot, int dead)
++{
++	apcie_free_irqs(slot->chip->pdev->irq, 1);
++}
++
++static int aeolia_enable_dma(struct sdhci_pci_slot *slot)
++{
++	if (dma_set_mask(&slot->chip->pdev->dev, DMA_BIT_MASK(31))) {
++		return -EINVAL;
++	}
++	if (dma_set_mask_and_coherent(&slot->chip->pdev->dev, DMA_BIT_MASK(31))) {
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static const struct sdhci_pci_fixes sdhci_aeolia = {
++	.probe		= aeolia_probe,
++	.probe_slot	= aeolia_probe_slot,
++	.remove_slot	= aeolia_remove_slot,
++	.enable_dma	= aeolia_enable_dma,
++};
++#endif
++
+ static int mrst_hc_probe_slot(struct sdhci_pci_slot *slot)
+ {
+ 	slot->host->mmc->caps |= MMC_CAP_8_BIT_DATA;
+@@ -1955,6 +2007,12 @@ static const struct pci_device_id pci_ids[] = {
+ 	SDHCI_PCI_DEVICE(O2, GG8_9863, o2),
+ 	SDHCI_PCI_DEVICE(ARASAN, PHY_EMMC, arasan),
+ 	SDHCI_PCI_DEVICE(SYNOPSYS, DWC_MSHC, snps),
++	#ifdef CONFIG_X86_PS4
++	SDHCI_PCI_DEVICE(SONY, AEOLIA_SDHCI, aeolia),
++	SDHCI_PCI_DEVICE(SONY, BELIZE_SDHCI, aeolia),
++	// TODO (ps4patches): What is this doing in comments?
++	//SDHCI_PCI_DEVICE(SONY, BAIKAL_SDHCI, aeolia),
++	#endif
+ 	SDHCI_PCI_DEVICE(GLI, 9750, gl9750),
+ 	SDHCI_PCI_DEVICE(GLI, 9755, gl9755),
+ 	SDHCI_PCI_DEVICE(GLI, 9763E, gl9763e),
+@@ -1990,6 +2048,10 @@ int sdhci_pci_enable_dma(struct sdhci_host *host)
+ 
+ 	pci_set_master(pdev);
+ 
++	if (slot->chip->fixes && slot->chip->fixes->enable_dma) {
++		return slot->chip->fixes->enable_dma(slot);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -2341,6 +2403,7 @@ static int sdhci_pci_probe(struct pci_dev *pdev,
+ 		chip->allow_runtime_pm = chip->fixes->allow_runtime_pm;
+ 	}
+ 	chip->num_slots = slots;
++	chip->first_bar = first_bar;
+ 	chip->pm_retune = true;
+ 	chip->rpm_retune = true;
+ 
+@@ -2355,7 +2418,11 @@ static int sdhci_pci_probe(struct pci_dev *pdev,
+ 	slots = chip->num_slots;	/* Quirk may have changed this */
+ 
+ 	for (i = 0; i < slots; i++) {
++		#ifdef CONFIG_X86_PS4
++		slot = sdhci_pci_probe_slot(pdev, chip, chip->first_bar, i);
++		#else
+ 		slot = sdhci_pci_probe_slot(pdev, chip, first_bar, i);
++		#endif
+ 		if (IS_ERR(slot)) {
+ 			for (i--; i >= 0; i--)
+ 				sdhci_pci_remove_slot(chip->slots[i]);
+diff --git a/drivers/mmc/host/sdhci-pci.h b/drivers/mmc/host/sdhci-pci.h
+index f38f0bd4165c35799fc339a63bcf0571b76b91ce..5acb44ce9013c7780327fa79ba669f387aeb4f76 100644
+--- a/drivers/mmc/host/sdhci-pci.h
++++ b/drivers/mmc/host/sdhci-pci.h
+@@ -146,6 +146,7 @@ struct sdhci_pci_fixes {
+ 	int			(*add_host) (struct sdhci_pci_slot *);
+ 	void			(*remove_slot) (struct sdhci_pci_slot *, int);
+ 	void			(*remove_host) (struct sdhci_pci_slot *, int);
++	int			(*enable_dma) (struct sdhci_pci_slot *);
+ 
+ #ifdef CONFIG_PM_SLEEP
+ 	int			(*suspend) (struct sdhci_pci_chip *);
+@@ -183,6 +184,7 @@ struct sdhci_pci_chip {
+ 	const struct sdhci_pci_fixes *fixes;
+ 
+ 	int			num_slots;	/* Slots on controller */
++	int			first_bar;	/* First valid BAR */
+ 	struct sdhci_pci_slot	*slots[MAX_SLOTS]; /* Pointers to host slots */
+ };
+ 

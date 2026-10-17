@@ -1,0 +1,177 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 17 Jul 2026 19:10:26 +0000
+Subject: [PATCH] firmware: ps4-dmi: fix PS4 DMI fallback, hardcode PS4-only
+ values
+
+---
+ drivers/firmware/dmi_scan.c | 19 ++++++++--------
+ drivers/firmware/ps4-dmi.c  | 44 ++++++++++---------------------------
+ drivers/firmware/ps4-dmi.h  |  7 ------
+ 3 files changed, 20 insertions(+), 50 deletions(-)
+
+diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
+index c3f6749ec49696f763c17e255f21b802c2b5b39e..b0e887e3c4307fc3f5f74689bfe7d5c851b01e7d 100644
+--- a/drivers/firmware/dmi_scan.c
++++ b/drivers/firmware/dmi_scan.c
+@@ -704,7 +704,7 @@ static void __init dmi_scan_machine(void)
+ 
+ 			if (!dmi_smbios3_present(buf)) {
+ 				dmi_available = 1;
+-				return;
++				goto out;
+ 			}
+ 		}
+ 		if (efi.smbios == EFI_INVALID_TABLE_ADDR)
+@@ -722,7 +722,7 @@ static void __init dmi_scan_machine(void)
+ 
+ 		if (!dmi_present(buf)) {
+ 			dmi_available = 1;
+-			return;
++			goto out;
+ 		}
+ 	} else if (IS_ENABLED(CONFIG_DMI_SCAN_MACHINE_NON_EFI_FALLBACK)) {
+ 		p = dmi_early_remap(SMBIOS_ENTRY_POINT_SCAN_START, 0x10000);
+@@ -739,7 +739,7 @@ static void __init dmi_scan_machine(void)
+ 			if (!dmi_smbios3_present(buf)) {
+ 				dmi_available = 1;
+ 				dmi_early_unmap(p, 0x10000);
+-				return;
++				goto out;
+ 			}
+ 			memcpy(buf, buf + 16, 16);
+ 		}
+@@ -757,7 +757,7 @@ static void __init dmi_scan_machine(void)
+ 			if (!dmi_present(buf)) {
+ 				dmi_available = 1;
+ 				dmi_early_unmap(p, 0x10000);
+-				return;
++				goto out;
+ 			}
+ 			memcpy(buf, buf + 16, 16);
+ 		}
+@@ -766,14 +766,13 @@ static void __init dmi_scan_machine(void)
+  error:
+ 	pr_info("not present or invalid.\n");
+ 
++ out:
+ #ifdef CONFIG_PS4_DMI_SPOOF
+-	if (ps4_dmi_is_ps4()) {
+-		dmi_available = 1;
+-		ps4_dmi_populate(dmi_ident);
+-		dmi_format_ids(dmi_ids_string, sizeof(dmi_ids_string));
+-		return;
+-	}
++	dmi_available = 1;
++	ps4_dmi_populate(dmi_ident);
++	dmi_format_ids(dmi_ids_string, sizeof(dmi_ids_string));
+ #endif
++	return;
+ }
+ 
+ static __ro_after_init BIN_ATTR_SIMPLE_ADMIN_RO(smbios_entry_point);
+diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
+index f92e1b52aa449a2c6807e182b0d530fc7dd832f5..17c82bc474127fd3935b8aab82cad555e7ba9734 100644
+--- a/drivers/firmware/ps4-dmi.c
++++ b/drivers/firmware/ps4-dmi.c
+@@ -1,67 +1,45 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ 
+-#include <linux/acpi.h>
+ #include <linux/dmi.h>
+ #include <linux/init.h>
+ #include <linux/printk.h>
+-#include <linux/string.h>
+ 
+ #include "ps4-dmi.h"
+ 
+-static bool detected_ps4 __initdata;
+-
+-static int __init ps4_fadt_probe(struct acpi_table_header *hdr)
+-{
+-	if (memcmp(hdr->oem_id, "SIE   ", ACPI_OEM_ID_SIZE) == 0)
+-		detected_ps4 = true;
+-
+-	return 0;
+-}
+-
+-bool __init ps4_dmi_is_ps4(void)
+-{
+-	detected_ps4 = false;
+-	acpi_table_parse(ACPI_SIG_FADT, ps4_fadt_probe);
+-
+-	return detected_ps4;
+-}
+-
+ static const char * const ps4_strings[DMI_STRING_MAX] = {
+-	[DMI_BIOS_VENDOR]           = "SIE",
++	[DMI_BIOS_VENDOR]           = "Sony Interactive Entertainment Inc.",
+ 	[DMI_BIOS_VERSION]          = "1.00",
+ 	[DMI_BIOS_DATE]             = "11/15/2013",
+ 	[DMI_BIOS_RELEASE]          = "1.0",
+ 	[DMI_EC_FIRMWARE_RELEASE]   = "1.0",
+ 
+-	[DMI_SYS_VENDOR]            = "Sony Interactive Entertainment",
++	[DMI_SYS_VENDOR]            = "Sony Interactive Entertainment Inc.",
+ 	[DMI_PRODUCT_NAME]          = "PlayStation 4",
+-	[DMI_PRODUCT_VERSION]       = "CUH-1000",
+-	[DMI_PRODUCT_SERIAL]        = "0000000000000000",
+-	[DMI_PRODUCT_UUID]          = "00000000-0000-0000-0000-000000000000",
++	[DMI_PRODUCT_VERSION]       = "CUH-1000A",
++	[DMI_PRODUCT_SERIAL]        = "STRWB3RRYWA5H3R3",
++	[DMI_PRODUCT_UUID]          = "DEADBEEF-CAFE-4B33-B00B-F00DBABE1234",
+ 	[DMI_PRODUCT_SKU]           = "CUH-1000AB01",
+ 	[DMI_PRODUCT_FAMILY]        = "PlayStation",
+ 
+-	[DMI_BOARD_VENDOR]          = "SCEI",
++	[DMI_BOARD_VENDOR]          = "Sony Interactive Entertainment Inc.",
+ 	[DMI_BOARD_NAME]            = "Belize",
+ 	[DMI_BOARD_VERSION]         = "rev1",
+ 	[DMI_BOARD_SERIAL]          = "0000000000000000",
+-	[DMI_BOARD_ASSET_TAG]       = "",
+ 
+-	[DMI_CHASSIS_VENDOR]        = "Sony",
++	[DMI_CHASSIS_VENDOR]        = "Sony Interactive Entertainment Inc.",
+ 	[DMI_CHASSIS_TYPE]          = "3",
+-	[DMI_CHASSIS_VERSION]       = "",
+-	[DMI_CHASSIS_SERIAL]        = "",
+-	[DMI_CHASSIS_ASSET_TAG]     = "",
++	[DMI_CHASSIS_VERSION]       = "rev1",
++	[DMI_CHASSIS_SERIAL]        = "0000000000000000",
+ };
+ 
+ void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
+ {
+ 	int i;
+ 
+-	pr_info("ps4_dmi: injecting generic PS4 fallback DMI strings\n");
++	pr_info("ps4_dmi: filling missing DMI fields with PS4 defaults\n");
+ 
+ 	for (i = 0; i < DMI_STRING_MAX; i++) {
+-		if (ps4_strings[i])
++		if (ps4_strings[i] && !ident[i])
+ 			ident[i] = ps4_strings[i];
+ 	}
+ }
+diff --git a/drivers/firmware/ps4-dmi.h b/drivers/firmware/ps4-dmi.h
+index 5336485fabc6889cf94333f1e08dde4db28e64e5..181b8f66b059d3e8d269fbd473792f31e46ba26c 100644
+--- a/drivers/firmware/ps4-dmi.h
++++ b/drivers/firmware/ps4-dmi.h
+@@ -4,17 +4,10 @@
+ 
+ #include <linux/dmi.h>
+ #include <linux/init.h>
+-#include <linux/types.h>
+ 
+ #ifdef CONFIG_PS4_DMI_SPOOF
+-bool __init ps4_dmi_is_ps4(void);
+ void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX]);
+ #else
+-static inline bool ps4_dmi_is_ps4(void)
+-{
+-	return false;
+-}
+-
+ static inline void ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
+ {
+ }

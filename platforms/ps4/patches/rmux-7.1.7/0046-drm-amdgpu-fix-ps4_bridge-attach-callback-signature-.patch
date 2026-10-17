@@ -1,0 +1,23 @@
+From fbc804210b632e1e8380f308b0dc65572d2e725d Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Sun, 15 Mar 2026 18:30:17 +0100
+Subject: [PATCH] drm/amdgpu: fix ps4_bridge attach callback signature for 6.18
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 925986f2bdb876d4a3bff2922306d2750c31f681..6d2a86c0b3a0a7f00bf1027ec01028428ff2b0f7 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -796,7 +796,8 @@ enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
+ }
+ 
+ static int ps4_bridge_attach(struct drm_bridge *bridge,
+-			     enum drm_bridge_attach_flags flags)
++							struct drm_encoder *encoder,
++			     			enum drm_bridge_attach_flags flags)
+ {
+ 	/* struct ps4_bridge *mn_bridge = bridge_to_ps4_bridge(bridge); */
+ 

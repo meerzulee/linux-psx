@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: M H <mircoho@gmail.com>
+Date: Sat, 21 Jun 2025 18:10:21 +0200
+Subject: [PATCH] Ethernet fix
+
+---
+ drivers/net/ethernet/marvell/sky2.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index d6c2c607186af174f7bf23759491938a28f05759..be6fcd55e48c31265f2d886511cb5c3d9e60220b 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -4727,7 +4727,11 @@ static struct net_device *sky2_init_netdev(struct sky2_hw *hw, unsigned port,
+ 
+ 	#ifdef CONFIG_X86_PS4
+ 	if (hw->pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		aeolia_get_mac_address(hw, dev->dev_addr);
++	{
++   	 	u8 addr[ETH_ALEN];
++   	 	aeolia_get_mac_address(hw, addr);
++   	 	eth_hw_addr_set(dev, addr);
++	}
+ 	} else
+ 	#endif
+ 	{

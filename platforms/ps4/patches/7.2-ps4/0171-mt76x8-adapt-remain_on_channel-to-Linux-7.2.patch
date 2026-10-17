@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 17:11:29 +0600
+Subject: [PATCH] mt76x8: adapt remain_on_channel to Linux 7.2
+
+Linux 7.2 commit 4dbd1829045e ("wifi: cfg80211: Add MAC address filter
+to remain_on_channel") added a const u8 *rx_addr argument to the
+remain_on_channel operation. cfg80211 passes a non-NULL address only to
+drivers that set NL80211_EXT_FEATURE_ROC_ADDR_FILTER. This driver does
+not, so accept and ignore the argument on 7.2 and later.
+---
+ .../drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c       | 11 +++++++++++
+ .../drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c   | 11 +++++++++++
+ .../MT6632/wlan/os/linux/include/gl_cfg80211.h        |  8 ++++++++
+ .../MT6632/wlan/os/linux/include/gl_p2p_ioctl.h       |  8 ++++++++
+ 4 files changed, 38 insertions(+)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c
+index a48d7879ddba27c46119d48ae1cce1dbe8d6923d..26ac89c11319477669b7e6f4c1521773c853a9ff 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_cfg80211.c
+@@ -1889,9 +1889,20 @@ void mtk_cfg80211_mgmt_frame_register(IN struct wiphy *wiphy,
+  *         others:  failure
+  */
+ /*----------------------------------------------------------------------------*/
++/* Linux 7.2 added an optional receive-address filter to remain_on_channel:
++ * https://github.com/torvalds/linux/commit/4dbd1829045ee4146ae16b0e1ad122d855a694cb
++ * cfg80211 passes it only to drivers that set NL80211_EXT_FEATURE_ROC_ADDR_FILTER,
++ * which this driver does not, so rx_addr is always NULL here. */
++#if KERNEL_VERSION(7, 2, 0) <= CFG80211_VERSION_CODE
++int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
++				   struct wireless_dev *wdev,
++				   struct ieee80211_channel *chan, unsigned int duration, u64 *cookie,
++				   const u8 *rx_addr)
++#else
+ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 				   struct wireless_dev *wdev,
+ 				   struct ieee80211_channel *chan, unsigned int duration, u64 *cookie)
++#endif
+ {
+ 	P_GLUE_INFO_T prGlueInfo = NULL;
+ 	INT_32 i4Rslt = -EINVAL;
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c
+index 1eb77848d9ffebf0d0415e60aeda17acc37848f9..66c236011dce4a8562b06bc26a005f16a7ce5926 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_cfg80211.c
+@@ -2108,9 +2108,20 @@ int mtk_p2p_cfg80211_disassoc(struct wiphy *wiphy, struct net_device *dev, struc
+ 	return -EINVAL;
+ }				/* mtk_p2p_cfg80211_disassoc */
+ 
++/* Linux 7.2 added an optional receive-address filter to remain_on_channel:
++ * https://github.com/torvalds/linux/commit/4dbd1829045ee4146ae16b0e1ad122d855a694cb
++ * cfg80211 passes it only to drivers that set NL80211_EXT_FEATURE_ROC_ADDR_FILTER,
++ * which this driver does not, so rx_addr is always NULL here. */
++#if KERNEL_VERSION(7, 2, 0) <= CFG80211_VERSION_CODE
++int mtk_p2p_cfg80211_remain_on_channel(struct wiphy *wiphy,
++				       struct wireless_dev *wdev,
++				       struct ieee80211_channel *chan, unsigned int duration, u64 *cookie,
++				       const u8 *rx_addr)
++#else
+ int mtk_p2p_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 				       struct wireless_dev *wdev,
+ 				       struct ieee80211_channel *chan, unsigned int duration, u64 *cookie)
++#endif
+ {
+ 	INT_32 i4Rslt = -EINVAL;
+ 	P_GLUE_INFO_T prGlueInfo = (P_GLUE_INFO_T) NULL;
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+index 59c46c5b89e0dcbef338c73659ce41fbbe55dc91..37c35293f2646ee924faba9cb1890ca8ba924731 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+@@ -238,9 +238,17 @@ int mtk_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *ndev);
+ 
+ int mtk_cfg80211_set_rekey_data(struct wiphy *wiphy, struct net_device *dev, struct cfg80211_gtk_rekey_data *data);
+ 
++/* Linux 7.2 added rx_addr to remain_on_channel; see gl_cfg80211.c. */
++#if KERNEL_VERSION(7, 2, 0) <= CFG80211_VERSION_CODE
++int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
++				   struct wireless_dev *wdev,
++				   struct ieee80211_channel *chan, unsigned int duration, u64 *cookie,
++				   const u8 *rx_addr);
++#else
+ int mtk_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 				   struct wireless_dev *wdev,
+ 				   struct ieee80211_channel *chan, unsigned int duration, u64 *cookie);
++#endif
+ 
+ int mtk_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy, struct wireless_dev *wdev, u64 cookie);
+ #if KERNEL_VERSION(3, 14, 0) <= CFG80211_VERSION_CODE
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_p2p_ioctl.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_p2p_ioctl.h
+index b135436629c7d8145663b02b47655b3e54ee5da6..b2c7d3d7fc8b44ed288e9c741782b60409889a40 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_p2p_ioctl.h
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_p2p_ioctl.h
+@@ -504,9 +504,17 @@ int mtk_p2p_cfg80211_get_txpower(struct wiphy *wiphy, struct wireless_dev *wdev,
+ int mtk_p2p_cfg80211_get_txpower(struct wiphy *wiphy, struct wireless_dev *wdev, int *dbm);
+ #endif
+ 
++/* Linux 7.2 added rx_addr to remain_on_channel; see gl_p2p_cfg80211.c. */
++#if KERNEL_VERSION(7, 2, 0) <= CFG80211_VERSION_CODE
++int mtk_p2p_cfg80211_remain_on_channel(struct wiphy *wiphy,
++				       struct wireless_dev *wdev,
++				       struct ieee80211_channel *chan, unsigned int duration, u64 *cookie,
++				       const u8 *rx_addr);
++#else
+ int mtk_p2p_cfg80211_remain_on_channel(struct wiphy *wiphy,
+ 				       struct wireless_dev *wdev,
+ 				       struct ieee80211_channel *chan, unsigned int duration, u64 *cookie);
++#endif
+ 
+ int mtk_p2p_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy, struct wireless_dev *wdev, u64 cookie);
+ 

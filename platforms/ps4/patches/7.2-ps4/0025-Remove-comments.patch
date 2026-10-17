@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Thu, 3 Jul 2025 19:00:34 +0200
+Subject: [PATCH] Remove comments
+
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index cd953088c9297f8c12e82f55e631b603e0be9048..3af2d7264228cbbca5d9038ccb070205da2d5ce3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4901,7 +4901,7 @@ static void gfx_v7_0_gpu_early_init(struct amdgpu_device *adev)
+ 		adev->gfx.config.sc_prim_fifo_size_backend = 0x100;
+ 		adev->gfx.config.sc_hiz_tile_fifo_size = 0x30;
+ 		adev->gfx.config.sc_earlyz_tile_fifo_size = 0x130;
+-		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN; //0x22011003; //0x12011003;
++		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN;
+ 		break;
+ 	case CHIP_KABINI:
+ 	case CHIP_MULLINS:

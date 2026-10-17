@@ -1,0 +1,31 @@
+From 6aae468aad81ef448d8f135adfce9c8f9ed161d3 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 21:02:05 +0200
+Subject: [PATCH] drm/amdgpu: ps4_bridge: fix drm_edid type mismatches
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 3f971cb9d216a0aa98284f94275bea8c1a83f2c9..d384b0209aec1e454d8bd149e6354b383038de34 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -1001,7 +1001,7 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 
+ 	DRM_DEBUG_KMS("ps4_bridge_get_modes\n");
+ 
+-	kfree(amdgpu_connector->edid);
++	drm_edid_free(amdgpu_connector->edid);
+ 	amdgpu_connector->edid = NULL;
+ 	drm_connector_update_edid_property(connector, NULL);
+ 
+@@ -1106,7 +1106,7 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ edid_ready:
+ 	if (drm_edid) {
+ 		raw_edid = drm_edid_raw(drm_edid);
+-		amdgpu_connector->edid = drm_edid_duplicate(raw_edid);
++		amdgpu_connector->edid = drm_edid_dup(drm_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
+ 		newmode = drm_mode_duplicate(dev, &mode_1080p);

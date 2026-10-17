@@ -1,0 +1,24 @@
+From 4237de231b41a099726e4da0c49d69425ab14d0d Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 7 May 2026 12:57:02 +0200
+Subject: [PATCH] usb: host: xhci-aeolia: fix IRQ overlapping when falling back
+ to INTx
+
+ Ensure that IRQs are only incremented per device index if MSI is enabled.
+---
+ drivers/usb/host/xhci-aeolia.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index d63b85926a2b1e557e6964cf60cf7337aae9ee5d..a72fe1134ae85d4d44247daead8329b3ccde4c62 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -60,7 +60,7 @@ static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
+ 	struct hc_driver *driver = &xhci_aeolia_hc_driver;
+ 	struct usb_hcd *hcd;
+ 	struct xhci_hcd *xhci;
+-	int irq = (axhci->nr_irqs > 1) ? (dev->irq + index) : dev->irq;
++	int irq = (dev->msi_enabled && axhci->nr_irqs > 1) ? (dev->irq + index) : dev->irq;
+ 
+ 	dev_dbg(&dev->dev, "xhci_aeolia_probe_one %d\n", index);
+ 	/* hardware stabilisation, see git log */

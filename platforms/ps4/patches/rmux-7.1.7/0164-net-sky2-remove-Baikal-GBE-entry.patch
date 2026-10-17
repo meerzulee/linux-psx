@@ -1,0 +1,21 @@
+From fc28c71a59c4ee41e434ebb16050e7eb3ed65154 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 8 Aug 2026 14:03:23 +0200
+Subject: [PATCH] net: sky2: remove Baikal GBE entry
+
+---
+ drivers/net/ethernet/marvell/sky2.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index c71670de7a346e83d8bd41edb6c186da2ce4f9a9..8251c9d643a8eb964ffaf36d288aa987c6c60c11 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -141,7 +141,6 @@ static const struct pci_device_id sky2_id_table[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4382) }, /* 88E8079 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_AEOLIA_GBE) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_BELIZE_GBE) },
+-	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_BAIKAL_GBE) },
+ 	{ 0 }
+ };
+ 

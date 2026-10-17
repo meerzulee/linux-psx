@@ -1,0 +1,34 @@
+From 11458aed65b732e81533c12b53c15b5b8ecc4d27 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 6 May 2026 13:00:05 +0200
+Subject: [PATCH] usb: xhci-aeolia: replace printk timing hack with usleep
+
+---
+ drivers/usb/host/xhci-aeolia.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index fc5293bc6ee8a3d29d944aa1f61651d3e62f9558..b18d9f786fd4368fa34b90a7729e6090a181e058 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -12,6 +12,7 @@
+ #include <linux/slab.h>
+ #include <linux/module.h>
+ #include <linux/acpi.h>
++#include <linux/delay.h>
+ #include <asm/ps4.h>
+ #include "xhci-aeolia.h"
+ #include "../../ps4/aeolia.h"
+@@ -61,10 +62,8 @@ static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
+ 	struct xhci_hcd *xhci;
+ 	int irq = (axhci->nr_irqs > 1) ? (dev->irq + index) : dev->irq;
+ 
+-	// ok...adding this printk appears to have introduced a delay that fixed
+-	// bringup of the middle host controller, so w/e for now...
+-
+-	printk("xhci_aeolia_probe_one %d, controller is %x\n", index, dev->device);
++	dev_dbg(&dev->dev, "xhci_aeolia_probe_one %d\n", index);
++	usleep_range(200, 500);
+ 
+ 	hcd = usb_create_hcd(driver, &dev->dev, pci_name(dev));
+ 	pci_set_drvdata(dev, axhci); /* usb_create_hcd clobbers this */

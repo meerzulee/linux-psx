@@ -1,0 +1,30 @@
+From fd7460d0efca113a1ce159cdd362cbbf6b584eef Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 7 May 2026 12:56:40 +0200
+Subject: [PATCH] drivers/ps4: ps4-apcie-icc: fix memory leak on probe failure
+
+ Properly handle register_chrdev() error return and unassign resources to avoid memory leaks.
+---
+ drivers/ps4/ps4-apcie-icc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index d6f497b72bd1af51aba51a7e1c41d5854b5129a6..752d6c515b7bea3b2a4fe29a335f4ad0c2d82acd 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -630,13 +630,13 @@ int apcie_icc_init(struct apcie_dev *sc)
+ 	}
+ 
+ 	ret = register_chrdev(0, "icc", &icc_fops);
+-	if (ret) {
++	if (ret < 0) {
+ 		sc_warn("icc: register_chrdev failed: %d\n", ret);
+ 		kfree(ioctl_reply_buf);
+ 		kfree(ioctl_send_buf);
+ 		ioctl_reply_buf = NULL;
+ 		ioctl_send_buf = NULL;
+-		goto done;
++		goto unassign_global;
+ 	}
+ 	icc_major = ret;
+ 	icc_chrdev_registered = true;

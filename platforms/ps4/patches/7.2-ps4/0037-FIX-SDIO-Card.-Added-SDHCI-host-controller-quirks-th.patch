@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Thu, 24 Jul 2025 15:44:43 +0000
+Subject: [PATCH] FIX: SDIO Card. Added SDHCI host controller quirks that might
+ be needed for SDIO function. Only the last two commits will give error at
+ initialization and tuning.
+
+       .quirks         = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
+                         SDHCI_QUIRK_DELAY_AFTER_POWER |
+                         SDHCI_QUIRK_SINGLE_POWER_WRITE,
+       .quirks2        = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+                         SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+                         SDHCI_QUIRK2_TUNING_WORK_AROUND
+---
+ drivers/mmc/host/sdhci-pci-core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
+index ca92b97169ae6aa052b78191cc64dae27744a179..e8632b203ab06380f76aceac82c093610c9f7c2a 100644
+--- a/drivers/mmc/host/sdhci-pci-core.c
++++ b/drivers/mmc/host/sdhci-pci-core.c
+@@ -371,6 +371,12 @@ static const struct sdhci_pci_fixes sdhci_aeolia = {
+ 	.probe_slot	= aeolia_probe_slot,
+ 	.remove_slot	= aeolia_remove_slot,
+ 	.enable_dma	= aeolia_enable_dma,
++	.quirks		= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
++			  SDHCI_QUIRK_DELAY_AFTER_POWER |
++			  SDHCI_QUIRK_SINGLE_POWER_WRITE,
++	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
++			  SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
++			  SDHCI_QUIRK2_TUNING_WORK_AROUND,
+ };
+ #endif
+ 

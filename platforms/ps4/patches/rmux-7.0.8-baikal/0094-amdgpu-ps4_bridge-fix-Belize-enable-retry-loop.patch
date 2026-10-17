@@ -1,0 +1,33 @@
+From 9336110edf02e8a84161edc42b64139818530c06 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 6 May 2026 12:58:44 +0200
+Subject: [PATCH] amdgpu: ps4_bridge: fix Belize enable retry loop
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 8ce75cb9dea6723693d9a2e4a25f3bc9931c5e37..ac30fbf42f32b4420a91a2a433138cb3261d8d7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -821,15 +821,12 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 				      PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS);
+ 
+ 			ret = ps4_bridge_enable_mn864729_video(mn_bridge, pdev);
+-			if (ret) {
+-				if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
+-					msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
+-				continue;
++			if (!ret) {
++				success = true;
++				ps4_bridge_retrain_dp(mn_bridge);
++				break;
+ 			}
+ 
+-			success = true;
+-			ps4_bridge_retrain_dp(mn_bridge);
+-
+ 			if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
+ 				msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
+ 		}

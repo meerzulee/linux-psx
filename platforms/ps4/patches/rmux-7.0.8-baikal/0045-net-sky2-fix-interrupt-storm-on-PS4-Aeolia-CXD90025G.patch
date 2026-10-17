@@ -1,0 +1,74 @@
+From b147cda32be7c4e2f22dd7d70073db814cc87c46 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Fri, 13 Mar 2026 11:36:01 +0100
+Subject: [PATCH] net: sky2: fix interrupt storm on PS4 Aeolia (CXD90025G)
+
+The Aeolia NIC (CXD90025G) does not implement the standard Yukon-2
+ISRC2/LISR read side-effects that mask interrupts. Without explicit
+ICR writes the driver re-enters the IRQ handler continuously.
+
+- Add AEOLIA_SP_ICR register at offset 0x0068 (write 2=mask, 1=unmask)
+- Mask interrupts at IRQ handler entry before any register read to
+  close the re-assertion race window
+- Rearm via ICR write in sky2_poll() after napi_complete_done()
+
+All changes gated on CONFIG_X86_PS4.
+---
+ drivers/net/ethernet/marvell/sky2.c | 13 ++++++++++---
+ drivers/net/ethernet/marvell/sky2.h |  5 +++++
+ 2 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 2c83c17ea20a99e34949b65d0f54328135183cc0..44866d80ceeae068086bd8a524f93971658bbfd8 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -3053,6 +3053,10 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 
+ 	napi_complete_done(napi, work_done);
+ 	sky2_read32(hw, B0_Y2_SP_LISR);
++#ifdef CONFIG_X86_PS4
++	/* Aeolia: LISR read has no unmas side-effeectt; rearm via ICR */
++	sky2_write32(hw, AEOLIA_SP_ICR,1);
++#endif
+ done:
+ 
+ 	return work_done;
+@@ -3062,8 +3066,12 @@ static irqreturn_t sky2_intr(int irq, void *dev_id)
+ {
+ 	struct sky2_hw *hw = dev_id;
+ 	u32 status;
+-
+-	/* Reading this mask interrupts as side effect */
++#ifdef CONFIG_X86_PS4
++	/* Aeolia: mask on entry before any register read to close the
++	 * re-assertion race window. ISRC2 read has no mask side-effect. */
++	sky2_write32(hw, AEOLIA_SP_ICR, 2);
++#endif
++	/* Reading this masks interrupts as side effect (standard Yukon-2 only) */
+ 	status = sky2_read32(hw, B0_Y2_SP_ISRC2);
+ 	if (status == 0 || status == ~0) {
+ 		sky2_write32(hw, B0_Y2_SP_ICR, 2);
+@@ -3071,7 +3079,6 @@ static irqreturn_t sky2_intr(int irq, void *dev_id)
+ 	}
+ 
+ 	prefetch(&hw->st_le[hw->st_idx]);
+-
+ 	napi_schedule(&hw->napi);
+ 
+ 	return IRQ_HANDLED;
+diff --git a/drivers/net/ethernet/marvell/sky2.h b/drivers/net/ethernet/marvell/sky2.h
+index 33f5145ede89bc2822cbb81b6fe3ab24505898f4..2e6d7ac4c3c13c4153c9220955149e877f073a23 100644
+--- a/drivers/net/ethernet/marvell/sky2.h
++++ b/drivers/net/ethernet/marvell/sky2.h
+@@ -268,6 +268,11 @@ enum csr_regs {
+ 	B0_Y2_SP_EISR	= 0x0024,
+ 	B0_Y2_SP_LISR	= 0x0028,
+ 	B0_Y2_SP_ICR	= 0x002c,
++#ifdef CONFIG_X86_PS4
++	/* Aeolia (CXD90025G): ICR at different offset. Write 2=mask, 1=unmask.
++	 * ISRC2 and LISR read side-effects are absent on this hardware. */
++	AEOLIA_SP_ICR	= 0x0068,
++#endif
+ 
+ 	B2_MAC_1	= 0x0100,
+ 	B2_MAC_2	= 0x0108,

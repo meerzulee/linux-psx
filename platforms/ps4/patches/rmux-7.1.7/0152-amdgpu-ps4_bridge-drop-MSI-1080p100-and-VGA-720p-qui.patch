@@ -1,0 +1,76 @@
+From 0e8ea1b4168ef248dd362651a2858bd0d9ae57af Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 12:20:44 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: drop MSI 1080p100 and VGA 720p quirks
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 21 -------------------
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    |  2 --
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    |  2 --
+ 3 files changed, 25 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 64d701da85d909e98ebceac19117ea0ffd7b2bff..6273f463a40b4aa4b2894926c2c18a8cb4ead044 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -968,12 +968,6 @@ static const struct drm_display_mode mode_1080p = {
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
+-static const struct drm_display_mode mode_1080p100 = {
+-	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 232750, 1920, 1968,
+-		 2000, 2080, 0, 1080, 1083, 1088, 1119, 0,
+-		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+-	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+-};
+ 
+ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+@@ -1126,21 +1120,6 @@ edid_ready:
+ 						count++;
+ 					}
+ 				}
+-				if (forced & PS4_BRIDGE_QUIRK_MODE_1080P100) {
+-					newmode = drm_mode_duplicate(dev, &mode_1080p100);
+-					if (newmode) {
+-						drm_mode_probed_add(connector, newmode);
+-						count++;
+-					}
+-				}
+-				if (forced & PS4_BRIDGE_QUIRK_MODE_720P) {
+-					newmode = drm_mode_duplicate(dev, &mode_720p);
+-					if (newmode) {
+-						drm_mode_probed_add(connector, newmode);
+-						count++;
+-					}
+-				}
+-
+ 				return count;
+ 			}
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+index bcb334e8d33de35a576668ce288924c78e924e86..1854f170c4e25b81a0183b64d742bd80acc2d2b6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+@@ -12,8 +12,6 @@ struct ps4_bridge_monitor_quirk {
+ 
+ static const struct ps4_bridge_monitor_quirk ps4_bridge_monitor_quirks[] = {
+ 	{ 0x4a8b, 0x1366, PS4_BRIDGE_QUIRK_MODE_1080P60 },
+-	{ 0x5a63, 0x8a31, PS4_BRIDGE_QUIRK_MODE_720P },
+-	{ 0x3669, 0x40b5, PS4_BRIDGE_QUIRK_MODE_1080P60 | PS4_BRIDGE_QUIRK_MODE_1080P100 },
+ };
+ 
+ unsigned int ps4_bridge_quirk_forced_modes(const struct edid *edid)
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+index 0e23809ccb9e6b10cf84e98ce98f0c2e00fb6e5a..5d3f76b60a927b5a9f8d10f17c6bb87a1b1d67d0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+@@ -5,8 +5,6 @@
+ #include <drm/drm_edid.h>
+ 
+ #define PS4_BRIDGE_QUIRK_MODE_1080P60	BIT(0)
+-#define PS4_BRIDGE_QUIRK_MODE_1080P100	BIT(1)
+-#define PS4_BRIDGE_QUIRK_MODE_720P	BIT(2)
+ 
+ unsigned int ps4_bridge_quirk_forced_modes(const struct edid *edid);
+ 

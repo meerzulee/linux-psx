@@ -1,0 +1,66 @@
+From d88ff5cff3802657eebfb9c25dd3935c20b20ce2 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 00:29:33 +0200
+Subject: [PATCH] ata/ahci: free the actual number of PS4 IRQs granted, not a
+ hardcoded 1
+
+---
+ drivers/ata/ahci.c | 16 ++++++++++++++--
+ drivers/ata/ahci.h |  3 +++
+ 2 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index 4f8ddc43eb53a26441a315928e5c5848716dc474..e7a3c100a57af9f9f51d2cb289739915fe0d9dda 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -1764,6 +1764,7 @@ static int ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 		nvec = apcie_assign_irqs(pdev, n_ports);
+ 		if (nvec < 0)
+ 			return nvec;
++		hpriv->ps4_nvec = nvec;
+ 		return 0;
+ 	}
+ 	#endif
+@@ -2197,6 +2198,17 @@ static void ahci_shutdown_one(struct pci_dev *pdev)
+ 
+ static void ahci_remove_one(struct pci_dev *pdev)
+ {
++	#ifdef CONFIG_X86_PS4
++	int ps4_nvec = 0;
++
++	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
++		struct ata_host *host = pci_get_drvdata(pdev);
++		struct ahci_host_priv *hpriv = host->private_data;
++
++		ps4_nvec = hpriv->ps4_nvec;
++	}
++	#endif
++
+ 	sysfs_remove_file_from_group(&pdev->dev.kobj,
+ 				     &dev_attr_remapped_nvme.attr,
+ 				     NULL);
+@@ -2204,8 +2216,8 @@ static void ahci_remove_one(struct pci_dev *pdev)
+ 	ata_pci_remove_one(pdev);
+ 
+ 	#ifdef CONFIG_X86_PS4
+-	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		apcie_free_irqs(pdev->irq, 1);
++	if (pdev->vendor == PCI_VENDOR_ID_SONY && ps4_nvec > 0) {
++		apcie_free_irqs(pdev->irq, ps4_nvec);
+ 	}
+ 	#endif
+ }
+diff --git a/drivers/ata/ahci.h b/drivers/ata/ahci.h
+index 3be0ca6c0c520bfd061622abe511a8bb716f38c4..c7408db80ac473a0efdb1b147351abac8bcc933c 100644
+--- a/drivers/ata/ahci.h
++++ b/drivers/ata/ahci.h
+@@ -361,6 +361,9 @@ struct ahci_host_priv {
+ 	unsigned		nports;		/* Number of ports */
+ 	void			*plat_data;	/* Other platform data */
+ 	unsigned int		irq;		/* interrupt line */
++#ifdef CONFIG_X86_PS4
++	int			ps4_nvec;
++#endif
+ 	/*
+ 	 * Optional ahci_start_engine override, if not set this gets set to the
+ 	 * default ahci_start_engine during ahci_save_initial_config, this can

@@ -1,0 +1,473 @@
+From 2e38f28cfb5415dbc5f01b566e0dd85f333d8264 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 20:06:48 +0200
+Subject: [PATCH] feat: add support for ps4 subarch
+
+---
+ arch/x86/Kconfig                      |  10 ++-
+ arch/x86/include/asm/irqdomain.h      |   1 +
+ arch/x86/include/asm/ps4.h            |  60 +++++++++++++
+ arch/x86/include/asm/setup.h          |   6 ++
+ arch/x86/include/uapi/asm/bootparam.h |   1 +
+ arch/x86/kernel/amd_nb.c              |   1 +
+ arch/x86/kernel/apic/vector.c         |  11 ++-
+ arch/x86/kernel/head64.c              |   3 +
+ arch/x86/platform/Makefile            |   1 +
+ arch/x86/platform/ps4/Makefile        |   1 +
+ arch/x86/platform/ps4/calibrate.c     | 116 ++++++++++++++++++++++++++
+ arch/x86/platform/ps4/ps4.c           |  74 ++++++++++++++++
+ include/linux/pci_ids.h               |  26 ++++++
+ 13 files changed, 309 insertions(+), 2 deletions(-)
+ create mode 100644 arch/x86/include/asm/ps4.h
+ create mode 100644 arch/x86/platform/ps4/Makefile
+ create mode 100644 arch/x86/platform/ps4/calibrate.c
+ create mode 100644 arch/x86/platform/ps4/ps4.c
+
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index fe106da41ae5872d4b83ff4b5927b6906689f95b..4c11f258361802b9b9430c9245b79598dc69422b 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -604,7 +604,15 @@ config X86_NUMACHIP
+ 	  Adds support for Numascale NumaChip large-SMP systems. Needed to
+ 	  enable more than ~168 cores.
+ 	  If you don't have one of these, you should say N here.
+-
++		
++config X86_PS4
++	bool "Sony PlayStation 4"
++	depends on X86_64
++	depends on X86_EXTENDED_PLATFORM
++	depends on PCI
++	help
++	  Select to include support for the Sony PlayStation 4 game console.
++ 
+ config X86_VSMP
+ 	bool "ScaleMP vSMP"
+ 	select HYPERVISOR_GUEST
+diff --git a/arch/x86/include/asm/irqdomain.h b/arch/x86/include/asm/irqdomain.h
+index 30c325c235c0d7d7903261b7f76ebb97a0b2a84c..310349f666d71f36aa292363e3e06b6b6e2466bb 100644
+--- a/arch/x86/include/asm/irqdomain.h
++++ b/arch/x86/include/asm/irqdomain.h
+@@ -12,6 +12,7 @@ enum {
+ 
+ extern int x86_fwspec_is_ioapic(struct irq_fwspec *fwspec);
+ extern int x86_fwspec_is_hpet(struct irq_fwspec *fwspec);
++extern int x86_fwspec_is_aeolia(struct irq_fwspec *fwspec);
+ 
+ extern struct irq_domain *x86_vector_domain;
+ 
+diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..60ee1c4f4f18414de2304b4dd068b9bb9bb3ac93
+--- /dev/null
++++ b/arch/x86/include/asm/ps4.h
+@@ -0,0 +1,60 @@
++/*
++ * ps4.h: Sony PS4 platform setup code
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++#ifndef _ASM_X86_PS4_H
++#define _ASM_X86_PS4_H
++
++#ifdef CONFIG_X86_PS4
++
++#include <linux/irqdomain.h>
++
++#define PS4_DEFAULT_TSC_FREQ 1594000000
++
++#define EMC_TIMER_BASE 0xd0281000
++#define EMC_TIMER_VALUE 0x28
++
++extern unsigned long ps4_calibrate_tsc(void);
++
++/*
++ * The PS4 Aeolia southbridge device is a composite device containing some
++ * standard-ish, some not-so-standard, and some completely custom functions,
++ * all using special MSI handling. This function does the equivalent of
++ * pci_enable_msi_range and friends, for those devices. Only works after the
++ * Aeolia MSR routing function device (function 4) has been probed.
++ * Returns 1 or count, depending on IRQ allocation constraints, or negative on
++ * error. Assigned IRQ(s) start at dev->irq.
++ */
++extern int apcie_assign_irqs(struct pci_dev *dev, int nvec);
++extern void apcie_free_irqs(unsigned int virq, unsigned int nr_irqs);
++
++extern int apcie_status(void);
++extern int apcie_icc_cmd(u8 major, u16 minor, const void *data,
++			 u16 length, void *reply, u16 reply_length);
++
++
++#else
++
++static inline int apcie_assign_irqs(struct pci_dev *dev, int nvec)
++{
++	return -ENODEV;
++}
++static inline void apcie_free_irqs(unsigned int virq, unsigned int nvec)
++{
++}
++static inline int apcie_status(void)
++{
++	return -ENODEV;
++}
++static inline int apcie_icc_cmd(u8 major, u16 minor, const void *data,
++				u16 length, void *reply, u16 reply_length)
++{
++	return -ENODEV;
++}
++
++#endif
++#endif
+diff --git a/arch/x86/include/asm/setup.h b/arch/x86/include/asm/setup.h
+index 914eb32581c73d181c809d8c25580e7d531d39a6..a62292a7b1c123ae9b273032720b4214ab1ac788 100644
+--- a/arch/x86/include/asm/setup.h
++++ b/arch/x86/include/asm/setup.h
+@@ -71,6 +71,12 @@ static inline void x86_ce4100_early_setup(void) { }
+ 
+ #include <linux/kexec_handover.h>
+ 
++#ifdef CONFIG_X86_PS4
++extern void x86_ps4_early_setup(void);
++#else
++static inline void x86_ps4_early_setup(void) { }
++#endif
++
+ #ifndef _SETUP
+ 
+ #include <asm/espfix.h>
+diff --git a/arch/x86/include/uapi/asm/bootparam.h b/arch/x86/include/uapi/asm/bootparam.h
+index dafbf581c515d0040199caa83087179df60ea081..526b946f384c2526d17f2dab11756ae537de21ca 100644
+--- a/arch/x86/include/uapi/asm/bootparam.h
++++ b/arch/x86/include/uapi/asm/bootparam.h
+@@ -207,6 +207,7 @@ enum x86_hardware_subarch {
+ 	X86_SUBARCH_XEN,
+ 	X86_SUBARCH_INTEL_MID,
+ 	X86_SUBARCH_CE4100,
++	X86_SUBARCH_PS4,
+ 	X86_NR_SUBARCHS,
+ };
+ 
+diff --git a/arch/x86/kernel/amd_nb.c b/arch/x86/kernel/amd_nb.c
+index 5d364540673d462234f55b8d4f563bff2def354a..848e4882ef84b005f0af2b8c24d4b826e871270e 100644
+--- a/arch/x86/kernel/amd_nb.c
++++ b/arch/x86/kernel/amd_nb.c
+@@ -28,6 +28,7 @@ static const struct pci_device_id amd_nb_misc_ids[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_15H_M60H_NB_F3) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_16H_NB_F3) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_16H_M30H_NB_F3) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_16H_M41H_F3) },
+ 	{}
+ };
+ 
+diff --git a/arch/x86/kernel/apic/vector.c b/arch/x86/kernel/apic/vector.c
+index bddc544653999a28bc1c87f35a5c15b45bf2cf13..ea962141d07e67faaf1f54920b74baa5b39d5241 100644
+--- a/arch/x86/kernel/apic/vector.c
++++ b/arch/x86/kernel/apic/vector.c
+@@ -689,6 +689,15 @@ int x86_fwspec_is_hpet(struct irq_fwspec *fwspec)
+ 	return 0;
+ }
+ 
++int x86_fwspec_is_aeolia(struct irq_fwspec *fwspec)
++{
++	if (is_fwnode_irqchip(fwspec->fwnode)) {
++		const char *fwname = fwnode_get_name(fwspec->fwnode);
++		return fwname && !strncmp(fwname, "Aeolia-MSI", 10);
++	}
++	return 0;
++}
++
+ static int x86_vector_select(struct irq_domain *d, struct irq_fwspec *fwspec,
+ 			     enum irq_domain_bus_token bus_token)
+ {
+@@ -700,7 +709,7 @@ static int x86_vector_select(struct irq_domain *d, struct irq_fwspec *fwspec,
+ 	if (apic_id_valid(32768))
+ 		return 0;
+ 
+-	return x86_fwspec_is_ioapic(fwspec) || x86_fwspec_is_hpet(fwspec);
++	return x86_fwspec_is_ioapic(fwspec) || x86_fwspec_is_hpet(fwspec) || x86_fwspec_is_aeolia(fwspec);
+ }
+ 
+ static const struct irq_domain_ops x86_vector_domain_ops = {
+diff --git a/arch/x86/kernel/head64.c b/arch/x86/kernel/head64.c
+index fd28b53dbac51fe6283fb79975aa4e6acbe220ce..2a8baaf7f7ca39a0de707f50e36fa104ca138d97 100644
+--- a/arch/x86/kernel/head64.c
++++ b/arch/x86/kernel/head64.c
+@@ -303,6 +303,9 @@ void __init __noreturn x86_64_start_reservations(char *real_mode_data)
+ 	case X86_SUBARCH_INTEL_MID:
+ 		x86_intel_mid_early_setup();
+ 		break;
++	case X86_SUBARCH_PS4:
++		x86_ps4_early_setup();
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/arch/x86/platform/Makefile b/arch/x86/platform/Makefile
+index 3ed03a2552d01294990208a17b8f1236644c43c9..fd92ee69b37c5100f8f8d158af4a1c978c27827e 100644
+--- a/arch/x86/platform/Makefile
++++ b/arch/x86/platform/Makefile
+@@ -9,6 +9,7 @@ obj-y	+= intel/
+ obj-y	+= intel-mid/
+ obj-y	+= intel-quark/
+ obj-y	+= olpc/
++obj-y   += ps4/
+ obj-y	+= scx200/
+ obj-y	+= ts5500/
+ obj-y	+= uv/
+diff --git a/arch/x86/platform/ps4/Makefile b/arch/x86/platform/ps4/Makefile
+new file mode 100644
+index 0000000000000000000000000000000000000000..4d5fcde3a0807706ac6a136a163c761bee5aaa1e
+--- /dev/null
++++ b/arch/x86/platform/ps4/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_X86_PS4) += ps4.o calibrate.o
+diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..2328668165124a7379dff0bdc41565eba6937f13
+--- /dev/null
++++ b/arch/x86/platform/ps4/calibrate.c
+@@ -0,0 +1,116 @@
++/*
++ * calibrate.c: Sony PS4 TSC/LAPIC calibration
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++
++#define pr_fmt(fmt) "ps4: " fmt
++
++#include <linux/jiffies.h>
++#include <asm/io.h>
++#include <asm/msr.h>
++#include <asm/ps4.h>
++#include <asm/delay.h>
++#include <asm/apic.h>
++
++/* The PS4 southbridge (Aeolia) has an EMC timer that ticks at 32.768kHz,
++ * which seems to be an appropriate clock reference for calibration. Both TSC
++ * and the LAPIC timer are based on the core clock frequency and thus can be
++ * calibrated together. */
++static void __iomem *emc_timer = NULL;
++
++static __init inline u32 emctimer_read32(unsigned int reg)
++{
++	return ioread32(emc_timer + reg);
++}
++
++static __init inline void emctimer_write32(unsigned int reg, u32 val)
++{
++	iowrite32(val, emc_timer + reg);
++}
++
++static __init inline u32 emctimer_read(void)
++{
++	u32 t1, t2;
++	t1 = emctimer_read32(EMC_TIMER_VALUE);
++	while (1) {
++		t2 = emctimer_read32(EMC_TIMER_VALUE);
++		if (t1 == t2)
++			return t1;
++		t1 = t2;
++	}
++}
++
++static __init unsigned long ps4_measure_tsc_freq(void)
++{
++	unsigned long ret = 0;
++	u32 t1, t2;
++	u64 tsc1, tsc2;
++
++	// This is part of the Aeolia pcie device, but it's too early to
++	// do this in a driver.
++	emc_timer = ioremap(EMC_TIMER_BASE, 0x100);
++	if (!emc_timer)
++		goto fail;
++
++	// reset/start the timer
++	emctimer_write32(0x84, emctimer_read32(0x84) & (~0x01));
++	// udelay is not calibrated yet, so this is likely wildly off, but good
++	// enough to work.
++	udelay(300);
++	emctimer_write32(0x00, emctimer_read32(0x00) | 0x01);
++	emctimer_write32(0x84, emctimer_read32(0x84) | 0x01);
++
++	t1 = emctimer_read();
++	tsc1 = tsc2 = rdtsc();
++
++	while (emctimer_read() == t1) {
++		// 0.1s timeout should be enough
++		tsc2 = rdtsc();
++		if ((tsc2 - tsc1) > (PS4_DEFAULT_TSC_FREQ/10)) {
++			pr_warn("EMC timer is broken.\n");
++			goto fail;
++		}
++	}
++	pr_info("EMC timer started in %lld TSC ticks\n", tsc2 - tsc1);
++
++	// Wait for a tick boundary
++	t1 = emctimer_read();
++	while ((t2 = emctimer_read()) == t1);
++	tsc1 = rdtsc();
++
++	// Wait for 1024 ticks to elapse (31.25ms)
++	// We don't need to wait very long, as we are looking for transitions.
++	// At this value, a TSC uncertainty of ~50 ticks corresponds to 1ppm of
++	// clock accuracy.
++	while ((emctimer_read() - t2) < 1024);
++	tsc2 = rdtsc();
++
++	// TSC rate is 32 times the elapsed time
++	ret = (tsc2 - tsc1) * 32;
++
++	pr_info("Calibrated TSC frequency: %ld kHz\n", ret);
++fail:
++	if (emc_timer) {
++		iounmap(emc_timer);
++		emc_timer = NULL;
++	}
++	return ret;
++}
++
++unsigned long __init ps4_calibrate_tsc(void)
++{
++	unsigned long tsc_freq = ps4_measure_tsc_freq();
++
++	if (!tsc_freq) {
++		pr_warn("Unable to measure TSC frequency, assuming default.\n");
++		tsc_freq = PS4_DEFAULT_TSC_FREQ;
++	}
++
++	lapic_timer_period = (tsc_freq + 8 * HZ) / (16 * HZ);
++
++	return (tsc_freq + 500) / 1000;
++}
+diff --git a/arch/x86/platform/ps4/ps4.c b/arch/x86/platform/ps4/ps4.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..8a3a11263724836cacbd1bec07c8b374df5e5150
+--- /dev/null
++++ b/arch/x86/platform/ps4/ps4.c
+@@ -0,0 +1,74 @@
++/*
++ * ps4.c: Sony PS4 platform setup code
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++
++#define pr_fmt(fmt) "ps4: " fmt
++
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/interrupt.h>
++#include <linux/scatterlist.h>
++#include <linux/irq.h>
++#include <linux/module.h>
++#include <linux/notifier.h>
++
++#include <asm/setup.h>
++#include <asm/mpspec_def.h>
++#include <asm/hw_irq.h>
++#include <asm/apic.h>
++#include <asm/io_apic.h>
++#include <asm/io.h>
++#include <asm/i8259.h>
++#include <asm/reboot.h>
++#include <asm/msr.h>
++#include <asm/ps4.h>
++
++static bool is_ps4;
++bool apcie_initialized;
++
++/*
++ * The RTC is part of the Aeolia PCI device and will be implemented there as
++ * an RTC class device; stub these out.
++ */
++static void dummy_get_wallclock(struct timespec64 *now)
++{
++	now->tv_sec = now->tv_nsec = 0;
++}
++static int dummy_set_wallclock(const struct timespec64 *now)
++{
++	return -ENODEV;
++}
++
++/*
++ * Provide a way for generic drivers to query for the availability of the
++ * PS4 apcie driver/device, which is a dependency for them.
++ */
++int apcie_status(void)
++{
++	if (!is_ps4)
++		return -ENODEV;
++	return apcie_initialized;
++}
++EXPORT_SYMBOL_GPL(apcie_status);
++
++void icc_reboot(void);
++
++/*
++ * PS4 specific x86_init function overrides and early setup calls.
++ */
++void __init x86_ps4_early_setup(void)
++{
++	pr_info("x86_ps4_early_setup: PS4 early setup\n");
++	is_ps4 = true;
++	x86_platform.calibrate_tsc = ps4_calibrate_tsc;
++	x86_platform.get_wallclock = dummy_get_wallclock;
++	x86_platform.set_wallclock = dummy_set_wallclock;
++
++	legacy_pic = &null_legacy_pic;
++	machine_ops.emergency_restart = icc_reboot;
++}
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 406abf629be2e4c1cd0d407f1f01047b945eeee4..ce34328bf8d9de046a7a47702893736be3125082 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -567,6 +567,8 @@
+ #define PCI_DEVICE_ID_AMD_16H_NB_F4	0x1534
+ #define PCI_DEVICE_ID_AMD_16H_M30H_NB_F3 0x1583
+ #define PCI_DEVICE_ID_AMD_16H_M30H_NB_F4 0x1584
++#define PCI_DEVICE_ID_AMD_16H_M41H_F3  0x1431
++#define PCI_DEVICE_ID_AMD_16H_M41H_F4  0x1432
+ #define PCI_DEVICE_ID_AMD_17H_DF_F3	0x1463
+ #define PCI_DEVICE_ID_AMD_17H_M10H_DF_F3 0x15eb
+ #define PCI_DEVICE_ID_AMD_17H_M30H_DF_F3 0x1493
+@@ -922,6 +924,30 @@
+ #define PCI_DEVICE_ID_TI_DRA72x		0xb501
+ 
+ #define PCI_VENDOR_ID_SONY		0x104d
++#define PCI_DEVICE_ID_SONY_AEOLIA_ACPI	0x908f
++#define PCI_DEVICE_ID_SONY_AEOLIA_GBE	0x909e
++#define PCI_DEVICE_ID_SONY_AEOLIA_AHCI	0x909f
++#define PCI_DEVICE_ID_SONY_AEOLIA_SDHCI	0x90a0
++#define PCI_DEVICE_ID_SONY_AEOLIA_PCIE	0x90a1
++#define PCI_DEVICE_ID_SONY_AEOLIA_DMAC	0x90a2
++#define PCI_DEVICE_ID_SONY_AEOLIA_MEM	0x90a3
++#define PCI_DEVICE_ID_SONY_AEOLIA_XHCI	0x90a4
++#define PCI_DEVICE_ID_SONY_BELIZE_ACPI	0x90c8
++#define PCI_DEVICE_ID_SONY_BELIZE_GBE	0x90c9
++#define PCI_DEVICE_ID_SONY_BELIZE_AHCI	0x90ca
++#define PCI_DEVICE_ID_SONY_BELIZE_SDHCI	0x90cb
++#define PCI_DEVICE_ID_SONY_BELIZE_PCIE	0x90cc
++#define PCI_DEVICE_ID_SONY_BELIZE_DMAC	0x90cd
++#define PCI_DEVICE_ID_SONY_BELIZE_MEM	0x90ce
++#define PCI_DEVICE_ID_SONY_BELIZE_XHCI	0x90cf
++#define PCI_DEVICE_ID_SONY_BAIKAL_ACPI	0x90d7
++#define PCI_DEVICE_ID_SONY_BAIKAL_GBE	0x90d8
++#define PCI_DEVICE_ID_SONY_BAIKAL_AHCI	0x90d9
++#define PCI_DEVICE_ID_SONY_BAIKAL_SDHCI	0x90da
++#define PCI_DEVICE_ID_SONY_BAIKAL_PCIE	0x90db
++#define PCI_DEVICE_ID_SONY_BAIKAL_DMAC	0x90dc
++#define PCI_DEVICE_ID_SONY_BAIKAL_MEM	0x90dd
++#define PCI_DEVICE_ID_SONY_BAIKAL_XHCI	0x90de
+ 
+ /* Winbond have two vendor IDs! See 0x10ad as well */
+ #define PCI_VENDOR_ID_WINBOND2		0x1050

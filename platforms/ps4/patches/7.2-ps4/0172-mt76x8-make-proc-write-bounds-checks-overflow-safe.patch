@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 17:15:19 +0600
+Subject: [PATCH] mt76x8: make proc write bounds checks overflow-safe
+
+The proc write handlers clamp the user count with
+"if (u4CopySize >= count + 1)". For count == SIZE_MAX the addition
+wraps to zero, the test passes and the 3000-byte buffer would receive
+a 0xffffffff-byte copy. GCC 16 finds that path in procDriverCmdWrite()
+and procDbgLevelWrite(), and the compile-time size check in
+copy_from_user() fails the build with __bad_copy_to().
+
+Compare "count < u4CopySize" instead. The copy size is unchanged for
+every other count, and copy_from_user() keeps its access_ok() and size
+checks.
+
+rmux fixed the same build error on the Baikal 7.0.8 branch
+(d98d3e9e0df2) by switching to __copy_from_user(). That change also
+makes procDriverCmdWrite() copy 2999 bytes whatever the count, so it is
+not used here.
+---
+ .../mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c     | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+index 7ed8e3286fa860a1513b241f3e0adb84ab9ffe4b..17ec77a23969e11d651e95f6640c15d979b005bf 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+@@ -488,7 +488,7 @@ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= (count+1))
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+@@ -554,7 +554,7 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= (count+1))
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+@@ -586,7 +586,7 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+@@ -1189,7 +1189,7 @@ static ssize_t procRoamWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+@@ -1268,7 +1268,7 @@ static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;

@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 8 Aug 2026 18:03:13 +0200
+Subject: [PATCH] irqdomain: skip select on DOMAIN_BUS_ANY only on Baikal
+
+---
+ kernel/irq/irqdomain.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index 2cb693c8a82ea5a150411f68a94f12ffd8eb1dd7..c1cc66e820ec575ec25cce5778c6158417e0245b 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -541,7 +541,12 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	 */
+ 	mutex_lock(&irq_domain_mutex);
+ 	list_for_each_entry(h, &irq_domain_list, link) {
++#ifdef CONFIG_X86_PS4
++		extern bool ps4_is_baikal(void);
++		if (h->ops->select && (bus_token != DOMAIN_BUS_ANY || !ps4_is_baikal()))
++#else
+ 		if (h->ops->select)
++#endif
+ 			rc = h->ops->select(h, fwspec, bus_token);
+ 		else if (h->ops->match)
+ 			rc = h->ops->match(h, to_of_node(fwnode), bus_token);

@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 7 Jul 2026 00:19:06 +0200
+Subject: [PATCH] PCI: init dev=NULL in pci_scan_slot before Aeolia
+ phantom-skip use
+
+---
+ drivers/pci/probe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 6280e7a44db2721597bde2cbf43faccf2a812a0a..a6beac0434c6bb03959ef6e3f0ac87005f3cff28 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2868,7 +2868,7 @@ static int only_one_child(struct pci_bus *bus)
+  */
+ int pci_scan_slot(struct pci_bus *bus, int devfn)
+ {
+-	struct pci_dev *dev;
++	struct pci_dev *dev = NULL;
+ 	int fn = 0, nr = 0;
+ 
+ 	u32 l;

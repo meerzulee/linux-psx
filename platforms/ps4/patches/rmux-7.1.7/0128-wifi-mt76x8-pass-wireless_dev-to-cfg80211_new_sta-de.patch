@@ -1,0 +1,30 @@
+From c913927b03af5a24963ac27c97eeaefbc657e32a Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 21:33:05 +0200
+Subject: [PATCH] wifi: mt76x8: pass wireless_dev to cfg80211_new_sta/del_sta
+
+---
+ .../mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c       | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
+index 5f5c953304bbb3a1b7282127ab100a03eb70caec..3456aaa8616b9d1ad9108942481df21bed3cc5e3 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
+@@ -1279,14 +1279,12 @@ kalP2PGOStationUpdate(IN P_GLUE_INFO_T prGlueInfo,
+ 			rStationInfo.assoc_req_ies = prCliStaRec->pucAssocReqIe;
+ 			rStationInfo.assoc_req_ies_len = prCliStaRec->u2AssocReqIeLen;
+ 
+-			cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler,
+-					 /* struct net_device * dev, */
++			cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
+ 					 prCliStaRec->aucMacAddr, &rStationInfo, GFP_KERNEL);
+ 		} else {
+ 			++prP2pGlueInfo->i4Generation;
+ 
+-			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
+-					 /* struct net_device * dev, */
++			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
+ 					 prCliStaRec->aucMacAddr, GFP_KERNEL);
+ 		}
+ 

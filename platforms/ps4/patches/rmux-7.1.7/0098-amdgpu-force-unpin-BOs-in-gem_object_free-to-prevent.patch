@@ -1,0 +1,37 @@
+From 94836943f29f331892593287845ef2870d17cd51 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 10:01:36 +0200
+Subject: [PATCH] amdgpu: force-unpin BOs in gem_object_free to prevent TTM
+ WARN
+
+When a GEM object is freed while still pinned (e.g. DMA-buf fd close
+via Xorg), ttm_bo_release() hits WARN_ON_ONCE(bo->pin_count) at
+ttm_bo.c:257.
+
+Add a force-unpin loop in amdgpu_gem_object_free() that drains
+pin_count before calling ttm_bo_fini(). This matches the workaround
+already present in the Baikal branch.
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+index c08f019366758a0097e19b9fc2e17aa0c5555644..9c2757730b4e3fd99db2304118adb8aeebca31e8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_gem.c
+@@ -161,6 +161,15 @@ static void amdgpu_gem_object_free(struct drm_gem_object *gobj)
+ 	struct amdgpu_bo *aobj = gem_to_amdgpu_bo(gobj);
+ 
+ 	amdgpu_hmm_unregister(aobj);
++
++	if (aobj->tbo.pin_count > 0) {
++		if (amdgpu_bo_reserve(aobj, false) == 0) {
++			while (aobj->tbo.pin_count > 0)
++				amdgpu_bo_unpin(aobj);
++			amdgpu_bo_unreserve(aobj);
++		}
++	}
++
+ 	ttm_bo_fini(&aobj->tbo);
+ }
+ 

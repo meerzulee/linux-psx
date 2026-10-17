@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Jul 2026 12:09:31 +0000
+Subject: [PATCH] PCI: skip redundant fn=0 phantom-vendor re-read in
+ pci_scan_slot
+
+---
+ drivers/pci/probe.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index a6beac0434c6bb03959ef6e3f0ac87005f3cff28..4a37ecadd5617d51105edff73e360610811c25f2 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2884,7 +2884,8 @@ int pci_scan_slot(struct pci_bus *bus, int devfn)
+ 	}
+ 
+ 	do {
+-		if (PCI_SLOT(devfn) != AEOLIA_SLOT_NUM &&
++		/* fn == 0 was already checked above; avoid re-reading it */
++		if (fn > 0 && PCI_SLOT(devfn) != AEOLIA_SLOT_NUM &&
+ 		    pci_bus_read_dev_vendor_id(bus, devfn + fn, &l, 60*1000) &&
+ 		    (l & 0xffff) == PCI_VENDOR_ID_SONY) {
+ 				fn = next_fn(bus, dev, fn);

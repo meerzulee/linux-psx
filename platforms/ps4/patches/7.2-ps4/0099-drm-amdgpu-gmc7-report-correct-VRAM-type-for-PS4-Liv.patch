@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 10:49:30 +0000
+Subject: [PATCH] drm/amdgpu: gmc7: report correct VRAM type for PS4
+ Liverpool/Gladius
+
+Liverpool and Gladius APUs use unified GDDR5 memory.  Report the
+correct type instead of UNKNOWN so userspace tooling displays
+accurate memory information.
+---
+ drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+index ee9a76db4997d5aa89bc99dbdb41ca13f2ff8799..92ed770d63a18c7622bf63d0bcd73be047aaa288 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -1003,6 +1003,9 @@ static int gmc_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
+ 
+ 	if (adev->flags & AMD_IS_APU) {
+ 		adev->gmc.vram_type = AMDGPU_VRAM_TYPE_UNKNOWN;
++		if (adev->asic_type == CHIP_LIVERPOOL ||
++		    adev->asic_type == CHIP_GLADIUS)
++			adev->gmc.vram_type = AMDGPU_VRAM_TYPE_GDDR5;
+ 	} else {
+ 		u32 tmp = RREG32(mmMC_SEQ_MISC0);
+ 

@@ -1,0 +1,37 @@
+From ab08e94c72cabe445e4bef565a6505f564f65815 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 10:01:27 +0200
+Subject: [PATCH] amdgpu: skip atom asic_init for Liverpool/Gladius on reset
+ path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+PS4 Liverpool/Gladius have no AtomBIOS. The GPU reset path calls
+amdgpu_device_asic_init() which unconditionally invokes
+amdgpu_atom_asic_init() — this fails on PS4 with 'asic atom init
+failed!' and leaves the system in an unrecoverable state.
+
+cik_asic_reset() already returns 0 (no-op) for APUs, so there is
+nothing to re-POST. Return early from amdgpu_device_asic_init()
+for CHIP_LIVERPOOL and CHIP_GLADIUS to allow the resume path to
+continue gracefully after a ring timeout.
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_device.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index 1c708eea311425d15502de18a5689426b816c9de..eceaff3c4f4f32bfb3029438774d49a11634ae21 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -883,6 +883,10 @@ static int amdgpu_device_asic_init(struct amdgpu_device *adev)
+ 	int ret;
+ 
+ 	amdgpu_asic_pre_asic_init(adev);
++
++	if (adev->asic_type == CHIP_LIVERPOOL ||
++	    adev->asic_type == CHIP_GLADIUS)
++		return 0;
+ 	flags = amdgpu_device_get_vbios_flags(adev);
+ 	optional = !!(flags & (AMDGPU_VBIOS_OPTIONAL | AMDGPU_VBIOS_SKIP));
+ 

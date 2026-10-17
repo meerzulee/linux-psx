@@ -1,0 +1,128 @@
+From aa85b297c2aef59d216cbdf47b5ef18ae84724d0 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Apr 2026 18:37:33 +0200
+Subject: [PATCH] ps4: quiet ICC normal-path boot logs
+
+Successful ICC boot/init reply dumps are now debug-only, while ICC error paths remain visible.
+
+ICC command payloads and command ordering were not changed. BT/WLAN, LED, poweroff, and reboot behavior were not changed.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-apcie-icc.c | 63 +++++++++++++++++++++----------------
+ 1 file changed, 36 insertions(+), 27 deletions(-)
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index b43dc676b3eb2734b01b4cb1c31f429fe84ca435..18b014bad046d90b75347523d0754ed1629cbcef 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -312,24 +312,24 @@ __maybe_unused void resetUsbPort(void)
+ 	u8 off = 0, on = 1;
+ 	u8 resp[20];
+ 	int ret;
+-	
++
+ 	//Turn OFF Usb
+ 	ret = apcie_icc_cmd(5, 0x10, &off, sizeof(off), resp, 20);
+-	printk("Turn OFF USB: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
+-	if(ret < 0)
+-	{
+-		printk("Turn off USB failed!");
++	if (ret < 0) {
++		pr_err("icc: USB disable failed: %d\n", ret);
+ 		return;
+ 	}
+-	
++	pr_debug("icc: USB disable ret=%d, reply %02x %02x %02x %02x\n",
++		 ret, resp[0], resp[1], resp[2], resp[3]);
++
+ 	//Turn ON Usb
+ 	ret = apcie_icc_cmd(5, 0x10, &on, sizeof(on), resp, 20);
+-	printk("Turn ON USB: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
+-	if(ret < 0)
+-	{
+-		printk("Turn on USB failed");
++	if (ret < 0) {
++		pr_err("icc: USB enable failed: %d\n", ret);
+ 		return;
+ 	}
++	pr_debug("icc: USB enable ret=%d, reply %02x %02x %02x %02x\n",
++		 ret, resp[0], resp[1], resp[2], resp[3]);
+ }
+ 
+ void resetBtWlan(void)
+@@ -342,28 +342,28 @@ void resetBtWlan(void)
+ 
+ 	/* Get bt/wlan status */
+ //	ret = apcie_icc_cmd(5, 1, NULL, 0, resp, 20);
+-//	printk("BT/WLAN status: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
++//	pr_debug("icc: BT/WLAN status ret=%d, reply %02x %02x %02x %02x\n", ret, resp[0], resp[1], resp[2], resp[3]);
+ 
+ 	/** Turn off is done from linux-loader actually, if you want you can remove it from linux-loader and done it here **/
+ 	
+ 	//Turn OFF bt/wlan
+ /*	ret = apcie_icc_cmd(5, 0, &off, sizeof(off), resp, 20);
+-	printk("Turn OFF BT/WLAN: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
++	pr_debug("icc: BT/WLAN disable ret=%d, reply %02x %02x %02x %02x\n", ret, resp[0], resp[1], resp[2], resp[3]);
+ 	if(ret < 0)
+ 	{
+-		printk("Turn off bt/wlan failed!");
++		pr_err("icc: BT/WLAN disable failed: %d\n", ret);
+ 		return;
+ 	}
+-*/
++	*/
+ 
+ 	//Turn ON bt/wlan
+ 	ret = apcie_icc_cmd(5, 0, &on, sizeof(on), resp, 20);
+-	printk("Turn ON BT/WLAN: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
+-	if(ret < 0)
+-	{
+-		printk("Turn on bt/wlan failed");
++	if (ret < 0) {
++		pr_err("icc: BT/WLAN enable failed: %d\n", ret);
+ 		return;
+ 	}
++	pr_debug("icc: BT/WLAN enable ret=%d, reply %02x %02x %02x %02x\n",
++		 ret, resp[0], resp[1], resp[2], resp[3]);
+ }
+ 
+ void do_icc_init(void) {
+@@ -383,19 +383,28 @@ void do_icc_init(void) {
+ 	int ret;
+ 	// test: get FW version
+ 	ret = apcie_icc_cmd(2, 6, NULL, 0, reply, 0x30);
+-	printk("ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n", ret,
+-		reply[0], reply[1], reply[2], reply[3],
+-		reply[4], reply[5], reply[6], reply[7]);
++	if (ret < 0)
++		pr_err("icc: firmware query failed: %d\n", ret);
++	else
++		pr_debug("icc: firmware query ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n",
++			 ret, reply[0], reply[1], reply[2], reply[3],
++			 reply[4], reply[5], reply[6], reply[7]);
+ 	ret = apcie_icc_cmd(1, 0, &svc, 1, reply, 0x30);
+-	printk("ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n", ret,
+-		reply[0], reply[1], reply[2], reply[3],
+-		reply[4], reply[5], reply[6], reply[7]);
++	if (ret < 0)
++		pr_err("icc: service init failed: %d\n", ret);
++	else
++		pr_debug("icc: service init ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n",
++			 ret, reply[0], reply[1], reply[2], reply[3],
++			 reply[4], reply[5], reply[6], reply[7]);
+ 
+ 	/* Set the LED to something nice */
+ 	ret = apcie_icc_cmd(9, 0x20, led_config, ARRAY_SIZE(led_config), reply, 0x30);
+-	printk("ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n", ret,
+-		reply[0], reply[1], reply[2], reply[3],
+-		reply[4], reply[5], reply[6], reply[7]);
++	if (ret < 0)
++		pr_err("icc: LED init failed: %d\n", ret);
++	else
++		pr_debug("icc: LED init ret=%d, reply %02x %02x %02x %02x %02x %02x %02x %02x\n",
++			 ret, reply[0], reply[1], reply[2], reply[3],
++			 reply[4], reply[5], reply[6], reply[7]);
+ }
+ 
+ static void icc_shutdown(void)

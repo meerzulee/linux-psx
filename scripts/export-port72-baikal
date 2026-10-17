@@ -1,0 +1,334 @@
+#!/usr/bin/env python3
+"""Export the Linux 7.2 port of the 6.18 Baikal stack as the 7.2-ps4-baikal series.
+
+The port branch is the 6.18-ps4-baikal series (54 patches and MTS2) applied
+to v7.2.11 in order, followed by the Linux 7.2 port fixes. A 6.18 patch that
+still applies with git apply and gives the port commit's tree stays a direct
+reference to the unchanged 6.18 file. Any other 6.18 patch is regenerated:
+its original header and message bytes are kept and the diff comes from the
+port commit. A regenerated patch whose added or removed lines changed needs a
+recorded resolution. Port fixes are exported with pinned format-patch options
+and need a recorded reason.
+
+  scripts/export-port72-baikal --port-repo DIR           # write patches and provenance
+  scripts/export-port72-baikal --port-repo DIR --check   # verify committed patches reproduce
+
+DIR is a Git repository holding the port branch and v7.2.11.
+"""
+import argparse
+import email
+import email.header
+import email.utils
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+TARGET = "7.2-ps4-baikal"
+BASE_REF = "v7.2.11"
+BASE_COMMIT = "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea"
+BRANCH = "port/7.2.11-psx-baikal"
+OUT_REL = "platforms/ps4/patches/7.2-ps4-baikal"
+FIX_DIR = "9000-port-7.2"
+SOURCE = "provenance/6.18-ps4-baikal.json"
+PATCHES_ROOT = "platforms/ps4/patches"
+PORT_FIX_AUTHOR = ("Meerzulee", "17146298+meerzulee@users.noreply.github.com")
+
+GIT_CONFIG = [
+    "diff.algorithm=myers", "diff.mnemonicprefix=false", "diff.noprefix=false",
+    "diff.relative=false", "diff.renames=true", "diff.suppressBlankEmpty=false",
+    "diff.indentHeuristic=true", "core.quotePath=true", "format.signature=",
+    "format.coverLetter=false", "format.numbered=false", "format.subjectPrefix=PATCH",
+    "format.signOff=false", "format.attach=", "format.thread=false",
+]
+FORMAT_ARGS = ["--no-signature", "--no-numbered", "--full-index", "--binary", "-M",
+               "--zero-commit", "--no-cover-letter"]
+
+# Resolutions made while applying the 6.18 series to v7.2.11, keyed by the
+# 6.18 patch path below platforms/ps4/patches. Required for adapted patches.
+NOTES = {
+    "6.18-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch":
+        ("Linux 7.2 makes Display Core the default on CIK and dropped the non-DC CIK "
+         "case this patch extended. Liverpool and Gladius get their own case that keeps "
+         "DC opt-in (amdgpu_dc > 0), as in 6.18. The GART size is set with the new "
+         "amdgpu_gmc_set_gart_size(), SZ_512M for Liverpool and Gladius."),
+    "6.18-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch":
+        "radeon_pci_probe() now passes dev rather than &pdev->dev to devm_drm_dev_alloc().",
+    "6.18-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch":
+        ("Linux 7.2 renamed the bridge chain helpers' first argument to first_bridge, "
+         "and its drm_for_each_bridge_in_chain*() now hold encoder->bridge_chain_mutex "
+         "and bridge references. The legacy helpers this patch restores still walk "
+         "encoder->bridge_chain without them, as in 6.18, which had neither."),
+    "6.18-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch":
+        ("Linux 7.2 rewrote ahci_pci_tbl with designated initializers; the three Sony "
+         "entries use that style and stay between Enmotus and Loongson."),
+    "6.18-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch":
+        ("ahci_baikal_shared_phy_seeded() follows the new ahci_validate_bar_size(). "
+         "Linux 7.2 calls that check after pcim_iomap(), before the Baikal SATA PHY "
+         "setup, so this probe reads HOST_CAP and can fail with -ENODEV earlier than "
+         "in 6.18."),
+    "6.18-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch":
+        ("Linux 7.2 moved amd_iommu_flush_iotlb_all() and amd_iommu_iotlb_sync(), "
+         "which followed the new helper in 6.18."),
+    "6.18-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch":
+        ("Linux 7.2 removed pci_msi_create_irq_domain() and its helpers from this "
+         "hunk's context; ps4-bpcie uses its own copy, see the bpcie port fix."),
+    "6.18-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch":
+        "The new includes follow <trace/events/pci.h>, added in Linux 7.2.",
+}
+
+PORT_FIX_NOTES = {
+    "ps4: icc: use strscpy_pad() for the adapter name":
+        "Linux 7.2 removed strncpy(). Same change as 7.2-ps4 0169.",
+    "mt76x8: replace strncpy() removed in Linux 7.2":
+        ("kalStrnCpy() keeps strncpy() semantics; some callers fill length-delimited "
+         "firmware fields. Same change as 7.2-ps4 0170."),
+    "mt76x8: adapt remain_on_channel to Linux 7.2":
+        ("Upstream 4dbd1829045e added rx_addr; the driver does not set "
+         "NL80211_EXT_FEATURE_ROC_ADDR_FILTER. Same change as 7.2-ps4 0171."),
+    "ps4: bpcie: replace pci_msi_create_irq_domain() removed in Linux 7.2":
+        ("Applies the flags, chip flag and bus token the 6.18 helper set before "
+         "msi_create_irq_domain(); the 7.2 MSI core functions it relies on are "
+         "unchanged from 6.18."),
+    "mt76x8: restore checked proc write copies":
+        ("Undoes 0500-network-mt7668/0006: its __copy_from_user() calls skip access_ok() "
+         "and procDriverCmdWrite() copied 2999 bytes whatever the write size. Uses "
+         "copy_from_user() with the driver's sizes and the comparison of 7.2-ps4 0172."),
+    "mt76x8: adapt key and station operations to Linux 7.1":
+        ("Linux 7.1 passes key and station operations a wireless_dev. The adapters "
+         "pass on its net_device and refuse a wireless_dev without one, which "
+         "cfg80211 never passed before."),
+}
+
+INPUTS = ["targets/7.2-ps4-baikal.env", "platforms/ps4/config/7.2-psx-baikal.config",
+          "platforms/ps4/config/fragments/mt7668.config",
+          "platforms/ps4/config/fragments/usb-ethernet.config"]
+CONFIG_NOTES = {
+    "derived_from": "platforms/ps4/config/6.18-psx-baikal.config",
+    "method": ("merge_config.sh -m with the mt7668 and usb-ethernet fragments, then "
+               "make olddefconfig on the patched v7.2.11 tree (GCC 16.2.1); "
+               "LOCALVERSION changed, then make olddefconfig again"),
+    "changes": [
+        "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-dev1\"",
+        ("PREEMPT_VOLUNTARY, used by the 6.18 boot, no longer exists on x86; make "
+         "olddefconfig selects PREEMPT, a behavioural difference from 6.18"),
+        "NTFS3_FS is limited to m by the new NTFS_FS in Linux 7.2",
+        "all other differences are Linux 7.2 Kconfig changes resolved by make olddefconfig",
+    ],
+}
+
+
+def git(repo, *args, text=True, stdin=None, env=None, check=True):
+    # Take .gitattributes (the kernel's diff=cpp hunk headers) from the pinned
+    # base rather than from whatever the repository has checked out.
+    cmd = ["git", "-C", str(repo), f"--attr-source={BASE_COMMIT}"]
+    for item in GIT_CONFIG:
+        cmd += ["-c", item]
+    res = subprocess.run(cmd + list(args), capture_output=True, input=stdin, check=False,
+                         env={**os.environ, **env} if env else None)
+    if res.returncode:
+        if not check:
+            return None
+        sys.exit(f"git {' '.join(args[:3])} failed: {res.stderr.decode(errors='replace').strip()}")
+    return res.stdout.decode("utf-8", "replace") if text else res.stdout
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def header(data):
+    msg = email.message_from_bytes(data.split(b"\n\n", 1)[0] + b"\n\n")
+    subject = str(email.header.make_header(email.header.decode_header(msg["Subject"] or "")))
+    return " ".join(subject.removeprefix("[PATCH] ").split()), email.utils.parseaddr(msg["From"] or "")
+
+
+def changed_lines(data):
+    """Added and removed lines per file, ignoring context and positions."""
+    files, cur = {}, None
+    for line in data.decode("utf-8", "replace").splitlines():
+        if line.startswith("diff --git "):
+            cur = line
+            files[cur] = []
+        elif cur and (line.startswith("+++ ") or line.startswith("--- ")):
+            continue
+        elif cur and line[:1] in "+-" and not line.startswith("-- "):
+            files[cur].append(line)
+    return files
+
+
+def applies_unchanged(repo, commit, patch):
+    """True when git apply of the original patch on the parent gives the commit's tree."""
+    with tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        git(repo, "read-tree", f"{commit}^", env=env)
+        if git(repo, "apply", "--cached", "--whitespace=nowarn", str(patch), env=env,
+               check=False) is None:
+            return False
+        tree = git(repo, "write-tree", env=env).strip()
+    return tree == git(repo, "rev-parse", f"{commit}^{{tree}}").strip()
+
+
+def regenerate(repo, commit, original):
+    """The original header and message with the port commit's diff."""
+    new = git(repo, "format-patch", *FORMAT_ARGS, "-1", "--stdout", commit, text=False)
+    sep = b"\n---\n"
+    if sep not in original or sep not in new:
+        sys.exit(f"cannot find the message separator for {commit[:12]}")
+    return original[:original.index(sep) + 1] + new[new.index(sep) + 1:]
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--port-repo", required=True, type=Path, help="Git repository with the port branch")
+    ap.add_argument("--check", action="store_true", help="verify committed patches reproduce exactly")
+    args = ap.parse_args()
+    repo, psx = args.port_repo, ROOT
+    out = psx / OUT_REL
+    if git(repo, "rev-parse", f"{BASE_REF}^{{commit}}").strip() != BASE_COMMIT:
+        sys.exit("base tag does not resolve to the pinned commit")
+    tip = git(repo, "rev-parse", BRANCH).strip()
+    commits = git(repo, "rev-list", "--reverse", f"{BASE_COMMIT}..{tip}").split()
+    meta = {}
+    for c in commits:
+        an, ae, s = git(repo, "log", "-1", "--format=%an%x00%ae%x00%s", c).split("\0")
+        meta[c] = {"author": (an, ae), "subject": s.strip()}
+
+    source = json.loads((psx / SOURCE).read_text())
+    sources = source["patches"]
+    if len(commits) < len(sources):
+        sys.exit("port branch is shorter than the 6.18 series")
+    generated, patches, counts = {}, [], {}
+    for c, src in zip(commits, sources):
+        path = psx / src["path"]
+        data = path.read_bytes()
+        if sha256(data) != src["sha256"]:
+            sys.exit(f"{src['path']}: differs from {SOURCE}")
+        subject, (name, addr) = header(data)
+        # MTS2 names its authors without an address; it was applied with git apply.
+        if meta[c]["subject"] != subject or ("@" in addr and meta[c]["author"] != (name, addr)):
+            sys.exit(f"port commit {c[:12]} does not match {src['path']}")
+        key = str(path.relative_to(psx / PATCHES_ROOT))
+        item = {"subject": subject, "origin": source["target"], "source_entry": src["entry"],
+                "source_path": src["path"], "source_sha256": src["sha256"]}
+        if applies_unchanged(repo, c, path):
+            item.update({"entry": os.path.relpath(path, out), "path": src["path"],
+                         "sha256": src["sha256"], "change": "unchanged"})
+        else:
+            rel = str(path.relative_to(path.parents[1]))
+            new = regenerate(repo, c, data)
+            change = "context" if changed_lines(new) == changed_lines(data) else "adapted"
+            if change == "adapted" and key not in NOTES:
+                sys.exit(f"{key}: adapted without a recorded resolution")
+            generated[rel] = new
+            item.update({"entry": rel, "path": f"{OUT_REL}/{rel}", "sha256": sha256(new),
+                         "change": change})
+            if key in NOTES:
+                item["note"] = NOTES[key]
+        counts[item["change"]] = counts.get(item["change"], 0) + 1
+        patches.append(item)
+    unused = set(NOTES) - {str((psx / p["source_path"]).relative_to(psx / PATCHES_ROOT))
+                           for p in patches if p.get("note")}
+    if unused:
+        sys.exit(f"recorded resolutions not used: {sorted(unused)}")
+
+    fixes = commits[len(sources):]
+    for c in fixes:
+        if meta[c]["author"] != PORT_FIX_AUTHOR or meta[c]["subject"] not in PORT_FIX_NOTES:
+            sys.exit(f"commit {c[:12]} is not a recorded port fix")
+    if fixes:
+        with tempfile.TemporaryDirectory() as tmp:
+            names = git(repo, "format-patch", *FORMAT_ARGS, "-o", tmp,
+                        f"{fixes[0]}^..{fixes[-1]}").split()
+            if len(names) != len(fixes):
+                sys.exit("format-patch produced an unexpected number of port fixes")
+            for c, name in zip(fixes, names):
+                rel = f"{FIX_DIR}/{Path(name).name}"
+                data = Path(name).read_bytes()
+                generated[rel] = data
+                patches.append({"entry": rel, "path": f"{OUT_REL}/{rel}", "sha256": sha256(data),
+                                "subject": meta[c]["subject"], "origin": "port-fix",
+                                "change": "port-fix", "note": PORT_FIX_NOTES[meta[c]["subject"]]})
+                counts["port-fix"] = counts.get("port-fix", 0) + 1
+
+    committed = sorted(str(p.relative_to(out)) for p in out.rglob("*.patch")) if out.exists() else []
+    if args.check:
+        if committed != sorted(generated):
+            sys.exit("patch file set differs")
+        for rel, data in generated.items():
+            if (out / rel).read_bytes() != data:
+                sys.exit(f"{rel} differs")
+        print(f"PASS: {len(generated)} generated patches reproduce byte-for-byte")
+        return
+    for rel in committed:
+        (out / rel).unlink()
+    for rel, data in generated.items():
+        (out / rel).parent.mkdir(parents=True, exist_ok=True)
+        (out / rel).write_bytes(data)
+
+    n_src = len(sources)
+    series = out / "series"
+    lines = [
+        "# Linux 7.2.11 port of the 6.18-ps4-baikal series (54 patches and MTS2),",
+        "# then the Linux 7.2 port fixes. Unchanged patches are the 6.18 files;",
+        "# patches regenerated for Linux 7.2 live in this directory. Generated by",
+        "# scripts/export-port72-baikal; see docs/PORT-7.2.md and",
+        "# provenance/7.2-ps4-baikal.json. Compile-tested only.",
+        *[p["entry"] for p in patches[:n_src]],
+        "",
+        "# Linux 7.2 port fixes.",
+        *[p["entry"] for p in patches[n_src:]],
+    ]
+    series.write_text("\n".join(lines) + "\n")
+    ordered = "".join(f"{p['sha256']}  {p['entry']}\n" for p in patches)
+    env = {}
+    for line in (psx / f"targets/{TARGET}.env").read_text().splitlines():
+        if re.match(r"^[A-Z_]+=", line):
+            key, value = line.split("=", 1)
+            env[key] = value.strip('"')
+    doc = {
+        "schema": 1,
+        "created_on": "2026-10-17",
+        "target": TARGET,
+        "platform": env["PLATFORM"],
+        "status": "development target; compile-tested only, no hardware acceptance",
+        "kernel_release": env["KERNEL_RELEASE"],
+        "source_date_epoch": int(env["SOURCE_DATE_EPOCH"]),
+        "upstream": {"repository": "https://github.com/gregkh/linux.git", "ref": BASE_REF,
+                     "commit": BASE_COMMIT},
+        "port": {
+            "branch": BRANCH, "tip": tip, "published": False,
+            "method": ("git am of the 6.18-ps4-baikal series onto v6.18.44 (MTS2 with git "
+                       "apply), cherry-picked onto v7.2.11, then the port fixes; exported "
+                       "with scripts/export-port72-baikal"),
+            "git_config": GIT_CONFIG, "attr_source": BASE_COMMIT,
+            "format_patch_args": FORMAT_ARGS,
+        },
+        "source_target": {"target": source["target"], "provenance": SOURCE,
+                          "kernel_release": source["kernel_release"],
+                          "series_sha256": source["series_sha256"],
+                          "ordered_patchset_sha256": source["ordered_patchset_sha256"]},
+        "series_path": f"{OUT_REL}/series",
+        "series_sha256": sha256(series.read_bytes()),
+        "active_patch_count": len(patches),
+        "ordered_patchset_sha256": sha256(ordered.encode()),
+        "change_counts": dict(sorted(counts.items())),
+        "patches": patches,
+        "inputs": [{"path": i, "sha256": sha256((psx / i).read_bytes())} for i in INPUTS],
+        "config": CONFIG_NOTES,
+        "firmware": {"embedded": False, "bundled": False},
+        "hardware_evidence": {"this_target": "none; the kernel has not been booted",
+                              "source_target": "see provenance/6.18-ps4-baikal.json"},
+    }
+    (psx / f"provenance/{TARGET}.json").write_text(json.dumps(doc, indent=2) + "\n")
+    print(f"exported {len(generated)} files for {len(patches)} patches; changes: {doc['change_counts']}")
+
+
+if __name__ == "__main__":
+    main()

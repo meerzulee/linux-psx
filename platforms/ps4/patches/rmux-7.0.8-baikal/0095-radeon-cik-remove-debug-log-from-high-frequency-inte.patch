@@ -1,0 +1,21 @@
+From c28707d597e31e5fa4b2eccdc25e6c1591158aa3 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 6 May 2026 12:58:57 +0200
+Subject: [PATCH] radeon: cik: remove debug log from high-frequency interrupt
+
+---
+ drivers/gpu/drm/radeon/cik.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/radeon/cik.c b/drivers/gpu/drm/radeon/cik.c
+index 2b87eb4a0d3a9424734a1f76bf32d16956fa1537..44b83a5960f4948ee33c3718d29228ca568c30a0 100644
+--- a/drivers/gpu/drm/radeon/cik.c
++++ b/drivers/gpu/drm/radeon/cik.c
+@@ -8613,7 +8613,6 @@ restart_ih:
+ 			break;
+ 		case 176: /* GFX RB CP_INT */
+ 		case 177: /* GFX IB CP_INT */
+-			DRM_ERROR("radeon_fence_process 176 177\n"); // eeply
+ 			radeon_fence_process(rdev, RADEON_RING_TYPE_GFX_INDEX);
+ 			break;
+ 		case 181: /* CP EOP event */

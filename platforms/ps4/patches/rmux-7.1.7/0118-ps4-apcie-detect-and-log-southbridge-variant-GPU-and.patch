@@ -1,0 +1,204 @@
+From 4f0e94dc380db78915abab81d9a4bc5d630ce3e4 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 11:15:52 +0000
+Subject: [PATCH] ps4-apcie: detect and log southbridge variant, GPU, and
+ function map at boot
+
+---
+ drivers/ps4/Makefile     |  1 +
+ drivers/ps4/ps4-apcie.c  | 43 +++++++++++++++++++++++++---
+ drivers/ps4/ps4-hwinfo.c | 62 ++++++++++++++++++++++++++++++++++++++++
+ drivers/ps4/ps4-hwinfo.h |  7 +++++
+ init/version-timestamp.c |  1 -
+ 5 files changed, 109 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/ps4/ps4-hwinfo.c
+ create mode 100644 drivers/ps4/ps4-hwinfo.h
+
+diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
+index bea98a74c6ff665946a52e004b30de606d86c201..996d839c639eed7ecfbee50f386f1ecdc65a322c 100644
+--- a/drivers/ps4/Makefile
++++ b/drivers/ps4/Makefile
+@@ -7,6 +7,7 @@ obj-y += ps4-apcie.o \
+     ps4-apcie-icc.o \
+     ps4-apcie-pwrbutton.o \
+     icc/i2c.o
++obj-y += ps4-hwinfo.o
+ obj-y += ps4-led.o
+ obj-y += ps4-fan.o
+ obj-y += ps4-buzzer.o
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index 4fa6450c8502ca861430421d6735f057147f7f12..b188be443a9e5652851fd159329fc208b5f0d80c 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -15,6 +15,7 @@
+ #include <asm/ps4.h>
+ 
+ #include "aeolia.h"
++#include "ps4-hwinfo.h"
+ 
+ 
+ #define     MSI_DATA_VECTOR_SHIFT	0
+@@ -360,6 +361,28 @@ static struct irq_domain *apcie_create_irq_domain(struct apcie_dev *sc)
+ 	return domain;
+ }
+ 
++static const char *apcie_sb_name(u16 device)
++{
++	switch (device) {
++	case PCI_DEVICE_ID_SONY_AEOLIA_PCIE: return "Aeolia";
++	case PCI_DEVICE_ID_SONY_BELIZE_PCIE: return "Belize";
++	case PCI_DEVICE_ID_SONY_BAIKAL_PCIE: return "Baikal";
++	default: return "unknown";
++	}
++}
++
++
++static const char * const apcie_func_names[AEOLIA_NUM_FUNCS] = {
++	[AEOLIA_FUNC_ID_ACPI]  = "ACPI/wakeup",
++	[AEOLIA_FUNC_ID_GBE]   = "GbE",
++	[AEOLIA_FUNC_ID_AHCI]  = "AHCI",
++	[AEOLIA_FUNC_ID_SDHCI] = "SDHCI/eMMC",
++	[AEOLIA_FUNC_ID_PCIE]  = "PCIe/MSI-glue",
++	[AEOLIA_FUNC_ID_DMAC]  = "DMAC",
++	[AEOLIA_FUNC_ID_MEM]   = "MEM",
++	[AEOLIA_FUNC_ID_XHCI]  = "xHCI/SATA",
++};
++
+ static int apcie_is_compatible_device(struct pci_dev *dev)
+ {
+ 	if (!dev || dev->vendor != PCI_VENDOR_ID_SONY) {
+@@ -458,7 +481,7 @@ static int apcie_glue_init(struct apcie_dev *sc)
+ {
+ 	int i;
+ 
+-	sc_info("apcie glue probe\n");
++	sc_info("apcie glue init\n");
+ 
+ 	if (!request_mem_region(pci_resource_start(sc->pdev, 4) +
+ 				APCIE_RGN_PCIE_BASE, APCIE_RGN_PCIE_SIZE,
+@@ -479,7 +502,7 @@ static int apcie_glue_init(struct apcie_dev *sc)
+ 
+ 	glue_set_region(sc, AEOLIA_FUNC_ID_PCIE, 2, 0xbf018000, 0x7fff);
+ 
+-	sc_info("Aeolia chip revision: %08x:%08x:%08x\n",
++	sc_info("chip-id: %08x %08x  rev: %08x\n",
+ 		ioread32(sc->bar2 + APCIE_REG_CHIPID_0),
+ 		ioread32(sc->bar2 + APCIE_REG_CHIPID_1),
+ 		ioread32(sc->bar2 + APCIE_REG_CHIPREV));
+@@ -574,9 +597,21 @@ extern bool apcie_initialized;
+ 
+ static int apcie_probe(struct pci_dev *dev, const struct pci_device_id *id) {
+ 	struct apcie_dev *sc;
+-	int ret;
++	int ret, i;
++
++	ps4_hwinfo_print();
++	dev_info(&dev->dev, "southbridge: %s\n", apcie_sb_name(dev->device));
+ 
+-	dev_dbg(&dev->dev, "apcie_probe()\n");
++	for (i = 0; i < AEOLIA_NUM_FUNCS; i++) {
++		unsigned int devfn = (dev->devfn & ~7) | i;
++		struct pci_dev *fn = pci_get_slot(dev->bus, devfn);
++		if (fn) {
++			dev_info(&dev->dev, "  fn%d [%04x:%04x] %s\n",
++				 i, fn->vendor, fn->device,
++				 apcie_func_names[i]);
++			pci_dev_put(fn);
++		}
++	}
+ 
+ 	ret = pci_enable_device(dev);
+ 	if (ret) {
+diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..63d7ad9350ee53033e4ebfa2150ff140f10ec041
+--- /dev/null
++++ b/drivers/ps4/ps4-hwinfo.c
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#define pr_fmt(fmt) "ps4-hwinfo: " fmt
++
++#include <linux/kernel.h>
++#include <linux/pci.h>
++#include <linux/pci_ids.h>
++#include "ps4-hwinfo.h"
++
++#define AMD_VENDOR 0x1002
++
++static const struct {
++	u16 device;
++	const char *name;
++} ps4_gpu_ids[] = {
++	{ 0x9920, "Liverpool" },
++	{ 0x9922, "Liverpool" },
++	{ 0x9923, "Liverpool" },
++	{ 0x9924, "Gladius"   },
++};
++
++static const struct {
++	u16 device;
++	const char *name;
++} ps4_sb_ids[] = {
++	{ PCI_DEVICE_ID_SONY_AEOLIA_PCIE, "Aeolia" },
++	{ PCI_DEVICE_ID_SONY_BELIZE_PCIE, "Belize" },
++	{ PCI_DEVICE_ID_SONY_BAIKAL_PCIE, "Baikal" },
++};
++
++void ps4_hwinfo_print(void)
++{
++	struct pci_dev *gpu = NULL;
++	struct pci_dev *sb  = NULL;
++	const char *gpu_name = "unknown";
++	const char *sb_name  = "unknown";
++	u16 gpu_dev = 0, sb_dev = 0;
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(ps4_gpu_ids); i++) {
++		gpu = pci_get_device(AMD_VENDOR, ps4_gpu_ids[i].device, NULL);
++		if (gpu) {
++			gpu_name = ps4_gpu_ids[i].name;
++			gpu_dev  = gpu->device;
++			pci_dev_put(gpu);
++			break;
++		}
++	}
++
++	for (i = 0; i < ARRAY_SIZE(ps4_sb_ids); i++) {
++		sb = pci_get_device(PCI_VENDOR_ID_SONY, ps4_sb_ids[i].device, NULL);
++		if (sb) {
++			sb_name = ps4_sb_ids[i].name;
++			sb_dev  = sb->device;
++			pci_dev_put(sb);
++			break;
++		}
++	}
++
++	pr_info("GPU: %s [%04x:%04x]  southbridge: %s [%04x:%04x]\n",
++		gpu_name, AMD_VENDOR, gpu_dev,
++		sb_name, PCI_VENDOR_ID_SONY, sb_dev);
++}
+diff --git a/drivers/ps4/ps4-hwinfo.h b/drivers/ps4/ps4-hwinfo.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..26a1351a63f3c051a10706da42ffa5ad57bb3a49
+--- /dev/null
++++ b/drivers/ps4/ps4-hwinfo.h
+@@ -0,0 +1,7 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _PS4_HWINFO_H
++#define _PS4_HWINFO_H
++
++void ps4_hwinfo_print(void);
++
++#endif
+diff --git a/init/version-timestamp.c b/init/version-timestamp.c
+index 46df1eeed10f7728df0f11caf6cb11c5b24ffdfd..6d633498244a9d1bd3823b90cc6a7fd9f56774c1 100644
+--- a/init/version-timestamp.c
++++ b/init/version-timestamp.c
+@@ -33,7 +33,6 @@ const char linux_banner[] =
+ 	"\n"
+ 	"  Strawberry PS4 Linux\n"
+ 	"  Platform  : Sony PlayStation 4\n"
+-	"  Focus     : AEOLIA / BELIZE\n"
+ 	"  Release   : " UTS_RELEASE "\n"
+ 	"  Builder   : " LINUX_COMPILE_BY "@" LINUX_COMPILE_HOST "\n"
+ 	"  Toolchain : " LINUX_COMPILER "\n"

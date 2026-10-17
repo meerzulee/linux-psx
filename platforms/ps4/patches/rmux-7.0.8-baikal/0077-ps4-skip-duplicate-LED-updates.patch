@@ -1,0 +1,60 @@
+From bce9c2d9323f8c1816ec594df41238934f0f0814 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Apr 2026 21:04:21 +0200
+Subject: [PATCH] ps4: skip duplicate LED updates
+
+The PS4 LED driver sends manual LED updates through ICC. Repeated
+userspace writes of the same brightness state can send identical ICC
+payloads even though the LED state is already active.
+
+Cache the last successfully applied LED payload and skip duplicate
+requests. The cache is updated only after a successful ICC command, so
+failed writes do not hide later retries.
+
+Manual LED nodes, payload bytes, and ICC command identifiers are
+unchanged. The removed thermal LED mode is not reintroduced.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-led.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/ps4-led.c b/drivers/ps4/ps4-led.c
+index 938987485391985d92688ec9e4c56e435978e2dd..6c4e6cbb5c31e0b90870dc258a9aadef9f269143 100644
+--- a/drivers/ps4/ps4-led.c
++++ b/drivers/ps4/ps4-led.c
+@@ -147,6 +147,9 @@ struct ps4_led_node {
+ 	const u8 *payload;
+ };
+ 
++static DEFINE_MUTEX(ps4_led_lock);
++static const u8 *ps4_led_current_payload;
++
+ /* ============================================================
+  * ps4_led_set_blocking - LED class brightness callback
+  * ============================================================
+@@ -167,11 +170,23 @@ static int ps4_led_set_blocking(struct led_classdev *led_cdev,
+ 
+ 	memset(reply, 0, sizeof(reply));
+ 
++	mutex_lock(&ps4_led_lock);
++
++	if (ps4_led_current_payload == data) {
++		mutex_unlock(&ps4_led_lock);
++		return 0;
++	}
++
+ 	ret = apcie_icc_cmd(PS4_LED_ICC_MAJOR, PS4_LED_ICC_MINOR,
+ 			    data, PS4_LED_PAYLOAD_LEN,
+ 			    reply, sizeof(reply));
+-	if (ret < 0)
++	if (ret < 0) {
++		mutex_unlock(&ps4_led_lock);
+ 		return ret;
++	}
++
++	ps4_led_current_payload = data;
++	mutex_unlock(&ps4_led_lock);
+ 
+ 	return 0;
+ }

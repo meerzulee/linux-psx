@@ -1,0 +1,43 @@
+From 3044088dab59d40c1f51294269405ba81e6389a5 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 15 Apr 2026 19:24:14 +0200
+Subject: [PATCH] drm/amdgpu/ps4_bridge: re-add 1080p120 mode for testing
+
+Add mode_1080p120 back to ps4_bridge_get_modes() in both the
+EDID-success and fallback paths so userspace can confirm whether
+1920x1080@120 reaches xrandr at all.
+
+Leave mode_valid() unchanged.
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 188ad5be99e2736f8df788fa35bad22478fdac19..47c149b64a25043eda635d10097920a156907271 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -945,6 +945,11 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		amdgpu_connector->edid = drm_edid_duplicate(raw_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
++		newmode = drm_mode_duplicate(dev, &mode_1080p120);
++		if (newmode) {
++			drm_mode_probed_add(connector, newmode);
++			count++;
++		}
+ 		DRM_DEBUG_KMS("ps4_bridge_get_modes: EDID ok, %d modes, extensions=%u\n",
+ 			      count, raw_edid ? raw_edid->extensions : 0);
+ 		drm_edid_free(drm_edid);
+@@ -960,6 +965,12 @@ fallback_modes:
+ 		count++;
+ 	}
+ 
++	newmode = drm_mode_duplicate(dev, &mode_1080p120);
++	if (newmode) {
++		drm_mode_probed_add(connector, newmode);
++		count++;
++	}
++
+ 	//newmode = drm_mode_duplicate(dev, &mode_720p);
+ 	//drm_mode_probed_add(connector, newmode);
+ 	//newmode = drm_mode_duplicate(dev, &mode_480p);

@@ -1,0 +1,76 @@
+From bdf8be034533266dcc53f9ee826cddf89825d3ce Mon Sep 17 00:00:00 2001
+From: M H <mircoho@gmail.com>
+Date: Sat, 21 Jun 2025 18:11:24 +0200
+Subject: [PATCH] apcie fix
+
+fixed slow boot time. also fixes ata and bt / wifi errors caused by ata not getting an irq in time
+---
+ drivers/ps4/aeolia.h    |  1 +
+ drivers/ps4/ps4-apcie.c | 28 +++++++++++++++++++++++++++-
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
+index 5319822ca818cc30aa8b92426cd59c90d3a003b8..7840aec71f28b95bb88fc64913ebecfc00986eb4 100644
+--- a/drivers/ps4/aeolia.h
++++ b/drivers/ps4/aeolia.h
+@@ -147,6 +147,7 @@ struct apcie_dev {
+ 	void __iomem *bar4;
+ 
+ 	int nvec;
++	int8_t irq_map[100];
+ 	int serial_line[2];
+ 	struct apcie_icc_dev icc;
+ };
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index cd332c4db65553ac8576e48c94e2133227cbcd7a..db7eafd0211f6d1db6184412ceddbd6f19466e92 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -171,7 +171,19 @@ static void apcie_irq_msi_compose_msg(struct irq_data *data,
+ 	msg->address_lo = 0xfee00000;// Just do it like this for now
+ 
+ 	// I know this is absolute horseshit, but it matches a known working kernel
+-	msg->data = data->irq - 1;
++	{
++		struct apcie_dev *sc = data->chip_data;
++		int i;
++		msg->data = data->irq - 1;
++		if (sc) {
++			for (i = 0; i < 100; i++) {
++				if (sc->irq_map[i] == data->irq) {
++					msg->data = i;
++					break;
++				}
++			}
++		}
++	}
+ 
+ 	pr_err("apcie_irq_msi_compose_msg\n");
+ }
+@@ -205,6 +217,19 @@ static int apcie_msi_init(struct irq_domain *domain,
+ 	irq_domain_set_info(domain, virq, hwirq, info->chip, info->chip_data,
+ 			    handle_edge_irq, NULL, "edge");
+ 	apcie_msi_calc_mask(data);
++
++	/* virq in irq_map eintragen */
++	struct apcie_dev *sc = info->chip_data;
++	if (sc) {
++		int i;
++		for (i = 0; i < 100; i++) {
++			if (sc->irq_map[i] == -1) {
++				sc->irq_map[i] = virq;
++				break;
++			}
++		}
++	}
++
+ 	return 0;
+ }
+ 
+@@ -509,6 +534,7 @@ static int apcie_probe(struct pci_dev *dev, const struct pci_device_id *id) {
+ 		goto disable_dev;
+ 	}
+ 	sc->pdev = dev;
++	memset(sc->irq_map, -1, sizeof(sc->irq_map));
+ 	pci_set_drvdata(dev, sc);
+ 
+ 	// eMMC ... unused?

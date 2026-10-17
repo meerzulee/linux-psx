@@ -1,0 +1,46 @@
+From 0e47b893a4239f186f8e5c4e5ea1f7404a45c7e9 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 10:04:31 +0200
+Subject: [PATCH] ps4: skip duplicate fan threshold writes
+
+The PS4 fan hwmon driver caches successful fan reads, but repeated
+userspace writes of the same temp1_crit value can still trigger the full
+ICC fan threshold read-modify-write sequence.
+
+Skip fan threshold writes when the requested value matches a fresh cached
+threshold. Actual threshold changes still use the existing
+read-modify-write path, and failed ICC writes do not update the cache.
+
+The hwmon ABI, fan threshold limits, ICC command identifiers, and fan
+threshold read-modify-write protocol are unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-fan.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
+index efbafcfb3a64550deb4ac84a86f26a11f1a59741..87a4cfb6f1f8e3e2ee567f62607c0450346ff016 100644
+--- a/drivers/ps4/ps4-fan.c
++++ b/drivers/ps4/ps4-fan.c
+@@ -230,9 +230,18 @@ static int ps4_fan_write(struct device *dev, enum hwmon_sensor_types type,
+ 		return -EOPNOTSUPP;
+ 
+ 	mutex_lock(&priv->lock);
++	if (ps4_fan_cache_valid(priv->thresh_updated, priv->thresh_valid) &&
++	    priv->thresh_mc == val) {
++		mutex_unlock(&priv->lock);
++		return 0;
++	}
++
+ 	ret = icc_write_fan_threshold(val);
+-	if (!ret)
+-		priv->thresh_valid = false;
++	if (!ret) {
++		priv->thresh_mc = val;
++		priv->thresh_updated = jiffies;
++		priv->thresh_valid = true;
++	}
+ 	mutex_unlock(&priv->lock);
+ 
+ 	return ret;

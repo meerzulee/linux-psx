@@ -132,6 +132,8 @@ future-console support remain planned.
 | [PS4 patch guide](docs/PS4-PATCHES.md) | Scope, ordering, base pin and checksum verification. |
 | [Credits and sources](CREDITS.md) | Original contributors, exact source trees and recovered upstream links. |
 | [Universal-kernel research](docs/UNIVERSAL-KERNEL.md) | Shared-source feasibility and the work needed for one PS4/PS5 binary. |
+| [rmux 7.x imports](docs/RMUX-IMPORT.md) | Per-commit Strawberry kernel sources for the Linux 7.2 port. |
+| [Linux 7.2 port](docs/PORT-7.2.md) | Compile-tested development targets: `7.2-ps4-baikal`, the 6.18 Baikal stack on Linux 7.2, and `7.2-ps4`, based on rmux's Strawberry kernel for all PS4 southbridges. |
 | [Import manifest](provenance/ps4-import.json) | Per-file hashes, immutable source paths and ordered series. |
 | [Active target provenance](provenance/6.18-ps4-baikal.json) | MTS2 import, config adaptations and the active 55-patch stack. |
 

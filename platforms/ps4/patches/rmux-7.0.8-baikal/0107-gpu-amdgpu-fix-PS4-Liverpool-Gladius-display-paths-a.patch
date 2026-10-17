@@ -1,0 +1,63 @@
+From c9e16f3ad2591c5e35fbe1fb81f02a8e799775ac Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 10 May 2026 20:02:34 +0200
+Subject: [PATCH] gpu/amdgpu: fix PS4 Liverpool/Gladius display paths and
+ firmware ignore
+
+---
+ .../gpu/drm/amd/amdgpu/amdgpu_connectors.c    | 28 ++++++++++---------
+ 1 file changed, 15 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index f991b83f2c17e06863a646d92e183d29280d4259..a46a7a4456eb1b5204e84f3aa31d13bbebb28ba3 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1600,7 +1600,8 @@ static const struct drm_connector_funcs amdgpu_ps4_dp_connector_funcs = {
+ 	.dpms = drm_helper_connector_dpms,
+ 	.detect = ps4_bridge_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+-	//.set_property = amdgpu_connector_set_property,
++	.set_property = amdgpu_connector_set_property,
++	.early_unregister = amdgpu_connector_unregister,
+ 	.destroy = amdgpu_connector_destroy,
+ 	.force = amdgpu_connector_dvi_force,
+ 	.late_register = amdgpu_connector_late_register,
+@@ -1645,6 +1646,19 @@ amdgpu_connector_add(struct amdgpu_device *adev,
+ 	if (connector_type == DRM_MODE_CONNECTOR_Unknown)
+ 		return;
+ 
++#ifdef CONFIG_X86_PS4
++	/* Liverpool/Gladius exposes a single internal DP path via an HDMI bridge. */
++	if (adev->asic_type == CHIP_LIVERPOOL ||
++	    adev->asic_type == CHIP_GLADIUS) {
++		if (connector_type != DRM_MODE_CONNECTOR_DisplayPort)
++			return;
++
++		connector_type = DRM_MODE_CONNECTOR_HDMIA;
++		is_dp_bridge = true;
++		is_ps4_bridge = true;
++	}
++#endif
++
+ 	/* see if we already added it */
+ 	drm_connector_list_iter_begin(dev, &iter);
+ 	drm_for_each_connector_iter(connector, &iter) {
+@@ -1687,18 +1701,6 @@ amdgpu_connector_add(struct amdgpu_device *adev,
+ 	if (!amdgpu_connector)
+ 		return;
+ 
+-	/* Liverpool (PS4) has an DP bridge which needs a special driver, and
+-	 * a fake HDMI port that doesn't really exist. */
+-	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) {
+-		if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+-			connector_type = DRM_MODE_CONNECTOR_HDMIA;
+-			is_dp_bridge = true;
+-			is_ps4_bridge = true;
+-		} else {
+-			return;
+-		}
+-	}
+-
+ 	connector = &amdgpu_connector->base;
+ 
+ 	amdgpu_connector->connector_id = connector_id;

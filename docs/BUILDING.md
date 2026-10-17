@@ -7,6 +7,16 @@ The active root target is `6.18-ps4-baikal`, release
 in order. The builder never downloads a distribution or device firmware.
 PS5 and the historical ultrawide snapshot are not active build targets.
 
+Two development targets build Linux v7.2.11. Both compile; neither has
+booted on a console. See [PORT-7.2.md](PORT-7.2.md).
+
+- `7.2-ps4-baikal`: the `6.18-ps4-baikal` series ported to 7.2, release
+  `7.2.11-psx-ps4-baikal-dev1`. Build it with `make TARGET=7.2-ps4-baikal` or
+  `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal`.
+- `7.2-ps4`: the rmux 7.x stack for all PS4 southbridges, release
+  `7.2.11-psx-ps4-dev1`. Build it with `make TARGET=7.2-ps4` or
+  `./scripts/build-kernel-orbstack -t 7.2-ps4`.
+
 ## Linux x86-64
 
 Use native tools; no container or VM is required. On Arch/Omarchy:
@@ -53,7 +63,9 @@ Do not start another local container/VM runtime for this workflow.
 
 ## Source, output and repeat builds
 
-- `targets/*.env` is the active target registry, with repository-root paths.
+- `targets/*.env` is the target registry, with repository-root paths. The
+  active target is `6.18-ps4-baikal`; `7.2-ps4-baikal` and `7.2-ps4` are
+  development targets.
 - `platforms/ps4/targets/` and the original imported config are historical inputs.
 - `src/<target>/` is a disposable, marked upstream clone. Every invocation
   resets and cleans that generated clone before applying the recorded series.

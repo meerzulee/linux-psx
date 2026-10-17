@@ -1,0 +1,264 @@
+From: PS4 Linux Baikal Port <noreply@ps4-linux>
+Subject: [PATCH] pci/msi/irqdomain: PS4 vendor quirks (Linux 6.15)
+
+Adds PS4 vendor IDs to pci_ids.h plus probe/MSI-allocation adjustments
+needed by the southbridge MFD glue. In 6.x the MSI subsystem was
+restructured: arch/x86/kernel/apic/msi.c was replaced by io_apic.c +
+vector.c + drivers/pci/msi/irqdomain.c + kernel/irq/irqdomain.c, and
+include/linux/msi.h gained a new structure layout. This patch covers
+all of that.
+
+Sources:
+  - crashniels/linux, ps4-linux-6.15.y-baikal at b3b6b1e4f
+  - rmuxnet/ps4-linux-12xx commit 19ec7f4d1d9af199ec93ad6be8e635b38f735b86
+    https://github.com/rmuxnet/ps4-linux-12xx/commit/19ec7f4d1d9af199ec93ad6be8e635b38f735b86
+
+The Linux 6.18 port keeps only behavior still required by the PS4
+southbridge drivers. It deliberately retains upstream's
+DOMAIN_BUS_ANY guard; rmux restored that guard, so the older inverse
+change is obsolete.
+
+---
+ arch/x86/include/asm/apic.h      |  4 ++++
+ arch/x86/include/asm/irqdomain.h |  4 ++++
+ arch/x86/kernel/apic/io_apic.c   | 14 +++++---------
+ arch/x86/kernel/apic/vector.c    | 13 +++++++++++--
+ drivers/pci/msi/irqdomain.c      |  3 ++-
+ drivers/pci/probe.c              | 19 +++++++++++++++++++
+ include/linux/msi.h              |  3 +++
+ include/linux/pci_ids.h          | 26 ++++++++++++++++++++++++++
+ kernel/irq/msi.c                 |  2 +-
+ 9 files changed, 75 insertions(+), 13 deletions(-)
+
+diff --git a/arch/x86/include/asm/apic.h b/arch/x86/include/asm/apic.h
+index 9cd493d467d4d17925d25e99330faff2e158a5e1..ebe51ac9696738700062222214fc98f2c0dcbe20 100644
+--- a/arch/x86/include/asm/apic.h
++++ b/arch/x86/include/asm/apic.h
+@@ -337,6 +337,10 @@ struct apic_override {
+ 	int	(*wakeup_secondary_cpu_64)(u32 apicid, unsigned long start_eip, unsigned int cpu);
+ };
+ 
++struct msi_msg;
++void x86_vector_msi_compose_msg(struct irq_data *data,
++				       struct msi_msg *msg);
++
+ /*
+  * Pointer to the local APIC driver in use on this system (there's
+  * always just one such driver in use - the kernel decides via an
+diff --git a/arch/x86/include/asm/irqdomain.h b/arch/x86/include/asm/irqdomain.h
+index 30c325c235c0d7d7903261b7f76ebb97a0b2a84c..4298889812deb5a878225e8654054042945f43cc 100644
+--- a/arch/x86/include/asm/irqdomain.h
++++ b/arch/x86/include/asm/irqdomain.h
+@@ -12,6 +12,10 @@ enum {
+ 
+ extern int x86_fwspec_is_ioapic(struct irq_fwspec *fwspec);
+ extern int x86_fwspec_is_hpet(struct irq_fwspec *fwspec);
++extern int x86_fwspec_is_aeolia(struct irq_fwspec *fwspec);
++
++struct msi_msg;
++void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *msg);
+ 
+ extern struct irq_domain *x86_vector_domain;
+ 
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index 7d7175d01228884f669f7cf3d2890a7eea817695..7e269deab9832123d2205f151ff2675afabff410 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -2355,21 +2355,17 @@ static int io_apic_get_redir_entries(int ioapic)
+ 
+ unsigned int arch_dynirq_lower_bound(unsigned int from)
+ {
+-	unsigned int ret;
+-
+ 	/*
+ 	 * dmar_alloc_hwirq() may be called before setup_IO_APIC(), so use
+ 	 * gsi_top if ioapic_dynirq_base hasn't been initialized yet.
+ 	 */
+-	ret = ioapic_dynirq_base ? : gsi_top;
+-
++	if (!ioapic_initialized)
++		return gsi_top;
+ 	/*
+-	 * For DT enabled machines ioapic_dynirq_base is irrelevant and
+-	 * always 0. gsi_top can be 0 if there is no IO/APIC registered.
+-	 * 0 is an invalid interrupt number for dynamic allocations. Return
+-	 * @from instead.
++	 * For DT enabled machines ioapic_dynirq_base is irrelevant and not
++	 * updated. So simply return @from if ioapic_dynirq_base == 0.
+ 	 */
+-	return ret ? : from;
++	return ioapic_dynirq_base ? : from;
+ }
+ 
+ #ifdef CONFIG_X86_32
+diff --git a/arch/x86/kernel/apic/vector.c b/arch/x86/kernel/apic/vector.c
+index bddc544653999a28bc1c87f35a5c15b45bf2cf13..7907e11ab4eef6549bc12095de8a07d7ec319490 100644
+--- a/arch/x86/kernel/apic/vector.c
++++ b/arch/x86/kernel/apic/vector.c
+@@ -689,6 +689,15 @@ int x86_fwspec_is_hpet(struct irq_fwspec *fwspec)
+ 	return 0;
+ }
+ 
++int x86_fwspec_is_aeolia(struct irq_fwspec *fwspec)
++{
++	if (is_fwnode_irqchip(fwspec->fwnode)) {
++		const char *fwname = fwnode_get_name(fwspec->fwnode);
++		return fwname && !strncmp(fwname, "Aeolia-MSI", 10);
++	}
++	return 0;
++}
++
+ static int x86_vector_select(struct irq_domain *d, struct irq_fwspec *fwspec,
+ 			     enum irq_domain_bus_token bus_token)
+ {
+@@ -700,7 +709,7 @@ static int x86_vector_select(struct irq_domain *d, struct irq_fwspec *fwspec,
+ 	if (apic_id_valid(32768))
+ 		return 0;
+ 
+-	return x86_fwspec_is_ioapic(fwspec) || x86_fwspec_is_hpet(fwspec);
++	return x86_fwspec_is_ioapic(fwspec) || x86_fwspec_is_hpet(fwspec) || x86_fwspec_is_aeolia(fwspec);
+ }
+ 
+ static const struct irq_domain_ops x86_vector_domain_ops = {
+@@ -1023,7 +1032,7 @@ void apic_ack_edge(struct irq_data *irqd)
+ 	apic_ack_irq(irqd);
+ }
+ 
+-static void x86_vector_msi_compose_msg(struct irq_data *data,
++void x86_vector_msi_compose_msg(struct irq_data *data,
+ 				       struct msi_msg *msg)
+ {
+        __irq_msi_compose_msg(irqd_cfg(data), msg, false);
+diff --git a/drivers/pci/msi/irqdomain.c b/drivers/pci/msi/irqdomain.c
+index 6e65f0f44112e68c977eb3be32ae3f32f418e50c..f477ffad5343a433c97663872f1713b93b149bff 100644
+--- a/drivers/pci/msi/irqdomain.c
++++ b/drivers/pci/msi/irqdomain.c
+@@ -37,7 +37,7 @@ void pci_msi_teardown_msi_irqs(struct pci_dev *dev)
+  * @irq_data:	Pointer to interrupt data of the MSI interrupt
+  * @msg:	Pointer to the message
+  */
+-static void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *msg)
++void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *msg)
+ {
+ 	struct msi_desc *desc = irq_data_get_msi_desc(irq_data);
+ 
+@@ -49,6 +49,7 @@ static void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *
+ 		__pci_write_msi_msg(desc, msg);
+ }
+ 
++// EXPORT_SYMBOL(pci_msi_domain_write_msg);
+ /*
+  * Per device MSI[-X] domain functionality
+  */
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index dd0abbc63e18d177e2ebb2b13045fec14ff54627..6280e7a44db2721597bde2cbf43faccf2a812a0a 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2852,6 +2852,9 @@ static int only_one_child(struct pci_bus *bus)
+ 	return 0;
+ }
+ 
++// It can be arbitrary (above 2). Freebsd uses 20, so use that too.
++#define AEOLIA_SLOT_NUM 20
++
+ /**
+  * pci_scan_slot - Scan a PCI slot on a bus for devices
+  * @bus: PCI bus to scan
+@@ -2868,10 +2871,26 @@ int pci_scan_slot(struct pci_bus *bus, int devfn)
+ 	struct pci_dev *dev;
+ 	int fn = 0, nr = 0;
+ 
++	u32 l;
++
+ 	if (only_one_child(bus) && (devfn > 0))
+ 		return 0; /* Already scanned the entire slot */
+ 
++	// skip phantom Aeolia devices that bleed through the PCI space
++	if (PCI_SLOT(devfn) != AEOLIA_SLOT_NUM &&
++	    pci_bus_read_dev_vendor_id(bus, devfn, &l, 60*1000) &&
++	    (l & 0xffff) == PCI_VENDOR_ID_SONY) {
++		return 0;
++	}
++
+ 	do {
++		if (PCI_SLOT(devfn) != AEOLIA_SLOT_NUM &&
++		    pci_bus_read_dev_vendor_id(bus, devfn + fn, &l, 60*1000) &&
++		    (l & 0xffff) == PCI_VENDOR_ID_SONY) {
++				fn = next_fn(bus, dev, fn);
++			continue;
++		}
++
+ 		dev = pci_scan_single_device(bus, devfn + fn);
+ 		if (dev) {
+ 			if (!pci_dev_is_added(dev))
+diff --git a/include/linux/msi.h b/include/linux/msi.h
+index a4613de11960d41c418a223c3a8fcf143e9f60ee..c8ee78ebf71c2acfdda1d5f82eaf89d1e631b0c2 100644
+--- a/include/linux/msi.h
++++ b/include/linux/msi.h
+@@ -239,6 +239,9 @@ DEFINE_LOCK_GUARD_1(msi_descs_lock, struct device, __msi_lock_descs(_T->lock),
+ struct msi_desc *msi_domain_first_desc(struct device *dev, unsigned int domid,
+ 				       enum msi_desc_filter filter);
+ 
++struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
++				       const struct irq_affinity_desc *affinity);
++
+ /**
+  * msi_first_desc - Get the first MSI descriptor of the default irqdomain
+  * @dev:	Device to operate on
+diff --git a/include/linux/pci_ids.h b/include/linux/pci_ids.h
+index 1c9d40e09107dc1ac64f61c44ef5001defa89f9e..514cc35c34fc6ddaf9f5d111c9053e96719e2e05 100644
+--- a/include/linux/pci_ids.h
++++ b/include/linux/pci_ids.h
+@@ -567,6 +567,8 @@
+ #define PCI_DEVICE_ID_AMD_16H_NB_F4	0x1534
+ #define PCI_DEVICE_ID_AMD_16H_M30H_NB_F3 0x1583
+ #define PCI_DEVICE_ID_AMD_16H_M30H_NB_F4 0x1584
++#define PCI_DEVICE_ID_AMD_16H_M41H_F3  0x1431
++#define PCI_DEVICE_ID_AMD_16H_M41H_F4  0x1432
+ #define PCI_DEVICE_ID_AMD_17H_DF_F3	0x1463
+ #define PCI_DEVICE_ID_AMD_17H_M10H_DF_F3 0x15eb
+ #define PCI_DEVICE_ID_AMD_17H_M30H_DF_F3 0x1493
+@@ -922,6 +924,30 @@
+ #define PCI_DEVICE_ID_TI_DRA72x		0xb501
+ 
+ #define PCI_VENDOR_ID_SONY		0x104d
++#define PCI_DEVICE_ID_SONY_AEOLIA_ACPI	0x908f
++#define PCI_DEVICE_ID_SONY_AEOLIA_GBE	0x909e
++#define PCI_DEVICE_ID_SONY_AEOLIA_AHCI	0x909f
++#define PCI_DEVICE_ID_SONY_AEOLIA_SDHCI	0x90a0
++#define PCI_DEVICE_ID_SONY_AEOLIA_PCIE	0x90a1
++#define PCI_DEVICE_ID_SONY_AEOLIA_DMAC	0x90a2
++#define PCI_DEVICE_ID_SONY_AEOLIA_MEM	0x90a3
++#define PCI_DEVICE_ID_SONY_AEOLIA_XHCI	0x90a4
++#define PCI_DEVICE_ID_SONY_BELIZE_ACPI	0x90c8
++#define PCI_DEVICE_ID_SONY_BELIZE_GBE	0x90c9
++#define PCI_DEVICE_ID_SONY_BELIZE_AHCI	0x90ca
++#define PCI_DEVICE_ID_SONY_BELIZE_SDHCI	0x90cb
++#define PCI_DEVICE_ID_SONY_BELIZE_PCIE	0x90cc
++#define PCI_DEVICE_ID_SONY_BELIZE_DMAC	0x90cd
++#define PCI_DEVICE_ID_SONY_BELIZE_MEM	0x90ce
++#define PCI_DEVICE_ID_SONY_BELIZE_XHCI	0x90cf
++#define PCI_DEVICE_ID_SONY_BAIKAL_ACPI	0x90d7
++#define PCI_DEVICE_ID_SONY_BAIKAL_GBE	0x90d8
++#define PCI_DEVICE_ID_SONY_BAIKAL_AHCI	0x90d9
++#define PCI_DEVICE_ID_SONY_BAIKAL_SDHCI	0x90da
++#define PCI_DEVICE_ID_SONY_BAIKAL_PCIE	0x90db
++#define PCI_DEVICE_ID_SONY_BAIKAL_DMAC	0x90dc
++#define PCI_DEVICE_ID_SONY_BAIKAL_MEM	0x90dd
++#define PCI_DEVICE_ID_SONY_BAIKAL_XHCI	0x90de
+ 
+ /* Winbond have two vendor IDs! See 0x10ad as well */
+ #define PCI_VENDOR_ID_WINBOND2		0x1050
+diff --git a/kernel/irq/msi.c b/kernel/irq/msi.c
+index 903be7289c53ad7866ec046b7b372c47154d0ec9..fafdff6ea739d3cec1bd0c2c435063c25ddac08c 100644
+--- a/kernel/irq/msi.c
++++ b/kernel/irq/msi.c
+@@ -73,7 +73,7 @@ static int msi_domain_prepare_irqs(struct irq_domain *domain, struct device *dev
+  *
+  * Return: pointer to allocated &msi_desc on success or %NULL on failure
+  */
+-static struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
++struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
+ 				       const struct irq_affinity_desc *affinity)
+ {
+ 	struct msi_desc *desc = kzalloc_obj(*desc);

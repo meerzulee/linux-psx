@@ -1,0 +1,28 @@
+From 88b7a7720fae9dcb2d35a965ef3c25e0974be95b Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 00:09:32 +0200
+Subject: [PATCH] ps4-buzzer: fix sysfs store() returning wrong byte count on
+ success
+
+---
+ drivers/ps4/ps4-buzzer.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/ps4-buzzer.c b/drivers/ps4/ps4-buzzer.c
+index 8dd29babf1a95a1bc26a75847df3d254c32c070d..afb795b70fabdb19ac42589d1745ccd1c41dacb1 100644
+--- a/drivers/ps4/ps4-buzzer.c
++++ b/drivers/ps4/ps4-buzzer.c
+@@ -20,7 +20,12 @@ static int ps4_buzzer_send(u8 value)
+ 			    reply, sizeof(reply));
+ 	mutex_unlock(&ps4_buzzer_lock);
+ 
+-	return ret;
++	if (ret < 0)
++		return ret;
++	if (reply[0] != 0 || reply[1] != 0)
++		return -EIO;
++
++	return 0;
+ }
+ 
+ static ssize_t beep_store(struct device *dev, struct device_attribute *attr,

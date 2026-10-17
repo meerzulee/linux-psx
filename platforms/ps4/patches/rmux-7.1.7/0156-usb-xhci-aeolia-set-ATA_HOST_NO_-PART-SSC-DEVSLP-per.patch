@@ -1,0 +1,30 @@
+From 1e62a3021ea75a06e06eedd61ba436a33cbb1f61 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Jul 2026 15:51:45 +0000
+Subject: [PATCH] usb: xhci-aeolia: set ATA_HOST_NO_{PART,SSC,DEVSLP} per HBA
+ caps
+
+---
+ drivers/usb/host/xhci-aeolia.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 538d37c00f68d27732bf1dbf11b0a604ab9b7d81..2b2f0589dafd854cf9f02f3d8856bcb1155e4387 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -297,6 +297,15 @@ static int ahci_init_one(struct pci_dev *pdev)
+ 	else
+ 		dev_info(&pdev->dev, "SSS flag set, parallel bus scan disabled\n");
+ 
++	if (!(hpriv->cap & HOST_CAP_PART))
++		host->flags |= ATA_HOST_NO_PART;
++
++	if (!(hpriv->cap & HOST_CAP_SSC))
++		host->flags |= ATA_HOST_NO_SSC;
++
++	if (!(hpriv->cap2 & HOST_CAP2_SDS))
++		host->flags |= ATA_HOST_NO_DEVSLP;
++
+ 	if (pi.flags & ATA_FLAG_EM)
+ 		ahci_reset_em(host);
+ 

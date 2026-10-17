@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+"""Regenerate the path-filtered rmux (Strawberry kernel) PS4 patch imports.
+
+The original https://github.com/rmuxnet/linux repository is no longer public.
+Its branches survive in the https://github.com/vnkgdshrr/linux-rmuxnet snapshot,
+and the same commit IDs resolve in the feeRnt/ps4-linux-12xx fork network.
+
+Every pinned commit is exported with `git format-patch`, keeping its original
+author, date, message and sign-offs. Only paths outside the kernel source
+(CI, builder, README, full configs, firmware blobs, images) are filtered out.
+
+  scripts/import-rmux --repo DIR            # write patches and provenance
+  scripts/import-rmux --repo DIR --check    # verify committed files reproduce
+
+DIR is a Git repository holding the pinned commits: a full clone of the source,
+or an empty/shallow one that this tool fills with --fetch.
+"""
+import argparse
+import fnmatch
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = "https://github.com/vnkgdshrr/linux-rmuxnet.git"
+ALTERNATE = "https://github.com/feeRnt/ps4-linux-12xx"
+MANIFEST = ROOT / "provenance/rmux-import.json"
+SUMS = ROOT / "provenance/rmux-SHA256SUMS"
+
+# Top-level paths that are not Linux source in the rmux tree.
+EXCLUDE = [
+    ".github", ".gitignore", ".gitattributes", ".dockerignore", "build.sh",
+    "glob:Dockerfile*", "glob:README*", "BRANCHES.md", "docs", "extra_firmware",
+    "firmware", "IMAGES", "config", "configs", "profiles",
+    "glob:*.png", "glob:*.jpg", "glob:*.jpeg", "glob:*.gif",
+]
+PATHSPEC = ["."] + [
+    f":(exclude,top,glob){p[5:]}" if p.startswith("glob:") else f":(exclude,top){p}"
+    for p in EXCLUDE
+]
+# Pin every option that changes format-patch bytes.
+GIT_CONFIG = [
+    "diff.algorithm=myers", "diff.mnemonicprefix=false", "diff.noprefix=false",
+    "diff.relative=false", "diff.renames=true", "diff.suppressBlankEmpty=false",
+    "diff.indentHeuristic=true", "core.quotePath=true", "format.signature=",
+    "format.coverLetter=false", "format.numbered=false", "format.subjectPrefix=PATCH",
+    # An empty format.attach disables attachments; any other value, including
+    # "false", turns on multipart/mixed output and is used as the boundary.
+    "format.signOff=false", "format.attach=", "format.thread=false",
+]
+FORMAT_ARGS = ["--no-signature", "--no-numbered", "--full-index", "--binary", "-M",
+               "--no-zero-commit", "--no-cover-letter"]
+
+IMPORTS = [
+    {
+        "name": "rmux-7.1.7",
+        "status": "source snapshot for the Linux 7.2 port; not a build target",
+        "dir": "platforms/ps4/patches/rmux-7.1.7",
+        "base": {"ref": "linux/7.1.7", "commit": "c7ba9d6de43e9d9bd755b1f3c19501a38898c6b6",
+                 "upstream": "gregkh/linux v7.1.7"},
+        "segments": [
+            {"ref": "bebez/7.1.7-Try", "from": "c7ba9d6de43e9d9bd755b1f3c19501a38898c6b6",
+             "to": "853d3557f1834fa4d9dea4e1e5dabaeaa47d19d4",
+             "note": "Aeolia/Belize stack plus rmux's Baikal unification attempt"},
+            {"ref": "zaebiz/7.1.7-Stable", "from": "853d3557f1834fa4d9dea4e1e5dabaeaa47d19d4",
+             "to": "590e14c0f523fb9dd987653b418899d157c8ca3b",
+             "note": "later zaebiz commits that are not on bebez"},
+        ],
+        "reference": {"commit": "590e14c0f523fb9dd987653b418899d157c8ca3b",
+                      "dir": "platforms/ps4/config/rmux-reference/7.1.7-zaebiz",
+                      "paths": ["config", "configs/base.cfg", "configs/kvm.cfg", "configs/lto-full.cfg",
+                                "configs/lto-none.cfg", "configs/lto-thin.cfg",
+                                "configs/tuning-general.cfg", "configs/tuning-server.cfg"]},
+    },
+    {
+        "name": "rmux-7.0.8-baikal",
+        "status": "Baikal reference from rmux's stable Baikal branch; not a build target",
+        "dir": "platforms/ps4/patches/rmux-7.0.8-baikal",
+        "base": {"ref": "linux-7.0.8", "commit": "ec984f1eb8a34b75657f440ebff0dee27c9b850d",
+                 "upstream": "gregkh/linux v7.0.8"},
+        "segments": [
+            {"ref": "baikal/7.0.8-Stable", "from": "ec984f1eb8a34b75657f440ebff0dee27c9b850d",
+             "to": "d8cbb8e912f59c352479f1158103e8ce7b6ca8c4",
+             "note": "rmux's field-tested Baikal stack; its one merge is linearized"},
+        ],
+        "reference": {"commit": "d8cbb8e912f59c352479f1158103e8ce7b6ca8c4",
+                      "dir": "platforms/ps4/config/rmux-reference/7.0.8-baikal",
+                      "paths": ["config"]},
+    },
+]
+
+
+def git(repo, *args, check=True, text=True):
+    cmd = ["git", "-C", str(repo)]
+    for item in GIT_CONFIG:
+        cmd += ["-c", item]
+    res = subprocess.run(cmd + list(args), capture_output=True, check=False)
+    if check and res.returncode:
+        sys.exit(f"git {' '.join(args[:3])} failed: {res.stderr.decode(errors='replace').strip()}")
+    return res.stdout.decode("utf-8", "replace") if text else res.stdout
+
+
+def have(repo, sha):
+    return subprocess.run(["git", "-C", str(repo), "cat-file", "-e", f"{sha}^{{commit}}"],
+                          capture_output=True).returncode == 0
+
+
+def repair_shallow(repo):
+    """Drop shallow boundaries whose parents are present, so the first imported
+    commit diffs against its real base instead of an empty tree."""
+    path = Path(git(repo, "rev-parse", "--git-path", "shallow").strip())
+    if not path.is_absolute():
+        path = Path(repo) / path
+    if not path.exists():
+        return
+    keep = []
+    for sha in path.read_text().split():
+        parents = re.findall(r"^parent ([0-9a-f]{40})$", git(repo, "cat-file", "-p", sha), re.M)
+        if not parents or not all(have(repo, p) for p in parents):
+            keep.append(sha)
+    path.write_text("".join(f"{s}\n" for s in keep))
+
+
+def fetch(repo, imp):
+    if not (Path(repo) / ".git").exists() and not (Path(repo) / "HEAD").exists():
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    # Keep every fetched tip under refs/rmux-import/ so later fetches can
+    # advertise it during negotiation and its objects stay reachable.
+    base = imp["base"]
+    if not have(repo, base["commit"]):
+        git(repo, "fetch", "--no-tags", "--depth=1", SOURCE,
+            f"+refs/heads/{base['ref']}:refs/rmux-import/{base['ref']}")
+    for seg in imp["segments"]:
+        if not have(repo, seg["to"]):
+            git(repo, "fetch", "--no-tags", f"--shallow-exclude={base['ref']}", SOURCE,
+                f"+refs/heads/{seg['ref']}:refs/rmux-import/{seg['ref']}")
+    repair_shallow(repo)
+
+
+def verify_range(repo, imp):
+    base = imp["base"]["commit"]
+    for seg in imp["segments"]:
+        if not have(repo, seg["to"]):
+            sys.exit(f"missing pinned commit {seg['to']} ({seg['ref']}); use --fetch")
+        if subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", base, seg["to"]],
+                          capture_output=True).returncode:
+            sys.exit(f"{seg['ref']} does not descend from base {base}; repair shallow history")
+    first = git(repo, "rev-list", "--reverse", f"{imp['segments'][0]['from']}..{imp['segments'][0]['to']}").split()[0]
+    if git(repo, "rev-parse", f"{first}^").strip() != base:
+        sys.exit("first imported commit does not have the pinned base as parent")
+
+
+def excluded(path):
+    top = path.split("/", 1)[0]
+    for item in EXCLUDE:
+        if item.startswith("glob:"):
+            if "/" not in path and fnmatch.fnmatch(path, item[5:]):
+                return True
+        elif path == item or top == item:
+            return True
+    return False
+
+
+def verify_apply(repo, imp):
+    """Apply the committed series with `git apply --cached` (no fuzz, like
+    build.sh) to the pinned base and compare the result with the source commits."""
+    d = ROOT / imp["dir"]
+    entries = [l for l in (d / "series").read_text().splitlines() if l.strip()]
+    by_entry = {p["entry"]: p for p in json.loads(MANIFEST.read_text())["imports"][
+        [i["name"] for i in json.loads(MANIFEST.read_text())["imports"]].index(imp["name"])]["patches"]}
+    with tempfile.TemporaryDirectory() as tmp:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
+        run = lambda *a: subprocess.run(["git", "-C", str(repo), *a], env=env, capture_output=True,
+                                        check=True).stdout.decode("utf-8", "replace")
+        run("read-tree", imp["base"]["commit"])
+        for i, seg in enumerate(imp["segments"]):
+            seg_entries = [e for e in entries if by_entry[e]["segment"] == seg["ref"]]
+            for e in seg_entries:
+                res = subprocess.run(["git", "-C", str(repo), "apply", "--cached", "--whitespace=nowarn",
+                                      str(d / e)], env=env, capture_output=True)
+                if res.returncode:
+                    sys.exit(f"{imp['name']}: {e} does not apply: {res.stderr.decode(errors='replace')[:300]}")
+            tree = run("write-tree").strip()
+            if i == 0:
+                diff = [x for x in run("diff", "--name-only", tree, seg["to"]).split() if not excluded(x)]
+            else:
+                touched = sorted({f for e in seg_entries for f in re.findall(
+                    r"^diff --git a/\S+ b/(\S+)", (d / e).read_text(errors="replace"), re.M)})
+                diff = run("diff", "--name-only", tree, seg["to"], "--", *touched).split() if touched else []
+            if diff:
+                sys.exit(f"{imp['name']}: {seg['ref']} result differs from {seg['to'][:12]}: {diff[:10]}")
+            print(f"PASS: {imp['name']} {seg['ref']}: {len(seg_entries)} patches apply to "
+                  f"{imp['base']['commit'][:12]} and match {seg['to'][:12]} outside excluded paths")
+
+
+def header(data, name):
+    m = re.search(rb"^" + name + rb": (.*(?:\n[ \t].*)*)", data, re.M)
+    return re.sub(rb"\n[ \t]+", b" ", m.group(1)).decode("utf-8", "replace") if m else ""
+
+
+def generate(repo, imp, out):
+    out.mkdir(parents=True, exist_ok=True)
+    patches, dropped, start = [], [], 1
+    for seg in imp["segments"]:
+        rng = f"{seg['from']}..{seg['to']}"
+        commits = git(repo, "rev-list", "--reverse", "--topo-order", rng).split()
+        names = git(repo, "format-patch", *FORMAT_ARGS, f"--start-number={start}",
+                    "-o", str(out), rng, "--", *PATHSPEC).split()
+        emitted = {}
+        for name in names:
+            path = Path(name)
+            data = path.read_bytes()
+            sha = re.match(rb"From ([0-9a-f]{40}) ", data).group(1).decode()
+            emitted[sha] = path
+        for sha in commits:
+            parents = git(repo, "rev-list", "--parents", "-n1", sha).split()[1:]
+            subject = git(repo, "log", "-1", "--format=%s", sha).strip()
+            all_paths = set(git(repo, "diff-tree", "--no-commit-id", "-r", "--name-only",
+                                *(["-m", "--first-parent"] if len(parents) > 1 else []), sha).split())
+            if sha not in emitted:
+                reason = ("merge commit" if len(parents) > 1 else
+                          "no changes" if not all_paths else "only non-kernel paths")
+                dropped.append({"commit": sha, "segment": seg["ref"], "subject": subject,
+                                "reason": reason, "paths": sorted(all_paths)})
+                continue
+            path = emitted[sha]
+            data = path.read_bytes()
+            kept = set(re.findall(rb"^diff --git a/(\S+) b/", data, re.M))
+            kept = {k.decode("utf-8", "replace") for k in kept}
+            patches.append({
+                "entry": path.name, "commit": sha, "segment": seg["ref"],
+                "author": header(data, b"From"), "date": header(data, b"Date"),
+                "subject": subject, "size": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "filtered_paths": sorted(all_paths - kept),
+            })
+        start += len(names)
+    series = "".join(p["entry"] + "\n" for p in patches)
+    (out / "series").write_text(series)
+    return patches, dropped, series
+
+
+def export_reference(repo, imp, out):
+    """Copy rmux's full configs and build-fragment files verbatim (reference only)."""
+    ref = imp.get("reference")
+    if not ref:
+        return []
+    out.mkdir(parents=True, exist_ok=True)
+    files = []
+    for path in ref["paths"]:
+        blob = git(repo, "rev-parse", f"{ref['commit']}:{path}").strip()
+        data = git(repo, "cat-file", "blob", blob, text=False)
+        name = Path(path).name
+        (out / name).write_bytes(data)
+        files.append({"path": f"{ref['dir']}/{name}", "source_path": path, "blob": blob,
+                      "size": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+    return files
+
+
+def write_provenance(results):
+    lines, imports = [], []
+    for imp, patches, dropped, series, refs in results:
+        rel = imp["dir"]
+        lines += [f"{p['sha256']}  {rel}/{p['entry']}" for p in patches]
+        lines += [f"{r['sha256']}  {r['path']}" for r in refs]
+        lines.append(f"{hashlib.sha256(series.encode()).hexdigest()}  {rel}/series")
+        ordered = "".join(f"{p['sha256']}  {p['entry']}\n" for p in patches)
+        imports.append({
+            "name": imp["name"], "status": imp["status"], "dir": rel,
+            "base": imp["base"], "segments": imp["segments"],
+            "series_sha256": hashlib.sha256(series.encode()).hexdigest(),
+            "ordered_patchset_sha256": hashlib.sha256(ordered.encode()).hexdigest(),
+            "patch_count": len(patches), "patches": patches, "dropped_commits": dropped,
+            "reference_files": refs,
+        })
+    manifest = {
+        "schema": 1,
+        "source": {"repository": SOURCE, "original": "https://github.com/rmuxnet/linux",
+                   "original_status": "HTTP 404 on 2026-10-17; snapshot fork created 2026-08-28",
+                   "alternate_network": ALTERNATE},
+        "excluded_top_level_paths": EXCLUDE,
+        "git_config": GIT_CONFIG, "format_patch_args": FORMAT_ARGS,
+        "policy": ("Per-commit format-patch output with original authorship. Only "
+                   "non-kernel top-level paths are filtered; each patch lists the "
+                   "paths it lost. Generated bytes are not edited."),
+        "imports": imports,
+    }
+    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    SUMS.write_text("\n".join(lines) + "\n")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--repo", required=True, type=Path, help="Git repository with the pinned commits")
+    ap.add_argument("--fetch", action="store_true", help="fetch missing pinned commits (shallow)")
+    ap.add_argument("--check", action="store_true", help="verify committed patches reproduce exactly")
+    ap.add_argument("--verify", action="store_true",
+                    help="apply committed series to the pinned base and compare with source commits")
+    args = ap.parse_args()
+    results = []
+    for imp in IMPORTS:
+        if args.fetch:
+            fetch(args.repo, imp)
+        repair_shallow(args.repo)
+        verify_range(args.repo, imp)
+        if args.verify:
+            verify_apply(args.repo, imp)
+            continue
+        if args.check:
+            with tempfile.TemporaryDirectory() as tmp:
+                patches, dropped, series = generate(args.repo, imp, Path(tmp))
+                committed = ROOT / imp["dir"]
+                names = sorted(p.name for p in Path(tmp).iterdir())
+                if names != sorted(p.name for p in committed.iterdir() if p.name != "README.md"):
+                    sys.exit(f"{imp['name']}: file set differs from {imp['dir']}")
+                for name in names:
+                    if (Path(tmp) / name).read_bytes() != (committed / name).read_bytes():
+                        sys.exit(f"{imp['name']}: {name} differs")
+                if imp.get("reference"):
+                    refs = export_reference(args.repo, imp, Path(tmp) / "ref")
+                    for r in refs:
+                        if (ROOT / r["path"]).read_bytes() != (Path(tmp) / "ref" / Path(r["path"]).name).read_bytes():
+                            sys.exit(f"{imp['name']}: reference {r['path']} differs")
+            print(f"PASS: {imp['name']} reproduces {len(patches)} patches byte-for-byte")
+            continue
+        out = ROOT / imp["dir"]
+        for old in out.glob("*.patch"):
+            old.unlink()
+        patches, dropped, series = generate(args.repo, imp, out)
+        refs = export_reference(args.repo, imp, ROOT / imp["reference"]["dir"]) if imp.get("reference") else []
+        results.append((imp, patches, dropped, series, refs))
+        print(f"{imp['name']}: {len(patches)} patches, {len(dropped)} commits dropped")
+    if results:
+        write_provenance(results)
+
+
+if __name__ == "__main__":
+    main()

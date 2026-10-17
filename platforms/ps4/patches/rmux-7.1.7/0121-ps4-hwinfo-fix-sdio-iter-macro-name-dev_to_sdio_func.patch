@@ -1,0 +1,22 @@
+From d396c10d41e2c835c5b0bd3ddd80cd73c37ab237 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 12:57:16 +0000
+Subject: [PATCH] ps4-hwinfo: fix sdio iter macro name (dev_to_sdio_func)
+
+---
+ drivers/ps4/ps4-hwinfo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
+index 78d559e8837c178b2719afbf289bdd71c031439b..7c47fc40d8608035598a8b53ad2e06f12c83392a 100644
+--- a/drivers/ps4/ps4-hwinfo.c
++++ b/drivers/ps4/ps4-hwinfo.c
+@@ -90,7 +90,7 @@ void ps4_hwinfo_print(void)
+ 
+ static int ps4_hwinfo_sdio_iter(struct device *dev, void *data)
+ {
+-	struct sdio_func *func = to_sdio_func(dev);
++	struct sdio_func *func = dev_to_sdio_func(dev);
+ 
+ 	if (func->num == 1)
+ 		pr_info("WLAN: [%04x:%04x] via SDIO\n", func->vendor, func->device);

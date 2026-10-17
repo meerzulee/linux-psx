@@ -1,0 +1,134 @@
+From dc41d4f723afe6c50f4719b9211633b737d91072 Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Thu, 2 Apr 2026 21:22:22 +0200
+Subject: [PATCH] amdgpu: apply custom PS4 bridge and encoder patches
+
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c |  5 +-
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c      | 51 ++++++++++++++++----
+ 2 files changed, 45 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
+index 24387600afdce45d568d2e016a076d222580ffc1..c8f71d02c71d62658413b446aae844cea20a806a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_encoders.c
+@@ -41,9 +41,12 @@ static void amdgpu_maybe_add_bridge(struct drm_connector *connector,
+ {
+ 	struct drm_device *dev = connector->dev;
+ 	struct amdgpu_device *adev = drm_to_adev(dev);
++	int ret;
+ 
+ 	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) {
+-		ps4_bridge_register(connector, encoder);
++		ret = ps4_bridge_register(connector, encoder);
++		if (ret)
++			DRM_ERROR("Failed to register PS4 bridge: %d\n", ret);
+ 	}
+ }
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 6483789b48e3807da69ed932b6baeb632bb03af0..a7f053cd6d39fa24c92b2fccadd56d271d3ceece 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -40,6 +40,7 @@
+ #include <drm/drm_bridge.h>
+ #include <drm/drm_encoder.h>
+ 
++#include <linux/err.h>
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
+ 
+@@ -167,9 +168,7 @@ struct ps4_bridge {
+ 
+ /* this should really be taken care of by the connector, but that is currently
+  * contained/owned by radeon_connector so just use a global for now */
+-static struct ps4_bridge g_bridge = {
+-	.mutex = __MUTEX_INITIALIZER(g_bridge.mutex)
+-};
++static struct ps4_bridge *g_bridge;
+ 
+ /* Function prototype declarations, to fix compilation warnings */
+ void ps4_bridge_mode_set(struct drm_bridge *bridge,
+@@ -314,6 +313,12 @@ static inline struct ps4_bridge *
+ 	return container_of(bridge, struct ps4_bridge, bridge);
+ }
+ 
++static void ps4_bridge_clear_global(void *data)
++{
++	if (g_bridge == data)
++		g_bridge = NULL;
++}
++
+ void ps4_bridge_mode_set(struct drm_bridge *bridge,
+ 			 const struct drm_display_mode *mode,
+ 			 const struct drm_display_mode *adjusted_mode)
+@@ -751,12 +756,14 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 		bool force)
+ {
+-	struct ps4_bridge *mn_bridge = &g_bridge;
+-	u8 reg;
+-
++	struct ps4_bridge *mn_bridge = g_bridge;
+ 	struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 	struct amdgpu_connector_atom_dig *amdgpu_dig_connector = amdgpu_connector->con_priv;
+ 	int dpcd_ret;
++	u8 reg;
++
++	if (!mn_bridge)
++		return connector_status_disconnected;
+ 
+ 	amdgpu_dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
+ 	dpcd_ret = amdgpu_atombios_dp_get_dpcd(amdgpu_connector);
+@@ -818,23 +825,47 @@ static struct drm_bridge_funcs ps4_bridge_funcs = {
+ int ps4_bridge_register(struct drm_connector *connector,
+ 			     struct drm_encoder *encoder)
+ {
++	struct device *dev = connector->dev->dev;
+ 	int ret;
+-	struct ps4_bridge *mn_bridge = &g_bridge;
++	struct ps4_bridge *mn_bridge;
++
++	if (g_bridge) {
++		if (g_bridge->connector == connector && g_bridge->encoder == encoder)
++			return 0;
++
++		DRM_ERROR("PS4 bridge already registered for a different connector\n");
++		return -EBUSY;
++	}
++
++	mn_bridge = devm_drm_bridge_alloc(dev, struct ps4_bridge, bridge,
++					      &ps4_bridge_funcs);
++	if (IS_ERR(mn_bridge))
++		return PTR_ERR(mn_bridge);
++
++	ret = devm_add_action_or_reset(dev, ps4_bridge_clear_global, mn_bridge);
++	if (ret)
++		return ret;
++
++	mutex_init(&mn_bridge->mutex);
+ 
+ 	mn_bridge->encoder = encoder;
+ 	mn_bridge->connector = connector;
+ 	mn_bridge->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
+-	mn_bridge->bridge.funcs = &ps4_bridge_funcs;
+ 
+ 	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+ 			    DRM_CONNECTOR_POLL_DISCONNECT;
+ 
+-	drm_bridge_add(&mn_bridge->bridge);
++	ret = devm_drm_bridge_add(dev, &mn_bridge->bridge);
++	if (ret)
++		return ret;
++
+ 	ret = drm_bridge_attach(mn_bridge->encoder, &mn_bridge->bridge, NULL, 0);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to initialize bridge with drm\n");
+-		return -EINVAL;
++		return ret;
+ 	}
+ 
++	g_bridge = mn_bridge;
++
+ 	return 0;
+ }

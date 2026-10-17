@@ -1,0 +1,25 @@
+From e6a05b59979564c3dc798fb78604e22c8cd3fd67 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 6 May 2026 13:00:26 +0200
+Subject: [PATCH] radeon: cik_sdma: warn on Liverpool ring test failure
+
+---
+ drivers/gpu/drm/radeon/cik_sdma.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/radeon/cik_sdma.c b/drivers/gpu/drm/radeon/cik_sdma.c
+index 0840f96d081365453070cdb74fe66e67909ab893..5fd4c7c577e29d114db54898d893db8f19f87180 100644
+--- a/drivers/gpu/drm/radeon/cik_sdma.c
++++ b/drivers/gpu/drm/radeon/cik_sdma.c
+@@ -710,9 +710,10 @@ int cik_sdma_ring_test(struct radeon_device *rdev,
+ 		DRM_ERROR("radeon: ring %d test failed (0x%08X)\n",
+ 			  ring->idx, tmp);
+ 
+-		// TODO (ps4patches): rip errors i guess
+ 		if (rdev->family != CHIP_LIVERPOOL) {
+ 			r = -EINVAL;
++		} else {
++			DRM_WARN("Liverpool SDMA ring test failed (0x%08X), continuing\n", tmp);
+ 		}
+ 	}
+ 	return r;

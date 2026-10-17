@@ -1,0 +1,347 @@
+From d533149b8ed228bfd1c5a439618e7d1dc510928b Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Tue, 18 Aug 2026 18:14:41 +0200
+Subject: [PATCH] drm/amdgpu: add PS4 SMU mailbox driver
+
+---
+ drivers/gpu/drm/amd/amdgpu/Makefile        |   1 +
+ drivers/gpu/drm/amd/amdgpu/cik.c           |   5 +
+ drivers/gpu/drm/amd/amdgpu/liverpool_smu.c | 239 +++++++++++++++++++++
+ drivers/gpu/drm/amd/amdgpu/liverpool_smu.h |  34 +++
+ drivers/gpu/drm/amd/pm/inc/amdgpu_dpm.h    |   1 +
+ 5 files changed, 280 insertions(+)
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_smu.c
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/liverpool_smu.h
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index 4261d043a6829430b5818323d65c57a37326fa55..98c40445e4fbe60c89a3108cf4a4a7f6f5370018 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -80,6 +80,7 @@ amdgpu-$(CONFIG_PERF_EVENTS) += amdgpu_pmu.o
+ # add asic specific block
+ amdgpu-$(CONFIG_DRM_AMDGPU_CIK)+= cik.o cik_ih.o \
+ 	dce_v8_0.o gfx_v7_0.o cik_sdma.o uvd_v4_2.o vce_v2_0.o \
++	liverpool_smu.o \
+ 
+ amdgpu-$(CONFIG_DRM_AMDGPU_SI)+= si.o gmc_v6_0.o gfx_v6_0.o si_ih.o si_dma.o dce_v6_0.o \
+ 	uvd_v3_1.o vce_v1_0.o
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 0f663936996ccb2aa6f48b8290b7a5c9543267d7..98ac4eafa891653865f4aa9be287168be1cac16f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -43,6 +43,7 @@
+ #include "dce_v8_0.h"
+ #include "gfx_v7_0.h"
+ #include "cik_sdma.h"
++#include "liverpool_smu.h"
+ #include "uvd_v4_2.h"
+ #include "vce_v2_0.h"
+ #include "cik_dpm.h"
+@@ -2574,6 +2575,10 @@ static int cik_common_hw_init(struct amdgpu_ip_block *ip_block)
+ 		adev->clock.default_mclk = 170000;
+ 	}
+ 
++	if (adev->asic_type == CHIP_LIVERPOOL ||
++	    adev->asic_type == CHIP_GLADIUS)
++		liverpool_smu_sysfs_init(adev);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/liverpool_smu.c b/drivers/gpu/drm/amd/amdgpu/liverpool_smu.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..28f68337da4b8a8f3e3bc3a09544cef88987aea0
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/liverpool_smu.c
+@@ -0,0 +1,239 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * PlayStation 4 SMU mailbox driver
++ *
++ * Based on the SMU7 mailbox protocol (smu_7_0_1_d.h).
++ */
++
++#include <linux/delay.h>
++
++#include "amdgpu.h"
++#include "liverpool_smu.h"
++
++#define LIVERPOOL_SMU_MSG_REG		0xc2100000
++#define LIVERPOOL_SMU_RESP_REG		0xc2100004
++#define LIVERPOOL_SMU_ARG_REG		0xc210003c
++
++#define LIVERPOOL_SMU_RESP_READY	BIT(0)
++#define LIVERPOOL_SMU_RESP_DONE		BIT(1)
++
++#define LIVERPOOL_SMU_MSG_MASK		0xfffe0001
++#define LIVERPOOL_SMU_MSG_VALID		BIT(0)
++
++#define LIVERPOOL_SMU_ARG_TIMEOUT	(500 << 16)
++
++#define LIVERPOOL_SMU_POLL_US		10
++#define LIVERPOOL_SMU_POLL_ITER		100000
++
++static const u8 liverpool_smu_mempstate_msg[] = {
++	[0] = 0x58,
++	[1] = 0x57,
++	[2] = 0x59,
++};
++
++int liverpool_smu_read(struct amdgpu_device *adev, u32 reg, u32 *val)
++{
++	if (!adev->reg.smc.rreg)
++		return -EIO;
++
++	*val = RREG32_SMC(reg);
++	return 0;
++}
++
++int liverpool_smu_write(struct amdgpu_device *adev, u32 reg, u32 val)
++{
++	if (!adev->reg.smc.wreg)
++		return -EIO;
++
++	WREG32_SMC(reg, val);
++	return 0;
++}
++
++#define LIVERPOOL_SAMU_CMD		0x22070
++#define LIVERPOOL_SAMU_ADDR		0x22074
++#define LIVERPOOL_SAMU_DATA		0x22078
++#define LIVERPOOL_SAMU_CLEAR		0x2207c
++#define LIVERPOOL_SAMU_TRIGGER		0x32
++#define LIVERPOOL_SAMU_STATUS		0x4a
++#define LIVERPOOL_SAMU_OP_WRITE		0xa505
++
++int liverpool_smu_samu_write(struct amdgpu_device *adev, u32 reg, u32 val)
++{
++	u32 i;
++
++	if (!adev->rmmio)
++		return -EIO;
++
++	writel(LIVERPOOL_SAMU_OP_WRITE, adev->rmmio + LIVERPOOL_SAMU_CMD);
++	writel(reg, adev->rmmio + LIVERPOOL_SAMU_ADDR);
++	writel(val, adev->rmmio + LIVERPOOL_SAMU_DATA);
++
++	WREG32_SMC(LIVERPOOL_SAMU_TRIGGER, 1);
++
++	for (i = 0; i < 100000; i++) {
++		if (!(RREG32_SMC(LIVERPOOL_SAMU_STATUS) & 1))
++			break;
++		udelay(1);
++	}
++	if (i == 100000)
++		return -ETIMEDOUT;
++
++	writel(0, adev->rmmio + LIVERPOOL_SAMU_CLEAR);
++	return 0;
++}
++
++int liverpool_smu_cmd(struct amdgpu_device *adev, u32 msg, u32 arg)
++{
++	u32 resp, tmp;
++	int i;
++
++	for (i = 0; i < LIVERPOOL_SMU_POLL_ITER; i++) {
++		resp = RREG32_SMC(LIVERPOOL_SMU_RESP_REG);
++		if (resp & LIVERPOOL_SMU_RESP_DONE)
++			break;
++		udelay(LIVERPOOL_SMU_POLL_US);
++	}
++	if (i == LIVERPOOL_SMU_POLL_ITER)
++		return -ETIMEDOUT;
++
++	WREG32_SMC(LIVERPOOL_SMU_ARG_REG, LIVERPOOL_SMU_ARG_TIMEOUT | arg);
++
++	tmp = RREG32_SMC(LIVERPOOL_SMU_MSG_REG);
++	tmp &= LIVERPOOL_SMU_MSG_MASK;
++	tmp |= msg << 1;
++	tmp ^= LIVERPOOL_SMU_MSG_VALID;
++	WREG32_SMC(LIVERPOOL_SMU_MSG_REG, tmp);
++
++	for (i = 0; i < LIVERPOOL_SMU_POLL_ITER; i++) {
++		resp = RREG32_SMC(LIVERPOOL_SMU_RESP_REG);
++		if (resp & LIVERPOOL_SMU_RESP_READY)
++			break;
++		udelay(LIVERPOOL_SMU_POLL_US);
++	}
++	if (i == LIVERPOOL_SMU_POLL_ITER)
++		return -ETIMEDOUT;
++
++	for (i = 0; i < LIVERPOOL_SMU_POLL_ITER; i++) {
++		resp = RREG32_SMC(LIVERPOOL_SMU_RESP_REG);
++		if (resp & LIVERPOOL_SMU_RESP_DONE)
++			break;
++		udelay(LIVERPOOL_SMU_POLL_US);
++	}
++	if (i == LIVERPOOL_SMU_POLL_ITER)
++		return -ETIMEDOUT;
++
++	return 0;
++}
++
++int liverpool_smu_set_mempstate(struct amdgpu_device *adev, u32 idx)
++{
++	int r;
++
++	if (idx >= ARRAY_SIZE(liverpool_smu_mempstate_msg))
++		return -EINVAL;
++
++	if (idx != 1) {
++		r = liverpool_smu_cmd(adev, liverpool_smu_mempstate_msg[1], 0);
++		if (r)
++			return r;
++	}
++
++	return liverpool_smu_cmd(adev, liverpool_smu_mempstate_msg[idx], 0);
++}
++
++static ssize_t liverpool_smu_mempstate_store(struct device *dev,
++					     struct device_attribute *attr,
++					     const char *buf, size_t count)
++{
++	struct amdgpu_device *adev =
++		drm_to_adev(pci_get_drvdata(to_pci_dev(dev)));
++	u32 idx;
++	int r;
++
++	r = kstrtou32(buf, 0, &idx);
++	if (r)
++		return r;
++
++	r = liverpool_smu_set_mempstate(adev, idx);
++	if (r)
++		return r;
++
++	return count;
++}
++static DEVICE_ATTR_WO(liverpool_smu_mempstate);
++
++static ssize_t liverpool_smu_cmd_store(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
++{
++	struct amdgpu_device *adev =
++		drm_to_adev(pci_get_drvdata(to_pci_dev(dev)));
++	u32 msg, arg;
++	int r, n;
++
++	n = sscanf(buf, "%u %u", &msg, &arg);
++	if (n != 2)
++		return -EINVAL;
++
++	r = liverpool_smu_cmd(adev, msg, arg);
++	if (r)
++		return r;
++
++	return count;
++}
++static DEVICE_ATTR_WO(liverpool_smu_cmd);
++
++static ssize_t liverpool_smu_reg_store(struct device *dev,
++				       struct device_attribute *attr,
++				       const char *buf, size_t count)
++{
++	struct amdgpu_device *adev =
++		drm_to_adev(pci_get_drvdata(to_pci_dev(dev)));
++	u32 reg;
++	int r;
++
++	r = kstrtou32(buf, 0, &reg);
++	if (r)
++		return r;
++
++	adev->pm.smu_reg_sel = reg;
++	return count;
++}
++
++static ssize_t liverpool_smu_reg_show(struct device *dev,
++				      struct device_attribute *attr,
++				      char *buf)
++{
++	struct amdgpu_device *adev =
++		drm_to_adev(pci_get_drvdata(to_pci_dev(dev)));
++	u32 val;
++	int r;
++
++	r = liverpool_smu_read(adev, adev->pm.smu_reg_sel, &val);
++	if (r)
++		return r;
++
++	return sysfs_emit(buf, "0x%08x\n", val);
++}
++static DEVICE_ATTR_RW(liverpool_smu_reg);
++
++static struct attribute *liverpool_smu_attrs[] = {
++	&dev_attr_liverpool_smu_cmd.attr,
++	&dev_attr_liverpool_smu_mempstate.attr,
++	&dev_attr_liverpool_smu_reg.attr,
++	NULL,
++};
++
++static const struct attribute_group liverpool_smu_attr_group = {
++	.attrs = liverpool_smu_attrs,
++};
++
++int liverpool_smu_sysfs_init(struct amdgpu_device *adev)
++{
++	return devm_device_add_group(adev->dev, &liverpool_smu_attr_group);
++}
++
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Armandas Kvietkus");
++MODULE_DESCRIPTION("PlayStation 4 SMU mailbox driver");
+diff --git a/drivers/gpu/drm/amd/amdgpu/liverpool_smu.h b/drivers/gpu/drm/amd/amdgpu/liverpool_smu.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..acfe4414f235d142be57ef8a00057c6a3c1448d9
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/liverpool_smu.h
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#ifndef LIVERPOOL_SMU_H
++#define LIVERPOOL_SMU_H
++
++struct amdgpu_device;
++
++#ifdef CONFIG_DRM_AMDGPU_CIK
++int liverpool_smu_read(struct amdgpu_device *adev, u32 reg, u32 *val);
++int liverpool_smu_write(struct amdgpu_device *adev, u32 reg, u32 val);
++int liverpool_smu_samu_write(struct amdgpu_device *adev, u32 reg, u32 val);
++int liverpool_smu_cmd(struct amdgpu_device *adev, u32 msg, u32 arg);
++int liverpool_smu_set_mempstate(struct amdgpu_device *adev, u32 idx);
++int liverpool_smu_sysfs_init(struct amdgpu_device *adev);
++#else
++static inline int liverpool_smu_read(struct amdgpu_device *adev, u32 reg,
++				     u32 *val)
++{ return -EIO; }
++static inline int liverpool_smu_write(struct amdgpu_device *adev, u32 reg,
++				      u32 val)
++{ return -EIO; }
++static inline int liverpool_smu_samu_write(struct amdgpu_device *adev, u32 reg,
++					   u32 val)
++{ return -EIO; }
++static inline int liverpool_smu_cmd(struct amdgpu_device *adev, u32 msg,
++				    u32 arg)
++{ return -EIO; }
++static inline int liverpool_smu_set_mempstate(struct amdgpu_device *adev,
++					      u32 idx)
++{ return -EINVAL; }
++static inline int liverpool_smu_sysfs_init(struct amdgpu_device *adev)
++{ return 0; }
++#endif
++
++#endif 
+diff --git a/drivers/gpu/drm/amd/pm/inc/amdgpu_dpm.h b/drivers/gpu/drm/amd/pm/inc/amdgpu_dpm.h
+index aa3f427819a097dd0e3c6875ad8cd8ee27203a09..1b20f1408631d0ba9e3992846ebac6cf75b8a98e 100644
+--- a/drivers/gpu/drm/amd/pm/inc/amdgpu_dpm.h
++++ b/drivers/gpu/drm/amd/pm/inc/amdgpu_dpm.h
+@@ -373,6 +373,7 @@ struct amdgpu_pm {
+ 	 * 0 = disabled (default), otherwise enable corresponding debug mode
+ 	 */
+ 	uint32_t		smu_debug_mask;
++	uint32_t		smu_reg_sel;
+ 
+ 	bool			pp_force_state_enabled;
+ 

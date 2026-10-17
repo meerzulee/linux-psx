@@ -1,0 +1,27 @@
+From ece1dd1037caa213f7ba74f1885e0e0e8314d7dc Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Wed, 11 Mar 2026 16:31:43 +0000
+Subject: [PATCH] amdgpu-ps4_bridge: Remove ps4_bridge_get_modes log
+
+This message usually just periodically spams the kernel
+log buffer without much meaningful contribution to debugging
+for most users. Disabled behind a DDEBUG (pr_debug) for now.
+
+Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 65fbba63f7d5a5d98eff66b5d775f9ffb7711c33..925986f2bdb876d4a3bff2922306d2750c31f681 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -729,7 +729,7 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+ 	struct drm_device *dev = connector->dev;
+ 	struct drm_display_mode *newmode;
+-	pr_info("ps4_bridge_get_modes\n");
++	pr_debug("ps4_bridge_get_modes\n");
+ 
+ 	newmode = drm_mode_duplicate(dev, &mode_1080p);
+ 	drm_mode_probed_add(connector, newmode);

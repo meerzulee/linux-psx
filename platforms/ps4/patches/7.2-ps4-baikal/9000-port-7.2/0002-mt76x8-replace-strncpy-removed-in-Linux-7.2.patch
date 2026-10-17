@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 17:10:42 +0600
+Subject: [PATCH] mt76x8: replace strncpy() removed in Linux 7.2
+
+Linux 7.2 removed strncpy(). Turn kalStrnCpy() into an inline helper
+with the same semantics: copy at most n bytes and zero-fill the rest
+of the destination without forcing a terminating NUL. Some callers
+fill length-delimited firmware command fields, where strscpy() would
+drop the last byte.
+
+Route the remaining direct strncpy() calls in wlan_lib.c and
+gl_wext.c through kalStrnCpy().
+---
+ .../mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c      |  4 ++--
+ .../mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_wext.c     | 10 +++++-----
+ .../drv_wlan/MT6632/wlan/os/linux/include/gl_kal.h     | 10 +++++++++-
+ 3 files changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
+index 37f2b2869cb4d769328c63756a4beb1da21d8866..786176cfa3e209d7ab5b926fd9b463bd80f14081 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
+@@ -7795,7 +7795,7 @@ WLAN_STATUS wlanCfgParseToFW(PCHAR *args, PCHAR args_size, UCHAR nargs, PCHAR bu
+ 	}
+ 
+ 	cmd_v1.itemStringLength = args_size[ED_STRING_SITE];
+-	strncpy(cmd_v1.itemString, args[ED_STRING_SITE],  cmd_v1.itemStringLength);
++	kalStrnCpy(cmd_v1.itemString, args[ED_STRING_SITE],  cmd_v1.itemStringLength);
+ 	DBGLOG(INIT, INFO, "itemString:");
+ 	for (i = 0; i <  cmd_v1.itemStringLength; i++)
+ 		DBGLOG(INIT, INFO, "%c", cmd_v1.itemString[i]);
+@@ -7845,7 +7845,7 @@ WLAN_STATUS wlanCfgParseToFW(PCHAR *args, PCHAR args_size, UCHAR nargs, PCHAR bu
+ 		cmd_v1.itemValueLength = bufferindex;
+ 	} else if (cmd_v1.itemType == ITEM_TYPE_STR) {
+ 		cmd_v1.itemValueLength = args_size[ED_VALUE_SITE];
+-		strncpy(cmd_v1.itemValue, args[ED_VALUE_SITE], cmd_v1.itemValueLength);
++		kalStrnCpy(cmd_v1.itemValue, args[ED_VALUE_SITE], cmd_v1.itemValueLength);
+ 	}
+ 
+ 	DBGLOG(INIT, INFO, "Length = %d itemValue:", cmd_v1.itemValueLength);
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_wext.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_wext.c
+index 58eacf8db3c919de800f672dff792887a1e305f3..fff75e1268fc08374cd14a11dc69aa7532ad8246 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_wext.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_wext.c
+@@ -883,22 +883,22 @@ wext_get_name(IN struct net_device *prNetDev, IN struct iw_request_info *prIwrIn
+ 
+ 		switch (eNetWorkType) {
+ 		case PARAM_NETWORK_TYPE_DS:
+-			strncpy(pcName, "IEEE 802.11b", sizeof(((struct iwreq *)0)->u.name));
++			kalStrnCpy(pcName, "IEEE 802.11b", sizeof(((struct iwreq *)0)->u.name));
+ 			break;
+ 		case PARAM_NETWORK_TYPE_OFDM24:
+-			strncpy(pcName, "IEEE 802.11bgn", sizeof(((struct iwreq *)0)->u.name));
++			kalStrnCpy(pcName, "IEEE 802.11bgn", sizeof(((struct iwreq *)0)->u.name));
+ 			break;
+ 		case PARAM_NETWORK_TYPE_AUTOMODE:
+ 		case PARAM_NETWORK_TYPE_OFDM5:
+-			strncpy(pcName, "IEEE 802.11abgn", sizeof(((struct iwreq *)0)->u.name));
++			kalStrnCpy(pcName, "IEEE 802.11abgn", sizeof(((struct iwreq *)0)->u.name));
+ 			break;
+ 		case PARAM_NETWORK_TYPE_FH:
+ 		default:
+-			strncpy(pcName, "IEEE 802.11", sizeof(((struct iwreq *)0)->u.name));
++			kalStrnCpy(pcName, "IEEE 802.11", sizeof(((struct iwreq *)0)->u.name));
+ 			break;
+ 		}
+ 	} else {
+-		strncpy(pcName, "Disconnected", sizeof(((struct iwreq *)0)->u.name));
++		kalStrnCpy(pcName, "Disconnected", sizeof(((struct iwreq *)0)->u.name));
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_kal.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_kal.h
+index 5f6baec9bb5b7f2d691140a325df5ed1150e0f49..dd41255edc0e66a4a7d2ea69874416f0a2a299ec 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_kal.h
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_kal.h
+@@ -682,7 +682,15 @@ static inline void kalCfg80211ScanDone(struct cfg80211_scan_request *request,
+ 
+ /* string operation */
+ #define kalStrCpy(dest, src)                        strcpy(dest, src)
+-#define kalStrnCpy(dest, src, n)                    strncpy(dest, src, n)
++/* Linux 7.2 removed strncpy(); keep its copy-and-zero-fill semantics. */
++static inline void *kalStrnCpy(void *dest, const void *src, size_t n)
++{
++	size_t len = strnlen(src, n);
++
++	memcpy(dest, src, len);
++	memset((u8 *)dest + len, 0, n - len);
++	return dest;
++}
+ #define kalStrCmp(ct, cs)                           strcmp(ct, cs)
+ #define kalStrnCmp(ct, cs, n)                       strncmp(ct, cs, n)
+ #define kalStrChr(s, c)                             strchr(s, c)

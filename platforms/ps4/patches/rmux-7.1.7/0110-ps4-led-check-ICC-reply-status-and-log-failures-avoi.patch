@@ -1,0 +1,30 @@
+From bb4c6b49014e2eeee25fb632b7e9c4b87bb2a9be Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 00:09:32 +0200
+Subject: [PATCH] ps4-led: check ICC reply status and log failures, avoid stale
+ cache on error
+
+---
+ drivers/ps4/ps4-led.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/ps4/ps4-led.c b/drivers/ps4/ps4-led.c
+index 72493a3f835071c3ea9ad2531d8375487e9a161c..2faeacf4095c22a88d1d83d87f8dfc7f95db01f6 100644
+--- a/drivers/ps4/ps4-led.c
++++ b/drivers/ps4/ps4-led.c
+@@ -134,8 +134,15 @@ static int ps4_led_set_blocking(struct led_classdev *led_cdev,
+ 			    reply, sizeof(reply));
+ 	if (ret < 0) {
+ 		mutex_unlock(&ps4_led_lock);
++		dev_err(led_cdev->dev, "icc: LED command failed: %d\n", ret);
+ 		return ret;
+ 	}
++	if (reply[0] != 0 || reply[1] != 0) {
++		mutex_unlock(&ps4_led_lock);
++		dev_err(led_cdev->dev, "icc: LED command reported failure: %d, %d\n",
++			reply[0], reply[1]);
++		return -EIO;
++	}
+ 
+ 	ps4_led_current_payload = data;
+ 	mutex_unlock(&ps4_led_lock);

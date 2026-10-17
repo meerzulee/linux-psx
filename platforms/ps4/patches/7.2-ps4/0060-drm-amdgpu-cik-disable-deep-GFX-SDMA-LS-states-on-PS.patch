@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 15 Apr 2026 19:55:07 +0200
+Subject: [PATCH] drm/amdgpu/cik: disable deep GFX/SDMA LS states on PS4
+
+Adjust Liverpool and Gladius clock-gating defaults to keep the
+regular MGCG/CG paths enabled while leaving the deeper GFX and
+SDMA low-power sleep states disabled.
+
+This favors lower wake latency and steadier sustained performance
+on PS4 hardware at the cost of some additional power usage.
+---
+ drivers/gpu/drm/amd/amdgpu/cik.c | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 9194c4404d555482e00e5696cd6dee4421abbee1..a6830399c3e93543a4fbb0f3fc1001414f93b6c5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -2503,14 +2503,10 @@ static int cik_common_early_init(struct amdgpu_ip_block *ip_block)
+ 		case CHIP_LIVERPOOL:
+ 			adev->cg_flags =
+ 				AMD_CG_SUPPORT_GFX_MGCG |
+-				AMD_CG_SUPPORT_GFX_MGLS |
+ 				/*AMD_CG_SUPPORT_GFX_CGCG |*/
+ 				AMD_CG_SUPPORT_GFX_CGLS |
+ 				AMD_CG_SUPPORT_GFX_CGTS |
+-				AMD_CG_SUPPORT_GFX_CGTS_LS |
+-				AMD_CG_SUPPORT_GFX_CP_LS |
+ 				AMD_CG_SUPPORT_SDMA_MGCG |
+-				AMD_CG_SUPPORT_SDMA_LS |
+ 				AMD_CG_SUPPORT_VCE_MGCG |
+ 				AMD_CG_SUPPORT_UVD_MGCG |
+ 				AMD_CG_SUPPORT_HDP_MGCG;
+@@ -2530,14 +2526,10 @@ static int cik_common_early_init(struct amdgpu_ip_block *ip_block)
+ 		case CHIP_GLADIUS:
+ 			adev->cg_flags =
+ 				AMD_CG_SUPPORT_GFX_MGCG |
+-				AMD_CG_SUPPORT_GFX_MGLS |
+ 				AMD_CG_SUPPORT_GFX_CGCG |
+ 				AMD_CG_SUPPORT_GFX_CGLS |
+ 				AMD_CG_SUPPORT_GFX_CGTS |
+-				AMD_CG_SUPPORT_GFX_CGTS_LS |
+-				AMD_CG_SUPPORT_GFX_CP_LS |
+ 				AMD_CG_SUPPORT_SDMA_MGCG |
+-				AMD_CG_SUPPORT_SDMA_LS |
+ 				AMD_CG_SUPPORT_VCE_MGCG |
+ 				AMD_CG_SUPPORT_UVD_MGCG |
+ 				AMD_CG_SUPPORT_HDP_MGCG;

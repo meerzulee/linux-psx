@@ -1,0 +1,36 @@
+From 292447557ae303bafe6abeaead329690bfa21d30 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Thu, 3 Jul 2025 18:25:23 +0200
+Subject: [PATCH] Gladius also uses HAWAII_GB_ADDR_CONFIG_GOLDEN
+
+---
+ drivers/gpu/drm/amd/amdgpu/cik.c      | 2 +-
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index fb5dee9dca09a7e3ba3359e17e55e1dfaef7c145..32d2c372f95ff5bb0c584e3a4b6e10ea45dca6b0 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -962,7 +962,7 @@ static const u32 gladius_golden_registers[] =
+ 	mmGRBM_GFX_INDEX, 0xffffffff, 0xe0000000,
+ 	mmPA_SC_RASTER_CONFIG, 0xffffffff, 0x2a00161a,
+ 	mmPA_SC_RASTER_CONFIG_1, 0xffffffff, 0x0000002e,
+-	mmGB_ADDR_CONFIG, 0xffffffff, 0x22011003, //0x22011003,
++	mmGB_ADDR_CONFIG, 0xffffffff, 0x12011003,
+ 	mmSPI_RESOURCE_RESERVE_CU_0, 0xffffffff, 0x00000800,
+ 	mmSPI_RESOURCE_RESERVE_CU_1, 0xffffffff, 0x00000800,
+ 	mmSPI_RESOURCE_RESERVE_EN_CU_0, 0xffffffff, 0x00FF7FBF,
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index 61ecbb4d064d9065ea59cc792965f6597f64f3fc..3afbe141f9a2988488f3e21660e072274194e0fa 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4892,7 +4892,7 @@ static void gfx_v7_0_gpu_early_init(struct amdgpu_device *adev)
+ 		adev->gfx.config.sc_prim_fifo_size_backend = 0x100;
+ 		adev->gfx.config.sc_hiz_tile_fifo_size = 0x30;
+ 		adev->gfx.config.sc_earlyz_tile_fifo_size = 0x130;
+-		gb_addr_config = 0x10000000; //0x22011003; //0x12011003;
++		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN; //0x22011003; //0x12011003;
+ 		break;
+ 	case CHIP_KABINI:
+ 	case CHIP_MULLINS:

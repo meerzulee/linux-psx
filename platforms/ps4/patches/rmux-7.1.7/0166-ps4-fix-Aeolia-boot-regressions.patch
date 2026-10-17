@@ -1,0 +1,103 @@
+From e66b4f3790ae2d796f8834801e9329bc3b11a1cb Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 8 Aug 2026 15:49:12 +0200
+Subject: [PATCH] ps4: fix Aeolia boot regressions
+
+---
+ arch/x86/pci/acpi.c            |  8 ++++++++
+ drivers/acpi/osl.c             | 12 ++++++++++++
+ drivers/iommu/amd/iommu.c      | 11 +++++++++++
+ drivers/usb/host/xhci-aeolia.c |  2 +-
+ kernel/irq/irqdomain.c         |  2 +-
+ 5 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index 7cd5388edc756f483cd807c3169e7b2edb2ee5de..536b4c3ec0fe7d2e17d243944bba0e8463999725 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -199,6 +199,14 @@ void __init pci_acpi_crs_quirks(void)
+ {
+ 	int year = dmi_get_bios_year();
+ 
++	#ifdef CONFIG_X86_PS4
++	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
++	    boot_cpu_data.x86 == 0x16) {
++		pci_use_crs = false;
++		pci_use_e820 = false;
++	}
++	#endif
++
+ 	if (year >= 0 && year < 2008 && iomem_resource.end <= 0xffffffff)
+ 		pci_use_crs = false;
+ 
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+index ed2162a97bd2aa3f7c79706d238092a6b0399332..b534200945e89e026a0137e44824a9baa5e858bf 100644
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -577,6 +577,18 @@ acpi_os_install_interrupt_handler(u32 gsi, acpi_osd_handler handler,
+ 	if (acpi_irq_handler)
+ 		return AE_ALREADY_ACQUIRED;
+ 
++	#ifdef CONFIG_X86_PS4
++	if (gsi == 9 && !boot_cpu_has(X86_FEATURE_HYPERVISOR) &&
++	    boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
++	    boot_cpu_data.x86 == 0x16) {
++		pr_info("ACPI: Bypassing SCI allocation for PS4\n");
++		acpi_irq_handler = handler;
++		acpi_irq_context = context;
++		acpi_sci_irq = INVALID_ACPI_IRQ;
++		return AE_OK;
++	}
++	#endif
++
+ 	if (acpi_gsi_to_irq(gsi, &irq) < 0) {
+ 		pr_err("SCI (ACPI GSI %d) not registered\n", gsi);
+ 		return AE_OK;
+diff --git a/drivers/iommu/amd/iommu.c b/drivers/iommu/amd/iommu.c
+index 8d44f24c9cea12eb58a293f85f1e1e93b5fce265..f999dfe8ee3f8ba7ae006f69e0c492a68bbfdd07 100644
+--- a/drivers/iommu/amd/iommu.c
++++ b/drivers/iommu/amd/iommu.c
+@@ -3148,6 +3148,17 @@ static int amd_iommu_def_domain_type(struct device *dev)
+ 	if (dev_is_pci(dev) && to_pci_dev(dev)->untrusted)
+ 		return IOMMU_DOMAIN_DMA;
+ 
++	#ifdef CONFIG_X86_PS4
++	if (dev_is_pci(dev)) {
++		struct pci_dev *pdev = to_pci_dev(dev);
++
++		if (pdev->vendor == PCI_VENDOR_ID_SONY &&
++		    pdev->device >= PCI_DEVICE_ID_SONY_AEOLIA_ACPI &&
++		    pdev->device <= PCI_DEVICE_ID_SONY_BAIKAL_XHCI)
++			return IOMMU_DOMAIN_IDENTITY;
++	}
++	#endif
++
+ 	/*
+ 	 * Do not identity map IOMMUv2 capable devices when:
+ 	 *  - memory encryption is active, because some of those devices
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 5e9eaae104f480ef1bfcde39f6269bd16579200f..0d00b0e8ef0dcb5957c8e2108d885400b69f3424 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -52,7 +52,7 @@ static int xhci_aeolia_setup(struct usb_hcd *hcd)
+ 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+ 
+ 	/* imod_interval is the interrupt moderation value in nanoseconds. */
+-	xhci->imod_interval = 0;
++	xhci->imod_interval = 40000;
+ 
+ 	return xhci_gen_setup(hcd, xhci_aeolia_quirks);
+ }
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index cc93abf009e88754a13cd8ae50043f96d52eb76c..09346cf1fc90f97420947cf5bcf0fcdb39d45a74 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -539,7 +539,7 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	 */
+ 	mutex_lock(&irq_domain_mutex);
+ 	list_for_each_entry(h, &irq_domain_list, link) {
+-		if (h->ops->select && bus_token != DOMAIN_BUS_ANY)
++		if (h->ops->select)
+ 			rc = h->ops->select(h, fwspec, bus_token);
+ 		else if (h->ops->match)
+ 			rc = h->ops->match(h, to_of_node(fwnode), bus_token);

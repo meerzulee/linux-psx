@@ -1,0 +1,42 @@
+From 51a757360cb361f0bafe27cbe4ade9cada74b88c Mon Sep 17 00:00:00 2001
+From: crashniels <39709384+crashniels@users.noreply.github.com>
+Date: Thu, 30 Jan 2025 17:31:45 +0100
+Subject: [PATCH] Revert "x86/ioapic: Don't return 0 from
+ arch_dynirq_lower_bound()"
+
+This reverts commit 5af507bef93c09a94fb8f058213b489178f4cbe5.
+---
+ arch/x86/kernel/apic/io_apic.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index 352ed5558cbc0b11c42c0ccc863be867728938ab..1fd199ec39a1407ad1c0c9aa7e7c283f6733ab49 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -2357,21 +2357,17 @@ static int io_apic_get_redir_entries(int ioapic)
+ 
+ unsigned int arch_dynirq_lower_bound(unsigned int from)
+ {
+-	unsigned int ret;
+-
+ 	/*
+ 	 * dmar_alloc_hwirq() may be called before setup_IO_APIC(), so use
+ 	 * gsi_top if ioapic_dynirq_base hasn't been initialized yet.
+ 	 */
+-	ret = ioapic_dynirq_base ? : gsi_top;
+-
++	if (!ioapic_initialized)
++		return gsi_top;
+ 	/*
+-	 * For DT enabled machines ioapic_dynirq_base is irrelevant and
+-	 * always 0. gsi_top can be 0 if there is no IO/APIC registered.
+-	 * 0 is an invalid interrupt number for dynamic allocations. Return
+-	 * @from instead.
++	 * For DT enabled machines ioapic_dynirq_base is irrelevant and not
++	 * updated. So simply return @from if ioapic_dynirq_base == 0.
+ 	 */
+-	return ret ? : from;
++	return ioapic_dynirq_base ? : from;
+ }
+ 
+ #ifdef CONFIG_X86_32

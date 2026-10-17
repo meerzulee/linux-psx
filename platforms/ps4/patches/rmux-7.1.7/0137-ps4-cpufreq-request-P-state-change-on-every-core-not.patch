@@ -1,0 +1,56 @@
+From 2772ea51b63d71502b2e0cbed16d59dbce201811 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 6 Jul 2026 18:30:46 +0200
+Subject: [PATCH] ps4-cpufreq: request P-state change on every core, not just
+ one
+
+---
+ drivers/cpufreq/ps4-cpufreq.c | 28 +++++++++++++++++-----------
+ 1 file changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/cpufreq/ps4-cpufreq.c b/drivers/cpufreq/ps4-cpufreq.c
+index 2cc4975d1e713d104aa9381565a57206fafd0e66..0c66b114bd86dba5457270f7d80dc53df90fefc5 100644
+--- a/drivers/cpufreq/ps4-cpufreq.c
++++ b/drivers/cpufreq/ps4-cpufreq.c
+@@ -37,24 +37,30 @@ static int ps4_cpufreq_target_index(struct cpufreq_policy *policy,
+ {
+ 	u32 requested = ps4_freq_table[index].driver_data;
+ 	u64 val;
+-	int i;
++	int i, cpu;
+ 
+-	rdmsrq(MSR_AMD_PSTATE_CUR_LIMIT, val);
++	rdmsrq_on_cpu(policy->cpu, MSR_AMD_PSTATE_CUR_LIMIT, &val);
+ 	if (requested > (val & PSTATE_CURLIMIT_MASK))
+ 		requested = val & PSTATE_CURLIMIT_MASK;
+ 
+-	wrmsrq(MSR_AMD_PERF_CTL, requested & PSTATE_CMD_MASK);
++	for_each_cpu(cpu, policy->cpus)
++		wrmsrq_on_cpu(cpu, MSR_AMD_PERF_CTL, requested & PSTATE_CMD_MASK);
+ 
+-	for (i = 0; i < 100; i++) {
+-		rdmsrq(MSR_AMD_PERF_STATUS, val);
+-		if ((val & PSTATE_STATUS_MASK) == requested)
+-			return 0;
+-		udelay(100);
++	for_each_cpu(cpu, policy->cpus) {
++		for (i = 0; i < 100; i++) {
++			rdmsrq_on_cpu(cpu, MSR_AMD_PERF_STATUS, &val);
++			if ((val & PSTATE_STATUS_MASK) == requested)
++				break;
++			udelay(100);
++		}
++		if (i == 100) {
++			pr_warn("ps4-cpufreq: cpu%d timed out transitioning to P%u\n",
++				cpu, requested);
++			return -EIO;
++		}
+ 	}
+ 
+-	pr_warn("ps4-cpufreq: cpu%d timed out transitioning to P%u\n",
+-		policy->cpu, requested);
+-	return -EIO;
++	return 0;
+ }
+ 
+ static unsigned int ps4_cpufreq_get(unsigned int cpu)

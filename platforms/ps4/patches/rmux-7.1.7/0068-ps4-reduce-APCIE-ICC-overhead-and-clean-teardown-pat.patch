@@ -1,0 +1,137 @@
+From 85911d131d282303ae740d0ab951b243205b4965 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Apr 2026 18:09:02 +0200
+Subject: [PATCH] ps4: reduce APCIE/ICC overhead and clean teardown paths
+
+Use severity-correct APCIE logging helpers, demote normal APCIE/MSI routing logs to debug, and clean ICC chrdev/ioctl buffer teardown.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/aeolia.h        |  8 ++++----
+ drivers/ps4/ps4-apcie-icc.c | 12 ++++++++++--
+ drivers/ps4/ps4-apcie.c     | 15 +++++++--------
+ 3 files changed, 21 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
+index db386ace94344867b9f965648c89226643d81df2..2551003e27ebf8d72dbb196974996957c9d295e7 100644
+--- a/drivers/ps4/aeolia.h
++++ b/drivers/ps4/aeolia.h
+@@ -152,11 +152,11 @@ struct apcie_dev {
+ 	struct apcie_icc_dev icc;
+ };
+ 
+-#define sc_err(...) dev_info(&sc->pdev->dev, __VA_ARGS__)
+-#define sc_warn(...) dev_info(&sc->pdev->dev, __VA_ARGS__)
+-#define sc_notice(...) dev_info(&sc->pdev->dev, __VA_ARGS__)
++#define sc_err(...) dev_err(&sc->pdev->dev, __VA_ARGS__)
++#define sc_warn(...) dev_warn(&sc->pdev->dev, __VA_ARGS__)
++#define sc_notice(...) dev_notice(&sc->pdev->dev, __VA_ARGS__)
+ #define sc_info(...) dev_info(&sc->pdev->dev, __VA_ARGS__)
+-#define sc_dbg(...) dev_info(&sc->pdev->dev, __VA_ARGS__)
++#define sc_dbg(...) dev_dbg(&sc->pdev->dev, __VA_ARGS__)
+ 
+ static inline int apcie_irqnum(struct apcie_dev *sc, int index)
+ {
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index dc2b7ed35332a6d5ca593f78150cf7de52dda25c..b43dc676b3eb2734b01b4cb1c31f429fe84ca435 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -1,5 +1,3 @@
+-#define DEBUG
+-
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+ #include <linux/wait.h>
+@@ -17,6 +15,7 @@
+ static struct apcie_dev *icc_sc;
+ DEFINE_MUTEX(icc_mutex);
+ static DEFINE_MUTEX(icc_ioctl_mutex);
++static bool icc_chrdev_registered;
+ 
+ /* The ICC message passing interface seems to be potentially designed to
+  * support multiple outstanding requests at once, but the original PS4 OS never
+@@ -594,8 +593,11 @@ int apcie_icc_init(struct apcie_dev *sc)
+  	ret = register_chrdev(ICC_MAJOR, "icc", &icc_fops);
+  	if (ret) {
+  		sc_err("icc: register_chrdev failed: %d\n", ret);
++		kfree(ioctl_tmp_buf);
++		ioctl_tmp_buf = NULL;
+  		goto done;
+  	}
++	icc_chrdev_registered = true;
+  done:
+ 
+ 	return 0;
+@@ -623,6 +625,12 @@ put_mem_dev:
+ void apcie_icc_remove(struct apcie_dev *sc)
+ {
+ 	sc_err("apcie_icc_remove: shouldn't normally be called\n");
++	if (icc_chrdev_registered) {
++		unregister_chrdev(ICC_MAJOR, "icc");
++		icc_chrdev_registered = false;
++	}
++	kfree(ioctl_tmp_buf);
++	ioctl_tmp_buf = NULL;
+ 	pm_power_off = NULL;
+ 	icc_pwrbutton_remove(sc);
+ 	icc_i2c_remove(sc);
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index 5956cfe0ac921983a0714e1f8cda5194dc157ac8..a031d7ba51828004dc830543b16fb613656de148 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -1,5 +1,3 @@
+-#define DEBUG
+-
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
+@@ -186,7 +184,7 @@ static void apcie_irq_msi_compose_msg(struct irq_data *data,
+ 		}
+ 	}
+ 
+-	pr_err("apcie_irq_msi_compose_msg\n");
++	pr_debug("apcie_irq_msi_compose_msg\n");
+ }
+ 
+ static struct irq_chip apcie_msi_controller = {
+@@ -215,7 +213,8 @@ static int apcie_msi_init(struct irq_domain *domain,
+ 	struct apcie_dev *sc = info->chip_data;
+ 	int i;
+ 
+-	pr_err("apcie_msi_init(%p, %p, %d, 0x%lx, %p)\n", domain, info, virq, hwirq, arg);
++	pr_debug("apcie_msi_init(%p, %p, %d, 0x%lx, %p)\n",
++		 domain, info, virq, hwirq, arg);
+ 
+ 	data = irq_domain_get_irq_data(domain, virq);
+ 	irq_domain_set_info(domain, virq, hwirq, info->chip, info->chip_data,
+@@ -252,7 +251,7 @@ static void apcie_msi_free(struct irq_domain *domain,
+ 		}
+ 	}
+ 
+-	pr_err("apcie_msi_free(%d)\n", virq);
++	pr_debug("apcie_msi_free(%d)\n", virq);
+ }
+ 
+ 
+@@ -392,18 +391,18 @@ int apcie_assign_irqs(struct pci_dev *dev, int nvec)
+ 	info.desc = desc;
+ 	info.data = sc;
+ 
+-	dev_info(&dev->dev, "apcie_assign_irqs(%d) (%ld)\n", nvec, info.hwirq);
++	dev_dbg(&dev->dev, "apcie_assign_irqs(%d) (%ld)\n", nvec, info.hwirq);
+ 
+ 	ret = irq_domain_alloc_irqs(sc->irqdomain, nvec, NUMA_NO_NODE, &info);
+ 	if (ret >= 0) {
+-		dev_info(&dev->dev, "irq_domain_alloc_irqs = %x\n", ret);
++		dev_dbg(&dev->dev, "irq_domain_alloc_irqs = %x\n", ret);
+ 		dev->irq = ret;
+ 		desc->irq = ret;
+ 		ret = nvec;
+ 	}
+ 
+ fail:
+-	dev_info(&dev->dev, "apcie_assign_irqs returning %d\n", ret);
++	dev_dbg(&dev->dev, "apcie_assign_irqs returning %d\n", ret);
+ 	if (sc_dev)
+ 		pci_dev_put(sc_dev);
+ 	return ret;

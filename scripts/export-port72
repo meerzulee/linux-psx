@@ -1,0 +1,316 @@
+#!/usr/bin/env python3
+"""Export the Linux 7.2 port branch as the 7.2-ps4 patch series.
+
+The port branch is the rmux-7.1.7 import applied to v7.2.11 with git am -3,
+with the curation and port fixes described in docs/PORT-7.2.md, and the psX
+MTS2 commit last. Every commit except MTS2 is exported with pinned
+format-patch options; MTS2 stays a reference to the unchanged 6.18 patch.
+
+  scripts/export-port72 --port-repo DIR           # write patches and provenance
+  scripts/export-port72 --port-repo DIR --check   # verify committed patches reproduce
+
+DIR is a Git repository holding the port branch and v7.2.11. Each exported
+patch is matched to its rmux-7.1.7 import entry by author, date and subject;
+any difference from that entry must be a recorded resolution, and any new
+commit must be a recorded port fix.
+"""
+import argparse
+import email
+import email.header
+import email.utils
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+BASE_REF = "v7.2.11"
+BASE_COMMIT = "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea"
+BRANCH = "port/7.2.11-psx"
+OUT_REL = "platforms/ps4/patches/7.2-ps4"
+MTS_ENTRY = "../6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch"
+MTS_SHA256 = "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed"
+MTS_SUBJECT = "net: add continuous polled Baikal MTS module"
+PORT_FIX_AUTHOR = ("Meerzulee", "17146298+meerzulee@users.noreply.github.com")
+
+GIT_CONFIG = [
+    "diff.algorithm=myers", "diff.mnemonicprefix=false", "diff.noprefix=false",
+    "diff.relative=false", "diff.renames=true", "diff.suppressBlankEmpty=false",
+    "diff.indentHeuristic=true", "core.quotePath=true", "format.signature=",
+    "format.coverLetter=false", "format.numbered=false", "format.subjectPrefix=PATCH",
+    "format.signOff=false", "format.attach=", "format.thread=false",
+]
+FORMAT_ARGS = ["--no-signature", "--no-numbered", "--full-index", "--binary", "-M",
+               "--zero-commit", "--no-cover-letter"]
+
+DROPPED = {
+    "init: add strawberry banner":
+        "Replaces linux_banner and therefore /proc/version with Strawberry branding.",
+    "drivers/ps4: add PS4 Mesa lock verification endpoint":
+        "Adds /dev/ps4-mesa-lock, a build-token gate for rmux's Mesa; no hardware function.",
+}
+# Manual resolutions made while rebasing; every other difference from the
+# rmux import is checked mechanically below.
+NOTES = {
+    "feat: AHCI support":
+        "v7.2 rewrote ahci_pci_tbl with designated initializers; the Sony "
+        "Aeolia/Belize/Baikal IDs are added in that style before the generic class entry.",
+    "feat: amdgpu patches":
+        "v7.2 sets the GART size through amdgpu_gmc_set_gart_size(); Liverpool and "
+        "Gladius call it with SZ_512M.",
+    "small cleanup on ahci":
+        "Applied to the rewritten ahci_pci_tbl; the Sony entries use board_ahci_31bit_dma.",
+    "ps4: add Baikal southbridge support":
+        "The Baikal SATA PHY setup stays immediately after pcim_iomap(); the new v7.2 "
+        "ahci_validate_bar_size() call follows it.",
+    "ps4-apcie: detect and log southbridge variant, GPU, and function map at boot":
+        "Its hunk in init/version-timestamp.c edited the dropped Strawberry banner and is removed.",
+    "drivers/ps4: add Aeolia front panel buzzer driver":
+        "drivers/ps4/Makefile context no longer contains the dropped Mesa lock lines.",
+}
+
+
+INPUTS = ["targets/7.2-ps4.env", "platforms/ps4/config/7.2-psx-ps4.config",
+          "platforms/ps4/config/fragments/mt7668.config",
+          "platforms/ps4/config/fragments/usb-ethernet.config"]
+CONFIG_NOTES = {
+    "derived_from": "platforms/ps4/config/6.18-psx-baikal.config",
+    "method": ("merge_config.sh -m with the mt7668 and usb-ethernet fragments and the "
+               "changes below, then make olddefconfig on the patched v7.2.11 tree (GCC 16.2.1)"),
+    "changes": [
+        "CONFIG_LOCALVERSION=\"-psx-ps4-dev1\"",
+        "PS4_CPUFREQ, new with the rmux stack, is off for the first boot candidate",
+        "PS4_DMI_SPOOF, new with the rmux stack, is off until it checks the running console",
+        "PS4_MTS=m, as in the 6.18 target",
+        ("PREEMPT_VOLUNTARY no longer exists on x86; make olddefconfig selects PREEMPT, "
+         "as rmux's 7.0.8 and 7.1.7 configs do"),
+        "all other differences are Linux 7.2 Kconfig changes resolved by make olddefconfig",
+    ],
+}
+
+
+PORT_FIX_NOTES = {
+    "ps4: icc: use strscpy_pad() for the adapter name": "Linux 7.2 removed strncpy().",
+    "mt76x8: replace strncpy() removed in Linux 7.2":
+        "kalStrnCpy() keeps strncpy() semantics; some callers fill length-delimited firmware fields.",
+    "mt76x8: adapt remain_on_channel to Linux 7.2":
+        "Upstream 4dbd1829045e added rx_addr; the driver does not set NL80211_EXT_FEATURE_ROC_ADDR_FILTER.",
+    "mt76x8: make proc write bounds checks overflow-safe":
+        "GCC 16 rejects the count + 1 wrap in copy_from_user(); used instead of rmux d98d3e9e0df2.",
+    "xhci-aeolia: use the per-HCD shutdown path on Baikal":
+        ("Reimplements feeRnt b0969f7d101f89cfe6f60c42d607aff9d35b142a, carried by the 6.18 target as "
+         "0800-usb-aeolia/0002; bebez had lost it, so Baikal passed aeolia_xhci to usb_hcd_pci_shutdown()."),
+    "xhci-aeolia: stop treating aeolia_xhci as a usb_hcd on Aeolia shutdown":
+        "Same type confusion on Aeolia; untested on an Aeolia console.",
+}
+
+
+def git(repo, *args, text=True, stdin=None):
+    # Take .gitattributes (the kernel's diff=cpp hunk headers) from the pinned
+    # base rather than from whatever the repository has checked out.
+    cmd = ["git", "-C", str(repo), f"--attr-source={BASE_COMMIT}"]
+    for item in GIT_CONFIG:
+        cmd += ["-c", item]
+    res = subprocess.run(cmd + list(args), capture_output=True, input=stdin, check=False)
+    if res.returncode:
+        sys.exit(f"git {' '.join(args[:3])} failed: {res.stderr.decode(errors='replace').strip()}")
+    return res.stdout.decode("utf-8", "replace") if text else res.stdout
+
+
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def patch_id(repo, data):
+    out = git(repo, "patch-id", "--stable", stdin=data).split()
+    return out[0] if out else None
+
+
+def changed_lines(data):
+    """Added and removed lines per file, ignoring context and positions."""
+    files, cur = {}, None
+    for line in data.decode("utf-8", "replace").splitlines():
+        if line.startswith("diff --git "):
+            cur = line
+            files[cur] = []
+        elif cur and (line.startswith("+++ ") or line.startswith("--- ")):
+            continue
+        elif cur and line[:1] in "+-" and not line.startswith("-- "):
+            files[cur].append(line)
+    return files
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--port-repo", required=True, type=Path, help="Git repository with the port branch")
+    ap.add_argument("--check", action="store_true", help="verify committed patches reproduce exactly")
+    args = ap.parse_args()
+    port_repo, psx, check = args.port_repo, ROOT, args.check
+    if git(port_repo, "rev-parse", f"{BASE_REF}^{{commit}}").strip() != BASE_COMMIT:
+        sys.exit("base tag does not resolve to the pinned commit")
+    tip = git(port_repo, "rev-parse", BRANCH).strip()
+    commits = git(port_repo, "rev-list", "--reverse", f"{BASE_COMMIT}..{tip}").split()
+    meta = {}
+    for c in commits:
+        an, ae, ad, s = git(port_repo, "log", "-1", "--format=%an%x00%ae%x00%aD%x00%s", c).split("\0")
+        meta[c] = {"author": (an, ae), "date": ad, "subject": s.strip()}
+    if meta[commits[-1]]["subject"] != MTS_SUBJECT:
+        sys.exit("branch tip is not the MTS2 commit")
+    exported = commits[:-1]
+
+    rmux = json.loads((psx / "provenance/rmux-import.json").read_text())
+    imp = next(i for i in rmux["imports"] if i["name"] == "rmux-7.1.7")
+    pending = list(exported)
+    mapping, dropped = [], []
+    for entry in imp["patches"]:
+        if entry["subject"] in DROPPED:
+            dropped.append({"rmux_entry": entry["entry"], "rmux_commit": entry["commit"],
+                            "subject": entry["subject"], "reason": DROPPED[entry["subject"]]})
+            continue
+        c = pending.pop(0)
+        name, addr = email.utils.parseaddr(entry["author"])
+        m = meta[c]
+        if (m["subject"] != " ".join(entry["subject"].split()) or m["author"] != (name, addr)
+                or m["date"] != entry["date"]):
+            sys.exit(f"port commit {c[:12]} does not match rmux entry {entry['entry']}")
+        mapping.append((c, entry))
+    if len(dropped) != len(DROPPED):
+        sys.exit("expected dropped commits were not all found in the rmux import")
+    for c in pending:
+        if meta[c]["author"] != PORT_FIX_AUTHOR:
+            sys.exit(f"unmapped commit {c[:12]} is not a port fix")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        names = git(port_repo, "format-patch", *FORMAT_ARGS, "-o", tmp,
+                    f"{BASE_COMMIT}..{exported[-1]}").split()
+        if len(names) != len(exported):
+            sys.exit("format-patch produced an unexpected number of patches")
+        files = [Path(n) for n in names]
+        out = psx / OUT_REL
+        if check:
+            committed = sorted(p.name for p in out.glob("*.patch"))
+            if committed != sorted(f.name for f in files):
+                sys.exit("patch file set differs")
+            for f in files:
+                if f.read_bytes() != (out / f.name).read_bytes():
+                    sys.exit(f"{f.name} differs")
+            print(f"PASS: {len(files)} port patches reproduce byte-for-byte")
+            return
+        out.mkdir(parents=True, exist_ok=True)
+        for old in out.glob("*.patch"):
+            old.unlink()
+        for f in files:
+            shutil.copy2(f, out / f.name)
+
+    by_commit = dict(mapping)
+    rmux_dir = psx / imp["dir"]
+    patches, counts = [], {}
+    for c, f in zip(exported, files):
+        data = (out / f.name).read_bytes()
+        msg = email.message_from_bytes(data.split(b"\n\n", 1)[0] + b"\n\n")
+        subj = str(email.header.make_header(email.header.decode_header(msg["Subject"] or "")))
+        subj = " ".join(subj.removeprefix("[PATCH] ").split())
+        if subj != " ".join(meta[c]["subject"].split()):
+            sys.exit(f"{f.name}: subject does not match commit {c[:12]}")
+        item = {"entry": f.name, "path": f"{OUT_REL}/{f.name}", "sha256": sha256(data),
+                "size": len(data), "author": f"{meta[c]['author'][0]} <{meta[c]['author'][1]}>",
+                "date": meta[c]["date"], "subject": meta[c]["subject"]}
+        entry = by_commit.get(c)
+        if entry:
+            src = (rmux_dir / entry["entry"]).read_bytes()
+            if patch_id(port_repo, data) == patch_id(port_repo, src):
+                change = "unchanged"
+            elif changed_lines(data) == changed_lines(src):
+                change = "context"
+            else:
+                change = "adapted"
+            item.update({"origin": "rmux-7.1.7", "rmux_entry": entry["entry"],
+                         "rmux_commit": entry["commit"], "rmux_sha256": entry["sha256"],
+                         "change": change})
+            if change == "adapted" and entry["subject"] not in NOTES:
+                sys.exit(f"{f.name}: adapted without a recorded resolution")
+            if change != "unchanged" and entry["subject"] in NOTES:
+                item["note"] = NOTES[entry["subject"]]
+        else:
+            change = "port-fix"
+            if meta[c]["subject"] not in PORT_FIX_NOTES:
+                sys.exit(f"{f.name}: port fix without a recorded reason")
+            item.update({"origin": "port-fix", "change": change,
+                         "note": PORT_FIX_NOTES[meta[c]["subject"]]})
+        counts[change] = counts.get(change, 0) + 1
+        patches.append(item)
+    unused = set(NOTES) - {p["subject"] for p in patches if p.get("note")}
+    if unused:
+        sys.exit(f"recorded resolutions not used: {sorted(unused)}")
+
+    series = out / "series"
+    lines = [
+        "# Linux 7.2.11 PS4 development series (Aeolia, Belize, Baikal).",
+        "# Generated from the rmux 7.1.7 import rebased onto v7.2.11; see",
+        "# docs/PORT-7.2.md and provenance/7.2-ps4.json. Compile-tested only.",
+        *[p["entry"] for p in patches],
+        "",
+        "# psX MTS2 Ethernet, unchanged from the 6.18 target; this config builds it as a module.",
+        MTS_ENTRY,
+    ]
+    series.write_text("\n".join(lines) + "\n")
+    mts = psx / OUT_REL / MTS_ENTRY
+    if sha256(mts.read_bytes()) != MTS_SHA256:
+        sys.exit("MTS2 patch hash differs from the 6.18 provenance")
+    entries = [p["entry"] for p in patches] + [MTS_ENTRY]
+    all_items = [{"entry": p["entry"], "path": p["path"], "sha256": p["sha256"]} for p in patches]
+    all_items.append({"entry": MTS_ENTRY,
+                      "path": str((psx / OUT_REL / MTS_ENTRY).resolve().relative_to(psx.resolve())),
+                      "sha256": MTS_SHA256})
+    ordered = "".join(f"{i['sha256']}  {i['entry']}\n" for i in all_items)
+    env = {}
+    for line in (psx / "targets/7.2-ps4.env").read_text().splitlines():
+        if re.match(r"^[A-Z_]+=", line):
+            key, value = line.split("=", 1)
+            env[key] = value.strip('"')
+    doc = {
+        "schema": 1,
+        "created_on": "2026-10-17",
+        "target": "7.2-ps4",
+        "platform": "ps4",
+        "status": "development target; compile-tested only, no hardware acceptance",
+        "kernel_release": env["KERNEL_RELEASE"],
+        "source_date_epoch": int(env["SOURCE_DATE_EPOCH"]),
+        "upstream": {"repository": "https://github.com/gregkh/linux.git", "ref": BASE_REF,
+                     "commit": BASE_COMMIT},
+        "port": {
+            "branch": BRANCH, "tip": tip, "published": False,
+            "method": ("git am -3 of the rmux-7.1.7 import onto v7.2.11, the listed drops and "
+                       "the port fixes, then MTS2 from the 6.18 target; exported with "
+                       "scripts/export-port72"),
+            "git_config": GIT_CONFIG, "attr_source": BASE_COMMIT,
+            "format_patch_args": FORMAT_ARGS,
+        },
+        "rmux_import": {"manifest": "provenance/rmux-import.json", "import": imp["name"],
+                        "ordered_patchset_sha256": imp["ordered_patchset_sha256"]},
+        "series_path": f"{OUT_REL}/series",
+        "series_sha256": sha256(series.read_bytes()),
+        "active_patch_count": len(entries),
+        "ordered_patchset_sha256": sha256(ordered.encode()),
+        "change_counts": dict(sorted(counts.items())),
+        "patches": patches,
+        "direct_references": [{"entry": MTS_ENTRY, "path": all_items[-1]["path"],
+                               "sha256": MTS_SHA256,
+                               "source": "provenance/6.18-ps4-baikal.json direct_imports"}],
+        "dropped": dropped,
+        "inputs": [{"path": i, "sha256": sha256((psx / i).read_bytes())} for i in INPUTS],
+        "config": CONFIG_NOTES,
+        "firmware": {"embedded": False, "bundled": False},
+        "hardware_evidence": {"this_target": "none; the kernel has not been booted"},
+    }
+    (psx / "provenance/7.2-ps4.json").write_text(json.dumps(doc, indent=2) + "\n")
+    print(f"exported {len(patches)} patches + MTS2; changes: {doc['change_counts']}")
+
+
+if __name__ == "__main__":
+    main()

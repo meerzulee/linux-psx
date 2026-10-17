@@ -1,0 +1,23 @@
+From 5b1ec08b85f3a3a8473cce9f0a20fffc05039153 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 30 Jun 2026 23:46:08 +0200
+Subject: [PATCH] xhci-aeolia: fix NULL deref in suspend rollback for
+ Belize/Baikal AHCI slot
+
+---
+ drivers/usb/host/xhci-aeolia.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index db6e1347708bd2db881c253f8f06f113b9265ea9..44dd41b95266d9c5c9f0781f91dabe421994e451 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -517,6 +517,8 @@ static int xhci_aeolia_suspend(struct device *dev)
+ 
+ resume:
+ 	while (idx--) {
++		if (pdev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI && idx == 1)
++			continue;
+ 		xhci = hcd_to_xhci(axhci->hcd[idx]);
+ 		xhci_resume(xhci, false, false);
+ 	}

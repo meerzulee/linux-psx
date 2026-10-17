@@ -1,0 +1,22 @@
+From 1d64bba7390923d4a4e12943866544b2818dcd11 Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Sat, 28 Mar 2026 14:54:10 +0100
+Subject: [PATCH] drivers/ps4: lower fan threshold limit
+
+---
+ drivers/ps4/ps4-fan.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+index 9c6a9767470c8d6b4233c7f0cd21468495c3897c..cea0d7e909c010f09c5b0bfced0b1d2cece0312b 100644
+--- a/drivers/ps4/ps4-fan.h
++++ b/drivers/ps4/ps4-fan.h
+@@ -26,7 +26,7 @@
+ #define PS4_FAN_RPM_INVALID_1           0xFFFFFFFFU
+ #define PS4_FAN_RPM_INVALID_2           0x0FFFFFFFU
+ 
+-#define PS4_FAN_THRESH_MIN_C            45
++#define PS4_FAN_THRESH_MIN_C            20
+ #define PS4_FAN_THRESH_MAX_C            85
+ #define PS4_FAN_THRESH_DEFAULT_C        79
+ 

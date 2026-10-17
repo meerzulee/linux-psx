@@ -4,7 +4,9 @@
 
 - This repository owns console kernel patches, configs, build/CI tooling,
   artifact identities, provenance and hardware evidence. The active target is
-  `6.18-ps4-baikal`; PS5 integration remains planned.
+  `6.18-ps4-baikal`; PS5 integration remains planned. `7.2-ps4-baikal` and
+  `7.2-ps4` are compile-tested development targets (`docs/PORT-7.2.md`) with
+  no hardware acceptance.
 - Keep runtime/build inputs distribution-independent. Omarchy setup and boot
   profiles belong to `omarchy-psx`. The optional, standalone NetworkManager
   adapter lives in `contrib/networkmanager/`; it may be bundled as a convenience

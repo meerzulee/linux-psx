@@ -1,0 +1,179 @@
+From c97042b6df9ca127918d22c83bc12f2b2da42019 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 11 Apr 2026 03:17:38 +0200
+Subject: [PATCH] firmware: dmi: add PS4 DMI spoof fallback helper
+
+Add a PlayStation 4-specific DMI fallback helper for systems where
+SMBIOS is present but DMI strings are blank or malformed.
+
+Introduce CONFIG_PS4_DMI_SPOOF, add a dedicated ps4-dmi helper, and
+hook the DMI error path in dmi_scan.c to populate fallback strings
+after confirming PS4 hardware via ACPI OEM identity.
+
+This keeps PS4-specific spoofing logic out of generic DMI code while
+providing stable platform strings for downstream consumers.
+
+Signed-off-by: Your Name <armandas.kvietkus@proton.me>
+---
+ drivers/firmware/Kconfig    | 13 +++++++++
+ drivers/firmware/Makefile   |  1 +
+ drivers/firmware/dmi_scan.c | 11 ++++++++
+ drivers/firmware/ps4-dmi.c  | 53 +++++++++++++++++++++++++++++++++++++
+ drivers/firmware/ps4-dmi.h  | 23 ++++++++++++++++
+ 5 files changed, 101 insertions(+)
+ create mode 100644 drivers/firmware/ps4-dmi.c
+ create mode 100644 drivers/firmware/ps4-dmi.h
+
+diff --git a/drivers/firmware/Kconfig b/drivers/firmware/Kconfig
+index bbd2155d8483860f2287f021ae60f6392be035d1..e7de4e553bc687161819fbae461982c36ec1036f 100644
+--- a/drivers/firmware/Kconfig
++++ b/drivers/firmware/Kconfig
+@@ -90,6 +90,19 @@ config DMI_SYSFS
+ config DMI_SCAN_MACHINE_NON_EFI_FALLBACK
+ 	bool
+ 
++config PS4_DMI_SPOOF
++	bool "PlayStation 4 DMI spoof fallback"
++	depends on DMI && ACPI && X86
++	help
++	  Enable a PlayStation 4-specific DMI fallback when SMBIOS is
++	  present but the DMI strings are blank or malformed.
++
++	  This uses PS4 ACPI OEM identity to confirm the machine is a
++	  PlayStation 4, then injects static fallback strings into
++	  dmi_ident[] from the dmi_scan.c error path.
++
++	  Say Y if this kernel is intended to boot on PS4 hardware.
++
+ config ISCSI_IBFT_FIND
+ 	bool "iSCSI Boot Firmware Table Attributes"
+ 	depends on X86 && ISCSI_IBFT
+diff --git a/drivers/firmware/Makefile b/drivers/firmware/Makefile
+index 4ddec2820c96fa9be012e89dac3038968bb67039..64db014668ee15fb47127e661d3a8fc84cc1a734 100644
+--- a/drivers/firmware/Makefile
++++ b/drivers/firmware/Makefile
+@@ -5,6 +5,7 @@
+ obj-$(CONFIG_ARM_SCPI_PROTOCOL)	+= arm_scpi.o
+ obj-$(CONFIG_ARM_SDE_INTERFACE)	+= arm_sdei.o
+ obj-$(CONFIG_DMI)		+= dmi_scan.o
++obj-$(CONFIG_PS4_DMI_SPOOF)	+= ps4-dmi.o
+ obj-$(CONFIG_DMI_SYSFS)		+= dmi-sysfs.o
+ obj-$(CONFIG_EDD)		+= edd.o
+ obj-$(CONFIG_DMIID)		+= dmi-id.o
+diff --git a/drivers/firmware/dmi_scan.c b/drivers/firmware/dmi_scan.c
+index a3f7dabd49554d0ca0ced819bd62299e996c15de..c3f6749ec49696f763c17e255f21b802c2b5b39e 100644
+--- a/drivers/firmware/dmi_scan.c
++++ b/drivers/firmware/dmi_scan.c
+@@ -14,6 +14,8 @@
+ #include <asm/dmi.h>
+ #include <linux/unaligned.h>
+ 
++#include "ps4-dmi.h"
++
+ #ifndef SMBIOS_ENTRY_POINT_SCAN_START
+ #define SMBIOS_ENTRY_POINT_SCAN_START 0xF0000
+ #endif
+@@ -763,6 +765,15 @@ static void __init dmi_scan_machine(void)
+ 	}
+  error:
+ 	pr_info("not present or invalid.\n");
++
++#ifdef CONFIG_PS4_DMI_SPOOF
++	if (ps4_dmi_is_ps4()) {
++		dmi_available = 1;
++		ps4_dmi_populate(dmi_ident);
++		dmi_format_ids(dmi_ids_string, sizeof(dmi_ids_string));
++		return;
++	}
++#endif
+ }
+ 
+ static __ro_after_init BIN_ATTR_SIMPLE_ADMIN_RO(smbios_entry_point);
+diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..6080f50e47a39eacde54c5b8a7ecccfbcacc3766
+--- /dev/null
++++ b/drivers/firmware/ps4-dmi.c
+@@ -0,0 +1,53 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <linux/acpi.h>
++#include <linux/dmi.h>
++#include <linux/init.h>
++#include <linux/printk.h>
++#include <linux/string.h>
++
++#include "ps4-dmi.h"
++
++static bool detected_ps4 __initdata;
++
++static int __init ps4_fadt_probe(struct acpi_table_header *hdr)
++{
++	if (memcmp(hdr->oem_id, "SIE   ", ACPI_OEM_ID_SIZE) == 0)
++		detected_ps4 = true;
++
++	return 0;
++}
++
++bool __init ps4_dmi_is_ps4(void)
++{
++	detected_ps4 = false;
++	acpi_table_parse(ACPI_SIG_FADT, ps4_fadt_probe);
++
++	return detected_ps4;
++}
++
++static const char * const ps4_strings[DMI_STRING_MAX] = {
++	[DMI_SYS_VENDOR]      = "Sony Interactive Entertainment",
++	[DMI_PRODUCT_NAME]    = "PlayStation 4",
++	[DMI_PRODUCT_VERSION] = "PS4",
++	[DMI_PRODUCT_FAMILY]  = "PlayStation",
++	[DMI_BOARD_VENDOR]    = "SIE",
++	[DMI_BOARD_NAME]      = "PlayStation 4",
++	[DMI_BIOS_VENDOR]     = "SIE",
++	[DMI_BIOS_VERSION]    = "ORBIS",
++	[DMI_BIOS_DATE]       = "09/01/2021",
++	[DMI_CHASSIS_VENDOR]  = "Sony",
++	[DMI_CHASSIS_TYPE]    = "3",
++};
++
++void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
++{
++	int i;
++
++	pr_info("ps4_dmi: injecting generic PS4 fallback DMI strings\n");
++
++	for (i = 0; i < DMI_STRING_MAX; i++) {
++		if (ps4_strings[i])
++			ident[i] = ps4_strings[i];
++	}
++}
+diff --git a/drivers/firmware/ps4-dmi.h b/drivers/firmware/ps4-dmi.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5336485fabc6889cf94333f1e08dde4db28e64e5
+--- /dev/null
++++ b/drivers/firmware/ps4-dmi.h
+@@ -0,0 +1,23 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef _DRIVERS_FIRMWARE_PS4_DMI_H
++#define _DRIVERS_FIRMWARE_PS4_DMI_H
++
++#include <linux/dmi.h>
++#include <linux/init.h>
++#include <linux/types.h>
++
++#ifdef CONFIG_PS4_DMI_SPOOF
++bool __init ps4_dmi_is_ps4(void);
++void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX]);
++#else
++static inline bool ps4_dmi_is_ps4(void)
++{
++	return false;
++}
++
++static inline void ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
++{
++}
++#endif
++
++#endif /* _DRIVERS_FIRMWARE_PS4_DMI_H */

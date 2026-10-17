@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 17:47:19 +0600
+Subject: [PATCH] xhci-aeolia: use the per-HCD shutdown path on Baikal
+
+xhci_hcd_pci_shutdown() sent every device except Belize to
+usb_hcd_pci_shutdown(). That helper reads the PCI driver data as a
+struct usb_hcd, but this driver stores its struct aeolia_xhci there, so
+on Baikal it read past the allocation and could call through a garbage
+pointer during reboot or power-off.
+
+Send only Aeolia to the generic path, as feeRnt fixed it for Baikal.
+The Linux psX 6.18 Baikal target carries that change as
+0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch.
+
+Original-author: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Origin: https://github.com/feeRnt/ps4-linux-12xx/commit/b0969f7d101f89cfe6f60c42d607aff9d35b142a
+---
+ drivers/usb/host/xhci-aeolia.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 0d00b0e8ef0dcb5957c8e2108d885400b69f3424..4139932eec14a26685249208d427979e4125e1ea 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -493,8 +493,8 @@ static void xhci_aeolia_remove(struct pci_dev *dev)
+ 
+ static void xhci_hcd_pci_shutdown(struct pci_dev *dev){
+ 
+-	// We want to use the normal shutdown if we aren't belize
+-	if (dev->device != PCI_DEVICE_ID_SONY_BELIZE_XHCI)
++	// Belize and Baikal use the per-HCD shutdown below
++	if (dev->device == PCI_DEVICE_ID_SONY_AEOLIA_XHCI)
+ 	{
+ 		usb_hcd_pci_shutdown(dev);
+ 		return;

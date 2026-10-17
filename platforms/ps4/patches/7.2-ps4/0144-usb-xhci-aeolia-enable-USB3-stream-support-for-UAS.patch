@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 17 Jul 2026 20:55:09 +0000
+Subject: [PATCH] usb: xhci-aeolia: enable USB3 stream support for UAS
+
+---
+ drivers/usb/host/xhci-aeolia.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 44dd41b95266d9c5c9f0781f91dabe421994e451..16c82421f0855c291eff7134488422955d03ead0 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -101,6 +101,14 @@ static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
+ 	if (retval)
+ 		goto put_usb3_hcd;
+ 
++	{
++		struct usb_hcd *usb3_hcd = xhci_get_usb3_hcd(xhci);
++
++		if (usb3_hcd && HCC_MAX_PSA(xhci->hcc_params) >= 4 &&
++		    !(xhci->quirks & XHCI_BROKEN_STREAMS))
++			usb3_hcd->can_do_streams = 1;
++	}
++
+ 	retval = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
+ 	if (retval)
+ 		goto dealloc_usb2_hcd;

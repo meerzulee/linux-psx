@@ -1,0 +1,24 @@
+From ad14262e07b583599322a0a8a8ec80e2c1823fa2 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Sun, 13 Jul 2025 13:17:25 +0200
+Subject: [PATCH] remove redundant dma_set_mask
+
+dma_set_mask_and_coherent also does dma_set_mask
+---
+ drivers/net/ethernet/marvell/sky2.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index c47c7b991de3f417e1524e9cbfc76800cdafdced..2c83c17ea20a99e34949b65d0f54328135183cc0 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -4939,8 +4939,7 @@ static int sky2_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	#ifdef CONFIG_X86_PS4
+ 	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		if (dma_set_mask(&pdev->dev, DMA_BIT_MASK(31)) < 0 ||
+-		    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(31)) < 0) {
++		if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(31)) < 0) {
+ 			dev_err(&pdev->dev, "no usable DMA configuration\n");
+ 			goto err_out_free_regions;
+ 		}

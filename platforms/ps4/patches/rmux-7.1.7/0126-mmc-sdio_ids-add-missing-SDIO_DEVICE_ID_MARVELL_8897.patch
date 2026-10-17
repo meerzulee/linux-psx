@@ -1,0 +1,22 @@
+From de52fee3da9f1a87e9221bc01b0349a39f3a0804 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 21:25:44 +0200
+Subject: [PATCH] mmc: sdio_ids: add missing SDIO_DEVICE_ID_MARVELL_8897_F0
+
+---
+ include/linux/mmc/sdio_ids.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/mmc/sdio_ids.h b/include/linux/mmc/sdio_ids.h
+index eb0114991077214db01bcb682ab61075381b402c..7ae4ade60b385a8af0ef9dbbd4c4ebd90b4414aa 100644
+--- a/include/linux/mmc/sdio_ids.h
++++ b/include/linux/mmc/sdio_ids.h
+@@ -93,7 +93,7 @@
+ #define SDIO_DEVICE_ID_MARVELL_8797_F0		0x9128
+ #define SDIO_DEVICE_ID_MARVELL_8797_WLAN	0x9129
+ #define SDIO_DEVICE_ID_MARVELL_8797_BT		0x912a
+-#define SDIO_DEVICE_ID_MARVELL_8897_F0		0x912c //Marvell_8897_F0 - In PS4_12xx
++#define SDIO_DEVICE_ID_MARVELL_8897_F0		0x912c
+ #define SDIO_DEVICE_ID_MARVELL_8897_WLAN	0x912d
+ #define SDIO_DEVICE_ID_MARVELL_8897_BT		0x912e
+ #define SDIO_DEVICE_ID_MARVELL_8887_F0		0x9134

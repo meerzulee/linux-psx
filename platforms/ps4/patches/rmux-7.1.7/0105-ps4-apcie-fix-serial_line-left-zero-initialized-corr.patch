@@ -1,0 +1,22 @@
+From c14cfac43067332e0376f389b3ddbc83b1cc0ca4 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 30 Jun 2026 23:44:31 +0200
+Subject: [PATCH] ps4-apcie: fix serial_line left zero-initialized, corrupting
+ ttyS0 on remove
+
+---
+ drivers/ps4/ps4-apcie.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index a35294ea884f1f57a55f24c20f1397ae8778a364..4fa6450c8502ca861430421d6735f057147f7f12 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -593,6 +593,7 @@ static int apcie_probe(struct pci_dev *dev, const struct pci_device_id *id) {
+ 	}
+ 	sc->pdev = dev;
+ 	memset(sc->irq_map, -1, sizeof(sc->irq_map));
++	memset(sc->serial_line, -1, sizeof(sc->serial_line));
+ 	pci_set_drvdata(dev, sc);
+ 
+ 	// eMMC ... unused?

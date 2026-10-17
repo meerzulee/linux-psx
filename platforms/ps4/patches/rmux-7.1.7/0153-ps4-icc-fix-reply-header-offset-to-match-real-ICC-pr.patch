@@ -1,0 +1,68 @@
+From 6aa28c085cbd89febbad510a21d49687dccfdfcf Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 15:33:26 +0000
+Subject: [PATCH] ps4/icc: fix reply header offset to match real ICC protocol
+
+---
+ drivers/ps4/icc/i2c.c | 20 +++++++++++++-------
+ 1 file changed, 13 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/ps4/icc/i2c.c b/drivers/ps4/icc/i2c.c
+index ac8dca8ab1fdf1f0caff3934aebb03145df76a27..551d5f016b42d70d7abc2c8747ca009292299820 100644
+--- a/drivers/ps4/icc/i2c.c
++++ b/drivers/ps4/icc/i2c.c
+@@ -7,6 +7,9 @@
+ #define ICC_MAX_READ_DATA 0xff
+ #define ICC_MAX_WRITE_DATA 0xf8
+ 
++#define ICC_REPLY_HEADER_SIZE 0x14
++#define ICC_REPLY_ERROR_OFF 0x0c
++
+ u32 icc_i2c_functionality(struct i2c_adapter *adap);
+ int icc_i2c_init(struct apcie_dev *sc);
+ void icc_i2c_remove(struct apcie_dev *sc);
+@@ -41,7 +44,7 @@ static int icc_i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
+ 	struct apcie_dev *sc = i2c_get_adapdata(adapter);
+ 	int ret;
+ 	struct icc_i2c_msg msg;
+-	u8 resultbuf[8 + ICC_MAX_READ_DATA];
++	u8 resultbuf[ICC_REPLY_HEADER_SIZE + ICC_MAX_READ_DATA];
+ 
+ 	msg.code = 4; /* Don't really know what this is */
+ 	msg.count = 1;
+@@ -95,26 +98,29 @@ static int icc_i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
+ 	msg.length = msg.cmd.length + 4;
+ 	ret = apcie_icc_cmd(0x10, 0x0, &msg, msg.length, resultbuf,
+ 		      sizeof(resultbuf));
+-	if (ret < 2 || ret > sizeof(resultbuf)) {
++	if (ret < ICC_REPLY_HEADER_SIZE || ret > sizeof(resultbuf)) {
+ 		sc_err("icc-i2c: icc command failed: %d\n", ret);
+ 		return -EIO;
+ 	}
+-	if (resultbuf[0] != 0 || resultbuf[1] != 0) {
++	if (resultbuf[ICC_REPLY_ERROR_OFF] != 0 ||
++	    resultbuf[ICC_REPLY_ERROR_OFF + 1] != 0) {
+ 		sc_err("icc-i2c: i2c command failed: %d, %d\n",
+-		       resultbuf[0], resultbuf[1]);
++		       resultbuf[ICC_REPLY_ERROR_OFF],
++		       resultbuf[ICC_REPLY_ERROR_OFF + 1]);
+ 		return -EIO;
+ 	}
+ 
+ 	if (read_write == I2C_SMBUS_READ)
+ 		switch (size) {
+ 		case I2C_SMBUS_BYTE_DATA:
+-			data->byte = resultbuf[8];
++			data->byte = resultbuf[ICC_REPLY_HEADER_SIZE];
+ 			break;
+ 		case I2C_SMBUS_WORD_DATA:
+-			data->word = resultbuf[8] | (resultbuf[9] << 8);
++			data->word = resultbuf[ICC_REPLY_HEADER_SIZE] |
++				     (resultbuf[ICC_REPLY_HEADER_SIZE + 1] << 8);
+ 			break;
+ 		case I2C_SMBUS_I2C_BLOCK_DATA:
+-			memcpy(&data->block[1], &resultbuf[8],
++			memcpy(&data->block[1], &resultbuf[ICC_REPLY_HEADER_SIZE],
+ 			       data->block[0]);
+ 			break;
+ 		}

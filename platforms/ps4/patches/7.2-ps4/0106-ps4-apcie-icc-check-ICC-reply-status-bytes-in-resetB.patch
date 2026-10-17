@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 00:07:11 +0200
+Subject: [PATCH] ps4-apcie-icc: check ICC reply status bytes in
+ resetBtWlan/resetUsbPort
+
+---
+ drivers/ps4/ps4-apcie-icc.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index d6f497b72bd1af51aba51a7e1c41d5854b5129a6..01656be1b0c9afdae9b31b5d68e893ff75be8b2f 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -329,6 +329,11 @@ __maybe_unused void resetUsbPort(void)
+ 		pr_err("icc: USB disable failed: %d\n", ret);
+ 		return;
+ 	}
++	if (resp[0] != 0 || resp[1] != 0) {
++		pr_err("icc: USB disable reported failure: %d, %d\n",
++			resp[0], resp[1]);
++		return;
++	}
+ 	pr_debug("icc: USB disable ret=%d, reply %02x %02x %02x %02x\n",
+ 		 ret, resp[0], resp[1], resp[2], resp[3]);
+ 
+@@ -338,6 +343,11 @@ __maybe_unused void resetUsbPort(void)
+ 		pr_err("icc: USB enable failed: %d\n", ret);
+ 		return;
+ 	}
++	if (resp[0] != 0 || resp[1] != 0) {
++		pr_err("icc: USB enable reported failure: %d, %d\n",
++			resp[0], resp[1]);
++		return;
++	}
+ 	pr_debug("icc: USB enable ret=%d, reply %02x %02x %02x %02x\n",
+ 		 ret, resp[0], resp[1], resp[2], resp[3]);
+ }
+@@ -372,6 +382,11 @@ void resetBtWlan(void)
+ 		pr_err("icc: BT/WLAN enable failed: %d\n", ret);
+ 		return;
+ 	}
++	if (resp[0] != 0 || resp[1] != 0) {
++		pr_err("icc: BT/WLAN enable reported failure: %d, %d\n",
++			resp[0], resp[1]);
++		return;
++	}
+ 	pr_debug("icc: BT/WLAN enable ret=%d, reply %02x %02x %02x %02x\n",
+ 		 ret, resp[0], resp[1], resp[2], resp[3]);
+ }

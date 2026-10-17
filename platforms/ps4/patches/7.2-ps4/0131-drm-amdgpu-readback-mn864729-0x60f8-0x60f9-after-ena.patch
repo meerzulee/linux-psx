@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 3 Jul 2026 12:48:46 +0000
+Subject: [PATCH] drm/amdgpu: readback mn864729 0x60f8/0x60f9 after enable
+ sequence
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index d384b0209aec1e454d8bd149e6354b383038de34..d5a2a10c3ae5942641e4eeea2cc0593295cd2101 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -649,6 +649,15 @@ static int ps4_bridge_enable_mn864729_video(struct ps4_bridge *mn_bridge,
+ 	if (ret < 0)
+ 		DRM_ERROR("Failed to configure ps4-bridge (MN864729) mode\n");
+ 
++	cq_init(&mn_bridge->cq, 1);
++	cq_read(&mn_bridge->cq, 0x60f8, 2);
++	if (cq_exec(&mn_bridge->cq) >= 5)
++		DRM_DEBUG_KMS("mn864729: 0x60f8=0x%02x 0x60f9=0x%02x\n",
++			      mn_bridge->cq.reply.databuf[3],
++			      mn_bridge->cq.reply.databuf[4]);
++	else
++		DRM_DEBUG_KMS("mn864729: 0x60f8/0x60f9 readback failed\n");
++
+ 	mutex_unlock(&mn_bridge->mutex);
+ 
+ 	return ret < 0 ? ret : 0;

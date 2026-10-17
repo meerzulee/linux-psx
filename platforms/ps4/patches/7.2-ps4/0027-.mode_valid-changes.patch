@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 21:40:15 +0200
+Subject: [PATCH] .mode_valid changes
+
+now requires enum drm_mode_status as return and drm_display_mode is now a const
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c        | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index 71604b7f652c9657e2fdc3909cec901551936582..e5ee8ab44a7834263974d8db53f29e876f0acf04 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1579,8 +1579,8 @@ static const struct drm_connector_funcs amdgpu_connector_dp_funcs = {
+ 
+ #ifdef CONFIG_X86_PS4
+ int ps4_bridge_get_modes(struct drm_connector *connector);
+-int ps4_bridge_mode_valid(struct drm_connector *connector,
+-			struct drm_display_mode *mode);
++enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
++			const struct drm_display_mode *mode);
+ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 					  bool force);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 612f85b55f4d879f06da354578d2a06c5f2b7a6f..8aeec67c4124c250817c4d58cd8d07554c081f23 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -735,8 +735,8 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 		return connector_status_disconnected;
+ }
+ 
+-int ps4_bridge_mode_valid(struct drm_connector *connector,
+-				  struct drm_display_mode *mode)
++enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
++				  const struct drm_display_mode *mode)
+ {
+ 	int vic = drm_match_cea_mode(mode);
+ 

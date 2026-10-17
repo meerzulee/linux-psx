@@ -1,0 +1,88 @@
+From b8ab67b45ec133242925647c02db65e61036f839 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 15:00:23 +0000
+Subject: [PATCH] ps4-hwinfo: read stepping from CHIPREV MMIO register instead
+ of PCI revision byte
+
+---
+ drivers/ps4/ps4-hwinfo.c | 34 +++++++++++++++++++++++-----------
+ 1 file changed, 23 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
+index 7c47fc40d8608035598a8b53ad2e06f12c83392a..3b65214ed058631453e0c7b17755a14e200f013b 100644
+--- a/drivers/ps4/ps4-hwinfo.c
++++ b/drivers/ps4/ps4-hwinfo.c
+@@ -2,11 +2,14 @@
+ #define pr_fmt(fmt) "ps4-hwinfo: " fmt
+ 
+ #include <linux/kernel.h>
++#include <linux/io.h>
+ #include <linux/pci.h>
+ #include <linux/pci_ids.h>
+ #include <linux/mmc/sdio_func.h>
+ #include "ps4-hwinfo.h"
+ 
++#define APCIE_REG_CHIPREV	0x110c
++
+ #define AMD_VENDOR 0x1002
+ 
+ static const struct {
+@@ -28,12 +31,6 @@ static const struct {
+ 	{ PCI_DEVICE_ID_SONY_BAIKAL_PCIE, "Baikal" },
+ };
+ 
+-static void stepping_str(u8 rev, char *buf)
+-{
+-	buf[0] = 'A' + (rev >> 4);
+-	buf[1] = '0' + (rev & 0xf);
+-	buf[2] = '\0';
+-}
+ 
+ void ps4_hwinfo_print(void)
+ {
+@@ -44,7 +41,7 @@ void ps4_hwinfo_print(void)
+ 	const char *sb_name  = "unknown";
+ 	u16 gpu_dev = 0, sb_dev = 0, wlan_dev = 0;
+ 	u16 wlan_ven = 0;
+-	u8 sb_rev = 0;
++	resource_size_t bar2_start = 0;
+ 	char stepping[3];
+ 	int i;
+ 
+@@ -61,9 +58,9 @@ void ps4_hwinfo_print(void)
+ 	for (i = 0; i < ARRAY_SIZE(ps4_sb_ids); i++) {
+ 		sb = pci_get_device(PCI_VENDOR_ID_SONY, ps4_sb_ids[i].device, NULL);
+ 		if (sb) {
+-			sb_name = ps4_sb_ids[i].name;
+-			sb_dev  = sb->device;
+-			sb_rev  = sb->revision;
++			sb_name    = ps4_sb_ids[i].name;
++			sb_dev     = sb->device;
++			bar2_start = pci_resource_start(sb, 2);
+ 			pci_dev_put(sb);
+ 			break;
+ 		}
+@@ -76,7 +73,22 @@ void ps4_hwinfo_print(void)
+ 		pci_dev_put(wlan);
+ 	}
+ 
+-	stepping_str(sb_rev, stepping);
++	if (bar2_start) {
++		void __iomem *rev_reg = ioremap(bar2_start + APCIE_REG_CHIPREV, 4);
++		if (rev_reg) {
++			u32 chiprev = ioread32(rev_reg);
++			u8 step = (chiprev >> 8) & 0xff;
++			iounmap(rev_reg);
++			stepping[0] = 'A' + (step >> 1);
++			stepping[1] = '0' + (step & 1);
++			stepping[2] = '\0';
++		} else {
++			stepping[0] = '?'; stepping[1] = '?'; stepping[2] = '\0';
++		}
++	} else {
++		stepping[0] = '?'; stepping[1] = '?'; stepping[2] = '\0';
++	}
++
+ 	if (wlan_dev)
+ 		pr_info("GPU: %s [%04x:%04x]  southbridge: %s %s [%04x:%04x]  WLAN: [%04x:%04x]\n",
+ 			gpu_name, AMD_VENDOR, gpu_dev,

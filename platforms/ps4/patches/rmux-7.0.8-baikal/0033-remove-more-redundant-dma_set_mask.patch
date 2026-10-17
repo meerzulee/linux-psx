@@ -1,0 +1,39 @@
+From f2a4bf9f2681986cb5f62ff1fa423bdba9aa758f Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Sun, 13 Jul 2025 13:23:28 +0200
+Subject: [PATCH] remove more redundant dma_set_mask
+
+dma_set_mask is already handled by dma_set_mask_and_coherent
+---
+ drivers/mmc/host/sdhci-pci-core.c | 3 ---
+ drivers/usb/host/xhci-aeolia.c    | 3 +--
+ 2 files changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
+index 91433c6152467327592b93d344a39f341a689773..4b9af99408306dd0ddd92d034d4a59b4d5887860 100644
+--- a/drivers/mmc/host/sdhci-pci-core.c
++++ b/drivers/mmc/host/sdhci-pci-core.c
+@@ -361,9 +361,6 @@ static void aeolia_remove_slot(struct sdhci_pci_slot *slot, int dead)
+ 
+ static int aeolia_enable_dma(struct sdhci_pci_slot *slot)
+ {
+-	if (dma_set_mask(&slot->chip->pdev->dev, DMA_BIT_MASK(31))) {
+-		return -EINVAL;
+-	}
+ 	if (dma_set_mask_and_coherent(&slot->chip->pdev->dev, DMA_BIT_MASK(31))) {
+ 		return -EINVAL;
+ 	}
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 14037f8d7aa62e8c39d44877d5f79399778d6a5f..0b048ca119ad13cfae1ec9e4d835defd60310482 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -387,8 +387,7 @@ static int xhci_aeolia_probe(struct pci_dev *dev, const struct pci_device_id *id
+ 		pci_set_master(dev);
+ 	}
+ 
+-	if (dma_set_mask(&dev->dev, DMA_BIT_MASK(31)) ||
+-		dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31))) {
++	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31))) {
+ 		return -ENODEV;
+ 	}
+ 

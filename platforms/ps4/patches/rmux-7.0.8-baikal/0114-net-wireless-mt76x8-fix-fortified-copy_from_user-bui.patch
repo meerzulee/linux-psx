@@ -1,0 +1,56 @@
+From d98d3e9e0df2e18c05cb014cb770c95d35ebea3e Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 10 May 2026 20:02:54 +0200
+Subject: [PATCH] net/wireless/mt76x8: fix fortified copy_from_user build error
+
+---
+ .../drv_wlan/MT6632/wlan/os/linux/gl_proc.c       | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+index 7ed8e3286fa860a1513b241f3e0adb84ab9ffe4b..94479965641113dc8dc82d4cc0fa41ddda075595 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+@@ -554,12 +554,9 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= (count+1))
+-		u4CopySize = count;
+-	else
+-		u4CopySize -= 1;
+-
+-	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (u4CopySize > sizeof(g_aucProcBuf) - 1)
++		u4CopySize = sizeof(g_aucProcBuf) - 1;
++	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -591,7 +588,7 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -1194,7 +1191,7 @@ static ssize_t procRoamWrite(struct file *file, const char __user *buffer,
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -1273,7 +1270,7 @@ static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}

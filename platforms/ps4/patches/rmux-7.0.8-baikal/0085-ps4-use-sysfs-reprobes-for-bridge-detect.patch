@@ -1,0 +1,125 @@
+From 6e4dfd3fbaa1b59da8c2ed17c3cbf2decc0d42af Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 17:26:43 +0200
+Subject: [PATCH] ps4: use sysfs reprobes for bridge detect
+
+Stop reading TMONREG in the PS4 bridge detect path and stop enabling periodic connector polling on the stable branch.
+
+The standard DRM connector sysfs status attribute already lets userspace force a reprobe with 'echo detect > /sys/class/drm/.../status'. Use that path for explicit retries instead of paying background detect overhead on Aeolia.
+
+Keep the explicit detect path DPCD-based so a forced reprobe still refreshes sink state when userspace asks for it.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 57 +++++++------------------
+ 1 file changed, 16 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 9fff44d3acf1155f18e448c2596730929201830d..0f3c269224a3355aa8adcd96978f098a30f64ae6 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -72,10 +72,6 @@
+ #define TSRST_AUDSRST BIT(6)
+ #define TSRST_VIFSRST BIT(7)
+ 
+-#define TMONREG 0x7008
+-#define TMONREG_MONITOR_PRESENT BIT(3)
+-#define TMONREG_MONITOR_POWERED_OFF 0x0c
+-
+ #define TDPCMODE 0x7009
+ #define PS4_DDC_SEGMENT_ADDR 0x30
+ 
+@@ -891,8 +887,8 @@ static void ps4_bridge_post_disable(struct drm_bridge *bridge)
+ 
+ 	cq_init(&mn_bridge->cq, 4);
+ 	/*
+-	 * Return the bridge to an idle state so monitor presence detection via
+-	 * TMONREG is reliable across repeated unplug/replug cycles.
++	 * Return the bridge to an idle state across repeated disable/reprobe
++	 * cycles.
+ 	 */
+ 	cq_writereg(&mn_bridge->cq, TSRST,
+ 		   TSRST_AVCSRST | TSRST_ENCSRST | TSRST_FIFOSRST |
+@@ -1072,35 +1068,19 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 	struct ps4_bridge *mn_bridge = g_bridge;
+ 	struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 	struct amdgpu_connector_atom_dig *dig_connector = amdgpu_connector->con_priv;
+-	u8 reg;
+ 	int dpcd_ret = -ENODEV;
+-	bool present, active;
+-
+-	(void)force;
+ 
+ 	if (!mn_bridge)
+ 		return connector_status_disconnected;
+ 
+-	mutex_lock(&mn_bridge->mutex);
+-	cq_init(&mn_bridge->cq, 4);
+-	cq_read(&mn_bridge->cq, TMONREG, 1);
+-	if (cq_exec(&mn_bridge->cq) < 9) {
+-		mutex_unlock(&mn_bridge->mutex);
+-		DRM_ERROR("could not read TMONREG");
+-		return connector_status_disconnected;
+-	}
+-	reg = mn_bridge->cq.reply.databuf[3];
+-	mutex_unlock(&mn_bridge->mutex);
+-
+-	present = !!(reg & TMONREG_MONITOR_PRESENT);
+-	active = present && reg != TMONREG_MONITOR_POWERED_OFF;
+-
+ 	/*
+-	 * Belize can raise TMONREG monitor-present before the bridge AUX/DPCD
+-	 * side is actually ready. Treat a successful DPCD read as the
+-	 * authoritative "sink is ready" signal so we don't start link training
+-	 * against a half-awake bridge and trip clock recovery failures.
++	 * Userspace can force a fresh probe through the standard DRM connector
++	 * sysfs status attribute. Keep background detect calls cheap and only
++	 * touch the bridge on explicit reprobes.
+ 	 */
++	if (!force)
++		return connector->status;
++
+ 	if (dig_connector)
+ 		dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
+ 
+@@ -1113,19 +1093,16 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 		dig_connector->dp_clock = 0;
+ 	}
+ 
+-	DRM_DEBUG_KMS("TMONREG=0x%02x present=%d active=%d dpcd_ret=%d lanes=%u clock=%u\n",
+-		      reg, present, active, dpcd_ret,
++	DRM_DEBUG_KMS("ps4_bridge_detect: force=%d dpcd_ret=%d lanes=%u clock=%u\n",
++		      force, dpcd_ret,
+ 		      dig_connector ? dig_connector->dp_lane_count : 0,
+ 		      dig_connector ? dig_connector->dp_clock : 0);
+ 
+-	if (dpcd_ret == 0)
+-		return connector_status_connected;
+-
+ 	if (!amdgpu_connector->ddc_bus || !amdgpu_connector->ddc_bus->has_aux)
+-		return active ? connector_status_connected :
+-			connector_status_disconnected;
++		return connector_status_connected;
+ 
+-	return connector_status_disconnected;
++	return dpcd_ret == 0 ? connector_status_connected :
++	       connector_status_disconnected;
+ }
+ 
+ enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
+@@ -1189,12 +1166,10 @@ int ps4_bridge_register(struct drm_connector *connector,
+ 	mn_bridge->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
+ 
+ 	/*
+-	 * Enable DRM connection polling. Without HPD interrupts from Aeolia,
+-	 * polling is the only way the kernel will call detect() automatically
+-	 * and trigger a modeset when the cable is replugged.
++	 * Leave connector polling disabled. Userspace can force a reprobe
++	 * through the standard DRM connector sysfs status attribute without
++	 * paying periodic bridge detect overhead on Aeolia.
+ 	 */
+-	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
+-			    DRM_CONNECTOR_POLL_DISCONNECT;
+ 
+ 	ret = devm_drm_bridge_add(dev, &mn_bridge->bridge);
+ 	if (ret)
