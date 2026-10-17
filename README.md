@@ -40,7 +40,7 @@ repository will let us share tooling while qualifying each console separately.
 
 | Project | Role |
 | --- | --- |
-| **Linux psX** | Kernel patches, hardware drivers, configurations, source provenance, builds, matching modules and optional Ethernet setup tools. |
+| **Linux psX** | Kernel patches, hardware drivers, configurations, source provenance, builds and matching modules. |
 | **[Omarchy psX](https://github.com/meerzulee/omarchy-psx)** | Omarchy setup, boot profiles and desktop integration. |
 
 The kernel has no Omarchy, desktop, package-manager, init-system or network-manager
@@ -50,8 +50,8 @@ filesystem of your choice. Those components are separate from this repository.
 ## Build Linux 6.18 for PS4
 
 The active target is `6.18-ps4-baikal`, producing
-`6.18.44-psx-ps4-baikal1`. It fetches upstream Linux v6.18.44 at
-`1efe5d048a391de3ead2804b2e7f86376c356cc5` and applies 55 ordered patches.
+`6.18.44-psx-ps4-baikal2`. It fetches upstream Linux v6.18.44 at
+`1efe5d048a391de3ead2804b2e7f86376c356cc5` and applies 56 ordered patches.
 No private kernel archive or existing Omarchy checkout is required.
 
 ```sh
@@ -77,7 +77,7 @@ Linux and packages these outputs with generic `artifacts.json` and complete
 corresponding GPL source as **two separate downloads**:
 
 - **`linux-psx-ps4-baikal-<commit>`**: the small kernel, matching modules, build
-  data, Ethernet setup script and instructions. Choose this to test Linux.
+  data and instructions. Choose this to test Linux.
 - **`linux-psx-ps4-source-<commit>`**: complete corresponding source and matching
   build data for rebuilding or inspection.
 
@@ -85,50 +85,35 @@ Each download has its own checksums. CI artifacts expire after 30 days.
 Creating a public experimental release is a separate, manual workflow option;
 it likewise offers a kernel ZIP and a separate source archive.
 
-## Ethernet autoconnect
+## Ethernet
 
-On a supported Baikal kernel with its matching modules installed, the optional
-NetworkManager tool enables Ethernet now and at future boots. From the extracted
-CI bundle, run:
-
-```sh
-sudo python3 ./ps4-ethernet --setup
-```
-
-It installs a boot service and an IPv4 DHCP autoconnect profile. Python 3,
-NetworkManager and systemd are required by this optional tool; Omarchy is not.
-[Download and usage instructions](contrib/networkmanager/README.md) also cover
-the earlier MTS2 releases. Matching build data is discovered or fetched
-automatically. The new
-autostart path is host-tested; [same-boot service adoption and wired traffic
-passed](docs/ETHERNET-AUTOCONNECT-TEST.md) on the original MTS2 kernel.
-Unattended PS4 boot acceptance remains pending.
-
-The `6.18-ps4-baikal-native-dev` development target needs no tool: udev loads
-the driver and NetworkManager connects with its default profile. One boot
-passed; see [native Ethernet autoload](docs/ETHERNET-NATIVE.md).
+Built-in Ethernet needs no setup tool. udev loads `psx_mts_net` at boot and the
+first open of `psx0` brings it up; NetworkManager connects with its default
+wired profile, with or without the cable plugged in at boot. Other network
+managers need a configuration that names `psx0`. See [the Ethernet
+guide](docs/ETHERNET.md) for limits and the `psx_mts_net.autoarm=0` and
+`modprobe.blacklist=psx_mts_net` switches.
 
 ## Current stage
 
 **PS4 development target.** The 54 base patches remain byte-for-byte preserved.
 The MTS2 Ethernet patch is imported unchanged from the published PS4 project;
 its GPL notices and original contributors remain credited. The active target
-uses a separate firmware-free config and neutral build identity. Historical
-configs and the experimental ultrawide series remain reference inputs.
+adds psX native Ethernet autoload, a separate firmware-free config and a neutral
+build identity. Historical configs and the experimental ultrawide series remain
+reference inputs.
 
-Historical Ethernet tests cover one PS4 Slim Baikal B1; the overall experiment
-was **DEGRADED**, with cold-boot repetition, cable recovery and unattended
-activation pending. This new release/config/build has **not** been boot-tested.
-Source migration and CI success do not qualify hardware. PS5 integration and
-future-console support remain planned.
+The active patch set, built locally as `6.18.44-psx-ps4-baikal-native-dev1`,
+passed two native Ethernet boots on one Baikal PS4, launched with and without
+the cable and including unplug and replug. The `6.18.44-psx-ps4-baikal2` CI
+build has **not** been boot-tested. Source migration and CI success do not
+qualify hardware. PS5 integration and future-console support remain planned.
 
 | Read next | Contents |
 | --- | --- |
 | [Build guide](docs/BUILDING.md) | Native Linux x86-64, macOS ARM64/OrbStack and CI. |
 | [Generic boot guide](docs/BOOTING.md) | Loader/initramfs/rootfs requirements for any distribution. |
-| [Ethernet contract](docs/ETHERNET.md) | Explicit first activation, retained DMA and current limitations. |
-| [Ethernet setup](contrib/networkmanager/README.md) | One-time setup for automatic NetworkManager Ethernet connection. |
-| [Native Ethernet autoload](docs/ETHERNET-NATIVE.md) | Development target that needs no Ethernet tool: PCI-alias autoload and a self-arming first open. |
+| [Ethernet](docs/ETHERNET.md) | Native autoload, retained DMA, hardware status and limits. |
 | [PS4 status](platforms/ps4/STATUS.md) | Historical evidence and remaining qualification. |
 | [PS4 development knowledge](platforms/ps4/docs/README.md) | Curated display/MSI, Ethernet, fan/storage/UART findings and historical evidence. |
 | [Knowledge migration](platforms/ps4/docs/KNOWLEDGE-MIGRATION.md) | Disposition of 117 legacy knowledge/tool sources, corrected hypotheses and deliberate exclusions. |
@@ -140,7 +125,7 @@ future-console support remain planned.
 | [rmux 7.x imports](docs/RMUX-IMPORT.md) | Per-commit Strawberry kernel sources for the Linux 7.2 port. |
 | [Linux 7.2 port](docs/PORT-7.2.md) | Compile-tested development targets: `7.2-ps4-baikal`, the 6.18 Baikal stack on Linux 7.2, and `7.2-ps4`, based on rmux's Strawberry kernel for all PS4 southbridges. |
 | [Import manifest](provenance/ps4-import.json) | Per-file hashes, immutable source paths and ordered series. |
-| [Active target provenance](provenance/6.18-ps4-baikal.json) | MTS2 import, config adaptations and the active 55-patch stack. |
+| [Active target provenance](provenance/6.18-ps4-baikal.json) | MTS2 import, native autoload, config adaptations and the active 56-patch stack. |
 
 ---
 

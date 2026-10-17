@@ -8,20 +8,15 @@ MTS2 Ethernet patch imported from the published PS4 source at:
 
 https://github.com/meerzulee/linux-ps4/tree/386df1ad97d92defee1794bf961a0e2f5dc85a1b
 
-Its separate config has no embedded firmware; only the local-version string
+The Linux psX native autoload patch
+`0700-network-mts/0002-net-ps4-mts-native-autoload.patch` follows it; see
+[ETHERNET.md](ETHERNET.md). Its separate config has no embedded firmware; only the local-version string
 changed from the source project's firmware-free public config. Build identity
 and paths are adapted for psX. The original imported snapshot stays frozen.
-`provenance/6.18-ps4-baikal.json` records the 55 active patch hashes, ordering,
+`provenance/6.18-ps4-baikal.json` records the 56 active patch hashes, ordering,
 source paths and adaptations. Run `make check` to verify both imports.
 
 See [BUILDING.md](BUILDING.md) and [the PS4 status](../platforms/ps4/STATUS.md).
-
-`platforms/ps4/patches/6.18-baikal-mts2/series-native-dev` is the active
-series plus `0700-network-mts/0002-net-ps4-mts-native-autoload.patch`, used
-only by the `6.18-ps4-baikal-native-dev` development target. The patch adds
-PCI-alias autoload and a self-arming first open; see
-[ETHERNET-NATIVE.md](ETHERNET-NATIVE.md) and
-[its provenance](../provenance/6.18-ps4-baikal-native-dev.json).
 
 ## rmux 7.x source imports
 

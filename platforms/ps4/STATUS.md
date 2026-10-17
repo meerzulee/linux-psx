@@ -2,11 +2,15 @@
 
 ## New psX target
 
-`6.18-ps4-baikal` produces `6.18.44-psx-ps4-baikal1`: pinned Linux 6.18.44,
-54 preserved PS4 patches and the unchanged MTS2 Ethernet patch. Its active
-config embeds no firmware and uses a neutral psX release/build identity.
-CI application/compilation and source packaging are host checks. **No hardware
-acceptance has been performed for this new release/config/build.**
+`6.18-ps4-baikal` produces `6.18.44-psx-ps4-baikal2`: pinned Linux 6.18.44,
+54 preserved PS4 patches, the unchanged MTS2 Ethernet patch and the psX native
+autoload patch. Its active config embeds no firmware and uses a neutral psX
+release/build identity. CI application/compilation and source packaging are
+host checks. **No hardware acceptance has been performed for this CI build.**
+The same patch set, built locally as `6.18.44-psx-ps4-baikal-native-dev1`,
+passed two native Ethernet boots (EXP-20261017-019 and EXP-20261017-020); the
+earlier `6.18.44-psx-ps4-baikal1` booted once (EXP-20261017-018). See
+[the Ethernet guide](../../docs/ETHERNET.md).
 
 PS5 integration, other PS4 southbridges/revisions and the historical ultrawide
 snapshot are not qualified by this migration.

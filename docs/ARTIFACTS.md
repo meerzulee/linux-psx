@@ -6,10 +6,8 @@ archive. A release string alone does not establish identical bytes.
 
 The builder writes `output/6.18-ps4-baikal/`. Linux CI packaging adds guidance,
 `artifacts.json`, `BUILD-SHA256SUMS`, complete corresponding source and a final
-`SHA256SUMS` in `dist/`. It also includes the optional MIT-licensed
-`ps4-ethernet` tool and `ETHERNET-SETUP.md` for NetworkManager/systemd users;
-neither is required by the kernel or generic metadata. No distribution boot
-profile, root-filesystem installer, launcher or firmware is packaged.
+`SHA256SUMS` in `dist/`. No distribution boot profile, root-filesystem
+installer, launcher, Ethernet setup tool or firmware is packaged.
 
 ## Two downloads
 
@@ -17,19 +15,18 @@ CI stages two independent downloads from the same build:
 
 | Download | Contents |
 | --- | --- |
-| `linux-psx-ps4-baikal-<commit>` | Kernel, whole modules archive, config, map/manifest/version, `artifacts.json`, optional Ethernet setup and boot guidance. No Linux source archive. |
+| `linux-psx-ps4-baikal-<commit>` | Kernel, whole modules archive, config, map/manifest/version, `artifacts.json` and boot guidance. No Linux source archive. |
 | `linux-psx-ps4-source-<commit>` | Complete `source-<release>.tar.zst` and an identical copy of `artifacts.json`. |
 
 Each contains its own `SHA256SUMS`, covering every included file. Extract the
-small kernel download to test the build; its Ethernet setup finds the included
-metadata automatically, including offline. Source is available separately.
+small kernel download to test the build. Source is available separately.
 
 The flat `dist/` files remain the complete local packaging set; `dist/runtime/`
 and `dist/source/` are the CI upload directories. The metadata records the
 source archive's hash as well as kernel/module identities, tying the two
 downloads together. Future release assembly verifies both before producing a
-small `kernel-<release>.zip` and the separate source archive. Tiny standalone
-metadata/helper assets support automatic Ethernet setup downloads.
+small `kernel-<release>.zip`, the separate source archive, `artifacts.json` and
+the release notes.
 
 ## Generic metadata: schema 1
 
@@ -39,7 +36,7 @@ metadata/helper assets support automatic Ethernet setup downloads.
 | --- | --- |
 | `schema` | Integer `1`. |
 | `target`, `platform` | `6.18-ps4-baikal`, `ps4-baikal` for this target. |
-| `kernel_release` | `6.18.44-psx-ps4-baikal1`. |
+| `kernel_release` | `6.18.44-psx-ps4-baikal2`. |
 | `kernel_sha256` | SHA256 of the packaged `bzImage`. |
 | `kernel_config_sha256` | SHA256 of the resolved packaged `config`. |
 | `embedded_firmware` | Boolean `false`. |
@@ -58,9 +55,9 @@ layout. The module archive contains only regular files/directories under
 `lib/modules/<release>/` and its parent directories. No build/source symlinks
 to a builder's private paths are included.
 
-Verify hashes before installation and compare the installed module plus
-running release/config and loaded build note before activation. The metadata
-does not hash an already running kernel image in memory and is not a signature.
+Verify hashes before installation. A consumer can compare an installed module
+with the running release/config and the loaded build note. The metadata does
+not hash an already running kernel image in memory and is not a signature.
 
 ## Corresponding source and provenance
 

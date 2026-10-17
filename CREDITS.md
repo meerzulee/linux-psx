@@ -62,9 +62,8 @@ Build/packaging tools are adapted from that same published source. The earlier
 54-patch source lineage above still applies; the Ethernet addition does not
 replace or consolidate other contributors' authorship.
 
-The native autoload patch `0700-network-mts/0002`, used only by the
-`6.18-ps4-baikal-native-dev` development target, is a Linux psX addition on
-top of MTS2 under the same `GPL-2.0-only` terms.
+The native autoload patch `0700-network-mts/0002` in the active series is a
+Linux psX addition on top of MTS2 under the same `GPL-2.0-only` terms.
 
 ## rmux Strawberry 7.x imports
 
@@ -106,14 +105,6 @@ the 6.18 files in [its provenance](provenance/7.2-ps4-baikal.json). Three of
 its six port fixes are shared with `7.2-ps4`; all six are by Meerzulee.
 
 ## Licensing
-
-The optional `contrib/networkmanager/ps4-ethernet` tool and its activation tests
-are adapted from the Omarchy PS4 contributors' MIT-licensed helper and tests in
-[Omarchy psX at `032459a3`](https://github.com/meerzulee/omarchy-psx/tree/032459a360406dadcf3e7d99770812145fbba052).
-The original MIT notice is preserved. Release-specific profiles also preserve
-the identities from the earlier public and private MTS2 adapters. The
-[adapter import record](provenance/ethernet-activation-import.json) pins the
-inputs and describes the standalone installer and boot-service adaptations.
 
 The GPLv2 license text is copied from the source repository into [LICENSE](LICENSE).
 Existing per-file licenses and notices, including vendor dual-license notices,

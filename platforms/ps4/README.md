@@ -8,7 +8,7 @@ The base snapshot is a byte-preserving import from `meerzulee/linux-ps4` at
 
 These results come from **one PS4 Slim with a Baikal B1 southbridge**, Orbis
 12.02 handoff and the recorded earlier Linux 6.18.44 boot sets. They are not
-claims for every PS4 model. **The new `6.18.44-psx-ps4-baikal1` build has not
+claims for every PS4 model. **The `6.18.44-psx-ps4-baikal2` CI build has not
 been boot-tested**; its firmware-free configuration needs separate validation.
 
 | Feature | Recorded status | What works / remaining limits |
@@ -19,7 +19,7 @@ been boot-tested**; its firmware-free configuration needs separate validation.
 | HDMI display | ✅ Working | 1920×1080 at 60 Hz; other monitors and modes need their own tests. |
 | OpenGL and Vulkan | 🟡 Smoke-tested | Radeonsi OpenGL 4.6 and RADV Vulkan 1.3 rendered short tests. Sustained load, GPU reset and video codecs are unqualified. |
 | MT7668 Wi-Fi | ✅ Working on historical stack | Association, DHCP, SSH, DNS and HTTPS passed with firmware present. The new psX kernel needs external firmware integration and a retest. |
-| Built-in Ethernet | 🟡 Working experimentally | MTS2 passed DHCP, independent two-way transfers, verified HTTPS and operation beyond 900 seconds. Automatic startup, strict admin gating and cable recovery remain incomplete. |
+| Built-in Ethernet | 🟡 Working experimentally | Native autoload passed two boots, launched with and without the cable and including unplug and replug: DHCP, independent two-way transfers, verified HTTPS and operation beyond 900 seconds. Strict admin gating, repeated cold boots and other consoles remain unqualified. |
 | HDMI audio | 🟡 Partial | Device and PCM stream present; no audible output in the recorded test. |
 | Bluetooth | 🟡 Partial | Firmware and controller present; scanning, pairing and DualShock reconnect are unverified. |
 | Internal SATA | 🟡 Degraded | Disk detected, but reads timed out or failed. Internal storage is not accepted for normal use. |
@@ -40,28 +40,17 @@ successful transport tests. See [PS4 status](STATUS.md),
 [detailed capabilities](docs/CAPABILITIES.md) and
 [Ethernet evidence](docs/ETHERNET-HISTORY.md) for scope and acceptance gaps.
 
-## Enable Ethernet autoconnect
+## Ethernet
 
-The optional [PS4 Ethernet tool](../../contrib/networkmanager/README.md) works
-with NetworkManager on Arch, CachyOS and other systemd distributions; it does
-not require Omarchy. Boot a supported kernel and install its complete matching
-modules first. In a new CI artifact bundle:
-
-```sh
-sudo python3 ./ps4-ethernet --setup
-```
-
-This installs and starts a boot service, then hands `psx0` to NetworkManager
-with IPv4 DHCP and autoconnect enabled. Setup is done once, rather than manually
-loading the driver each boot. The linked guide covers downloading the script,
-older MTS2 metadata and viewing startup logs. Unattended boot and cable recovery
-still need hardware qualification.
+The active target needs no Ethernet tool: udev loads `psx_mts_net` and
+NetworkManager connects with its default wired profile. See [the Ethernet
+guide](../../docs/ETHERNET.md).
 
 ## Kernel targets
 
 | Target | Base | Active patches | Status |
 | --- | --- | --- | --- |
-| **Root target `6.18-ps4-baikal`** | Linux 6.18.44 | 55 | Active firmware-free psX build; experimental MTS2 Ethernet; new binaries unqualified. |
+| **Root target `6.18-ps4-baikal`** | Linux 6.18.44 | 56 | Active firmware-free psX build; MTS2 Ethernet with native autoload; CI binaries unqualified. |
 | `6.18-baikal` | Linux 6.18.44 | 54 | Imported development baseline; historical tests cover PS4 Slim Baikal B1. |
 | `6.18-baikal-ultrawide` | Linux 6.18.44 | 55 | Experimental; the baseline plus one ultrawide delta. |
 

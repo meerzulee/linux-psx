@@ -1,14 +1,43 @@
-# Experimental Baikal MTS Ethernet
+# Baikal MTS Ethernet
 
-`CONFIG_PS4_MTS=m` builds the GPL driver `psx_mts_net`. It exposes a Linux
-netdevice normally named `psx0`; it has no desktop, distribution, init-system
-or network-manager dependency. The patch is unchanged from the published
-PS4 MTS2 source. The new psX build still needs its own hardware qualification.
+`CONFIG_PS4_MTS=m` builds the GPL driver `psx_mts_net` for the Baikal
+`104d:90d8` Ethernet function. It exposes a Linux netdevice named `psx0` and
+has no desktop, distribution, init-system or network-manager dependency. The
+active target carries the unchanged MTS2 patch plus the Linux psX native
+autoload patch `0700-network-mts/0002`.
 
-The `6.18-ps4-baikal-native-dev` development target adds PCI-alias autoload
-and a self-arming first open, so it needs no adapter; see
-[ETHERNET-NATIVE.md](ETHERNET-NATIVE.md). The rest of this page describes the
-active target.
+## How it starts
+
+- The PCI ID table is exported, so udev loads the module at boot like any
+  on-board NIC driver. No setup tool, service or profile is needed.
+- `psx0` is registered from the module `MODULE_STATE_LIVE` notifier instead of
+  `probe`, so nothing can open it while module initialization may still fail.
+- The first open publishes the single retained DMA generation (`autoarm=1`,
+  the default). A network manager may bring `psx0` up with or without a cable;
+  carrier is sampled about every 250 ms, so a later plug is reported like any
+  other NIC link change.
+- Probe, fresh-baseline and first-open checks are unchanged. The driver checks
+  `0000:00:14.1` (`104d:90d8`) and glue function `0000:00:14.4` (`104d:90db`),
+  direct coherent 32-bit DMA, PCI state and the inherited MAC/ring/PHY
+  baseline. One publication per boot, no unload after publication, no suspend,
+  the inherited permanent MAC and MTU 1500.
+
+To turn it off:
+
+- `psx_mts_net.autoarm=0` on the kernel command line keeps the explicit gate:
+  the module loads and `psx0` appears, but only a root write of `1` to
+  `/sys/module/psx_mts_net/parameters/allow_open` after fresh-boot checks lets
+  the first open publish.
+- `modprobe.blacklist=psx_mts_net` skips loading entirely.
+
+## Distribution notes
+
+NetworkManager manages `psx0` without configuration and connects with its
+default wired profile. systemd-networkd, ifupdown and similar tools need a
+configuration that names `psx0`; it does not match the common `en*`/`eth*`
+patterns. The driver has no `ndo_set_mac_address` or receive-filter callback,
+so a manager that randomizes wired MAC addresses fails activation. Leave the
+wired MAC as `preserve`.
 
 ## What changed in the earlier investigation
 
@@ -28,44 +57,6 @@ Historical DHCP, bidirectional data and HTTPS evidence is summarized in
 [the PS4 status](../platforms/ps4/STATUS.md). Raw private firmware, mappings,
 packet captures and console logs are not copied into this repository.
 
-## First-publication integration contract
-
-The active target's driver has no PCI modalias autoload. Loading it does not
-authorize first packet publication. A distribution adapter must perform a
-reviewed sequence:
-
-1. Verify the running release, resolved config, entire matching module archive
-   and installed/loaded module build identity against `artifacts.json`.
-2. Confirm fresh-boot state, no older retained experiment/driver generation,
-   exact supported PCI identities/resources, and the bound `baikal_pcie` glue.
-   The driver checks `0000:00:14.1` (`104d:90d8`) and glue function
-   `0000:00:14.4` (`104d:90db`), direct coherent 32-bit DMA, PCI state and
-   inherited MAC/ring/PHY baseline. Preserve these checks.
-3. Prevent the chosen network manager from bringing the interface up before
-   the preflight and gate. Keep the inherited permanent MAC and MTU 1500.
-4. Permit one first-publication attempt per boot. The root-only `allow_open`
-   parameter accepts the explicit LIVE gate after preflight; perform exactly
-   one initial administrative UP, then require a positive driver report.
-5. Hand the healthy interface to the selected network configuration layer.
-   DHCP, addressing and preferred routes are distribution choices.
-
-The optional [NetworkManager tool](../contrib/networkmanager/README.md)
-implements this sequence without requiring Omarchy. Its explicit `--setup`
-command installs the matching metadata and a systemd service, enables the
-service for future boots and starts it now. A healthy published instance is
-recognized without arming or opening a second DMA generation. NetworkManager
-then handles ordinary IPv4 DHCP and autoconnect. Bare `--install` stages files
-without activation or startup changes.
-
-The service checks the selected kernel release, config and module identity on
-every boot, and has no automatic retry, reset or unload. A mismatched kernel is
-skipped; an uncertain activation is stopped for inspection. This autostart path
-has synthetic host tests and a [same-boot service/traffic pass on original
-MTS2](ETHERNET-AUTOCONNECT-TEST.md); unattended boot acceptance remains pending.
-Other distributions can implement the same contract without NetworkManager or
-systemd. Do not replace it with a blind autoload, unconditional `ip link set up`,
-reset or retry loop.
-
 ## Retention and limits
 
 MTS2 polls at 1 ms and samples native link state periodically (about 250 ms).
@@ -77,11 +68,36 @@ RX while down. A terminal fault stops and permanently retains state.
 Do not unload, force-unload, reset, unbind, clear overrides, rearm, suspend or
 load historical experiment modules over retained state. Stop acknowledgement
 does not prove DMA drain. IRQ mode, offloads, configurable PHY operation,
-other console revisions, cable recovery and repeated-boot reliability remain
-unqualified. The source and kernel checks deliberately refuse unsupported
-states instead of offering automatic recovery.
+other console revisions and repeated-boot reliability remain unqualified. The
+source and kernel checks deliberately refuse unsupported states instead of
+offering automatic recovery.
 
-## Observing traffic after approved activation
+## Hardware status
+
+The active series' ordered patch set equals that of local build
+`6.18.44-psx-ps4-baikal-native-dev1`, whose config differed only in the
+local-version string. On one Baikal console, with no userspace Ethernet
+adapter installed:
+
+- EXP-20261017-019: launched with the cable connected. udev loaded the
+  driver, NetworkManager's default `Wired connection 1` made the first open,
+  and DHCP, hash-checked 4 MiB transfers in both directions and
+  interface-bound HTTPS passed. One unplug/replug recovered, and the link
+  still worked beyond 900 seconds.
+- EXP-20261017-020: launched without the cable. The first open published with
+  no link; plugging the cable in brought carrier, DHCP and the same traffic
+  checks with no user network action.
+
+Both boots had 0 errors and completed UART sessions with no fault lines. The
+owner set the promotion count for native autoload at these two boots. They are
+evidence for this patch set, not acceptance: the `6.18.44-psx-ps4-baikal2` CI
+binaries have not been booted. Not tested: Orbis Ethernet after a native Linux
+boot, `ip link` administrative down/up under NetworkManager, other network
+managers, repeated cold boots and other consoles.
+[The target provenance](../provenance/6.18-ps4-baikal.json) records the exact
+hashes.
+
+## Observing traffic
 
 These commands are read-only apart from the explicit test traffic:
 
