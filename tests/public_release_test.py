@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("package_release", ROOT / "scripts/ci/package_release.py")
 package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
-RELEASE = "6.18.44-psx-ps4-baikal1"
+RELEASE = "6.18.44-psx-ps4-baikal2"
 
 
 class ReleaseContractTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class ReleaseContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must not embed"):
             package.check_config(config.replace('CONFIG_EXTRA_FIRMWARE=""', 'CONFIG_EXTRA_FIRMWARE="vendor.bin"'), RELEASE)
         with self.assertRaisesRegex(ValueError, "missing target"):
-            package.check_config(config.replace('CONFIG_LOCALVERSION="-psx-ps4-baikal1"', 'CONFIG_LOCALVERSION="-wrong"'), RELEASE)
+            package.check_config(config.replace(f'CONFIG_LOCALVERSION="-{RELEASE.split("-", 1)[1]}"', 'CONFIG_LOCALVERSION="-wrong"'), RELEASE)
 
     def test_complete_source_includes_ignored_patch_input_not_objects(self):
         with tempfile.TemporaryDirectory() as directory:

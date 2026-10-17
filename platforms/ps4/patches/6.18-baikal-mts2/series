@@ -1,5 +1,5 @@
 # Exact 54 accepted 6.18-baikal patches, preserving order and provenance.
-# The final independent MTS patch adds a default-off experimental module.
+# The final two MTS patches add the psx_mts_net module and its native autoload.
 ../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch
 ../6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch
 ../6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch
@@ -57,3 +57,5 @@
 
 # Enabled as a module by the active root target 6.18-ps4-baikal.
 0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch
+# Linux psX: PCI alias autoload and self-arming first open.
+0700-network-mts/0002-net-ps4-mts-native-autoload.patch

@@ -196,7 +196,7 @@ paths.
 | Item | Location |
 | --- | --- |
 | Target | [`targets/7.2-ps4-baikal.env`](../targets/7.2-ps4-baikal.env), release `7.2.11-psx-ps4-baikal-dev1` |
-| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the 55 6.18 entries in order, then six port fixes |
+| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the first 55 6.18 entries in order, then six port fixes; the later 6.18 native autoload patch `0700-network-mts/0002` is not ported yet |
 | Config | [`platforms/ps4/config/7.2-psx-baikal.config`](../platforms/ps4/config/7.2-psx-baikal.config) with the MT7668 and USB Ethernet fragments |
 | Provenance | [`provenance/7.2-ps4-baikal.json`](../provenance/7.2-ps4-baikal.json) |
 

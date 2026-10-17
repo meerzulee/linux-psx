@@ -48,9 +48,12 @@ def main():
     if hashlib.sha256(ordered.encode()).hexdigest() != target["ordered_patchset_sha256"]:
         raise ValueError("ordered patch-set mismatch")
     baseline = json.loads((ROOT / "provenance/ps4-import.json").read_text())["series"][0]["patches"]
-    if ([item["sha256"] for item in target["patches"][:-1]] != [item["sha256"] for item in baseline]
-            or len(entries) != target["active_patch_count"] or len(entries) != 55):
-        raise ValueError("active series must preserve the 54-patch base plus MTS2")
+    additions = {item["path"]: item["sha256"] for item in target["psx_additions"]}
+    if ([item["sha256"] for item in target["patches"][:54]] != [item["sha256"] for item in baseline]
+            or len(entries) != target["active_patch_count"] or len(entries) != 56
+            or target["patches"][54]["sha256"] != target["direct_imports"][0]["sha256"]
+            or additions.get(target["patches"][55]["path"]) != target["patches"][55]["sha256"]):
+        raise ValueError("active series must preserve the 54-patch base, MTS2 and native autoload")
     env = read_env(target["target"])
     expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
                 "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
@@ -76,7 +79,6 @@ def main():
     rmux_count = check_rmux_import()
     port_count = check_port_target()
     baikal_count, baikal_unchanged = check_baikal_port_target()
-    native_count = check_native_target()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; "
           f"{len(adapter['adapted_outputs'])} optional adapter hashes; pins match")
@@ -84,8 +86,6 @@ def main():
     print(f"PASS: 7.2-ps4 development series: {port_count} patches; rmux sources and pins match")
     print(f"PASS: 7.2-ps4-baikal development series: {baikal_count} patches, "
           f"{baikal_unchanged} unchanged 6.18 files; sources and pins match")
-    print(f"PASS: 6.18-ps4-baikal-native-dev development series: {native_count} patches, "
-          "the active series plus native autoload; pins match")
 
 
 def check_rmux_import():
@@ -168,12 +168,14 @@ def check_baikal_port_target():
     target, entries = check_dev_series("7.2-ps4-baikal")
     pin = target["source_target"]
     source = json.loads((ROOT / pin["provenance"]).read_text())
-    if (source["target"] != pin["target"] or source["series_sha256"] != pin["series_sha256"]
-            or source["ordered_patchset_sha256"] != pin["ordered_patchset_sha256"]):
+    # The pin covers the 6.18 patches that were ported; later 6.18 additions are not.
+    count = sum(p["origin"] == source["target"] for p in target["patches"])
+    base = source["patches"][:count]
+    ordered = "".join(f"{p['sha256']}  {p['entry']}\n" for p in base)
+    if source["target"] != pin["target"] or hashlib.sha256(ordered.encode()).hexdigest() != pin["ordered_patchset_sha256"]:
         raise ValueError("7.2-ps4-baikal source target pin differs")
-    count = len(source["patches"])
     ported, fixes = target["patches"][:count], target["patches"][count:]
-    for p, src in zip(ported, source["patches"]):
+    for p, src in zip(ported, base):
         if (p["origin"] != source["target"] or p["source_path"] != src["path"]
                 or p["source_sha256"] != src["sha256"]):
             raise ValueError(f"7.2-ps4-baikal patch does not match its 6.18 source: {p['entry']}")
@@ -183,30 +185,8 @@ def check_baikal_port_target():
         elif p["change"] not in ("context", "adapted") or (p["change"] == "adapted" and not p.get("note")):
             raise ValueError(f"7.2-ps4-baikal regeneration lacks a recorded resolution: {p['entry']}")
     if len(ported) != count or any(p["origin"] != "port-fix" or not p.get("note") for p in fixes):
-        raise ValueError("7.2-ps4-baikal must port the whole 6.18 series, then recorded port fixes")
+        raise ValueError("7.2-ps4-baikal must port the pinned 6.18 series, then recorded port fixes")
     return len(entries), sum(p["change"] == "unchanged" for p in ported)
-
-
-def check_native_target():
-    """Verify 6.18-ps4-baikal-native-dev: the active series plus the native autoload patch."""
-    name = "6.18-ps4-baikal-native-dev"
-    target, entries = check_dev_series(name)
-    pin = target["source_target"]
-    source = json.loads((ROOT / pin["provenance"]).read_text())
-    if (source["target"] != pin["target"] or source["series_sha256"] != pin["series_sha256"]
-            or source["ordered_patchset_sha256"] != pin["ordered_patchset_sha256"]):
-        raise ValueError(f"{name} source target pin differs")
-    count = len(source["patches"])
-    base, extra = target["patches"][:count], target["patches"][count:]
-    if ([(p["entry"], p["path"], p["sha256"]) for p in base]
-            != [(p["entry"], p["path"], p["sha256"]) for p in source["patches"]]
-            or len(extra) != 1 or extra[0]["origin"] != "native-autoload" or not extra[0].get("note")):
-        raise ValueError(f"{name} must be the active series plus the native autoload patch")
-    env, active_env = read_env(name), read_env(source["target"])
-    if (env["CONFIG_FILE"] != active_env["CONFIG_FILE"] or env["CONFIG_FRAGMENTS"]
-            != active_env["CONFIG_FRAGMENTS"] + " platforms/ps4/config/fragments/native-dev-release.config"):
-        raise ValueError(f"{name} config must be the active config plus its release fragment")
-    return len(entries)
 
 if __name__ == "__main__":
     main()

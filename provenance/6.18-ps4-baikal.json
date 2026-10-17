@@ -3,7 +3,7 @@
   "migrated_on": "2026-10-17",
   "target": "6.18-ps4-baikal",
   "platform": "ps4-baikal",
-  "kernel_release": "6.18.44-psx-ps4-baikal1",
+  "kernel_release": "6.18.44-psx-ps4-baikal2",
   "source_date_epoch": 1786233600,
   "source": {
     "repository": "https://github.com/meerzulee/linux-ps4.git",
@@ -16,9 +16,9 @@
   },
   "prior_import_manifest": "provenance/ps4-import.json",
   "series_path": "platforms/ps4/patches/6.18-baikal-mts2/series",
-  "active_patch_count": 55,
-  "series_sha256": "08c39f5f77702fd4bb2bcf608365d5fa96205f24e01613c248756e54a17d497f",
-  "ordered_patchset_sha256": "4fbc45bea17a78ceec00214220ee865896ea91841bedaefc2f481e8ea194ee0a",
+  "active_patch_count": 56,
+  "series_sha256": "9f4654ecb7208b70d24049b75ae8b141656f768f46b196b5ccdb7cd5e1b4a42a",
+  "ordered_patchset_sha256": "828a4f14b205283b43075a8eaa34531a97bfb78676daa02e33e654ead4e66dbe",
   "patches": [
     {
       "entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
@@ -294,20 +294,25 @@
       "entry": "0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
       "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
       "sha256": "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed"
+    },
+    {
+      "entry": "0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
+      "sha256": "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
     }
   ],
   "inputs": [
     {
       "path": "targets/6.18-ps4-baikal.env",
-      "sha256": "73ca8bc77c8e3844f6cda414a8a0eacf106dc89d43e88f6475f66ddfb0b00db4"
+      "sha256": "8e65550690b57abfd9925384b0cd714e41999a583cddf52d0e9c452e47580f3e"
     },
     {
       "path": "platforms/ps4/config/6.18-psx-baikal.config",
-      "sha256": "0090ccef656794012a35d9e4c42852eaf751db3c70c4d0627435339b1cb945ff"
+      "sha256": "136c4927c11b20a4b0f8269c4db16642b3c848c67fbbfd1f3d3004beb16abd26"
     },
     {
       "path": "platforms/ps4/patches/6.18-baikal-mts2/series",
-      "sha256": "08c39f5f77702fd4bb2bcf608365d5fa96205f24e01613c248756e54a17d497f"
+      "sha256": "9f4654ecb7208b70d24049b75ae8b141656f768f46b196b5ccdb7cd5e1b4a42a"
     },
     {
       "path": "platforms/ps4/config/fragments/mt7668.config",
@@ -332,21 +337,24 @@
       "source_sha256": "d4064ce77f295dd77205434b94cf3b369fde23b6d63bdf69bfda0fb7858624a9",
       "destination_path": "platforms/ps4/config/6.18-psx-baikal.config",
       "changes": [
-        "Only CONFIG_LOCALVERSION changed from -ps4-baikal-mts2-public1 to -psx-ps4-baikal1. CONFIG_EXTRA_FIRMWARE remains empty."
+        "Only CONFIG_LOCALVERSION changed from -ps4-baikal-mts2-public1 to -psx-ps4-baikal1. CONFIG_EXTRA_FIRMWARE remains empty.",
+        "2026-10-17: CONFIG_LOCALVERSION changed to -psx-ps4-baikal2 when native autoload joined the series; no other change."
       ]
     },
     {
       "source_path": "patches/6.18-baikal-mts2/series",
       "destination_path": "platforms/ps4/patches/6.18-baikal-mts2/series",
       "changes": [
-        "Update comment to identify the active root target. All 55 active entries and their order unchanged."
+        "Update comment to identify the active root target. All 55 active entries and their order unchanged.",
+        "2026-10-17: append the Linux psX native autoload patch 0700-network-mts/0002 and update the header comment; the first 55 entries and their order are unchanged."
       ]
     },
     {
       "source_path": "targets/6.18-baikal-mts2-public.env",
       "destination_path": "targets/6.18-ps4-baikal.env",
       "changes": [
-        "New target/release, root-relative platform paths, neutral kbuild identity, structured platform/release fields; pinned upstream and fragments unchanged."
+        "New target/release, root-relative platform paths, neutral kbuild identity, structured platform/release fields; pinned upstream and fragments unchanged.",
+        "2026-10-17: release 6.18.44-psx-ps4-baikal2 for the series with native autoload."
       ]
     },
     {
@@ -363,7 +371,25 @@
   },
   "hardware_evidence": {
     "historical": "EXP-20261017-016, one PS4 Slim Baikal B1, Orbis 12.02, private 6.18.44-ps4-baikal-mts2; DEGRADED overall",
-    "this_target": "New release/config/build; no hardware acceptance",
-    "details": "platforms/ps4/STATUS.md"
-  }
+    "this_target": "6.18.44-psx-ps4-baikal2 CI builds have not been booted. Their ordered patch set equals local build 6.18.44-psx-ps4-baikal-native-dev1 (OrbStack, Debian GCC 14.2; bzImage e92565bcfec82d0739f44bace1fa779d561d9e60497fb0ba815e7c40b016ee3c), whose config differed only in CONFIG_LOCALVERSION. That build passed EXP-20261017-019 (cable at launch, one unplug/replug, operation beyond 900 s) and EXP-20261017-020 (no cable at launch, then plugged) on one Baikal console with no Ethernet adapter. The owner set the Ethernet promotion count at those two boots. Not acceptance.",
+    "previous_release": "6.18.44-psx-ps4-baikal1 (CI builds up to 28e6aae; no published release) booted once in EXP-20261017-018 with display, Wi-Fi and Bluetooth; an Aeolia xHCI death later in that boot left its stability DEGRADED.",
+    "untested": [
+      "Orbis Ethernet after a native Linux boot",
+      "ip link administrative down/up (ndo_stop) under NetworkManager",
+      "network managers other than NetworkManager",
+      "repeated cold boots",
+      "other consoles and southbridges"
+    ],
+    "details": "docs/ETHERNET.md; omarchy-psx platforms/ps4/experiments/SESSIONS.md"
+  },
+  "psx_additions": [
+    {
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
+      "sha256": "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3",
+      "subject": "net: ps4: native psx_mts_net autoload and self-arming open",
+      "author": "Linux psX contributors",
+      "license": "GPL-2.0-only, as the MTS2 driver it changes",
+      "note": "Exports the 104d:90d8 PCI ID so udev loads psx_mts_net, lets the first open publish without an allow_open write (autoarm, default 1) and registers psx0 from the module LIVE notifier. The one-retained-DMA-generation contract and the probe, fresh-baseline and first-open checks are unchanged."
+    }
+  ]
 }
