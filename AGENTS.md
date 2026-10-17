@@ -13,6 +13,10 @@
   `docs/UNIVERSAL-KERNEL.md` before changing a patch or making support claims.
 - Read `docs/BUILDING.md`, `docs/ARTIFACTS.md`, `docs/ETHERNET.md` and
   `provenance/6.18-ps4-baikal.json` for the active target.
+- Read `platforms/ps4/docs/README.md` and `CONTRIBUTING.md` for the migrated
+  research and source workflow. `provenance/knowledge-migration.json` records
+  historical input dispositions and curated output hashes. Preserve negative
+  findings and corrections; old hardware evidence does not qualify a new build.
 - Root `targets/*.env` paths resolve from the repository root. Inherited
   `platforms/ps4/targets/` paths still resolve from `platforms/ps4/`; these are
   frozen historical metadata, not active targets. Preserve the original import.
@@ -30,6 +34,9 @@
 
 - Run `make check` for frozen import checksums, active series/target integrity
   and host contracts. Record adaptations separately whenever inputs change.
+- Portable MTS tests compile the original GPL fixture against the header
+  extracted from the active patch; keep that linkage rather than testing an
+  unrelated copied header. A native C compiler is required for host checks.
 - `src/`, `output/` and `dist/` are generated. Keep edits in versioned patches
   and source tools, never in the disposable upstream build tree. Package the
   complete corresponding Linux source, resolved config, notices and committed

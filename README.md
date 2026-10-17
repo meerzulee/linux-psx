@@ -97,6 +97,9 @@ future-console support remain planned.
 | [Generic boot guide](docs/BOOTING.md) | Loader/initramfs/rootfs requirements for any distribution. |
 | [Ethernet contract](docs/ETHERNET.md) | Explicit first activation, retained DMA and current limitations. |
 | [PS4 status](platforms/ps4/STATUS.md) | Historical evidence and remaining qualification. |
+| [PS4 development knowledge](platforms/ps4/docs/README.md) | Curated display/MSI, Ethernet, fan/storage/UART findings and historical evidence. |
+| [Knowledge migration](platforms/ps4/docs/KNOWLEDGE-MIGRATION.md) | Disposition of 117 legacy knowledge/tool sources, corrected hypotheses and deliberate exclusions. |
+| [Contributing](CONTRIBUTING.md) | Patch workflow, portable core tests and hardware report requirements. |
 | [Artifact contract](docs/ARTIFACTS.md) | Kernel/modules identities, metadata and corresponding source. |
 | [PS4 patch guide](docs/PS4-PATCHES.md) | Scope, ordering, base pin and checksum verification. |
 | [Credits and sources](CREDITS.md) | Original contributors, exact source trees and recovered upstream links. |

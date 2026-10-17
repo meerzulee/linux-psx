@@ -1,0 +1,1531 @@
+{
+  "schema": 1,
+  "migrated_on": "2026-10-17",
+  "source": {
+    "repository": "https://github.com/meerzulee/linux-ps4.git",
+    "commit": "386df1ad97d92defee1794bf961a0e2f5dc85a1b",
+    "read_only_clean_snapshot": true
+  },
+  "scope": {
+    "top_level_paths": [
+      "AGENTS.md",
+      "BUILD_LOG.md",
+      "CLAUDE.md",
+      "CONTRIBUTING.md",
+      "ORIGINAL_CONTRIBUTIONS.md",
+      "README.md",
+      "STATUS.md",
+      "checkpoint/README.md",
+      "checkpoint/rootfs/README.md"
+    ],
+    "complete_subtrees": [
+      "docs/",
+      "checkpoint/docs/",
+      "experiments/",
+      "scripts/dev/"
+    ],
+    "file_count": 117,
+    "disposition_counts": {
+      "copied-unchanged": 1,
+      "curated": 62,
+      "distribution-owned": 5,
+      "excluded-private-detail": 4,
+      "historical-research": 13,
+      "historical-tooling": 24,
+      "superseded-active-source": 1,
+      "superseded-interface": 7
+    }
+  },
+  "policy": "Curated knowledge migration, not a byte-for-byte copy of historical procedures. Original patches, authors, licenses and histories are unchanged; no new hardware acceptance or PS5 implementation is asserted. Source-only: no firmware, raw capture, private mapping, binary release or console action.",
+  "existing_code_import_manifests": [
+    "provenance/ps4-import.json",
+    "provenance/6.18-ps4-baikal.json"
+  ],
+  "license_notes": [
+    "The unchanged copied C fixture has SPDX-License-Identifier: GPL-2.0-only.",
+    "The active patch preserves the original GPL-2.0-only core header and driver notices.",
+    "Existing vendor per-file terms and original patch headers remain authoritative; no firmware license is reassigned."
+  ],
+  "portable_contract": {
+    "fixture_path": "tests/fixtures/mts_core_test.c",
+    "fixture_source_path": "experiments/baikal-mts/netdev/tests/core_test.c",
+    "fixture_sha256": "b82cc9e70a989cb3067ded004b5f19f6f6cb66f6e6104420edc5b31bebe78265",
+    "fixture_method": "copied byte-for-byte",
+    "active_patch_path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
+    "header_kernel_path": "drivers/net/ethernet/mts_net_core.h",
+    "header_sha256": "d1e138130df0f7d63555704daa61846f478416a6f0e689809ab7fa3ee00a931b",
+    "runner_path": "tests/mts_core_test.py",
+    "runner_method": "new host-only wrapper; extracts the complete new-file hunk from the active patch and compiles/runs the original C fixture with a native compiler",
+    "hardware_limits": "Pure helper tests do not establish hardware DMA ordering, error-bit injection, lifecycle, firmware-free boot pairing or PS5 support."
+  },
+  "excluded_artifact_groups": [
+    {
+      "source_glob": "checkpoint/uart-logs/**",
+      "reason": "Raw UART captures are not part of the source handoff."
+    },
+    {
+      "source_glob": "checkpoint/boot/**",
+      "reason": "Historical generated kernels/config snapshots/boot files are not active source inputs."
+    },
+    {
+      "source_glob": "checkpoint/initramfs/**",
+      "reason": "Binary initramfs/firmware acquisition belongs to a reviewed boot or distro workflow."
+    },
+    {
+      "source_glob": "checkpoint/payload/**",
+      "reason": "Loader/payload binaries are outside the kernel import."
+    },
+    {
+      "source_glob": "checkpoint/screenshots/**",
+      "reason": "Unreviewed images are not required to build or understand the active kernel."
+    },
+    {
+      "source_glob": "firmware/**",
+      "reason": "Firmware binaries are neither embedded nor redistributed by the active target."
+    }
+  ],
+  "files": [
+    {
+      "source_path": "AGENTS.md",
+      "size": 4058,
+      "sha256": "4b681dbb3a517a4c219b945af0f145822245131584258a6ace18a05709049180",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/AGENTS.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "reason": "Current psX entry points replace the old repository layout and host-specific assumptions."
+    },
+    {
+      "source_path": "BUILD_LOG.md",
+      "size": 45001,
+      "sha256": "bdca322b9445c3608d064266dd5e69db004640357640a8e34086b7c541e7afc6",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/BUILD_LOG.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "CLAUDE.md",
+      "size": 17415,
+      "sha256": "34e7f637c28041e5f1d5c45d00b09059c21779e001b4b2c93c9b1be18759b856",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/CLAUDE.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "reason": "Current psX entry points replace the old repository layout and host-specific assumptions."
+    },
+    {
+      "source_path": "CONTRIBUTING.md",
+      "size": 8999,
+      "sha256": "5e015da65b58ae1cc3183959fca22ff980cff3341a5b396d265517a3e39f89b7",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/CONTRIBUTING.md",
+      "disposition": "curated",
+      "destinations": [
+        "CONTRIBUTING.md",
+        "docs/CONTRIBUTIONS.md"
+      ],
+      "reason": "Preserve attribution, source lineage and useful patch workflow; correct exclusivity claims and generated-source guidance."
+    },
+    {
+      "source_path": "ORIGINAL_CONTRIBUTIONS.md",
+      "size": 13603,
+      "sha256": "ef03a9d14857c825c307f86cc00f0f57332919f724cc564cbec9e7820912030e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/ORIGINAL_CONTRIBUTIONS.md",
+      "disposition": "curated",
+      "destinations": [
+        "CONTRIBUTING.md",
+        "docs/CONTRIBUTIONS.md"
+      ],
+      "reason": "Preserve attribution, source lineage and useful patch workflow; correct exclusivity claims and generated-source guidance."
+    },
+    {
+      "source_path": "README.md",
+      "size": 12950,
+      "sha256": "eddaa0ab0226918cdfb778f6afbd6333a37181d5102f61b0be055c79d0b40078",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/README.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "README.md",
+        "AGENTS.md",
+        "CONTRIBUTING.md"
+      ],
+      "reason": "Current psX entry points replace the old repository layout and host-specific assumptions."
+    },
+    {
+      "source_path": "STATUS.md",
+      "size": 6166,
+      "sha256": "1f5188abfb33716ff282153c62be080c7625de747674d22cb94e57a5875f084d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/STATUS.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md"
+      ],
+      "reason": "Keep exact historical artifact scope and unresolved gaps; no new psX hardware acceptance is inferred."
+    },
+    {
+      "source_path": "checkpoint/README.md",
+      "size": 5295,
+      "sha256": "0bbb48dbe440cb47ee3606655dac9db45390767431d31603d4960ab796046ecd",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/README.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/6x-baikal-iteration-plan.md",
+      "size": 12917,
+      "sha256": "63e6cd02cbdf49486753c1552c8f818c0a495c0a86b4b972c42742f15b2b2639",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/6x-baikal-iteration-plan.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "platforms/ps4/docs/6.18-BRINGUP.md"
+      ],
+      "reason": "Keep diagnostic lessons with their artifact context and later corrections; old commands are historical references."
+    },
+    {
+      "source_path": "checkpoint/docs/LEARNINGS.md",
+      "size": 63741,
+      "sha256": "43e9b34d95c3e74f2e741d8d188a6c345623c191a18b7fbe0fd8b6207f4fb4d0",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/LEARNINGS.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/PLAN.md",
+      "size": 20593,
+      "sha256": "5b2500a3d3e4025f72f650262826b0e94028fd8ce5eee8f9ff7080b6ed742078",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/PLAN.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/ps4-runtime-snapshot.txt",
+      "size": 2328,
+      "sha256": "dd6361c065affa98579f9167229242d7cc879795a1a69d5101e7f17b8664c133",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/ps4-runtime-snapshot.txt",
+      "disposition": "excluded-private-detail",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md"
+      ],
+      "reason": "Raw captures/runtime dumps may contain identifiers and credentials; publish only reviewed summarized findings."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-08-6x-breakthrough.md",
+      "size": 10551,
+      "sha256": "2b410977e38d55305b2714c6aac6bd05c6cee4cb4904fdc13bea8d6e9a88a371",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-08-6x-breakthrough.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-bpcie-msi-shape-index.md",
+      "size": 4612,
+      "sha256": "6113ad2e0aabfe83229d55679d98029ed7946e02d949c09375a257a14672b981",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-bpcie-msi-shape-index.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-option-d-thesis.md",
+      "size": 8427,
+      "sha256": "578bd17aa06b1551e1ab896d5d160d94d194d4a46506ce846ca827425757510f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-option-d-thesis.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v10-option-f-result.md",
+      "size": 4545,
+      "sha256": "3a3928e3c3ba9c754d08baf148b8a658e19e91267e0108d0306abdefde148b0f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v10-option-f-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v11-result.md",
+      "size": 4185,
+      "sha256": "c436d6a70dea2ddd5a61aa716e62adc74fc635ba5b46aea80331fb8681a6aab0",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v11-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v12-MILESTONE.md",
+      "size": 6475,
+      "sha256": "beda353b19d148c16873ce6cba4f64e95e363288ee3bc5ba65e77919039726e8",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v12-MILESTONE.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v13-result.md",
+      "size": 3706,
+      "sha256": "fae0d48202b1dcc078a0ff97f220bb3ffc6ba6ca94c4593c09ace8cd2f3262f6",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v13-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v7-baikallove-result.md",
+      "size": 7193,
+      "sha256": "6dfe052272c9f292fe49b2dd17db22090d3a2f6f98fd53e60fdd8a876ef0199b",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v7-baikallove-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v8-option-d-result.md",
+      "size": 5832,
+      "sha256": "edfc6f34a48afa7a5d160d983c9c2e69a2f99bb7c4e40089eceb2563946521d4",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v8-option-d-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-09-v9-option-e-result.md",
+      "size": 5870,
+      "sha256": "e15ccf81c2ed87f720723b7ae00130501d6442cd3313e45a9fb629b59ca6ec43",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-09-v9-option-e-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-sky2-baikal-not-yukon.md",
+      "size": 5129,
+      "sha256": "9f96c64d97f5d0c33bf3da8854684916e02140c8f1bdd4707ea9c17b32728b03",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-sky2-baikal-not-yukon.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Retain evidence and negative results, reject unproven MAC identification, and distinguish PHY link correction from sole-cause TX claims."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v44-liverpool-preserve-bios-pll-result.md",
+      "size": 7159,
+      "sha256": "3bf8afabf85272def2b51afbd7034b5023b25fda2990e6ceedfbf9f429a20f67",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v44-liverpool-preserve-bios-pll-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v45-liverpool-manual-pll-program-result.md",
+      "size": 9082,
+      "sha256": "b4a4a7236b1bcb37a949042dc4b8fd7e6c89f6b494000255307cdb771357706e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v45-liverpool-manual-pll-program-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v46-atom-iio-dpclock-trace-result.md",
+      "size": 10202,
+      "sha256": "f3874d077a0856dc1ae0d2a541e9e2c731ec551fab0fb2b76842b2e1d888c0fb",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v46-atom-iio-dpclock-trace-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v47-dpclock-floor-result.md",
+      "size": 6798,
+      "sha256": "4c79f3a78aa5dee6b0f62c73fd8f7e64fab701f3fd986d3959ba68180fa8e46b",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v47-dpclock-floor-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v48-stock-atom-modeset-result.md",
+      "size": 7859,
+      "sha256": "c6ae5131330bb020727f3188b80e562c833c5da9f4cdcc7bf1c3c7c98ae141ff",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v48-stock-atom-modeset-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v49-clobber-dp-extclk-result.md",
+      "size": 7247,
+      "sha256": "b0f51922d24e87fe0d5cf963facd0d6fa993543956f5491ca0d6d550d6a6e7af",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v49-clobber-dp-extclk-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v50-atom-table-tracer-result.md",
+      "size": 8910,
+      "sha256": "9ee102dfaf5df945545fbaeb84218d3d2af81d3b9897d231a4ec30dac0657e77",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v50-atom-table-tracer-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v51-dig-tx-encoder-pixclk-result.md",
+      "size": 8466,
+      "sha256": "6815127446ba054e87799bc13ba9b2848279e3b4ba6860fde6bdbb79f79b8989",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v51-dig-tx-encoder-pixclk-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v52-floor-dig-connector-result.md",
+      "size": 1341,
+      "sha256": "4847ea1daf25877e6ec6ccd83305caab0310268b686803788ce96be332ada47d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v52-floor-dig-connector-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v53-tx-setup-vsemph-result.md",
+      "size": 6010,
+      "sha256": "b05f73525e1c390cab7a5495983d74fb604f64e7341e14dc53fce48537d78961",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v53-tx-setup-vsemph-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v54-source-only-dp-train-result.md",
+      "size": 1522,
+      "sha256": "503ab7c13f6383cef78c8a463a78a6729e0ae99ef669eb8282d15ccdb18f369a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v54-source-only-dp-train-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v55-bridge-cq-chunks-result.md",
+      "size": 3122,
+      "sha256": "e400a96ac3f740589512568d03baff72933c46d9aa2c8d5f879c4d8481bafb77",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v55-bridge-cq-chunks-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v56-revert-source-train-result.md",
+      "size": 595,
+      "sha256": "52418787f9d13f4b43c5c73f9b3d893da1228a3e1502eacbce7a19b26e696202",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v56-revert-source-train-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v57-revert-tx-setup-vsemph-result.md",
+      "size": 1105,
+      "sha256": "2c0d9b068ec36ff58ac76222304c239dc55a65c308ae0c5fd5ead463e9d1bb09",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v57-revert-tx-setup-vsemph-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v58-step-by-step-probe-result.md",
+      "size": 3378,
+      "sha256": "a210786270d98d249ef2b5489a071dd1c85081d6763785b2a311949a2d08f94f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v58-step-by-step-probe-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v59-skip-tx-disable-result.md",
+      "size": 2736,
+      "sha256": "ec6067bbb4f1897166a4ad1cb59e3cc2e6668663c3c0e50fb27239cf290ee9f0",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v59-skip-tx-disable-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-10-v60-skip-tx-enable-result.md",
+      "size": 11159,
+      "sha256": "520389cbe5557a2b1eed7ed5652da2e8677a9a486cec998f09af377149dbaf49",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-10-v60-skip-tx-enable-result.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/2026-05-11-sky2-phy-dead-end-mdio-proven.md",
+      "size": 5467,
+      "sha256": "e694c151cea23d9f05804b2a0242734f47273c0de2e33e6ed49f6919ecba6e86",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/2026-05-11-sky2-phy-dead-end-mdio-proven.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Retain evidence and negative results, reject unproven MAC identification, and distinguish PHY link correction from sole-cause TX claims."
+    },
+    {
+      "source_path": "checkpoint/docs/research/README.md",
+      "size": 4646,
+      "sha256": "5f5529c4d218e2a8d022ecd14d99ce9f99a0c553794a62706b94b85a0827b55b",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/README.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/arabpixel-loader.md",
+      "size": 14190,
+      "sha256": "4b9ee5953a4f8d7c527df4b891d0c64f014cefe42c11130edb28b55210d24996",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/arabpixel-loader.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/gap-analysis-vs-our-tree.md",
+      "size": 14851,
+      "sha256": "6ad2079afdc427db2ab76f3a209c006e9dbd88cc88226333dc83ac93da85bd1b",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/gap-analysis-vs-our-tree.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/rmuxnet-bringup-analysis.md",
+      "size": 32850,
+      "sha256": "135193bc177e496979d7fb253684fc36a3f81a44d7e5cdb05fce4ffbce864262",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/rmuxnet-bringup-analysis.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/research/upstream-survey.md",
+      "size": 15876,
+      "sha256": "2a2b10a33a0390a22644e53e97c05da18f3e575aa1501d30008c2523c82bc326",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/research/upstream-survey.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/study/01-hardware.md",
+      "size": 7556,
+      "sha256": "ef7f6f6748c980dc0436045353c78698507f7c77452f7242628317668462d662",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/01-hardware.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md"
+      ],
+      "reason": "Keep exact historical artifact scope and unresolved gaps; no new psX hardware acceptance is inferred."
+    },
+    {
+      "source_path": "checkpoint/docs/study/02-boot-chain.md",
+      "size": 8178,
+      "sha256": "c62ed49d7862d54c0deed1d21e7f220c1cfe1f23c69b42e503adb7d03a401e50",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/02-boot-chain.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/study/03-patches-5.4.md",
+      "size": 12206,
+      "sha256": "610ce4d44b49b77869c224fb4ec95669de228d604740c2e82f44fc263e94be9d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/03-patches-5.4.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/study/04-patches-6.x.md",
+      "size": 10634,
+      "sha256": "02696a9164209e99fb712726cde49131df345db0727b83685aaf7f1285c367d7",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/04-patches-6.x.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/study/05-uart.md",
+      "size": 10076,
+      "sha256": "bf2ec0fc62c0aa0b77093ebda4a356592649895b9a9be0b0337279e28db86057",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/05-uart.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "platforms/ps4/docs/6.18-BRINGUP.md"
+      ],
+      "reason": "Keep diagnostic lessons with their artifact context and later corrections; old commands are historical references."
+    },
+    {
+      "source_path": "checkpoint/docs/study/06-iteration-loop.md",
+      "size": 9490,
+      "sha256": "3108ea052ba06d5e9eae61f4e431ba07c50233c2bbd4391cd666523a15eaea6c",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/06-iteration-loop.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "platforms/ps4/docs/6.18-BRINGUP.md"
+      ],
+      "reason": "Keep diagnostic lessons with their artifact context and later corrections; old commands are historical references."
+    },
+    {
+      "source_path": "checkpoint/docs/study/07-failure-analysis.md",
+      "size": 14440,
+      "sha256": "610d463bd61d1805a302977facf1142ef1d8d80c6db656515b18283b967c8b01",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/07-failure-analysis.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "platforms/ps4/docs/6.18-BRINGUP.md"
+      ],
+      "reason": "Keep diagnostic lessons with their artifact context and later corrections; old commands are historical references."
+    },
+    {
+      "source_path": "checkpoint/docs/study/08-mt7668-port-todo.md",
+      "size": 5788,
+      "sha256": "ea99a41c77fb054ad182ee53d038861ad125af3eea9ef6d467ef3b8baa554aa9",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/08-mt7668-port-todo.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/study/README.md",
+      "size": 5547,
+      "sha256": "19f19c76ea4c45bf843fffc707718684551cc2f8db20f432607d5990a0edede4",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/study/README.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/docs/uart-boot-2026-05-08-6x-bpcie-non-fatal.log",
+      "size": 153346,
+      "sha256": "4a5617b068a52e335569390cc353a28cbdab1a03d709da3d99c33f784c21439d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/uart-boot-2026-05-08-6x-bpcie-non-fatal.log",
+      "disposition": "excluded-private-detail",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md"
+      ],
+      "reason": "Raw captures/runtime dumps may contain identifiers and credentials; publish only reviewed summarized findings."
+    },
+    {
+      "source_path": "checkpoint/docs/uart-boot-2026-05-08-6x-keep_bootcon-success.log",
+      "size": 116947,
+      "sha256": "0a71ad58fd722bf0f65b79faab267958d2d8b6fd9f0c2b14f0cd8847182035a1",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/uart-boot-2026-05-08-6x-keep_bootcon-success.log",
+      "disposition": "excluded-private-detail",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md"
+      ],
+      "reason": "Raw captures/runtime dumps may contain identifiers and credentials; publish only reviewed summarized findings."
+    },
+    {
+      "source_path": "checkpoint/docs/uart-boot-capture-ttyS0E000.log",
+      "size": 9329,
+      "sha256": "62aae6b2df6ee06f5b5c393249ada52bd2d5bae0202990eaa8b0eceffa8278cf",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/uart-boot-capture-ttyS0E000.log",
+      "disposition": "excluded-private-detail",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md"
+      ],
+      "reason": "Raw captures/runtime dumps may contain identifiers and credentials; publish only reviewed summarized findings."
+    },
+    {
+      "source_path": "checkpoint/docs/uartprobe.py",
+      "size": 2063,
+      "sha256": "151ccafa9df19976e328fd861ab46a9273908b21c6fd4f396f7bddd4661c72c2",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/uartprobe.py",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md"
+      ],
+      "reason": "Direct /dev/mem UART probing is not promoted to the current workflow."
+    },
+    {
+      "source_path": "checkpoint/docs/v40-test-protocol.md",
+      "size": 3671,
+      "sha256": "765b5d992f0f65d2f521da5306ed40a9377228c32c7410dab70d6ebc673e79fd",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/docs/v40-test-protocol.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "checkpoint/rootfs/README.md",
+      "size": 1463,
+      "sha256": "835d94a3d4a722cd004273d6239ff5a38d7557bb029ac9a7080539fb640c8918",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/rootfs/README.md",
+      "disposition": "distribution-owned",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "docs/ARTIFACTS.md"
+      ],
+      "reason": "Historical distro/AUR/desktop policy belongs to the companion project; raw kernel artifacts do not establish packaged distro support."
+    },
+    {
+      "source_path": "docs/6.18-PORT.md",
+      "size": 10559,
+      "sha256": "533f36b3a07bfa79f3044294d6a1f4381d19b8af934fa0eefa7818abec3f0826",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/6.18-PORT.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "docs/ARCH-DISTRIBUTION.md",
+      "size": 2409,
+      "sha256": "df7b8fd1d2bd14db08227be60de0a15534590531640c24ac1775564e77833ea9",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/ARCH-DISTRIBUTION.md",
+      "disposition": "distribution-owned",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "docs/ARTIFACTS.md"
+      ],
+      "reason": "Historical distro/AUR/desktop policy belongs to the companion project; raw kernel artifacts do not establish packaged distro support."
+    },
+    {
+      "source_path": "docs/BAIKAL-ETHERNET-BRINGUP.md",
+      "size": 6918,
+      "sha256": "7352240fd4e4ef4ff76eebb58996428a78b13900b5cfb515dceff831827b244d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/BAIKAL-ETHERNET-BRINGUP.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Retain evidence and negative results, reject unproven MAC identification, and distinguish PHY link correction from sole-cause TX claims."
+    },
+    {
+      "source_path": "docs/BAIKAL-MTS-HANDOFF.md",
+      "size": 8941,
+      "sha256": "2326c92394531688d513a047d42c5dd34e64708040cd568725b6072fd6a5660a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/BAIKAL-MTS-HANDOFF.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Retain evidence and negative results, reject unproven MAC identification, and distinguish PHY link correction from sole-cause TX claims."
+    },
+    {
+      "source_path": "docs/BAIKAL-MTS-KERNEL-CANDIDATE.md",
+      "size": 7771,
+      "sha256": "3c7f0bb444c0922a5b26ab68eddd9372e5b137e0d6a104ae50cc69bf59b3c1d1",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/BAIKAL-MTS-KERNEL-CANDIDATE.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Retain evidence and negative results, reject unproven MAC identification, and distinguish PHY link correction from sole-cause TX claims."
+    },
+    {
+      "source_path": "docs/BOOTING.md",
+      "size": 6803,
+      "sha256": "b50b2ee8dd5e9115d8f0ac8b986321c6dc9e48239cb861cfeb8cd5b6dbf2f479",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/BOOTING.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "docs/BOOTING.md",
+        "docs/ARTIFACTS.md",
+        "docs/ETHERNET.md",
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Historical binary identities and distro boot instructions must not be relabelled as the new firmware-free psX release."
+    },
+    {
+      "source_path": "docs/CAPABILITY-TESTS.md",
+      "size": 4272,
+      "sha256": "54f754900c1ac98c219e2115c88a1aa9056d44ba88675862c8fc7c6d20705e5e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/CAPABILITY-TESTS.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md"
+      ],
+      "reason": "Keep exact historical artifact scope and unresolved gaps; no new psX hardware acceptance is inferred."
+    },
+    {
+      "source_path": "docs/HARDWARE.md",
+      "size": 2887,
+      "sha256": "db52a278b0b561422c1e5ac42201594f2c8586cbd60ebbd5e8c57f2148e5f222",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/HARDWARE.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md"
+      ],
+      "reason": "Keep exact historical artifact scope and unresolved gaps; no new psX hardware acceptance is inferred."
+    },
+    {
+      "source_path": "docs/INTERNAL-STORAGE.md",
+      "size": 3647,
+      "sha256": "3ae0a906b84c8a29d36c70941808fae494b3961925fd03da97d501bb05553c56",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/INTERNAL-STORAGE.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/INTERNAL-STORAGE.md"
+      ],
+      "reason": "Preserve layered storage model and read-only research boundary without copying an installer or console keys."
+    },
+    {
+      "source_path": "docs/OMARCHY-READINESS.md",
+      "size": 1689,
+      "sha256": "05a502c1824bbd0012645289916c0c83ed2b48ded18ca9b839ff8f02d5a77bcb",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/OMARCHY-READINESS.md",
+      "disposition": "distribution-owned",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md",
+        "docs/ARTIFACTS.md"
+      ],
+      "reason": "Historical distro/AUR/desktop policy belongs to the companion project; raw kernel artifacts do not establish packaged distro support."
+    },
+    {
+      "source_path": "docs/PATCH-PROVENANCE.md",
+      "size": 9401,
+      "sha256": "ddae8ef07bfbcd2c60775ad5a05d0d4619e93305e1630f2d7f8221d09547a14e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/PATCH-PROVENANCE.md",
+      "disposition": "curated",
+      "destinations": [
+        "CREDITS.md",
+        "provenance/linux-ps4-ledger.md",
+        "docs/CONTRIBUTIONS.md",
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Frozen inherited ledger and active import manifests retain exact code provenance; curate later MTS additions separately."
+    },
+    {
+      "source_path": "docs/RELEASE-6.18.44-MTS2.md",
+      "size": 4727,
+      "sha256": "103d49f15c8a88a1de53748c83e51d0f361ad861bdecbd5d863702661f90d7fb",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/RELEASE-6.18.44-MTS2.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "docs/BOOTING.md",
+        "docs/ARTIFACTS.md",
+        "docs/ETHERNET.md",
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Historical binary identities and distro boot instructions must not be relabelled as the new firmware-free psX release."
+    },
+    {
+      "source_path": "docs/RELEASE-6.18.44-R1.md",
+      "size": 2849,
+      "sha256": "b4e98c8d26ac28dce3bf68bc2e8d19eb0fb7108d1d0917d5d53afa55e10097a6",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/RELEASE-6.18.44-R1.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "docs/BOOTING.md",
+        "docs/ARTIFACTS.md",
+        "docs/ETHERNET.md",
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Historical binary identities and distro boot instructions must not be relabelled as the new firmware-free psX release."
+    },
+    {
+      "source_path": "docs/RMUX-7.0-BAIKAL-COMPARISON.md",
+      "size": 7603,
+      "sha256": "cc4593587c9eb80217fb06a62b9dfe23891e8601fa0b73356ba6b7db3fbafb87",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/RMUX-7.0-BAIKAL-COMPARISON.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/6.18-BRINGUP.md",
+        "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md"
+      ],
+      "reason": "Carry forward reusable MSI/ACPI/ICC/display/forward-port findings; intermediate speculative or superseded iterations remain pinned history."
+    },
+    {
+      "source_path": "docs/RUNTIME-2026-08-11.md",
+      "size": 3694,
+      "sha256": "36ab77b61adc1049c0e869d77484084d9f453a22f2850b857a10868fc622448c",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/RUNTIME-2026-08-11.md",
+      "disposition": "curated",
+      "destinations": [
+        "platforms/ps4/docs/CAPABILITIES.md"
+      ],
+      "reason": "Keep exact historical artifact scope and unresolved gaps; no new psX hardware acceptance is inferred."
+    },
+    {
+      "source_path": "docs/TESTING-MTS2-PUBLIC.md",
+      "size": 8942,
+      "sha256": "362dc24a67fe790d4043070cb16bae807bbe7f48fb0bbd5c1f1ea12a6584d17a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/docs/TESTING-MTS2-PUBLIC.md",
+      "disposition": "superseded-interface",
+      "destinations": [
+        "docs/BOOTING.md",
+        "docs/ARTIFACTS.md",
+        "docs/ETHERNET.md",
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Historical binary identities and distro boot instructions must not be relabelled as the new firmware-free psX release."
+    },
+    {
+      "source_path": "experiments/baikal-mts/README.md",
+      "size": 2786,
+      "sha256": "e2a5695a726a5088563f996b35dc4622b08d9600b49825312a4cb1ca1d97572f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/README.md",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/.gitignore",
+      "size": 123,
+      "sha256": "c5b46ecffcce726527048431980a6e5bd4c6aecedb1ac552e4d5b299ae7f4d46",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/.gitignore",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/Kbuild",
+      "size": 63,
+      "sha256": "8b4a6310c8b75ae24aeb01e4ec9cb54a416ebca24edf3c4e2b1e5387fb614a52",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/Kbuild",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/Makefile",
+      "size": 1920,
+      "sha256": "b20375de6419064fd2333b5383ef6c2a6351e95776395e3a04823ee68ad48438",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/Makefile",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/README.md",
+      "size": 6662,
+      "sha256": "eb0a457df167396738425e940cda2fc226b7785f77f38788397830b665c2d0a2",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/README.md",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/mts_net_core.h",
+      "size": 3726,
+      "sha256": "d1e138130df0f7d63555704daa61846f478416a6f0e689809ab7fa3ee00a931b",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/mts_net_core.h",
+      "disposition": "superseded-active-source",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md",
+        "tests/mts_core_test.py"
+      ],
+      "reason": "The identical header is in the active MTS2 patch; do not maintain a second source copy."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/psx_mts_net.c",
+      "size": 37633,
+      "sha256": "27ddf3292c76400d472a6512c33ebdbabbb887dae55f474d2906faf7e2d8dc0e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/psx_mts_net.c",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/netdev/tests/core_test.c",
+      "size": 4855,
+      "sha256": "b82cc9e70a989cb3067ded004b5f19f6f6cb66f6e6104420edc5b31bebe78265",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/netdev/tests/core_test.c",
+      "disposition": "copied-unchanged",
+      "destinations": [
+        "tests/fixtures/mts_core_test.c"
+      ],
+      "reason": "Original GPL-2.0-only host test; compiled against header extracted from the active MTS2 patch."
+    },
+    {
+      "source_path": "experiments/baikal-mts/packet-proof/Kbuild",
+      "size": 71,
+      "sha256": "07c40dca79eb406839922bdc81254421e7447a4797fc47d822364821ad102cb6",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/packet-proof/Kbuild",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/packet-proof/Makefile",
+      "size": 1264,
+      "sha256": "803abff18ce0f35d39e8d7669af791f4eea16733afe31db3bd0af9c4d54b026a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/packet-proof/Makefile",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/packet-proof/mts_prepare.h",
+      "size": 5428,
+      "sha256": "248a548d0b6fe570922ffdea8abc3423a3da084f2644dbc4b6b00e263560d350",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/packet-proof/mts_prepare.h",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/packet-proof/psx_mts_packet_link.c",
+      "size": 32405,
+      "sha256": "4cde8828a87450e2f297d3a6b996266cd58ef8b356d7a548a42beb751def95ec",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/packet-proof/psx_mts_packet_link.c",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/phy-handoff/Kbuild",
+      "size": 72,
+      "sha256": "17533481d7da8a5e9ee634ae8688fb9347de3f8641485b7da5fed3f51809df33",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/phy-handoff/Kbuild",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/phy-handoff/Makefile",
+      "size": 1264,
+      "sha256": "803abff18ce0f35d39e8d7669af791f4eea16733afe31db3bd0af9c4d54b026a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/phy-handoff/Makefile",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "experiments/baikal-mts/phy-handoff/psx_mts_link_restore.c",
+      "size": 10537,
+      "sha256": "3b6af1127573a2f998093f591015b9b0a900968a1789f8f778ff860b0cb8ff98",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/experiments/baikal-mts/phy-handoff/psx_mts_link_restore.c",
+      "disposition": "historical-research",
+      "destinations": [
+        "platforms/ps4/docs/ETHERNET-HISTORY.md"
+      ],
+      "reason": "Earlier PHY/nonce/single-open modules are superseded by the active MTS2 patch. Preserve pinned provenance, not loadable old modules or runners."
+    },
+    {
+      "source_path": "scripts/dev/README.md",
+      "size": 3235,
+      "sha256": "a89ee9dccd4f5983211db89965656ae1c564761adf209bfc272d2b6e025d4c9a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/README.md",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/activate-mts2-public",
+      "size": 22898,
+      "sha256": "88cdd3d941dc6e2794bcd76c48efb947b3cb1d074e15a3e75ee4444920e1bfd1",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/activate-mts2-public",
+      "disposition": "distribution-owned",
+      "destinations": [],
+      "reason": "Adapted optional NetworkManager integration belongs to https://github.com/meerzulee/omarchy-psx; it is not a kernel dependency."
+    },
+    {
+      "source_path": "scripts/dev/boot-capture.sh",
+      "size": 4298,
+      "sha256": "674dd8c3c4698cda7b133a83f704608258a8c9248b68e84078edf7f0fce76d6d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/boot-capture.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/build-boomerang-initramfs.sh",
+      "size": 7533,
+      "sha256": "0b3a6ef6a7c33303ee76d2327fad7a2b1498d159d10b52a4ef30fda6761e2118",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/build-boomerang-initramfs.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/capability-report.sh",
+      "size": 3190,
+      "sha256": "be25675e188ee0de531daa7545f671e5f99ff3259c214339ebd548ec64f6a17e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/capability-report.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/01-initcall-debug.sh",
+      "size": 2175,
+      "sha256": "a5889e5ded3d92b9a2104bc6085062fe5c668bcdf5e445b9d4ca34baa6566b92",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/01-initcall-debug.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/02-build-crashniels-vanilla.sh",
+      "size": 1868,
+      "sha256": "4b8cf739eb2f173a384a6be60decc3f68511ea46dac4813aaa12ff0e30f6aa98",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/02-build-crashniels-vanilla.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/03-disable-amdgpu.sh",
+      "size": 2584,
+      "sha256": "6672283cc6d85ad885c5bd6f09262ad380a4983c4812bc6a1c6935a4e24e568f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/03-disable-amdgpu.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/04-iommu-off.sh",
+      "size": 1312,
+      "sha256": "5582df78fc094a50b333b23636ebf94939cc685884978f9dc434000f61d3b73f",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/04-iommu-off.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/05-bisect-patches.sh",
+      "size": 3896,
+      "sha256": "64d31e12a2d84d3dcebe0904c5e5a3a999a2a05e87f065e19bea4e2e43fed074",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/05-bisect-patches.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/06-build-with-gcc14.sh",
+      "size": 1496,
+      "sha256": "ce2c993a4ea6b07df87b890053b66649fcc82b1e5551c51b666d917d7042b710",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/06-build-with-gcc14.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/07-uart-capture.sh",
+      "size": 2309,
+      "sha256": "de890e1b4b6d40d87f7ed8927da027d2c15bfe83ff82292c8784af2d2c6ad3f0",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/07-uart-capture.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/PROPOSAL-all-in-one-harness.md",
+      "size": 7884,
+      "sha256": "2c4d467776a65019ccc94b7c01aaee2079c992069ceb86eecd69025f5e51bcda",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/PROPOSAL-all-in-one-harness.md",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/experiments/README.md",
+      "size": 3831,
+      "sha256": "bf9c7faee0ca1cb6610b5f00d9b9e99bd14be063cbe84af7e473902772cd516d",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/experiments/README.md",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/kexec-boomerang-6x.sh",
+      "size": 1401,
+      "sha256": "2fd2ae8f39c807f7f41a5dd01484a0eb65f8922aa1625d0d87d18c9c735592f8",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/kexec-boomerang-6x.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/kexec-from-ssh.sh",
+      "size": 1969,
+      "sha256": "b3a6234a85ca89f17348ac413c0a0ef8760609238a5f79ad3f43e5fa640eb9c4",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/kexec-from-ssh.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/kexec-test.sh",
+      "size": 5283,
+      "sha256": "dd20b409d4011b10719ed4ae014f1e47076c6d25e52fa0c20925cdfe3fa325b5",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/kexec-test.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/mark-good.sh",
+      "size": 1296,
+      "sha256": "73ff4f0f4295b6682df239587c362bdfb3574b25000de5f1f066b30d1e1c896a",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/mark-good.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/rollback-kernel.sh",
+      "size": 1148,
+      "sha256": "773dfd526bec5232c0878cb81997fe4e65b2a50c1255ae18ea822300e99c9f2e",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/rollback-kernel.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/sky2-probe.py",
+      "size": 4633,
+      "sha256": "18431d9decdd5b4746697387ab796831312b36da286e31ec7ffad5edc41a5bae",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/sky2-probe.py",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/system-tweaks/ps4-arch-speedup.sh",
+      "size": 2673,
+      "sha256": "27aa1cc78caf2fa277054a4460f61523c5d22e7406306f8d60fd03dab42d0ae9",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/system-tweaks/ps4-arch-speedup.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/test-kernel.sh",
+      "size": 5403,
+      "sha256": "c621f58ae8ea975fe9b8348a7c270f8afaf60fec53abed0b94d662288b286859",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/test-kernel.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/tests/test_activate_mts2_public.py",
+      "size": 23087,
+      "sha256": "50fd8ac4735d3ff4c39cf19323819d7fb731d484bd52d2c85bfc0870d56c7643",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/tests/test_activate_mts2_public.py",
+      "disposition": "distribution-owned",
+      "destinations": [],
+      "reason": "Adapted optional NetworkManager integration belongs to https://github.com/meerzulee/omarchy-psx; it is not a kernel dependency."
+    },
+    {
+      "source_path": "scripts/dev/update-bootargs.sh",
+      "size": 4306,
+      "sha256": "0595cbc166f659373aa05e4f6682115eecc87a8e0f6ecc647ee76eedf7d395e0",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/update-bootargs.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    },
+    {
+      "source_path": "scripts/dev/wait-for-ssh.sh",
+      "size": 1430,
+      "sha256": "ed7d46386d4d87c95d4f884f452a314f0e85aceed9376d590d274d78c2a09bfe",
+      "source_url": "https://github.com/meerzulee/linux-ps4/blob/386df1ad97d92defee1794bf961a0e2f5dc85a1b/scripts/dev/wait-for-ssh.sh",
+      "disposition": "historical-tooling",
+      "destinations": [
+        "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+        "docs/HARDWARE-TESTING.md"
+      ],
+      "reason": "Old host/SSH/USB/kexec/sky2 and distribution procedures are not current operational entry points; reusable diagnostic lessons are curated."
+    }
+  ],
+  "curated_outputs": [
+    {
+      "path": "CONTRIBUTING.md",
+      "size": 4210,
+      "sha256": "22ff984b2e75eb4aab2ecc8d28af5a2e917bc321c8915576fe2405601bba6642"
+    },
+    {
+      "path": "docs/CONTRIBUTIONS.md",
+      "size": 3688,
+      "sha256": "2966875bfcbe8b5e4f9aa679d7f1835b25709db9155634ccc882057711b53bb3"
+    },
+    {
+      "path": "tests/mts_core_test.py",
+      "size": 3272,
+      "sha256": "05b051e6197af3d330e256865b915ba2a2c3b435d8d9bac7a0107c33c65f6558"
+    },
+    {
+      "path": "tests/fixtures/mts_core_test.c",
+      "size": 4855,
+      "sha256": "b82cc9e70a989cb3067ded004b5f19f6f6cb66f6e6104420edc5b31bebe78265"
+    },
+    {
+      "path": "platforms/ps4/docs/6.18-BRINGUP.md",
+      "size": 5592,
+      "sha256": "590a7051a135274ef85326c0237e41cf09485180251ffce50adfa9e974e19d5c"
+    },
+    {
+      "path": "platforms/ps4/docs/CAPABILITIES.md",
+      "size": 5174,
+      "sha256": "83828f2574bf1a68b33aecd414f598da4c7146bddb5a5875a6907867c1311f9f"
+    },
+    {
+      "path": "platforms/ps4/docs/ETHERNET-HISTORY.md",
+      "size": 7407,
+      "sha256": "572dc6152c770e5cdfa8a35cacf22431bb08d44086323f36edc4ac0d3e9da4a4"
+    },
+    {
+      "path": "platforms/ps4/docs/INTERNAL-STORAGE.md",
+      "size": 2183,
+      "sha256": "e0ee93b315907b6af8abbfbf4cb2abadc7483e868704d7467081fd8ffcdfc94e"
+    },
+    {
+      "path": "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md",
+      "size": 5331,
+      "sha256": "5870c27157805afaf8b42e62d410d6cebbca1d6378530a697feccd81e9713c49"
+    },
+    {
+      "path": "platforms/ps4/docs/README.md",
+      "size": 1838,
+      "sha256": "49bf8d46c035117e59f68a5897f6ee717ff1006a27dbb90b57e64cd35c281151"
+    },
+    {
+      "path": "platforms/ps4/docs/UART-AND-DEBUGGING.md",
+      "size": 4161,
+      "sha256": "b50bd8c2712e290eb7f7f5848b4ccbea5fa3790d042f1a1c25d0c951037e90e2"
+    }
+  ]
+}
