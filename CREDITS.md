@@ -64,6 +64,8 @@ replace or consolidate other contributors' authorship.
 
 ## rmux Strawberry 7.x imports
 
+Linux psX reuses rmux's Strawberry kernel work instead of reimplementing it.
+
 The [rmux imports](docs/RMUX-IMPORT.md) are per-commit `format-patch` exports
 from the 2026-08-28 snapshot of rmux's Strawberry kernel, with only
 non-kernel paths removed. Each patch keeps its own `From:` author, date,
@@ -87,8 +89,8 @@ into a patch repository and presented as one's own work; see
 [RMUX-IMPORT.md](docs/RMUX-IMPORT.md) for the quotation and how this import
 handles attribution.
 
-The [`7.2-ps4` development target](docs/PORT-7.2.md) is built from the
-7.1.7 import. Its 168 rebased rmux patches keep their original authors, and
+The [`7.2-ps4` development target](docs/PORT-7.2.md) is based on rmux's
+Strawberry kernel, starting from the 7.1.7 import. Its 168 rebased rmux patches keep their original authors, and
 [its provenance](provenance/7.2-ps4.json) maps each one to the rmux commit it
 came from and records every change made while rebasing. Its six port fixes
 are by Meerzulee; one of them reimplements feeRnt's Baikal xHCI shutdown

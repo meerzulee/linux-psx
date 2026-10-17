@@ -5,8 +5,10 @@ Working record for moving the PS4 kernel to Linux 7.2.y. Upstream base:
 (current stable on 2026-10-17; 7.2.y will reach end of life a few weeks after
 7.3 is released).
 
-The port starts from the [rmux 7.1.7 import](RMUX-IMPORT.md): rmux's
-Aeolia/Belize stack with its Baikal unification commits. It proceeds one
+The port reuses rmux's Strawberry kernel work rather than reimplementing it,
+with credit in [CREDITS.md](../CREDITS.md). It starts from the
+[rmux 7.1.7 import](RMUX-IMPORT.md): rmux's Aeolia/Belize stack with its
+Baikal unification commits. It proceeds one
 variable at a time:
 
 1. Rebase the 170 imported patches onto v7.2.11 and make them compile, with

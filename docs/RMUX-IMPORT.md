@@ -21,11 +21,13 @@ maintainer, quoted verbatim:
 > To contribute to this kernel, fork it and open a pull request.
 > Do not base a kernel on this one. Do not copy it to a .patch repo and call it your own work.
 
-The code is Linux kernel code under GPL-2.0. This import keeps every commit's
-author, date, message and sign-offs, and lists those authors in
-[CREDITS.md](../CREDITS.md). The branch carrying it has not been published;
-whether to publish it is the repository owner's decision, made with this
-request in view.
+The code is Linux kernel code under GPL-2.0; some vendor files carry dual
+BSD/GPL notices. On 2026-10-17 the Linux psX owner decided to build on this
+work rather than reimplement it. psX reuses and adapts it under GPL-2.0, keeps
+every commit's author, date, message and sign-offs, lists those authors in
+[CREDITS.md](../CREDITS.md), and says where its targets are based on it.
+psX's own changes are recorded separately, for example in
+[`provenance/7.2-ps4.json`](../provenance/7.2-ps4.json).
 
 ## What was imported
 
