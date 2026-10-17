@@ -209,3 +209,21 @@ fixed it for Baikal, and the 6.18 target carries that fix
 - **Rest of `a827d7936c44`.** Its xHCI-attached AHCI host for Baikal and its
   separate AHCI `dma_boundary` change all Sony AHCI devices and need hardware
   evidence first.
+
+## Known mt76x8 vendor issues
+
+A review of the port fixes found these older problems in the MT7668 vendor
+driver. The 6.18 target carries the same code, and the port does not change
+it:
+
+- `procCfgWrite()` (the `cfg` proc node) subtracts the 8-byte `set_cfg `
+  prefix from the copy size and writes the terminator at the wrong offset, so
+  every write loses its last 8 bytes. A write shorter than 8 bytes wraps the
+  size; `copy_from_user()` then refuses the copy and the write fails with
+  `-EFAULT`.
+- `wlanCfgParseToFW()` copies `wifi.cfg` keys and values into 32-byte command
+  fields using their own lengths, without a bound check.
+- Reported but not yet checked: `batchConvertResult()` and
+  `priv_driver_get_cfg()` can write past the caller's buffer on the AOSP
+  private-ioctl path. On 7.2 that path appears unreachable, because the
+  driver sets only `ndo_do_ioctl`.
