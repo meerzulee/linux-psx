@@ -16,21 +16,6 @@ RELEASE = "6.18.44-psx-ps4-baikal2"
 
 
 class ReleaseContractTests(unittest.TestCase):
-    def test_optional_ethernet_bundle_preserves_tool_and_has_portable_guidance(self):
-        with tempfile.TemporaryDirectory() as directory:
-            destination = Path(directory)
-            commit = "c" * 40
-            package.package_ethernet_tool(ROOT, destination, commit)
-            tool = (destination / "ps4-ethernet").read_bytes()
-            self.assertEqual(tool, (ROOT / "contrib/networkmanager/ps4-ethernet").read_bytes())
-            self.assertIn(b"SPDX-License-Identifier: MIT", tool)
-            guide = (destination / "ETHERNET-SETUP.md").read_text()
-            self.assertIn('sudo python3 ./ps4-ethernet --setup\n', guide)
-            self.assertIn("(BOOTING.md)", guide)
-            self.assertIn("(ETHERNET.md)", guide)
-            self.assertNotIn("../../", guide)
-            self.assertIn(f"/blob/{commit}/provenance/ethernet-activation-import.json", guide)
-
     def test_firmware_embedding_and_wrong_release_are_refused(self):
         config = (ROOT / "platforms/ps4/config/6.18-psx-baikal.config").read_text()
         package.check_config(config, RELEASE)
@@ -87,9 +72,9 @@ class SplitReleaseTests(unittest.TestCase):
         self.dist.mkdir()
         self.commit = "c" * 40
         self.source_name = f"source-{RELEASE}.tar.zst"
-        names = ["bzImage", "config", "System.map", "manifest.txt", "version.txt", "ps4-ethernet",
+        names = ["bzImage", "config", "System.map", "manifest.txt", "version.txt",
                  "RELEASE-NOTES.md", "BUILD-SHA256SUMS", "BOOTING.md", "ETHERNET.md",
-                 "HARDWARE-TESTING.md", "ARTIFACTS.md", "ETHERNET-SETUP.md", f"modules-{RELEASE}.tar.zst",
+                 "HARDWARE-TESTING.md", "ARTIFACTS.md", f"modules-{RELEASE}.tar.zst",
                  self.source_name]
         for name in names:
             (self.dist / name).write_bytes(("exact fixture bytes: " + name + "\n").encode())
@@ -141,7 +126,7 @@ class SplitReleaseTests(unittest.TestCase):
         runtime, source = self.stage()
         package.assemble_release(runtime, source, self.output, expected_commit=self.commit)
         final = package.verified_files(self.output)
-        self.assertEqual(set(final), {f"kernel-{RELEASE}.zip", self.source_name, "artifacts.json", "ps4-ethernet", "RELEASE-NOTES.md", "SHA256SUMS"})
+        self.assertEqual(set(final), {f"kernel-{RELEASE}.zip", self.source_name, "artifacts.json", "RELEASE-NOTES.md", "SHA256SUMS"})
         self.assertEqual((self.output / self.source_name).read_bytes(), (source / self.source_name).read_bytes())
         self.assertEqual((self.output / "artifacts.json").read_bytes(), (runtime / "artifacts.json").read_bytes())
         with zipfile.ZipFile(self.output / f"kernel-{RELEASE}.zip") as archive:
@@ -149,7 +134,7 @@ class SplitReleaseTests(unittest.TestCase):
             self.assertNotIn(self.source_name, archive.namelist())
             archive.extractall(self.root / "unpacked")
         package.verified_files(self.root / "unpacked")
-        for name in ("bzImage", "config", f"modules-{RELEASE}.tar.zst", "ps4-ethernet"):
+        for name in ("bzImage", "config", f"modules-{RELEASE}.tar.zst"):
             self.assertEqual((self.root / "unpacked" / name).read_bytes(), (self.dist / name).read_bytes())
 
     def test_assembly_cli_is_stdlib_only_and_checks_expected_commit(self):

@@ -85,19 +85,6 @@ def validate_module_archive(archive, release):
             process.wait()
 
 
-def package_ethernet_tool(repo, destination, commit):
-    """Bundle the optional adapter without adding it to the kernel contract."""
-    shutil.copy2(repo / "contrib/networkmanager/ps4-ethernet", destination / "ps4-ethernet")
-    guide = (repo / "contrib/networkmanager/README.md").read_text()
-    guide = guide.replace("../../docs/BOOTING.md", "BOOTING.md")
-    guide = guide.replace("../../docs/ETHERNET.md", "ETHERNET.md")
-    guide = guide.replace("../../docs/ETHERNET-AUTOCONNECT-TEST.md",
-                          f"https://github.com/meerzulee/linux-psx/blob/{commit}/docs/ETHERNET-AUTOCONNECT-TEST.md")
-    guide = guide.replace("../../provenance/ethernet-activation-import.json",
-                          f"https://github.com/meerzulee/linux-psx/blob/{commit}/provenance/ethernet-activation-import.json")
-    (destination / "ETHERNET-SETUP.md").write_text(guide)
-
-
 def safe_name(name):
     if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
         raise ValueError(f"unsafe artifact name: {name}")
@@ -166,8 +153,8 @@ def artifact_metadata(files, release=None, expected_commit=None):
 def verify_runtime(files, metadata):
     release = metadata["kernel_release"]
     required = {"bzImage", "config", "System.map", "manifest.txt", "version.txt", "artifacts.json",
-                "ps4-ethernet", "RELEASE-NOTES.md", "BUILD-SHA256SUMS", "BOOTING.md", "ETHERNET.md",
-                "HARDWARE-TESTING.md", "ARTIFACTS.md", "ETHERNET-SETUP.md", f"modules-{release}.tar.zst"}
+                "RELEASE-NOTES.md", "BUILD-SHA256SUMS", "BOOTING.md", "ETHERNET.md",
+                "HARDWARE-TESTING.md", "ARTIFACTS.md", f"modules-{release}.tar.zst"}
     if not required <= set(files):
         raise ValueError("runtime bundle is missing required kernel/module/guidance files")
     if any(name.startswith("source-") and name.endswith(".tar.zst") for name in files):
@@ -233,7 +220,7 @@ def assemble_release(runtime, source, destination, expected_commit=None):
         for name, path in runtime_files.items():
             archive.write(path, name)
     for name, path in ((source_name, source_files[source_name]), ("artifacts.json", runtime_files["artifacts.json"]),
-                       ("ps4-ethernet", runtime_files["ps4-ethernet"]), ("RELEASE-NOTES.md", runtime_files["RELEASE-NOTES.md"])):
+                       ("RELEASE-NOTES.md", runtime_files["RELEASE-NOTES.md"])):
         shutil.copy2(path, destination / name)
     write_checksums(destination)
     return destination
@@ -318,7 +305,7 @@ def main():
                        "build_note_hex": note.read_bytes().hex()},
             "source_commit": commit, "upstream": target["upstream"],
             "workflow_run": run_url,
-            "hardware_acceptance": "unqualified: new release/config/build; historical EXP016 is not acceptance of this artifact",
+            "hardware_acceptance": target["hardware_evidence"]["this_target"],
         }
         (destination / "artifacts.json").write_text(json.dumps(metadata, indent=2) + "\n")
         inputs = temporary / "PSX-BUILD-INPUTS.tar.gz"
@@ -349,33 +336,32 @@ def main():
     source_archive = destination / f"source-{release}.tar.zst"
     metadata["source_archive"] = {"path": source_archive.name, "sha256": digest(source_archive)}
     (destination / "artifacts.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    # Bundle generic guidance plus an optional standalone NetworkManager tool.
-    package_ethernet_tool(repo, destination, commit)
+    # Bundle generic guidance; links outside the bundle point at this commit.
     for name in ["BOOTING", "ETHERNET", "HARDWARE-TESTING", "ARTIFACTS"]:
         guide = (repo / f"docs/{name}.md").read_text()
         guide = guide.replace("../platforms/ps4/STATUS.md", f"https://github.com/meerzulee/linux-psx/blob/{commit}/platforms/ps4/STATUS.md")
-        guide = guide.replace("../contrib/networkmanager/README.md", "ETHERNET-SETUP.md")
-        guide = guide.replace("(ETHERNET-AUTOCONNECT-TEST.md)",
-                              f"(https://github.com/meerzulee/linux-psx/blob/{commit}/docs/ETHERNET-AUTOCONNECT-TEST.md)")
+        guide = guide.replace("../provenance/", f"https://github.com/meerzulee/linux-psx/blob/{commit}/provenance/")
         (destination / f"{name}.md").write_text(guide)
     (destination / "RELEASE-NOTES.md").write_text(
         f"# Experimental PS4 Baikal — {release}\n\n"
-        "Pinned Linux 6.18.44 with 54 PS4 platform patches plus the MTS2 Ethernet patch. "
-        "This distribution-independent build has not been boot-tested. Historical tests "
-        "on one PS4 Slim Baikal B1 do not qualify this build, other PS4 revisions or PS5.\n\n"
+        "Pinned Linux 6.18.44 with 54 PS4 platform patches, the MTS2 Ethernet patch and its "
+        "native autoload. This CI build has not been boot-tested. The same patch set, built "
+        "locally as 6.18.44-psx-ps4-baikal-native-dev1, passed two Ethernet boots on one Baikal "
+        "PS4; that does not qualify this build, other PS4 revisions or PS5.\n\n"
         f"For testing, download and extract kernel-{release}.zip. The separate "
         f"source-{release}.tar.zst archive contains complete corresponding source. "
-        "CI likewise offers separate kernel/setup and source downloads; each has its "
+        "CI likewise offers separate kernel and source downloads; each has its "
         "own complete SHA256SUMS.\n\n"
         "Use bzImage with the entire matching modules archive, a compatible PS4 loader, "
         "initramfs and root filesystem. Read BOOTING.md, ETHERNET.md and HARDWARE-TESTING.md. "
-        "The optional ps4-ethernet tool enables NetworkManager/systemd autoconnect; "
-        "read ETHERNET-SETUP.md for one-time setup. No root filesystem, launcher PKG, "
+        "Ethernet needs no setup tool: udev loads psx_mts_net and NetworkManager connects "
+        "with its default wired profile. No root filesystem, launcher PKG, "
         "boot-profile defaults or firmware is included. Supply legally obtained device firmware separately; "
         "early display/Wi-Fi firmware may be needed in initramfs.\n\n"
-        "MTS Ethernet uses explicit first-publication gating and permanent DMA/code retention. "
-        "Do not unload, reset, rearm or reuse old experiment modules. Driver qualification "
-        "and unattended distribution activation remain incomplete.\n\n"
+        "MTS Ethernet publishes one DMA generation on its first open and retains DMA and code "
+        "until power-off. Boot with psx_mts_net.autoarm=0 to keep the explicit gate, or "
+        "modprobe.blacklist=psx_mts_net to skip the driver. Do not unload, reset or rearm it. "
+        "Driver qualification remains incomplete.\n\n"
         f"Corresponding source: source-{release}.tar.zst, including original Linux licenses, "
         "resolved config, patch authorship, provenance and project build inputs. Verify "
         "SHA256SUMS with sha256sum -c SHA256SUMS on Linux or shasum -a 256 -c SHA256SUMS on macOS.\n\n"
