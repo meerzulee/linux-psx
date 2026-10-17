@@ -1,0 +1,478 @@
+{
+  "schema": 1,
+  "created_on": "2026-10-17",
+  "target": "6.18-ps4-baikal-native-dev",
+  "platform": "ps4-baikal",
+  "status": "development target; one fresh-boot hardware pass (EXP-20261017-019), no hardware acceptance",
+  "kernel_release": "6.18.44-psx-ps4-baikal-native-dev1",
+  "source_date_epoch": 1786233600,
+  "upstream": {
+    "repository": "https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git",
+    "ref": "v6.18.44",
+    "commit": "1efe5d048a391de3ead2804b2e7f86376c356cc5",
+    "note": "kernel.org stable carries the same pinned commit as the active target's gregkh/linux source."
+  },
+  "source_target": {
+    "target": "6.18-ps4-baikal",
+    "provenance": "provenance/6.18-ps4-baikal.json",
+    "kernel_release": "6.18.44-psx-ps4-baikal1",
+    "series_sha256": "08c39f5f77702fd4bb2bcf608365d5fa96205f24e01613c248756e54a17d497f",
+    "ordered_patchset_sha256": "4fbc45bea17a78ceec00214220ee865896ea91841bedaefc2f481e8ea194ee0a"
+  },
+  "series_path": "platforms/ps4/patches/6.18-baikal-mts2/series-native-dev",
+  "series_sha256": "44e49e36a0a7e8c017fd51b5a73b39fca16b2e79c9d0ea7341b0aa0a5d04fb4b",
+  "active_patch_count": 56,
+  "ordered_patchset_sha256": "828a4f14b205283b43075a8eaa34531a97bfb78676daa02e33e654ead4e66dbe",
+  "patches": [
+    {
+      "entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
+      "sha256": "97158dece1f1b8d074c7eb56672fc104db0881f49a3079ad1e1924b3da82450e",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
+      "sha256": "3a91ae61778dc7bc9a3e0f6cec89b603fd36c7d16aa82abf40ca815351d6ad2d",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
+      "sha256": "3e0095e5e02f893e90189d5866fd75c0a834ec3ae6b6fa2553f9eb5bfdc6baa7",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
+      "sha256": "5768b531f018c3eb5fee285060450a17fac2424554ee9a16c914e45ca85fb9d8",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
+      "sha256": "1dee36269a666104dbd8e0f80c2215e5e644c8a91e551f9aaa78ed7c8f8bd5b8",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
+      "sha256": "b30c11fe19d04077a662d9b1cd5ac18a14ddc89eafd602ad250f34be058a77d6",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
+      "sha256": "33795ef2967c219d572a04ac9dfc3387874adb8729e1742f2c32095aed28e69a",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
+      "sha256": "5c4504550088873201a15a004cf943b75cb87320d4a3f484f4f033345f3fdac2",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
+      "sha256": "9e00b650c0606ddbdf6aa6ddc37354060f8a6294195b2339e71887b899ebdee1",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
+      "sha256": "376736c0930f2aecb7de9c5da2f976aa4d1128599e909b1b7394e7fbf1c7e51d",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
+      "sha256": "4700020be20d4e77df5e4df4db6e3ff2920b1d92ce3e6dd58bd3152e7174108d",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
+      "sha256": "338ac11ba71ae15bb8d510d0cebb257b4a642ebaa94c872e6e7cea564b6114af",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
+      "sha256": "12b329bd4d4fe06ad04fa898e6279faf77782afb5339fb1cba3abb5bd80021fb",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
+      "sha256": "e1b0a8943d887901af75778aaff233e9fc1c756a938c34bc38498d6b6341f404",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
+      "sha256": "ca97c4a5697bd9e75dc11a1c68b9d69cebceb77a27ec8ad3e53e2f5e232a68e6",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
+      "sha256": "ff558c9124754605c8dc88c2efbf585d6e8418e723b169779b88297b4280a904",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
+      "sha256": "b157fb34511d0b43b7abc63049467abf7731b0c544d0037cb99725b3ba572bb6",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
+      "sha256": "80726b99d2301dcc9bf7bf8c7b6700b165734ec86707499b1eba3b192a02bac8",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
+      "sha256": "c35d745d9eef55e5ae3ea28f7378a7f67c35412b83d479d76aa4feab00f47383",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
+      "sha256": "c2761889ebb2ab1c0cbc63ad884d2e29f0b427c258220bef97875359665a0c56",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
+      "sha256": "e42229b3ee7ea382d3bcbcc91588935b0ede94d216d85e176e0d1c7193ab9efa",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
+      "sha256": "6796210e6ddcab737d1285260615295b09ac6c34b951e6802a8900cd39f92420",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
+      "sha256": "9cead5c9fbbb88b12a96f29cb456d6290cbc4bebcb03dc6916b029cfc55bb4c3",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
+      "sha256": "d5759c699439b407c54218d6b2d921ff3ddd448d302a6de2a2a57d98197e33d5",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
+      "sha256": "3e7e2aeaea78bc4bc5e4bac43cbf5a987b2f5a6b4d5af98b5c77ba3892580610",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
+      "sha256": "ccf421e56e90e663ca1b85cfb96d87aa84b3008575d91cb517a9e3971eb034fe",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
+      "sha256": "61e62ebb134639709c66a0d6292930906378014f9926adb39ae64a8255f6c777",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
+      "sha256": "86099fcd9dbfe7ace7e7cea27eb5005ab62bd990ba4b2b545fb31488c0ea09e6",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
+      "sha256": "b51dc130c3e6d76e0a44931d99c6e0aba8aa84d210f6c3e6ee6621a5bc506d8c",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
+      "sha256": "1de3bb749b917d9caa9354df67f6d2bba1ca9f70495c2f6877d789c951d23c12",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
+      "sha256": "f7486f25b6877e68c0201d87c9cacf8f5d6d43eb549bc3b9887502d76a335f94",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
+      "sha256": "4cf66abc2ec5295677f5161151f8a0617e30b99d3867f60d691f39432bede3f1",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
+      "sha256": "f0fd06a7951f3d5707b83ed88d9cdc19a3360436f69906b74d849be62acce2a2",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
+      "sha256": "382269323af85d301ae6562200ca39a0bf937eeb0bffebb677dbfb3499cb9fdc",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
+      "sha256": "c8601fe17318f5f5f054f78911b27466182db49c3bed907eb9e05e24d0fd760b",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
+      "sha256": "7e6877374a9d10c6ff48b10e2300434fc1ae0da170d320de658da300e42eda23",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
+      "sha256": "e15d0db7ebcd18c822605c7ffbf8a26bd81c0593a596d6e7953d18b0991fdca2",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
+      "sha256": "a986b5dd8fcaf5fd51301a9b0be4ac377db358214f6965f3b4d3d2f4136922ee",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
+      "sha256": "24ed7fd83c59bd0c018dc93d30ccc6e14af955abad8f32f1b182725436a21ae2",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
+      "sha256": "ff7c46181b4a16a4b91e86e200bd11338627c7ded95afaa999e866e9ae7f54b4",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
+      "sha256": "43b88f707ba6f3601efbd155be148e7fb7ef69381da03033a04dd80a04924db9",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
+      "sha256": "dbd6e7ea1ec60820fb39a351fddc200cc515b53e31f5d0138c818327a00f8f8b",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
+      "sha256": "f43bab4256c82924e94b0a3eebfc81e93e209c0bf70c5ba579902ee5a96acdec",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
+      "sha256": "22daab4f9a486c80018ca17d87fdb2edb8789f21b4c58a710bfdea086c0d5661",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
+      "sha256": "80bf640a2c31833b335855cea984a300db59bbbdfd5446a3fe07a8815ca41908",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
+      "sha256": "d7b859f45ca5d86e614e26987078f7b5028f34b01b0484128adcb3e3c3ae521a",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
+      "sha256": "341f6a2d68d3f39c2bafe6dfb382a27551384f5f7325d0538fd11355f7285950",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
+      "sha256": "5f9f3f07007d4c4d100b164adf7a126b97dab6120245df1ec0b1a0840d0b6604",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
+      "sha256": "c7f51664cf6904551884639bdcf094386017bbcaf80a434f26ec1f0e4095c646",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
+      "sha256": "3daeec64933f6f5536b44a8e49f9dc78262a9aad3a32de2d68a23d76c4e43c21",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
+      "sha256": "7b1cc810fc5d12d4723ba895e435d1ee165c19dcadf21ca0eb33e86caee061b8",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
+      "sha256": "d3e809049e6bbe1d5b8e4d87fdf3e41155a4a31079a80036f01556d52b953592",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
+      "sha256": "a7225c33c1af05e4a4ccfc6e454803e884edecbd4b1af703f642d60c08fee80b",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "../6.18-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
+      "path": "platforms/ps4/patches/6.18-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
+      "sha256": "9422bb59526fce0a12de221f516c51bc5dbce606a523fad5f6e957fa4481179c",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
+      "sha256": "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed",
+      "origin": "6.18-ps4-baikal",
+      "change": "unchanged"
+    },
+    {
+      "entry": "0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
+      "sha256": "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3",
+      "subject": "net: ps4: native psx_mts_net autoload and self-arming open",
+      "origin": "native-autoload",
+      "change": "added",
+      "note": "Exports the 104d:90d8 PCI ID with MODULE_DEVICE_TABLE so udev loads the module; adds the read-only autoarm parameter (default 1) so the first open publishes without an allow_open write; registers psx0 from the module LIVE notifier instead of probe. The one-retained-DMA-generation contract and the probe, fresh-baseline and first-open checks are unchanged. psx_mts_net.autoarm=0 restores the explicit gate. Only this target applies it; the active series keeps 0001 alone."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "targets/6.18-ps4-baikal-native-dev.env",
+      "sha256": "06fd0a2146bdd27943c6e6b7123978c8037e568c198deabe660338e04b37e24d"
+    },
+    {
+      "path": "platforms/ps4/config/6.18-psx-baikal.config",
+      "sha256": "0090ccef656794012a35d9e4c42852eaf751db3c70c4d0627435339b1cb945ff"
+    },
+    {
+      "path": "platforms/ps4/config/fragments/mt7668.config",
+      "sha256": "305346c7177be6eb35eacd29bc135c0f04bfcb7e8d6825054ef629f2035ce508"
+    },
+    {
+      "path": "platforms/ps4/config/fragments/usb-ethernet.config",
+      "sha256": "ba1c4e03cb33a5e3e2d03a2a1cb31251f67e9a2064097c509d887a2bb5fd095e"
+    },
+    {
+      "path": "platforms/ps4/config/fragments/native-dev-release.config",
+      "sha256": "b4a548d0da344c435a94093931e68fdbe617c9a0afb02a8452ca3c3f2dab7eec"
+    }
+  ],
+  "config": {
+    "derived_from": "platforms/ps4/config/6.18-psx-baikal.config",
+    "method": "the active target's config and fragments plus native-dev-release.config, merged with merge_config.sh -m, then make olddefconfig",
+    "changes": [
+      "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-native-dev1\"",
+      "the tested resolved config equals the CI 6.18.44-psx-ps4-baikal1 config apart from toolchain-version symbols and LOCALVERSION"
+    ]
+  },
+  "firmware": {
+    "embedded": false,
+    "bundled": false
+  },
+  "tested_build": {
+    "host": "macOS ARM64 OrbStack helper (scripts/build-kernel-orbstack)",
+    "builder_image": "linux-psx-kernel-builder:trixie-20260810",
+    "builder_image_id": "sha256:1826d61b377a3e62a82ec4d075c64cf2e3d0f4fba239c27de9358124ddc146d3",
+    "compiler": "x86_64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0",
+    "config_sha256": "86d1f6e9cbd6c9dd49f01add8a6b58b371d7cda120c05cba7891732d8d04cd42",
+    "bzImage_sha256": "e92565bcfec82d0739f44bace1fa779d561d9e60497fb0ba815e7c40b016ee3c",
+    "modules_archive": "modules-6.18.44-psx-ps4-baikal-native-dev1.tar.zst",
+    "modules_archive_sha256": "cfbdab024331c4b71e0529f6880758fdd12898aa8bb86fb935d78cbefeaaa050",
+    "published": false
+  },
+  "hardware_evidence": {
+    "EXP-20261017-019": "PASS for one fresh boot from Orbis with the cable connected plus one in-boot unplug/replug on one Baikal console: udev loaded psx_mts_net, psx0 registered after module LIVE, NetworkManager's default 'Wired connection 1' made the first open, DHCP, hash-checked 4 MiB transfers in both directions and verified interface-bound HTTPS, 0 RX/TX errors. No userspace Ethernet adapter was installed or run. Completed UART session with no fault lines. Not acceptance.",
+    "untested": [
+      "boot without a cable, then connect it (planned EXP-20261017-020)",
+      "returning to Orbis after the native first open",
+      "repeated boots",
+      "network managers other than NetworkManager",
+      "Linux 7.2"
+    ],
+    "details": "omarchy-psx platforms/ps4/experiments/SESSIONS.md"
+  }
+}
