@@ -92,6 +92,12 @@ GitHub Actions runs `make check`, compiles on native Ubuntu x86-64, then runs
 `artifacts.json`, checksums, kernel/module/config outputs, kernel guidance and
 complete corresponding GPL source. See [ARTIFACTS.md](ARTIFACTS.md).
 
+CI uploads **two separate artifacts**. `linux-psx-ps4-baikal-<commit>` contains
+the kernel, full modules, build data, optional Ethernet setup and instructions;
+`linux-psx-ps4-source-<commit>` contains complete corresponding source. Choose
+the first for testing; download the second when inspecting or rebuilding source.
+Both carry identical build metadata and their own complete `SHA256SUMS`.
+
 For native local packaging after a committed build, run
 `./scripts/ci/package-release`; `dist/` must not already exist. The source
 archive includes build inputs from `git archive HEAD`, so commit intended
@@ -102,4 +108,6 @@ and access to the same generated source. CI is the supported packaging path.
 Push/PR builds publish expiring CI artifacts only. The manual workflow defaults
 `publish_release` to false. Explicitly enabling it after authorized review
 publishes an experimental prerelease, never an automatic stable/latest release.
+Release assembly verifies both artifacts belong to the expected source commit
+and publishes `kernel-<release>.zip` separately from `source-<release>.tar.zst`.
 Neither compilation nor packaging constitutes a hardware test.

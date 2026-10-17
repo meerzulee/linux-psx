@@ -40,8 +40,8 @@ repository will let us share tooling while qualifying each console separately.
 
 | Project | Role |
 | --- | --- |
-| **Linux psX** | Kernel patches, hardware drivers, configurations, source provenance, builds and matching module artifacts. |
-| **[Omarchy psX](https://github.com/meerzulee/omarchy-psx)** | Omarchy setup, boot profiles, desktop integration and its optional NetworkManager adapter. |
+| **Linux psX** | Kernel patches, hardware drivers, configurations, source provenance, builds, matching modules and optional Ethernet setup tools. |
+| **[Omarchy psX](https://github.com/meerzulee/omarchy-psx)** | Omarchy setup, boot profiles and desktop integration. |
 
 The kernel has no Omarchy, desktop, package-manager, init-system or network-manager
 dependency. Use a compatible console loader, initramfs, firmware and Linux root
@@ -74,8 +74,35 @@ where required.
 
 [GitHub Actions](https://github.com/meerzulee/linux-psx/actions) builds on native
 Linux and packages these outputs with generic `artifacts.json` and complete
-corresponding GPL source. CI artifacts expire after 30 days. Creating a public
-experimental release is a separate, manual workflow option.
+corresponding GPL source as **two separate downloads**:
+
+- **`linux-psx-ps4-baikal-<commit>`**: the small kernel, matching modules, build
+  data, Ethernet setup script and instructions. Choose this to test Linux.
+- **`linux-psx-ps4-source-<commit>`**: complete corresponding source and matching
+  build data for rebuilding or inspection.
+
+Each download has its own checksums. CI artifacts expire after 30 days.
+Creating a public experimental release is a separate, manual workflow option;
+it likewise offers a kernel ZIP and a separate source archive.
+
+## Ethernet autoconnect
+
+On a supported Baikal kernel with its matching modules installed, the optional
+NetworkManager tool enables Ethernet now and at future boots. From the extracted
+CI bundle, run:
+
+```sh
+sudo python3 ./ps4-ethernet --setup
+```
+
+It installs a boot service and an IPv4 DHCP autoconnect profile. Python 3,
+NetworkManager and systemd are required by this optional tool; Omarchy is not.
+[Download and usage instructions](contrib/networkmanager/README.md) also cover
+the earlier MTS2 releases. Matching build data is discovered or fetched
+automatically. The new
+autostart path is host-tested; [same-boot service adoption and wired traffic
+passed](docs/ETHERNET-AUTOCONNECT-TEST.md) on the original MTS2 kernel.
+Unattended PS4 boot acceptance remains pending.
 
 ## Current stage
 
@@ -96,6 +123,7 @@ future-console support remain planned.
 | [Build guide](docs/BUILDING.md) | Native Linux x86-64, macOS ARM64/OrbStack and CI. |
 | [Generic boot guide](docs/BOOTING.md) | Loader/initramfs/rootfs requirements for any distribution. |
 | [Ethernet contract](docs/ETHERNET.md) | Explicit first activation, retained DMA and current limitations. |
+| [Ethernet setup](contrib/networkmanager/README.md) | One-time setup for automatic NetworkManager Ethernet connection. |
 | [PS4 status](platforms/ps4/STATUS.md) | Historical evidence and remaining qualification. |
 | [PS4 development knowledge](platforms/ps4/docs/README.md) | Curated display/MSI, Ethernet, fan/storage/UART findings and historical evidence. |
 | [Knowledge migration](platforms/ps4/docs/KNOWLEDGE-MIGRATION.md) | Disposition of 117 legacy knowledge/tool sources, corrected hypotheses and deliberate exclusions. |

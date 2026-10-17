@@ -6,8 +6,30 @@ archive. A release string alone does not establish identical bytes.
 
 The builder writes `output/6.18-ps4-baikal/`. Linux CI packaging adds guidance,
 `artifacts.json`, `BUILD-SHA256SUMS`, complete corresponding source and a final
-`SHA256SUMS` in `dist/`. No distribution boot profile, installer, launcher,
-network-manager adapter or firmware is packaged.
+`SHA256SUMS` in `dist/`. It also includes the optional MIT-licensed
+`ps4-ethernet` tool and `ETHERNET-SETUP.md` for NetworkManager/systemd users;
+neither is required by the kernel or generic metadata. No distribution boot
+profile, root-filesystem installer, launcher or firmware is packaged.
+
+## Two downloads
+
+CI stages two independent downloads from the same build:
+
+| Download | Contents |
+| --- | --- |
+| `linux-psx-ps4-baikal-<commit>` | Kernel, whole modules archive, config, map/manifest/version, `artifacts.json`, optional Ethernet setup and boot guidance. No Linux source archive. |
+| `linux-psx-ps4-source-<commit>` | Complete `source-<release>.tar.zst` and an identical copy of `artifacts.json`. |
+
+Each contains its own `SHA256SUMS`, covering every included file. Extract the
+small kernel download to test the build; its Ethernet setup finds the included
+metadata automatically, including offline. Source is available separately.
+
+The flat `dist/` files remain the complete local packaging set; `dist/runtime/`
+and `dist/source/` are the CI upload directories. The metadata records the
+source archive's hash as well as kernel/module identities, tying the two
+downloads together. Future release assembly verifies both before producing a
+small `kernel-<release>.zip` and the separate source archive. Tiny standalone
+metadata/helper assets support automatic Ethernet setup downloads.
 
 ## Generic metadata: schema 1
 
@@ -26,6 +48,7 @@ network-manager adapter or firmware is packaged.
 | `module.path` | Archive-relative `lib/modules/<release>/kernel/drivers/net/ethernet/psx_mts_net.ko`. |
 | `module.sha256` | SHA256 of the exact archived runtime module. |
 | `module.build_note_hex` | Hex bytes of its entire ELF `.note.gnu.build-id` section, for comparison with the loaded sysfs note. |
+| `source_archive.path`, `.sha256` | Separate corresponding-source archive filename and SHA256. |
 | `source_commit`, `upstream`, `workflow_run` | Immutable project/upstream identity and build location. |
 | `hardware_acceptance` | Qualification statement for this artifact, separate from historical tests. |
 
@@ -54,6 +77,8 @@ included. Patched source files ignored by upstream Git rules are explicitly
 included. Kernel GPL terms and each existing per-file notice remain in force.
 The original frozen import and active target have separate manifests; run
 `make check` to verify their checksums and ordering.
+
+From an extracted CI download or kernel ZIP, verify its included files:
 
 ```sh
 # Linux

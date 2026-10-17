@@ -7,10 +7,15 @@
   `6.18-ps4-baikal`; PS5 integration remains planned. `7.2-ps4-baikal` and
   `7.2-ps4` are compile-tested development targets (`docs/PORT-7.2.md`) with
   no hardware acceptance.
-- Keep runtime/build inputs distribution-independent. Omarchy setup, boot
-  profiles and its optional NetworkManager adapter belong to `omarchy-psx`.
-  Never introduce a desktop, package manager, init-system or network-manager
-  requirement into the kernel or artifact contract.
+- Keep runtime/build inputs distribution-independent. Omarchy setup and boot
+  profiles belong to `omarchy-psx`. The optional, standalone NetworkManager
+  adapter lives in `contrib/networkmanager/`; it may be bundled as a convenience
+  without adding a desktop, package manager, init-system or network-manager
+  requirement to the kernel or generic artifact contract.
+- Ethernet `--setup` explicitly installs and enables the optional systemd
+  service. Bare `--install` only stages files. Preserve exact artifact checks,
+  one first-publication attempt per boot, retained DMA and read-only healthy
+  repeat calls. Do not add blind module autoload, retries, unload or reset.
 - Read `docs/PS4-PATCHES.md`, `CREDITS.md`, `provenance/ps4-import.json` and
   `docs/UNIVERSAL-KERNEL.md` before changing a patch or making support claims.
 - Read `docs/BUILDING.md`, `docs/ARTIFACTS.md`, `docs/ETHERNET.md` and
@@ -58,6 +63,8 @@
 
 ## Hosts and publication
 
+- `master` is this repository's default development and publication branch.
+  Keep CI push/PR filters, release guards and download links on `master`.
 - Use native tools on Linux x86-64. On macOS ARM64 use the OrbStack helper;
   never run the kernel build directly on Darwin. Preserve both build paths.
 - Use OrbStack exclusively for local containers and Linux VMs. Verify it is

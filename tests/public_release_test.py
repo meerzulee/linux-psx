@@ -1,9 +1,12 @@
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("package_release", ROOT / "scripts/ci/package_release.py")
@@ -13,6 +16,21 @@ RELEASE = "6.18.44-psx-ps4-baikal1"
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_optional_ethernet_bundle_preserves_tool_and_has_portable_guidance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory)
+            commit = "c" * 40
+            package.package_ethernet_tool(ROOT, destination, commit)
+            tool = (destination / "ps4-ethernet").read_bytes()
+            self.assertEqual(tool, (ROOT / "contrib/networkmanager/ps4-ethernet").read_bytes())
+            self.assertIn(b"SPDX-License-Identifier: MIT", tool)
+            guide = (destination / "ETHERNET-SETUP.md").read_text()
+            self.assertIn('sudo python3 ./ps4-ethernet --setup\n', guide)
+            self.assertIn("(BOOTING.md)", guide)
+            self.assertIn("(ETHERNET.md)", guide)
+            self.assertNotIn("../../", guide)
+            self.assertIn(f"/blob/{commit}/provenance/ethernet-activation-import.json", guide)
+
     def test_firmware_embedding_and_wrong_release_are_refused(self):
         config = (ROOT / "platforms/ps4/config/6.18-psx-baikal.config").read_text()
         package.check_config(config, RELEASE)
@@ -58,6 +76,177 @@ class ReleaseContractTests(unittest.TestCase):
         member.linkname = "/private/source"
         with self.assertRaisesRegex(ValueError, "unexpected module archive member type"):
             package.check_module_member(member, RELEASE)
+
+
+class SplitReleaseTests(unittest.TestCase):
+    def setUp(self):
+        self.sandbox = tempfile.TemporaryDirectory()
+        self.addCleanup(self.sandbox.cleanup)
+        self.root = Path(self.sandbox.name)
+        self.dist = self.root / "dist"
+        self.dist.mkdir()
+        self.commit = "c" * 40
+        self.source_name = f"source-{RELEASE}.tar.zst"
+        names = ["bzImage", "config", "System.map", "manifest.txt", "version.txt", "ps4-ethernet",
+                 "RELEASE-NOTES.md", "BUILD-SHA256SUMS", "BOOTING.md", "ETHERNET.md",
+                 "HARDWARE-TESTING.md", "ARTIFACTS.md", "ETHERNET-SETUP.md", f"modules-{RELEASE}.tar.zst",
+                 self.source_name]
+        for name in names:
+            (self.dist / name).write_bytes(("exact fixture bytes: " + name + "\n").encode())
+        (self.dist / "version.txt").write_text(RELEASE + "\n")
+        self.metadata = {
+            "schema": 1, "target": "6.18-ps4-baikal", "platform": "ps4-baikal", "kernel_release": RELEASE,
+            "kernel_sha256": package.digest(self.dist / "bzImage"),
+            "kernel_config_sha256": package.digest(self.dist / "config"), "embedded_firmware": False,
+            "modules_archive": {"path": f"modules-{RELEASE}.tar.zst", "sha256": package.digest(self.dist / f"modules-{RELEASE}.tar.zst")},
+            "module": {"name": "psx_mts_net", "path": f"lib/modules/{RELEASE}/kernel/drivers/net/ethernet/psx_mts_net.ko",
+                       "sha256": "a" * 64, "build_note_hex": "12" * 24},
+            "source_commit": self.commit,
+            "source_archive": {"path": self.source_name, "sha256": package.digest(self.dist / self.source_name)},
+        }
+        self.write_metadata(self.dist)
+        package.write_checksums(self.dist)
+        self.output = self.root / "release"
+
+    def write_metadata(self, directory, metadata=None):
+        (directory / "artifacts.json").write_text(json.dumps(metadata or self.metadata, indent=2) + "\n")
+
+    def stage(self):
+        return package.stage_ci_artifacts(self.dist, RELEASE)
+
+    def assert_refused_without_output(self, runtime, source, expected_commit=None):
+        with self.assertRaises(ValueError):
+            package.assemble_release(runtime, source, self.output, expected_commit)
+        self.assertFalse(self.output.exists())
+
+    def test_split_bundles_preserve_all_runtime_bytes_complete_source_and_independent_checksums(self):
+        original = {name: path.read_bytes() for name, path in package.verified_files(self.dist).items()}
+        runtime, source = self.stage()
+        runtime_files, source_files = package.verified_files(runtime), package.verified_files(source)
+        self.assertNotIn(self.source_name, runtime_files)
+        self.assertEqual(set(source_files), {self.source_name, "artifacts.json", "SHA256SUMS"})
+        for name, path in runtime_files.items():
+            if name != "SHA256SUMS":
+                self.assertEqual(path.read_bytes(), original[name])
+        self.assertEqual(source_files[self.source_name].read_bytes(), original[self.source_name])
+        self.assertEqual(package.digest(source_files[self.source_name]), self.metadata["source_archive"]["sha256"])
+        self.assertEqual(runtime_files["artifacts.json"].read_bytes(), source_files["artifacts.json"].read_bytes())
+        for name, data in original.items():
+            self.assertEqual((self.dist / name).read_bytes(), data)
+        for folder in (runtime, source):
+            self.assertNotIn("runtime/", (folder / "SHA256SUMS").read_text())
+            self.assertNotIn("source/", (folder / "SHA256SUMS").read_text())
+
+    def test_assembled_assets_zip_own_checksums_and_source_identity(self):
+        runtime, source = self.stage()
+        package.assemble_release(runtime, source, self.output, expected_commit=self.commit)
+        final = package.verified_files(self.output)
+        self.assertEqual(set(final), {f"kernel-{RELEASE}.zip", self.source_name, "artifacts.json", "ps4-ethernet", "RELEASE-NOTES.md", "SHA256SUMS"})
+        self.assertEqual((self.output / self.source_name).read_bytes(), (source / self.source_name).read_bytes())
+        self.assertEqual((self.output / "artifacts.json").read_bytes(), (runtime / "artifacts.json").read_bytes())
+        with zipfile.ZipFile(self.output / f"kernel-{RELEASE}.zip") as archive:
+            self.assertEqual(set(archive.namelist()), set(package.verified_files(runtime)))
+            self.assertNotIn(self.source_name, archive.namelist())
+            archive.extractall(self.root / "unpacked")
+        package.verified_files(self.root / "unpacked")
+        for name in ("bzImage", "config", f"modules-{RELEASE}.tar.zst", "ps4-ethernet"):
+            self.assertEqual((self.root / "unpacked" / name).read_bytes(), (self.dist / name).read_bytes())
+
+    def test_assembly_cli_is_stdlib_only_and_checks_expected_commit(self):
+        runtime, source = self.stage()
+        subprocess.run([sys.executable, str(ROOT / "scripts/ci/package_release.py"), "--assemble-release",
+                        "--runtime", str(runtime), "--source", str(source), "--destination", str(self.output),
+                        "--expected-commit", self.commit], cwd=self.root, check=True, capture_output=True)
+        package.verified_files(self.output)
+
+    def test_corrupt_missing_or_extra_unlisted_input_refused_without_output(self):
+        for change in ("corrupt-runtime", "missing-source", "unlisted"):
+            with self.subTest(change=change):
+                runtime, source = self.stage()
+                if change == "corrupt-runtime":
+                    (runtime / "bzImage").write_bytes(b"corrupt")
+                elif change == "missing-source":
+                    (source / self.source_name).unlink()
+                else:
+                    (runtime / "unlisted.txt").write_text("not checksummed")
+                self.assert_refused_without_output(runtime, source)
+                import shutil
+                shutil.rmtree(runtime)
+                shutil.rmtree(source)
+
+    def test_metadata_mismatched_commit_release_or_source_hash_refused(self):
+        for change in ("commit", "release", "source-hash", "kernel-hash", "modules-hash"):
+            with self.subTest(change=change):
+                runtime, source = self.stage()
+                metadata = json.loads((source / "artifacts.json").read_text())
+                if change == "commit":
+                    metadata["source_commit"] = "d" * 40
+                elif change == "release":
+                    metadata["kernel_release"] = "6.18.44-other"
+                elif change == "source-hash":
+                    metadata["source_archive"]["sha256"] = "0" * 64
+                elif change == "kernel-hash":
+                    metadata["kernel_sha256"] = "0" * 64
+                else:
+                    metadata["modules_archive"]["sha256"] = "0" * 64
+                self.write_metadata(source, metadata)
+                if change not in ("commit", "release"):
+                    self.write_metadata(runtime, metadata)
+                    package.write_checksums(runtime)
+                package.write_checksums(source)
+                self.assert_refused_without_output(runtime, source)
+                import shutil
+                shutil.rmtree(runtime)
+                shutil.rmtree(source)
+
+    def test_expected_commit_existing_output_and_unsafe_source_name_are_refused(self):
+        runtime, source = self.stage()
+        self.assert_refused_without_output(runtime, source, "d" * 40)
+        self.assert_refused_without_output(runtime, source, "short")
+        for folder in (runtime, source):
+            metadata = json.loads((folder / "artifacts.json").read_text())
+            metadata["source_archive"]["path"] = "../outside.tar.zst"
+            self.write_metadata(folder, metadata)
+            package.write_checksums(folder)
+        self.assert_refused_without_output(runtime, source)
+        for folder in (runtime, source):
+            self.write_metadata(folder)
+            package.write_checksums(folder)
+        self.output.mkdir()
+        (self.output / "keep").write_bytes(b"existing user file")
+        with self.assertRaisesRegex(ValueError, "already exists"):
+            package.assemble_release(runtime, source, self.output)
+        self.assertEqual(list(self.output.iterdir()), [self.output / "keep"])
+
+    def test_symlinks_generated_subdirectories_and_missing_source_rejected_before_staging(self):
+        for change in ("symlink", "directory", "missing-source"):
+            with self.subTest(change=change):
+                original = (self.dist / self.source_name).read_bytes()
+                if change == "symlink":
+                    (self.dist / "alias.txt").symlink_to(self.dist / "bzImage")
+                elif change == "directory":
+                    (self.dist / "foreign-output").mkdir()
+                else:
+                    (self.dist / self.source_name).unlink()
+                with self.assertRaises(ValueError):
+                    self.stage()
+                self.assertFalse((self.dist / "runtime").exists() or (self.dist / "source").exists())
+                if change == "symlink":
+                    (self.dist / "alias.txt").unlink()
+                elif change == "directory":
+                    (self.dist / "foreign-output").rmdir()
+                else:
+                    (self.dist / self.source_name).write_bytes(original)
+
+    def test_assembly_rejects_symlinked_input_checksum_escape_and_duplicate_entries(self):
+        runtime, source = self.stage()
+        original = (runtime / "SHA256SUMS").read_text()
+        for text in (original + original.splitlines()[0] + "\n", original + "0" * 64 + "  ../outside\n"):
+            (runtime / "SHA256SUMS").write_text(text)
+            self.assert_refused_without_output(runtime, source)
+        (runtime / "SHA256SUMS").write_text(original)
+        (runtime / "alias").symlink_to(runtime / "bzImage")
+        self.assert_refused_without_output(runtime, source)
 
 
 if __name__ == "__main__":
