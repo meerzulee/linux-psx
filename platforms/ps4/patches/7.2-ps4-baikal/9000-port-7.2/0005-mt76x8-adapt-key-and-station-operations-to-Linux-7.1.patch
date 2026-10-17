@@ -1,0 +1,282 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 00:00:00 +0000
+Subject: [PATCH] mt76x8: adapt key and station operations to Linux 7.1
+
+Linux 7.1 passes add_key, get_key, del_key, set_default_mgmt_key and the
+station operations a wireless_dev instead of a net_device, and
+cfg80211_new_sta() and cfg80211_del_sta() take a wireless_dev.
+
+The driver implements these operations per net_device. Route them through
+adapters that pass on the wireless_dev's net_device, and refuse one
+without a net_device, which cfg80211 never passed before Linux 7.1.
+---
+ .../drv_wlan/MT6632/wlan/os/linux/gl_init.c   | 70 +++++++++++++++++--
+ .../drv_wlan/MT6632/wlan/os/linux/gl_p2p.c    | 50 +++++++++++--
+ .../MT6632/wlan/os/linux/gl_p2p_kal.c         | 10 +++
+ .../wlan/os/linux/include/gl_cfg80211.h       | 14 ++++
+ 4 files changed, 130 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c
+index add2daed18b865ad11ab07247be4d5c483584872..86a4ece19a139470f397eef8685e497fb8567b3a 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_init.c
+@@ -352,24 +352,36 @@ const UINT_32 mtk_cipher_suites[5] = {
+ 
+ /* Adapters for cfg80211_ops signature changes in Linux 6.x */
+ static int mtk_cfg80211_add_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr, struct key_params *params)
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_cfg80211_add_key(wiphy, netdev, key_index, pairwise, mac_addr, params);
+ }
+ 
+ static int mtk_cfg80211_get_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr, void *cookie,
+ 	void (*callback)(void *cookie, struct key_params *))
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_cfg80211_get_key(wiphy, netdev, key_index, pairwise, mac_addr, cookie, callback);
+ }
+ 
+ static int mtk_cfg80211_del_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr)
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_cfg80211_del_key(wiphy, netdev, key_index, pairwise, mac_addr);
+ }
+ 
+@@ -380,6 +392,50 @@ static int mtk_cfg80211_set_default_key_adapter(struct wiphy *wiphy,
+ 	return mtk_cfg80211_set_default_key(wiphy, netdev, key_index, unicast, multicast);
+ }
+ 
++static int mtk_cfg80211_get_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, const u8 *mac, struct station_info *sinfo)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_cfg80211_get_station(wiphy, netdev, mac, sinfo);
++}
++
++#if CFG_SUPPORT_TDLS
++static int mtk_cfg80211_change_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, const u8 *mac,
++	struct station_parameters *params)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_cfg80211_change_station(wiphy, netdev, mac, params);
++}
++
++static int mtk_cfg80211_add_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, const u8 *mac,
++	struct station_parameters *params)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_cfg80211_add_station(wiphy, netdev, mac, params);
++}
++
++static int mtk_cfg80211_del_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, struct station_del_parameters *params)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_cfg80211_del_station(wiphy, netdev, params);
++}
++#endif
++
+ #if CFG_SUPPORT_TDLS
+ static int mtk_cfg80211_tdls_mgmt_adapter(struct wiphy *wiphy,
+ 	struct net_device *dev, const u8 *peer, int link_id,
+@@ -397,11 +453,11 @@ static struct cfg80211_ops mtk_wlan_ops = {
+ 	.get_key = mtk_cfg80211_get_key_adapter,
+ 	.del_key = mtk_cfg80211_del_key_adapter,
+ 	.set_default_key = mtk_cfg80211_set_default_key_adapter,
+-	.get_station = mtk_cfg80211_get_station,
++	.get_station = mtk_cfg80211_get_station_adapter,
+ #if CFG_SUPPORT_TDLS
+-	.change_station = mtk_cfg80211_change_station,
+-	.add_station = mtk_cfg80211_add_station,
+-	.del_station = mtk_cfg80211_del_station,
++	.change_station = mtk_cfg80211_change_station_adapter,
++	.add_station = mtk_cfg80211_add_station_adapter,
++	.del_station = mtk_cfg80211_del_station_adapter,
+ #endif
+ 	.scan = mtk_cfg80211_scan,
+ 	.connect = mtk_cfg80211_connect,
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p.c
+index 5ccec2438046e73c333c36d8b0d1309df5e1659a..7b6881bdd1779730ee9e62a16721ec2293cb48a0 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p.c
+@@ -163,24 +163,36 @@ static int mtk_p2p_cfg80211_stop_ap_adapter(struct wiphy *wiphy,
+ }
+ 
+ static int mtk_p2p_cfg80211_add_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr, struct key_params *params)
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_p2p_cfg80211_add_key(wiphy, netdev, key_index, pairwise, mac_addr, params);
+ }
+ 
+ static int mtk_p2p_cfg80211_get_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr, void *cookie,
+ 	void (*callback)(void *cookie, struct key_params *))
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_p2p_cfg80211_get_key(wiphy, netdev, key_index, pairwise, mac_addr, cookie, callback);
+ }
+ 
+ static int mtk_p2p_cfg80211_del_key_adapter(struct wiphy *wiphy,
+-	struct net_device *netdev, int link_id, u8 key_index,
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index,
+ 	bool pairwise, const u8 *mac_addr)
+ {
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
+ 	return mtk_p2p_cfg80211_del_key(wiphy, netdev, key_index, pairwise, mac_addr);
+ }
+ 
+@@ -192,9 +204,33 @@ static int mtk_p2p_cfg80211_set_default_key_adapter(struct wiphy *wiphy,
+ }
+ 
+ static int mtk_p2p_cfg80211_set_mgmt_key_adapter(struct wiphy *wiphy,
+-	struct net_device *dev, int link_id, u8 key_index)
++	MTK_CFG80211_OPS_DEV *dev, int link_id, u8 key_index)
+ {
+-	return mtk_p2p_cfg80211_set_mgmt_key(wiphy, dev, key_index);
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_p2p_cfg80211_set_mgmt_key(wiphy, netdev, key_index);
++}
++
++static int mtk_p2p_cfg80211_del_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, struct station_del_parameters *params)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_p2p_cfg80211_del_station(wiphy, netdev, params);
++}
++
++static int mtk_p2p_cfg80211_get_station_adapter(struct wiphy *wiphy,
++	MTK_CFG80211_OPS_DEV *dev, const u8 *mac, struct station_info *sinfo)
++{
++	struct net_device *netdev = mtk_cfg80211_ops_netdev(dev);
++
++	if (!netdev)
++		return -EOPNOTSUPP;
++	return mtk_p2p_cfg80211_get_station(wiphy, netdev, mac, sinfo);
+ }
+ 
+ static int mtk_p2p_cfg80211_set_bitrate_mask_adapter(struct wiphy *wiphy,
+@@ -233,14 +269,14 @@ static struct cfg80211_ops mtk_p2p_ops = {
+ 	.change_beacon = mtk_p2p_cfg80211_change_beacon_adapter,
+ 	.stop_ap = mtk_p2p_cfg80211_stop_ap_adapter,
+ 	.set_wiphy_params = mtk_p2p_cfg80211_set_wiphy_params_adapter,
+-	.del_station = mtk_p2p_cfg80211_del_station,
++	.del_station = mtk_p2p_cfg80211_del_station_adapter,
+ 	.set_bitrate_mask = mtk_p2p_cfg80211_set_bitrate_mask_adapter,
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0))
+ 	.update_mgmt_frame_registrations = mtk_p2p_cfg80211_mgmt_frame_register,
+ #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE)
+ 	.mgmt_frame_register = mtk_p2p_cfg80211_mgmt_frame_register,
+ #endif
+-	.get_station = mtk_p2p_cfg80211_get_station,
++	.get_station = mtk_p2p_cfg80211_get_station_adapter,
+ 	.add_key = mtk_p2p_cfg80211_add_key_adapter,
+ 	.get_key = mtk_p2p_cfg80211_get_key_adapter,
+ 	.del_key = mtk_p2p_cfg80211_del_key_adapter,
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
+index 2f84d4f3c1755dec7c4757fee01d190c91739ed9..66515847310c4cced266ffa19bf5c3d7cf181af1 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_p2p_kal.c
+@@ -1279,15 +1279,25 @@ kalP2PGOStationUpdate(IN P_GLUE_INFO_T prGlueInfo,
+ 			rStationInfo.assoc_req_ies = prCliStaRec->pucAssocReqIe;
+ 			rStationInfo.assoc_req_ies_len = prCliStaRec->u2AssocReqIeLen;
+ 
++#if KERNEL_VERSION(7, 1, 0) <= CFG80211_VERSION_CODE
++			cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
++					 prCliStaRec->aucMacAddr, &rStationInfo, GFP_KERNEL);
++#else
+ 			cfg80211_new_sta(prP2pGlueInfo->aprRoleHandler,
+ 					 /* struct net_device * dev, */
+ 					 prCliStaRec->aucMacAddr, &rStationInfo, GFP_KERNEL);
++#endif
+ 		} else {
+ 			++prP2pGlueInfo->i4Generation;
+ 
++#if KERNEL_VERSION(7, 1, 0) <= CFG80211_VERSION_CODE
++			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler->ieee80211_ptr,
++					 prCliStaRec->aucMacAddr, GFP_KERNEL);
++#else
+ 			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
+ 					 /* struct net_device * dev, */
+ 					 prCliStaRec->aucMacAddr, GFP_KERNEL);
++#endif
+ 		}
+ 
+ 	} while (FALSE);
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+index 03bf9a9c173c9b3ff4daf1a5aed06bda8f237b95..a8a5939d2e76a9702dbfc8fbad5f9e58b4fcd3a9 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+@@ -86,6 +86,20 @@
+ #define NL80211_DRIVER_TESTMODE_VERSION 2
+ #endif
+ 
++/*
++ * Linux 7.1 passes the key and station operations a wireless_dev instead
++ * of a net_device. The driver implements them per net_device, so the
++ * cfg80211_ops adapters take MTK_CFG80211_OPS_DEV and refuse a
++ * wireless_dev without one.
++ */
++#if KERNEL_VERSION(7, 1, 0) <= CFG80211_VERSION_CODE
++#define MTK_CFG80211_OPS_DEV		struct wireless_dev
++#define mtk_cfg80211_ops_netdev(_dev)	((_dev)->netdev)
++#else
++#define MTK_CFG80211_OPS_DEV		struct net_device
++#define mtk_cfg80211_ops_netdev(_dev)	(_dev)
++#endif
++
+ /*******************************************************************************
+ *                             D A T A   T Y P E S
+ ********************************************************************************

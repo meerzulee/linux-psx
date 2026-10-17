@@ -67,10 +67,13 @@ def main():
         raise ValueError("historical knowledge coverage count differs")
     rmux_count = check_rmux_import()
     port_count = check_port_target()
+    baikal_count, baikal_unchanged = check_baikal_port_target()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
     print(f"PASS: {rmux_count} rmux import checksums; series order and pins match")
     print(f"PASS: 7.2-ps4 development series: {port_count} patches; rmux sources and pins match")
+    print(f"PASS: 7.2-ps4-baikal development series: {baikal_count} patches, "
+          f"{baikal_unchanged} unchanged 6.18 files; sources and pins match")
 
 
 def check_rmux_import():
@@ -101,23 +104,38 @@ def check_rmux_import():
     return count
 
 
-def check_port_target():
-    """Verify the 7.2-ps4 development target against its structured provenance."""
-    target = json.loads((ROOT / "provenance/7.2-ps4.json").read_text())
-    items = target["patches"] + target["direct_references"]
+def check_dev_series(name):
+    """Verify a development target's patches, series order, inputs and definition."""
+    target = json.loads((ROOT / f"provenance/{name}.json").read_text())
+    items = target["patches"] + target.get("direct_references", [])
     for item in target["inputs"] + items:
         checked_file(item["path"], item["sha256"])
     series = ROOT / target["series_path"]
     entries = [line.strip() for line in series.read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
     if (sha(series) != target["series_sha256"] or entries != [item["entry"] for item in items]
             or len(entries) != target["active_patch_count"]):
-        raise ValueError("7.2-ps4 series/order mismatch")
+        raise ValueError(f"{name} series/order mismatch")
     for entry, item in zip(entries, items):
         if (series.parent / entry).resolve() != ROOT / item["path"]:
-            raise ValueError("7.2-ps4 patch resolution mismatch")
+            raise ValueError(f"{name} patch resolution mismatch")
     ordered = "".join(f"{item['sha256']}  {item['entry']}\n" for item in items)
     if hashlib.sha256(ordered.encode()).hexdigest() != target["ordered_patchset_sha256"]:
-        raise ValueError("7.2-ps4 ordered patch-set mismatch")
+        raise ValueError(f"{name} ordered patch-set mismatch")
+    env = read_env(target["target"])
+    expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
+                "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
+                "BASE_REF": target["upstream"]["ref"], "BASE_COMMIT": target["upstream"]["commit"],
+                "SERIES_FILE": target["series_path"], "SOURCE_DATE_EPOCH": str(target["source_date_epoch"])}
+    if any(env.get(key) != value for key, value in expected.items()):
+        raise ValueError(f"{name} target definition differs from structured provenance")
+    if 'CONFIG_EXTRA_FIRMWARE=""' not in (ROOT / env["CONFIG_FILE"]).read_text().splitlines():
+        raise ValueError(f"{name} config must not embed device firmware")
+    return target, entries
+
+
+def check_port_target():
+    """Verify the 7.2-ps4 development target against its structured provenance."""
+    target, entries = check_dev_series("7.2-ps4")
     imports = json.loads((ROOT / target["rmux_import"]["manifest"]).read_text())["imports"]
     source = next(imp for imp in imports if imp["name"] == target["rmux_import"]["import"])
     by_entry = {p["entry"]: p for p in source["patches"]}
@@ -130,17 +148,31 @@ def check_port_target():
                 raise ValueError(f"7.2-ps4 adaptation lacks a recorded resolution: {p['entry']}")
         elif p["origin"] != "port-fix":
             raise ValueError(f"7.2-ps4 patch has an unknown origin: {p['entry']}")
-    env = read_env(target["target"])
-    expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
-                "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
-                "BASE_REF": target["upstream"]["ref"], "BASE_COMMIT": target["upstream"]["commit"],
-                "SERIES_FILE": target["series_path"], "SOURCE_DATE_EPOCH": str(target["source_date_epoch"])}
-    if any(env.get(key) != value for key, value in expected.items()):
-        raise ValueError("7.2-ps4 target definition differs from structured provenance")
-    if 'CONFIG_EXTRA_FIRMWARE=""' not in (ROOT / env["CONFIG_FILE"]).read_text().splitlines():
-        raise ValueError("7.2-ps4 config must not embed device firmware")
     return len(entries)
 
+
+def check_baikal_port_target():
+    """Verify the 7.2-ps4-baikal target against the 6.18-ps4-baikal series it ports."""
+    target, entries = check_dev_series("7.2-ps4-baikal")
+    pin = target["source_target"]
+    source = json.loads((ROOT / pin["provenance"]).read_text())
+    if (source["target"] != pin["target"] or source["series_sha256"] != pin["series_sha256"]
+            or source["ordered_patchset_sha256"] != pin["ordered_patchset_sha256"]):
+        raise ValueError("7.2-ps4-baikal source target pin differs")
+    count = len(source["patches"])
+    ported, fixes = target["patches"][:count], target["patches"][count:]
+    for p, src in zip(ported, source["patches"]):
+        if (p["origin"] != source["target"] or p["source_path"] != src["path"]
+                or p["source_sha256"] != src["sha256"]):
+            raise ValueError(f"7.2-ps4-baikal patch does not match its 6.18 source: {p['entry']}")
+        if p["change"] == "unchanged":
+            if p["path"] != src["path"] or p["sha256"] != src["sha256"]:
+                raise ValueError(f"7.2-ps4-baikal unchanged patch is not the 6.18 file: {p['entry']}")
+        elif p["change"] not in ("context", "adapted") or (p["change"] == "adapted" and not p.get("note")):
+            raise ValueError(f"7.2-ps4-baikal regeneration lacks a recorded resolution: {p['entry']}")
+    if len(ported) != count or any(p["origin"] != "port-fix" or not p.get("note") for p in fixes):
+        raise ValueError("7.2-ps4-baikal must port the whole 6.18 series, then recorded port fixes")
+    return len(entries), sum(p["change"] == "unchanged" for p in ported)
 
 if __name__ == "__main__":
     main()
