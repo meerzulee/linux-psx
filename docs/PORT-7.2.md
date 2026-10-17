@@ -68,7 +68,7 @@ remaining warnings are in the mt76x8 vendor driver: `-Wstringop-overread`,
 `-Waddress`, `-Wmisleading-indentation`, `-Wempty-body`, and `-Wpragmas` for
 the Clang-only `-Wcast-function-type-strict` in `__diag_ignore_all()`. The
 build ran incrementally over three passes (the first with `make -k`); the
-curated branch gets a clean build.
+curated branch gets a clean build (see Official builds).
 
 The image has not been booted. Compilation is not hardware acceptance.
 
@@ -142,6 +142,20 @@ two fragments and these changes:
 - Every other difference is a Linux 7.2 Kconfig change: removed or renamed
   crypto, MDIO and helper symbols, and `NTFS3_FS` becoming a module next to
   the new `NTFS_FS`.
+
+### Official builds
+
+On 2026-10-17 `build.sh -t 7.2-ps4` passed from a fresh v7.2.11 clone on both
+supported paths. Every series entry applied with `git apply`, and both runs
+recorded the same series and patch-set hashes:
+
+| Host | Compiler | Result |
+| --- | --- | --- |
+| Arch Linux x86-64, native | GCC 16.2.1 | `PASS: 7.2.11-psx-ps4-dev1`, 11 warnings |
+| macOS ARM64, `scripts/build-kernel-orbstack` | Debian trixie `x86_64-linux-gnu-gcc` 14.2.0 | `PASS: 7.2.11-psx-ps4-dev1`, 14 warnings |
+
+All warnings are in the mt76x8 vendor driver. The build artifacts stay local
+and have not been booted.
 
 ## Baikal reference audit
 
