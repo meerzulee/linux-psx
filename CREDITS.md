@@ -47,6 +47,21 @@ other contributors. Its loader is a separate
 These are research references in this phase; their code has not been imported
 into the PS4 patch snapshot.
 
+## MTS2 Ethernet migration
+
+The original `GPL-2.0-only` Baikal MTS2 implementation by Meerzulee and Linux
+psX contributors is imported unchanged from
+[linux-ps4 at `386df1ad`](https://github.com/meerzulee/linux-ps4/tree/386df1ad97d92defee1794bf961a0e2f5dc85a1b).
+Its portable core header, patch authorship and in-file notices remain intact.
+The patch records its MTS1 source ancestry. Hardware analysis and the Linux
+MediaTek STAR driver informed the implementation; no Sony firmware or
+proprietary driver code is included. See the
+[active migration record](provenance/6.18-ps4-baikal.json) for exact hashes.
+
+Build/packaging tools are adapted from that same published source. The earlier
+54-patch source lineage above still applies; the Ethernet addition does not
+replace or consolidate other contributors' authorship.
+
 ## Licensing
 
 The GPLv2 license text is copied from the source repository into [LICENSE](LICENSE).

@@ -1,4 +1,22 @@
-# PS4 patch import
+# PS4 patch imports and active target
+
+## Active Linux psX target
+
+`targets/6.18-ps4-baikal.env` is the buildable root target. It uses the same
+pinned upstream and 54 baseline patches described below, then the unchanged
+MTS2 Ethernet patch imported from the published PS4 source at:
+
+https://github.com/meerzulee/linux-ps4/tree/386df1ad97d92defee1794bf961a0e2f5dc85a1b
+
+Its separate config has no embedded firmware; only the local-version string
+changed from the source project's firmware-free public config. Build identity
+and paths are adapted for psX. The original imported snapshot stays frozen.
+`provenance/6.18-ps4-baikal.json` records the 55 active patch hashes, ordering,
+source paths and adaptations. Run `make check` to verify both imports.
+
+See [BUILDING.md](BUILDING.md) and [the PS4 status](../platforms/ps4/STATUS.md).
+
+## Original frozen import
 
 Imported on 2026-10-16 from:
 
@@ -39,9 +57,9 @@ patches and candidates are inactive. Do not concatenate this series with the
 PS5 patch: the researched PS5 snapshot targets Linux 7.2.3 and has independent
 boot and configuration requirements.
 
-Target paths are relative to `platforms/ps4/`. The imported target files are
-source metadata; the kernel builder and its host wrappers have not been moved.
-Current build instructions remain in the pinned original repository:
+Historical target paths are relative to `platforms/ps4/`. These imported target
+files remain source metadata; the new root target is the active build interface.
+For the original snapshot's historical instructions:
 
 https://github.com/meerzulee/linux-ps4/blob/f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75/README.md
 

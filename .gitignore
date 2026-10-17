@@ -1,0 +1,6 @@
+/src/
+/output/
+/dist/
+__pycache__/
+*.pyc
+.DS_Store

@@ -2,12 +2,22 @@
 
 ## Current scope
 
-- This repository currently contains PS4 kernel patches and source research.
-  Build tooling and PS5 integration have not been migrated.
+- This repository owns console kernel patches, configs, build/CI tooling,
+  artifact identities, provenance and hardware evidence. The active target is
+  `6.18-ps4-baikal`; PS5 integration remains planned.
+- Keep runtime/build inputs distribution-independent. Omarchy setup, boot
+  profiles and its optional NetworkManager adapter belong to `omarchy-psx`.
+  Never introduce a desktop, package manager, init-system or network-manager
+  requirement into the kernel or artifact contract.
 - Read `docs/PS4-PATCHES.md`, `CREDITS.md`, `provenance/ps4-import.json` and
   `docs/UNIVERSAL-KERNEL.md` before changing a patch or making support claims.
-- `platforms/ps4/` preserves the original source layout. Paths in its inherited
-  target files resolve relative to that directory, not the repository root.
+- Read `docs/BUILDING.md`, `docs/ARTIFACTS.md`, `docs/ETHERNET.md` and
+  `provenance/6.18-ps4-baikal.json` for the active target.
+- Root `targets/*.env` paths resolve from the repository root. Inherited
+  `platforms/ps4/targets/` paths still resolve from `platforms/ps4/`; these are
+  frozen historical metadata, not active targets. Preserve the original import.
+- The active target must not embed or bundle device firmware. Do not select
+  the historical firmware-embedding config or silently enable UFW/ultrawide.
 - Use the explicit ordered `series` files. Disabled patches and `.candidate`
   files are retained for reference and must stay inactive without new evidence.
 - Preserve patch bytes, author headers, copyrights and licenses during imports.
@@ -18,22 +28,29 @@
 
 ## Verification and hardware
 
-- Check `provenance/ps4-SHA256SUMS` and series integrity after import changes.
-  Update provenance deliberately whenever imported bytes change.
+- Run `make check` for frozen import checksums, active series/target integrity
+  and host contracts. Record adaptations separately whenever inputs change.
+- `src/`, `output/` and `dist/` are generated. Keep edits in versioned patches
+  and source tools, never in the disposable upstream build tree. Package the
+  complete corresponding Linux source, resolved config, notices and committed
+  build inputs with public binary artifacts.
 - Source inspection, patch application and successful builds do not establish
   hardware support. Existing PS4 evidence has its recorded hardware scope;
   experimental ultrawide and PS5 are not accepted by this import.
 - Console operation, payload delivery, storage writes, public releases and
   history rewrites require explicit task authority. Keep raw private logs,
   credentials, firmware binaries and generated kernel artifacts out of Git.
-- For consequential PS4 hardware work, follow the workspace UART procedure in
-  `../omarchy-ps4/docs/DEVELOPMENT-MODE.md` and record evidence in its experiment
-  ledger. Obtain that procedure before hardware work from a standalone clone.
+- For consequential hardware work, follow `docs/HARDWARE-TESTING.md`: continuous
+  UART, one bounded coherent session, one diagnostic variable, explicit rollback
+  and completed continuity for acceptance. Do not require an Omarchy checkout.
+- MTS2 has one retained DMA/code generation per boot. Do not unload, reset,
+  unbind or rearm a published driver. No safe DMA drain or suspend is claimed.
+  Prior EXP016 is DEGRADED; the new psX build has no hardware acceptance.
 
 ## Hosts and publication
 
-- Native x86-64 Linux is suitable for source and patch checks. Preserve the
-  Apple Silicon build path when build tooling is migrated.
+- Use native tools on Linux x86-64. On macOS ARM64 use the OrbStack helper;
+  never run the kernel build directly on Darwin. Preserve both build paths.
 - Use OrbStack exclusively for local containers and Linux VMs. Verify it is
   running and the Docker context is `orbstack` before Docker work.
 - Preserve existing local work and inspect live remote refs before handoff.
