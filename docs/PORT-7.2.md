@@ -127,7 +127,15 @@ and classifies the difference:
 
 `make check` verifies the series order, every hash, each rmux mapping, the
 target definition and the firmware-free config. The port branch itself is not
-published.
+published. With it, the series regenerates byte-for-byte:
+
+```sh
+scripts/export-port72 --port-repo /path/to/port-repo          # rewrite series and provenance
+scripts/export-port72 --port-repo /path/to/port-repo --check  # verify committed patches
+```
+
+The exporter refuses a commit that is neither a known rmux import entry nor
+a recorded port fix, and a changed rmux patch without a recorded resolution.
 
 The config is the 6.18 config moved to 7.2 with `make olddefconfig` after the
 two fragments and these changes:

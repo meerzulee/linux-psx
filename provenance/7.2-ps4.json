@@ -15,7 +15,7 @@
     "branch": "port/7.2.11-psx",
     "tip": "e08510a06c71c23ee26af498f9146a494f2649fc",
     "published": false,
-    "method": "git am -3 of the rmux-7.1.7 import onto v7.2.11, the listed drops, four compile fixes, then MTS2 from the 6.18 target",
+    "method": "git am -3 of the rmux-7.1.7 import onto v7.2.11, the listed drops and the port fixes, then MTS2 from the 6.18 target; exported with scripts/export-port72",
     "git_config": [
       "diff.algorithm=myers",
       "diff.mnemonicprefix=false",
