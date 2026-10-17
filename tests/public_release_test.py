@@ -16,6 +16,35 @@ RELEASE = "6.18.44-psx-ps4-baikal2"
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_native_series_uses_recorded_shared_patch_paths_and_refuses_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            (repo / "native").mkdir()
+            (repo / "shared").mkdir()
+            (repo / "native/series").write_text("driver.patch\n")
+            patch = repo / "shared/driver.patch"
+            patch.write_text("diff --git a/driver.c b/driver.c\n--- a/driver.c\n+++ b/driver.c\n@@ -1 +1 @@\n-old\n+new\n")
+            target = {"series_path": "native/series", "patches": [
+                {"entry": "driver.patch", "path": "shared/driver.patch", "sha256": package.digest(patch)}]}
+            self.assertEqual(package.patched_source_paths(repo, target), {"driver.c"})
+            patch.write_text(patch.read_text().replace("+new", "+tampered"))
+            with self.assertRaisesRegex(ValueError, "patch identity"):
+                package.patched_source_paths(repo, target)
+
+    def test_release_notes_keep_hardware_evidence_specific_to_target_and_build(self):
+        for target, release, included, excluded in [
+            ("6.18-ps4-baikal", RELEASE, "two Ethernet boots", "passed one cable-connected"),
+            ("7.2-ps4-baikal-native-dev", "7.2.11-psx-ps4-baikal-native-dev1", "EXP-20261018-004", "two Ethernet boots"),
+        ]:
+            text = package.release_notes({"target": target, "kernel_release": release}, "c" * 40, "https://example.com/run")
+            self.assertIn(release, text)
+            self.assertIn(included, text)
+            self.assertNotIn(excluded, text)
+            self.assertIn("has not been boot-tested", text)
+            self.assertIn("source-" + release + ".tar.zst", text)
+        with self.assertRaisesRegex(ValueError, "explicitly supported"):
+            package.release_notes({"target": "7.2-ps5", "kernel_release": "other"}, "c" * 40, "local")
+
     def test_firmware_embedding_and_wrong_release_are_refused(self):
         config = (ROOT / "platforms/ps4/config/6.18-psx-baikal.config").read_text()
         package.check_config(config, RELEASE)

@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Verify the native 7.2 Baikal candidate against its tested source identity."""
+import hashlib
+import json
+from pathlib import Path
+import shlex
+
+ROOT = Path(__file__).resolve().parents[1]
+TARGET = "7.2-ps4-baikal-native-dev"
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev1"
+SERIES = "f94de556e26eee2db36c07480cb4ba301f3b032d500adb13cf6a4675426ff4be"
+PATCHSET = "ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91"
+NATIVE = "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def read_env(root, name):
+    values = {}
+    for line in (root / f"targets/{name}.env").read_text().splitlines():
+        if line and line[0].isupper() and "=" in line:
+            key, value = line.split("=", 1)
+            values[key] = shlex.split(value)[0]
+    return values
+
+
+def check_target(root=ROOT):
+    root = root.resolve()
+    record = json.loads((root / f"provenance/{TARGET}.json").read_text())
+    base = json.loads((root / "provenance/7.2-ps4-baikal.json").read_text())
+    env, base_env = read_env(root, TARGET), read_env(root, "7.2-ps4-baikal")
+    expected = dict(base_env, TARGET_NAME=TARGET, KERNEL_RELEASE=RELEASE,
+                    CONFIG_FILE="platforms/ps4/config/7.2-psx-baikal-native-dev.config",
+                    SERIES_FILE=f"platforms/ps4/patches/{TARGET}/series")
+    require(env == expected, "native 7.2 target must preserve every base build assignment except identity/config/series")
+    require(env["BASE_REPO"] == "https://github.com/gregkh/linux.git" and env["BASE_REF"] == "v7.2.11"
+            and env["BASE_COMMIT"] == "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea"
+            and env["SOURCE_DATE_EPOCH"] == "1792195200", "native 7.2 tested upstream identity differs")
+    require(record["target"] == TARGET and record["kernel_release"] == RELEASE
+            and record["upstream"] == base["upstream"] and record["platform"] == base["platform"]
+            and record["source_date_epoch"] == base["source_date_epoch"], "native 7.2 provenance identity differs")
+    require(record["series_path"] == env["SERIES_FILE"] and record["patches_dir"] == env["PATCHES_DIR"],
+            "native 7.2 patch root differs from the builder")
+    pin = record["base_target"]
+    require(pin == {"target": base["target"], "provenance": "provenance/7.2-ps4-baikal.json",
+                    "kernel_release": base["kernel_release"], "series_path": base["series_path"],
+                    "series_sha256": base["series_sha256"], "active_patch_count": 61,
+                    "ordered_patchset_sha256": base["ordered_patchset_sha256"]}, "native 7.2 base target pin differs")
+    patches = record["patches"]
+    require(len(patches) == record["active_patch_count"] == 62 and len(base["patches"]) == 61,
+            "native 7.2 requires exactly 61 base patches and one native patch")
+    require(all({k: item[k] for k in ("entry", "path", "sha256")} == prefix
+                for item, prefix in zip(base["patches"], patches[:61])), "native 7.2 canonical prefix differs")
+    require(digest(root / base["series_path"]) == base["series_sha256"], "native 7.2 base series differs")
+    for item in record["inputs"] + patches:
+        path = (root / item["path"]).resolve()
+        require(path.is_relative_to(root) and path.is_file() and digest(path) == item["sha256"],
+                "native 7.2 input checksum differs: " + item["path"])
+    series = root / record["series_path"]
+    entries = [line.strip() for line in series.read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    require(digest(series) == record["series_sha256"] == SERIES and entries == [p["entry"] for p in patches],
+            "native 7.2 tested series/order differs")
+    require(all((root / env["PATCHES_DIR"] / p["entry"]).resolve() == root / p["path"] for p in patches),
+            "native 7.2 patch path differs from the builder")
+    ordered = "".join(f"{p['sha256']}  {p['entry']}\n" for p in patches)
+    require(hashlib.sha256(ordered.encode()).hexdigest() == record["ordered_patchset_sha256"] == PATCHSET,
+            "native 7.2 tested patchset differs")
+    native = record["native_autoload"]
+    source = json.loads((root / "provenance/6.18-ps4-baikal.json").read_text())
+    require(patches[-1]["path"] == native["path"] == "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch"
+            and patches[-1]["sha256"] == native["sha256"] == NATIVE
+            and any(p["path"] == native["path"] and p["sha256"] == NATIVE for p in source["patches"]),
+            "native 7.2 autoload patch must remain the unchanged 6.18 addition")
+    original = (root / base_env["CONFIG_FILE"]).read_bytes()
+    expected_config = original.replace(b'CONFIG_LOCALVERSION="-psx-ps4-baikal-dev1"',
+                                       b'CONFIG_LOCALVERSION="-psx-ps4-baikal-native-dev1"')
+    require(original != expected_config and (root / env["CONFIG_FILE"]).read_bytes() == expected_config,
+            "native 7.2 config changes beyond LOCALVERSION")
+    require(record["firmware"] == {"embedded": False, "bundled": False}
+            and b'CONFIG_EXTRA_FIRMWARE=""\n' in expected_config, "native 7.2 must remain firmware-free")
+    require(record["hardware_evidence"]["experiment"] == "EXP-20261018-004"
+            and record["hardware_evidence"]["uart_continuity"] == "completed",
+            "native 7.2 evidence must retain the completed experiment scope")
+    return len(patches)
+
+
+if __name__ == "__main__":
+    print(f"PASS: native 7.2 Baikal: {check_target()} exact patches; base config, build assignments and evidence pins match")

@@ -3,7 +3,7 @@
   "created_on": "2026-10-17",
   "target": "7.2-ps4-baikal",
   "platform": "ps4-baikal",
-  "status": "development target; compile-tested only, no hardware acceptance",
+  "status": "development target; one core boot passed, no hardware acceptance or promotion",
   "kernel_release": "7.2.11-psx-ps4-baikal-dev1",
   "source_date_epoch": 1792195200,
   "upstream": {
@@ -763,7 +763,39 @@
     "bundled": false
   },
   "hardware_evidence": {
-    "this_target": "none; the kernel has not been booted",
-    "source_target": "see provenance/6.18-ps4-baikal.json"
+    "this_target": "EXP-20261018-001 completed on 2026-10-18: one core boot passed on PS4 Slim / Baikal B1 / Orbis 12.02 with 7.2.11-psx-ps4-baikal-dev1, the retained initramfs/loader/bootargs and partitioned USB root. Display, AMD hardware graphics and Wi-Fi passed; all 41 installed module hashes matched. Runtime snapshot at 191 seconds; reviewed UART through 222 seconds had no panic/oops, xHCI death or root I/O fault. No acceptance, promotion or long-term stability claim. Native Ethernet, cold firmware loading, Bluetooth pairing and audible output remain untested; see docs/PORT-7.2.md.",
+    "source_target": "see provenance/6.18-ps4-baikal.json",
+    "first_boot": {
+      "experiment": "EXP-20261018-001",
+      "date": "2026-10-18",
+      "verdict": "PASS for one core boot; no hardware acceptance or promotion",
+      "uart_continuity": "completed",
+      "console": "PS4 Slim / Baikal B1 / Orbis 12.02",
+      "build": "OrbStack Debian GCC 14.2",
+      "kernel_sha256": "c9c0e1aacd30679f7e496c31a2170bbd4e3591b297ade8804068832af881b194",
+      "modules_archive_sha256": "e384a5efd1e6bd3644a98dc36208e0874fe0c587ff7d02787773021ea649b20a",
+      "resolved_config_sha256": "a245fb892a691c0fd607cc6defb2a7d3108e105a2990d587a5f1f5af81eb0eea",
+      "retained_initramfs_sha256": "089d62daaef9b4ab7a61486d193533deef5f79c7782ecd8ddc10030477b0f460",
+      "installed_modules_verified": 41,
+      "runtime_snapshot_seconds": 191,
+      "uart_review_through_seconds": 222,
+      "observations": [
+        "USB root mounted read/write at 11.624 seconds; graphical.target at 18.246 seconds",
+        "Hyprland 1920x1080 at 60 Hz; AMD hardware OpenGL 4.6 / Mesa 26.1.7; Vulkan device API 1.3.354",
+        "Wi-Fi DHCP and default route, gateway ping 3/3, HTTPS 200 with verified TLS",
+        "zero failed system and user units",
+        "hci0 enumerated with firmware already present; bluetooth.service disabled/inactive during this session",
+        "no panic/oops, xHCI death or root I/O fault through the reviewed UART interval; notable warnings also present in the 6.18 baseline"
+      ],
+      "untested": [
+        "native Ethernet; the later 6.18 native autoload patch is not ported",
+        "cold firmware loading",
+        "Bluetooth pairing",
+        "audible output",
+        "repeated boots and long-term stability"
+      ],
+      "curated_record": "Omarchy psX platforms/ps4/experiments/SESSIONS.md, EXP-20261018-001",
+      "raw_evidence": "retained privately"
+    }
   }
 }

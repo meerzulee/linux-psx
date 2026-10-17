@@ -76,9 +76,9 @@ where required.
 Linux and packages these outputs with generic `artifacts.json` and complete
 corresponding GPL source as **two separate downloads**:
 
-- **`linux-psx-ps4-baikal-<commit>`**: the small kernel, matching modules, build
+- **`linux-psx-<target>-<commit>`**: the small kernel, matching modules, build
   data and instructions. Choose this to test Linux.
-- **`linux-psx-ps4-source-<commit>`**: complete corresponding source and matching
+- **`linux-psx-<target>-source-<commit>`**: complete corresponding source and matching
   build data for rebuilding or inspection.
 
 Each download has its own checksums. CI artifacts expire after 30 days.
@@ -123,7 +123,7 @@ qualify hardware. PS5 integration and future-console support remain planned.
 | [Credits and sources](CREDITS.md) | Original contributors, exact source trees and recovered upstream links. |
 | [Universal-kernel research](docs/UNIVERSAL-KERNEL.md) | Shared-source feasibility and the work needed for one PS4/PS5 binary. |
 | [rmux 7.x imports](docs/RMUX-IMPORT.md) | Per-commit Strawberry kernel sources for the Linux 7.2 port. |
-| [Linux 7.2 port](docs/PORT-7.2.md) | Compile-tested development targets: `7.2-ps4-baikal`, the 6.18 Baikal stack on Linux 7.2, and `7.2-ps4`, based on rmux's Strawberry kernel for all PS4 southbridges. |
+| [Linux 7.2 port](docs/PORT-7.2.md) | Development targets: the Baikal port, its separate `7.2-ps4-baikal-native-dev` native-Ethernet candidate, and rmux's all-southbridge stack. Local Baikal boots are scoped observations; CI binaries have no hardware acceptance. |
 | [Import manifest](provenance/ps4-import.json) | Per-file hashes, immutable source paths and ordered series. |
 | [Active target provenance](provenance/6.18-ps4-baikal.json) | MTS2 import, native autoload, config adaptations and the active 56-patch stack. |
 

@@ -55,6 +55,70 @@ def source_files(source, patched_paths=()):
     return result
 
 
+def patched_source_paths(repo, target):
+    """Use recorded paths: a target's series may share another patch directory."""
+    items = target["patches"] + target.get("direct_references", [])
+    entries = [line.split("#", 1)[0].strip()
+               for line in (repo / target["series_path"]).read_text().splitlines()]
+    if [entry for entry in entries if entry] != [item["entry"] for item in items]:
+        raise ValueError("packaged patch order differs from provenance")
+    patched = set()
+    for item in items:
+        path = (repo / item["path"]).resolve()
+        if not path.is_relative_to(repo.resolve()) or not path.is_file() or digest(path) != item["sha256"]:
+            raise ValueError("packaged patch identity differs from provenance")
+        raw = subprocess.check_output(["git", "apply", "--numstat", "-z", str(path)])
+        for entry in raw.split(b"\0"):
+            if entry:
+                patched.add(os.fsdecode(entry.split(b"\t", 2)[2]))
+    return patched
+
+
+def release_notes(target, commit, run_url):
+    release = target["kernel_release"]
+    if target["target"] == "6.18-ps4-baikal":
+        evidence = (
+            "Pinned Linux 6.18.44 with 54 PS4 platform patches, the MTS2 Ethernet patch and its "
+            "native autoload. This CI build has not been boot-tested. The same patch set, built "
+            "locally as 6.18.44-psx-ps4-baikal-native-dev1, passed two Ethernet boots on one Baikal "
+            "PS4; that does not qualify this build, other PS4 revisions or PS5."
+        )
+    elif target["target"] == "7.2-ps4-baikal-native-dev":
+        evidence = (
+            "Pinned Linux 7.2.11 with the 61-patch Baikal port and the unchanged native MTS "
+            "autoload patch (62 patches). The local OrbStack build passed one cable-connected "
+            "boot on one PS4 Slim / Baikal B1: USB root, desktop, native Ethernet DHCP/default "
+            "route, gateway ping, HTTPS and hash-checked 4 MiB transfers both ways "
+            "(EXP-20261018-004). This separately compiled CI build has not been boot-tested. "
+            "RX drops in the local test remain unclassified; long-duration operation, cable/admin "
+            "cycles and cold firmware loading are untested. No hardware acceptance or promotion "
+            "is claimed for this development target, other PS4 revisions or PS5."
+        )
+    else:
+        raise ValueError("release notes require an explicitly supported PS4 Baikal target")
+    return (
+        f"# Experimental PS4 Baikal — {release}\n\n{evidence}\n\n"
+        f"For testing, download and extract kernel-{release}.zip. The separate "
+        f"source-{release}.tar.zst archive contains complete corresponding source. "
+        "CI likewise offers separate kernel and source downloads; each has its "
+        "own complete SHA256SUMS.\n\n"
+        "Use bzImage with the entire matching modules archive, a compatible PS4 loader, "
+        "initramfs and root filesystem. Read BOOTING.md, ETHERNET.md and HARDWARE-TESTING.md. "
+        "Ethernet needs no setup tool: udev loads psx_mts_net and an ordinary network manager "
+        "opens the wired interface. No root filesystem, launcher PKG, "
+        "boot-profile defaults or firmware is included. Supply legally obtained device firmware separately; "
+        "early display/Wi-Fi firmware may be needed in initramfs.\n\n"
+        "MTS Ethernet publishes one DMA generation on its first open and retains DMA and code "
+        "until power-off. Boot with psx_mts_net.autoarm=0 to keep the explicit gate, or "
+        "modprobe.blacklist=psx_mts_net to skip the driver. Do not unload, reset or rearm it. "
+        "Driver qualification remains incomplete.\n\n"
+        f"Corresponding source: source-{release}.tar.zst, including original Linux licenses, "
+        "resolved config, patch authorship, provenance and project build inputs. Verify "
+        "SHA256SUMS with sha256sum -c SHA256SUMS on Linux or shasum -a 256 -c SHA256SUMS on macOS.\n\n"
+        f"Source commit: {commit}\n\nCI build: {run_url}\n"
+    )
+
+
 def check_module_member(member, release):
     path = Path(member.name)
     prefix = f"lib/modules/{release}"
@@ -245,6 +309,8 @@ def main():
         parser.error("assembly paths/commit require --assemble-release")
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", args.target):
         parser.error("invalid target name")
+    if args.target not in ("6.18-ps4-baikal", "7.2-ps4-baikal-native-dev"):
+        parser.error("unsupported PS4 Baikal release target")
     repo = Path(__file__).resolve().parents[2]
     target = json.loads((repo / f"provenance/{args.target}.json").read_text())
     release = target["kernel_release"]
@@ -259,16 +325,7 @@ def main():
     if (source / ".config").read_bytes() != (output / "config").read_bytes():
         raise ValueError("source and built configurations differ")
     subprocess.run(["sha256sum", "-c", "SHA256SUMS"], cwd=output, check=True)
-    patched = set()
-    series = repo / target["series_path"]
-    for line in series.read_text().splitlines():
-        name = line.split("#", 1)[0].strip()
-        if not name:
-            continue
-        raw = subprocess.check_output(["git", "apply", "--numstat", "-z", str((series.parent / name).resolve())])
-        for entry in raw.split(b"\0"):
-            if entry:
-                patched.add(os.fsdecode(entry.split(b"\t", 2)[2]))
+    patched = patched_source_paths(repo, target)
     names = source_files(source, patched)
     destination = repo / "dist"
     destination.mkdir(exist_ok=False)
@@ -342,31 +399,7 @@ def main():
         guide = guide.replace("../platforms/ps4/STATUS.md", f"https://github.com/meerzulee/linux-psx/blob/{commit}/platforms/ps4/STATUS.md")
         guide = guide.replace("../provenance/", f"https://github.com/meerzulee/linux-psx/blob/{commit}/provenance/")
         (destination / f"{name}.md").write_text(guide)
-    (destination / "RELEASE-NOTES.md").write_text(
-        f"# Experimental PS4 Baikal — {release}\n\n"
-        "Pinned Linux 6.18.44 with 54 PS4 platform patches, the MTS2 Ethernet patch and its "
-        "native autoload. This CI build has not been boot-tested. The same patch set, built "
-        "locally as 6.18.44-psx-ps4-baikal-native-dev1, passed two Ethernet boots on one Baikal "
-        "PS4; that does not qualify this build, other PS4 revisions or PS5.\n\n"
-        f"For testing, download and extract kernel-{release}.zip. The separate "
-        f"source-{release}.tar.zst archive contains complete corresponding source. "
-        "CI likewise offers separate kernel and source downloads; each has its "
-        "own complete SHA256SUMS.\n\n"
-        "Use bzImage with the entire matching modules archive, a compatible PS4 loader, "
-        "initramfs and root filesystem. Read BOOTING.md, ETHERNET.md and HARDWARE-TESTING.md. "
-        "Ethernet needs no setup tool: udev loads psx_mts_net and NetworkManager connects "
-        "with its default wired profile. No root filesystem, launcher PKG, "
-        "boot-profile defaults or firmware is included. Supply legally obtained device firmware separately; "
-        "early display/Wi-Fi firmware may be needed in initramfs.\n\n"
-        "MTS Ethernet publishes one DMA generation on its first open and retains DMA and code "
-        "until power-off. Boot with psx_mts_net.autoarm=0 to keep the explicit gate, or "
-        "modprobe.blacklist=psx_mts_net to skip the driver. Do not unload, reset or rearm it. "
-        "Driver qualification remains incomplete.\n\n"
-        f"Corresponding source: source-{release}.tar.zst, including original Linux licenses, "
-        "resolved config, patch authorship, provenance and project build inputs. Verify "
-        "SHA256SUMS with sha256sum -c SHA256SUMS on Linux or shasum -a 256 -c SHA256SUMS on macOS.\n\n"
-        f"Source commit: {commit}\n\nCI build: {run_url}\n"
-    )
+    (destination / "RELEASE-NOTES.md").write_text(release_notes(target, commit, run_url))
     write_checksums(destination)
     stage_ci_artifacts(destination, release)
     print(f"PASS: packaged {release} as separate runtime and complete-source downloads")

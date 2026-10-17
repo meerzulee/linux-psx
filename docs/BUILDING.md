@@ -7,12 +7,20 @@ The active root target is `6.18-ps4-baikal`, release
 in order. The builder never downloads a distribution or device firmware.
 PS5 and the historical ultrawide snapshot are not active build targets.
 
-Two development targets build Linux v7.2.11. Both compile; neither has
-booted on a console. See [PORT-7.2.md](PORT-7.2.md).
+Three PS4 development targets build Linux v7.2.11. Local Baikal candidates
+have scoped boot evidence; rebuilt binaries have no hardware acceptance.
+See [PORT-7.2.md](PORT-7.2.md).
 
 - `7.2-ps4-baikal`: the `6.18-ps4-baikal` series ported to 7.2, release
   `7.2.11-psx-ps4-baikal-dev1`. Build it with `make TARGET=7.2-ps4-baikal` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal`.
+- `7.2-ps4-baikal-native-dev`: that exact 61-patch port plus the unchanged
+  6.18 native Ethernet autoload patch, release
+  `7.2.11-psx-ps4-baikal-native-dev1`. Build with
+  `make TARGET=7.2-ps4-baikal-native-dev` or
+  `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal-native-dev`.
+  Only LOCALVERSION differs from the base config. One local build passed
+  short wired traffic in EXP-20261018-004; this does not qualify CI rebuilds.
 - `7.2-ps4`: the rmux 7.x stack for all PS4 southbridges, release
   `7.2.11-psx-ps4-dev1`. Build it with `make TARGET=7.2-ps4` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4`.
@@ -64,8 +72,8 @@ Do not start another local container/VM runtime for this workflow.
 ## Source, output and repeat builds
 
 - `targets/*.env` is the target registry, with repository-root paths. The
-  active target is `6.18-ps4-baikal`; `7.2-ps4-baikal` and `7.2-ps4` are
-  development targets.
+  active target is `6.18-ps4-baikal`; `7.2-ps4-baikal`, `7.2-ps4-baikal-native-dev` and
+  `7.2-ps4` are development targets.
 - `platforms/ps4/targets/` and the original imported config are historical inputs.
 - `src/<target>/` is a disposable, marked upstream clone. Every invocation
   resets and cleans that generated clone before applying the recorded series.
@@ -92,9 +100,9 @@ GitHub Actions runs `make check`, compiles on native Ubuntu x86-64, then runs
 `artifacts.json`, checksums, kernel/module/config outputs, kernel guidance and
 complete corresponding GPL source. See [ARTIFACTS.md](ARTIFACTS.md).
 
-CI uploads **two separate artifacts**. `linux-psx-ps4-baikal-<commit>` contains
-the kernel, full modules, build data, optional Ethernet setup and instructions;
-`linux-psx-ps4-source-<commit>` contains complete corresponding source. Choose
+CI uploads **two separate artifacts**. `linux-psx-<target>-<commit>` contains
+the kernel, full modules, build data and instructions;
+`linux-psx-<target>-source-<commit>` contains complete corresponding source. Choose
 the first for testing; download the second when inspecting or rebuilding source.
 Both carry identical build metadata and their own complete `SHA256SUMS`.
 

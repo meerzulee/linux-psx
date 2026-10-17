@@ -5,16 +5,21 @@ Working record for moving the PS4 kernel to Linux 7.2.y. Upstream base:
 (current stable on 2026-10-17; 7.2.y will reach end of life a few weeks after
 7.3 is released).
 
-There are two development targets. Both compile; neither has booted.
+There are three PS4 development targets. All compile. `7.2-ps4-baikal` passed
+one core boot and its separate native Ethernet candidate passed one boot with
+short wired traffic on 2026-10-18. The rmux-based `7.2-ps4` has not booted.
+None has hardware acceptance; local evidence does not qualify CI rebuilds.
 
 | Target | Stack | Role |
 | --- | --- | --- |
-| [`7.2-ps4-baikal`](#the-72-ps4-baikal-development-target) | The 6.18-ps4-baikal series (54 patches and MTS2) on 7.2.11 | First Linux 7.2 boot candidate for Baikal. It carries the series that has run on a Baikal console with 6.18, so after a `6.18-ps4-baikal` boot it changes one variable: the kernel version. |
+| [`7.2-ps4-baikal`](#the-72-ps4-baikal-development-target) | The 6.18-ps4-baikal series (54 patches and MTS2) on 7.2.11 | Passed its first core Baikal boot in EXP-20261018-001, replacing the kernel and matching modules while retaining the existing boot environment. Native Ethernet remains untested. |
+| [`7.2-ps4-baikal-native-dev`](#the-native-ethernet-baikal-candidate) | The unchanged 61-patch Baikal port plus the 6.18 native Ethernet autoload patch | The measured local candidate passed one native boot, DHCP and short wired traffic in EXP-20261018-004. |
 | [`7.2-ps4`](#the-72-ps4-development-target) | rmux's 7.1.7 Strawberry stack on 7.2.11, plus MTS2 | Reference for Aeolia and Belize, and the source of their features for a unified kernel. |
 
 The unified kernel for every southbridge is to be built on the stack that
-boots: once `7.2-ps4-baikal` runs on Baikal, rmux's Aeolia and Belize support
-moves onto it one feature at a time, each tested as a single hardware variable.
+boots. With the first `7.2-ps4-baikal` boot recorded, further qualification and
+rmux's Aeolia and Belize support proceed one feature at a time, each tested
+as a single hardware variable.
 Hardware testing follows the same order: Baikal first, then Aeolia and
 Belize. The 6.18 series has Aeolia and Belize device IDs and quirks, but has
 only run on Baikal.
@@ -187,16 +192,16 @@ and have not been booted.
 
 The 6.18 series, MTS2 Ethernet included, has run on a PS4 Slim with a Baikal
 B1 southbridge as the private `6.18.44-ps4-baikal-mts2` build, which embedded
-firmware ([PS4 status](../platforms/ps4/STATUS.md)). The firmware-free
-`6.18-ps4-baikal` build of the same series has not been boot-tested. This
-target moves the series to 7.2.11, unchanged wherever Linux 7.2 allows, so that
-its first boot tests the kernel version rather than rmux's untested Baikal
-paths.
+firmware ([PS4 status](../platforms/ps4/STATUS.md)). The firmware-free 6.18
+builds have their own scoped evidence in
+[`6.18-ps4-baikal.json`](../provenance/6.18-ps4-baikal.json). This target moves
+the series to 7.2.11, unchanged wherever Linux 7.2 allows, so that its first
+boot tests the kernel version rather than rmux's untested Baikal paths.
 
 | Item | Location |
 | --- | --- |
 | Target | [`targets/7.2-ps4-baikal.env`](../targets/7.2-ps4-baikal.env), release `7.2.11-psx-ps4-baikal-dev1` |
-| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the first 55 6.18 entries in order, then six port fixes; the later 6.18 native autoload patch `0700-network-mts/0002` is not ported yet |
+| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the first 55 6.18 entries in order, then six port fixes; native autoload remains in the separate candidate below |
 | Config | [`platforms/ps4/config/7.2-psx-baikal.config`](../platforms/ps4/config/7.2-psx-baikal.config) with the MT7668 and USB Ethernet fragments |
 | Provenance | [`provenance/7.2-ps4-baikal.json`](../provenance/7.2-ps4-baikal.json) |
 
@@ -286,14 +291,41 @@ renames:
   `struct usb_hcd`. `7.2-ps4` fixes it with `0174`. Baikal is not affected.
 - The [mt76x8 vendor issues](#known-mt76x8-vendor-issues) below.
 
-### First boot
+### First boot: EXP-20261018-001
 
-Boot `6.18-ps4-baikal` first: it checks the firmware-free configuration on the
-kernel version that has run. Then boot this target with the same loader,
-initramfs, firmware and root filesystem, replacing only the kernel and its
-matching modules. Both configs build amdgpu and mt76x8 into the kernel, so
-their firmware must be in the initramfs. The previous boot files are the
-rollback.
+On 2026-10-18, `7.2.11-psx-ps4-baikal-dev1` passed one core boot on a PS4 Slim
+with a Baikal B1 southbridge and Orbis firmware 12.02. The experiment retained
+the existing loader, initramfs, firmware, bootargs, 1024 MiB VRAM setting and
+partitioned USB root, replacing only the kernel and installing its complete
+matching module tree. All 41 installed module hashes matched the build. The
+previous native-dev1 boot set and modules remain the rollback. Both configs
+build amdgpu and mt76x8 into the kernel, so their firmware is supplied by the
+unchanged initramfs.
+
+| Tested artifact | SHA256 |
+| --- | --- |
+| Kernel | `c9c0e1aacd30679f7e496c31a2170bbd4e3591b297ade8804068832af881b194` |
+| Complete module archive | `e384a5efd1e6bd3644a98dc36208e0874fe0c587ff7d02787773021ea649b20a` |
+| Resolved config | `a245fb892a691c0fd607cc6defb2a7d3108e105a2990d587a5f1f5af81eb0eea` |
+| Retained initramfs | `089d62daaef9b4ab7a61486d193533deef5f79c7782ecd8ddc10030477b0f460` |
+
+USB root mounted read/write at 11.624 seconds and graphical.target was reached
+at 18.246 seconds. The runtime snapshot at 191 seconds showed Hyprland at
+1920x1080/60 Hz, AMD hardware OpenGL 4.6 with Mesa 26.1.7, Vulkan device API
+1.3.354, Wi-Fi DHCP/default route, gateway ping 3/3 and HTTPS 200 with verified
+TLS. No system or user units had failed. `hci0` enumerated and reported firmware
+already present; Bluetooth service activation, pairing and audible output were
+not tested.
+
+The bounded UART session completed with uninterrupted capture. Its reviewed
+record through 222 seconds showed no panic/oops, xHCI death or root I/O fault;
+notable warnings also appeared in the 6.18 baseline. Verdict: **PASS for one
+core boot**, not acceptance, promotion or long-term stability evidence. Native
+Ethernet remains untested in this 61-patch target: it does not carry the later
+6.18 native autoload patch. Cold firmware loading also remains untested. The curated
+distribution record is EXP-20261018-001 in Omarchy psX's
+`platforms/ps4/experiments/SESSIONS.md`; raw UART and runtime receipts remain
+private.
 
 ### Official builds
 
@@ -312,8 +344,72 @@ driver (mostly missing prototypes), 39 in `drivers/ps4`, 10 in `ps4_bridge.c`
 and 4 in the x86 PS4 platform code. The one in a port fix is the mt76x8
 `kalStrnCpy()` call in `wlanCfgSetChip()`, which copies with the destination
 size as the bound, as the `strncpy()` it replaces did. The native run reused a
-local clone of the pinned v7.2.11 commit. The artifacts stay local and have
-not been booted.
+local clone of the pinned v7.2.11 commit. The artifacts stay local. The
+OrbStack candidate identified above passed EXP-20261018-001; the native build
+has not been booted.
+
+## The native Ethernet Baikal candidate
+
+`7.2-ps4-baikal-native-dev` preserves the original 61-patch target and appends
+the existing `0700-network-mts/0002-net-ps4-mts-native-autoload.patch` without
+adaptation. Its bytes and GPL notices are unchanged from the 6.18 target:
+`e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3`.
+The driver autoloads through its PCI alias, registers `psx0` after the module
+becomes live and makes one retained publication on first open. The
+[`autoarm=0` and blacklist escape paths](ETHERNET.md) remain available.
+
+| Item | Identity |
+| --- | --- |
+| Target | [`targets/7.2-ps4-baikal-native-dev.env`](../targets/7.2-ps4-baikal-native-dev.env), release `7.2.11-psx-ps4-baikal-native-dev1` |
+| Series | [`platforms/ps4/patches/7.2-ps4-baikal-native-dev/series`](../platforms/ps4/patches/7.2-ps4-baikal-native-dev/series), exactly 62 entries |
+| Patch root | `platforms/ps4/patches/7.2-ps4-baikal`; entries resolve through the target's `PATCHES_DIR`, as in the builder |
+| Config | [`platforms/ps4/config/7.2-psx-baikal-native-dev.config`](../platforms/ps4/config/7.2-psx-baikal-native-dev.config), base config with only LOCALVERSION changed and the same fragments |
+| Provenance | [`provenance/7.2-ps4-baikal-native-dev.json`](../provenance/7.2-ps4-baikal-native-dev.json), measured local artifacts and scoped hardware evidence |
+
+The tested series SHA256 is
+`f94de556e26eee2db36c07480cb4ba301f3b032d500adb13cf6a4675426ff4be`;
+the ordered patchset is
+`ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91`.
+`python3 scripts/check-native72` and `make check` verify the unchanged
+61-patch prefix, exact native patch, config delta and target assignments.
+The original target, config, series and exporter remain intact.
+
+### Measured local build and EXP-20261018-004
+
+The OrbStack GCC 14.2 build used an isolated prototype based on project commit
+`61e2ad8437c6ea00634d1fefc7f7c4fe5ca887b0`. Its new target/config/series and the
+reference-clone build option were uncommitted at build time. The target
+assignments, config, ordered series and patch bytes are now preserved here;
+only stale prototype comments in the target definition were corrected.
+No firmware was embedded or bundled. Verification covered all 55 archive
+files, all 41 module vermagic/architecture identities, the PCI alias, native
+parameter gates and depmod alias.
+
+| Local artifact | SHA256 |
+| --- | --- |
+| `bzImage` | `e5bdfd965066bac8c0a098ffa351e49b870aff52563e9c74e60e73d1c7cb6868` |
+| Whole matching modules archive | `18d3f5f267fc9c4cbe5a65755cf78987669c3a2a9990ab7a39e59c0a6b78ca6a` |
+| Resolved config | `7976d507ab702fb88ea4f2c43215ccf2d98d17832f4a39404b963a940122ecec` |
+| `psx_mts_net.ko` | `52ca9761a9c9f85f6539c6bb4c5c953c15c28e3cde1f589ac8397a4af66152ed` |
+
+On one PS4 Slim / Baikal B1 / Orbis 12.02, the completed EXP-20261018-004
+observed automatic PCI probe, `psx0` registration and one first-open RUNNING
+publication. USB root mounted read/write at 11.766 seconds; graphical target
+was reached at 17.963 seconds with zero failed system units. Wired DHCP and
+the preferred default route worked while Wi-Fi was initially connected.
+Interface-bound gateway ping passed 5/5, HTTPS returned 200 with verified TLS,
+and independent random 4 MiB memory-only streams passed SHA256 verification
+in each direction. RX/TX counters advanced by over 4 MiB each way; errors and
+TX drops stayed zero. RX drops increased from 70 to 73 and remain unclassified.
+
+UART continuity completed, with no Linux panic/oops, xHCI death, USB-root I/O
+fault or MTS terminal fault in the reviewed evidence. This is one short boot
+and traffic result, not acceptance or promotion. Long-duration stability,
+cable/admin cycles, cold firmware loading, repeated boots and other consoles
+remain untested on this build. CI and other rebuilt binaries require their
+own hardware evidence even when the release string matches. The curated
+record is EXP-20261018-004 in Omarchy psX's
+`platforms/ps4/experiments/SESSIONS.md`; raw evidence remains private.
 
 ## Baikal reference audit
 

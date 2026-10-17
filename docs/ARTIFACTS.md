@@ -4,7 +4,9 @@ An artifact set is specific to a target, source commit, resolved configuration
 and compiler. `bzImage` must be installed with the **whole** matching module
 archive. A release string alone does not establish identical bytes.
 
-The builder writes `output/6.18-ps4-baikal/`. Linux CI packaging adds guidance,
+The builder writes `output/<target>/`. Release packaging supports
+`6.18-ps4-baikal` and the distinct experimental
+`7.2-ps4-baikal-native-dev` target. Linux CI packaging adds guidance,
 `artifacts.json`, `BUILD-SHA256SUMS`, complete corresponding source and a final
 `SHA256SUMS` in `dist/`. No distribution boot profile, root-filesystem
 installer, launcher, Ethernet setup tool or firmware is packaged.
@@ -15,8 +17,8 @@ CI stages two independent downloads from the same build:
 
 | Download | Contents |
 | --- | --- |
-| `linux-psx-ps4-baikal-<commit>` | Kernel, whole modules archive, config, map/manifest/version, `artifacts.json` and boot guidance. No Linux source archive. |
-| `linux-psx-ps4-source-<commit>` | Complete `source-<release>.tar.zst` and an identical copy of `artifacts.json`. |
+| `linux-psx-<target>-<commit>` | Kernel, whole modules archive, config, map/manifest/version, `artifacts.json` and boot guidance. No Linux source archive. |
+| `linux-psx-<target>-source-<commit>` | Complete `source-<release>.tar.zst` and an identical copy of `artifacts.json`. |
 
 Each contains its own `SHA256SUMS`, covering every included file. Extract the
 small kernel download to test the build. Source is available separately.
@@ -35,8 +37,8 @@ the release notes.
 | Field | Meaning |
 | --- | --- |
 | `schema` | Integer `1`. |
-| `target`, `platform` | `6.18-ps4-baikal`, `ps4-baikal` for this target. |
-| `kernel_release` | `6.18.44-psx-ps4-baikal2`. |
+| `target`, `platform` | Selected target (`6.18-ps4-baikal` or `7.2-ps4-baikal-native-dev`) and `ps4-baikal`. |
+| `kernel_release` | Selected release: `6.18.44-psx-ps4-baikal2` or `7.2.11-psx-ps4-baikal-native-dev1`. |
 | `kernel_sha256` | SHA256 of the packaged `bzImage`. |
 | `kernel_config_sha256` | SHA256 of the resolved packaged `config`. |
 | `embedded_firmware` | Boolean `false`. |
@@ -83,3 +85,22 @@ sha256sum -c SHA256SUMS
 # macOS
 shasum -a 256 -c SHA256SUMS
 ```
+
+## Authorized prerelease workflow
+
+Manual dispatch selects `target` (`6.18-ps4-baikal` by default, or
+`7.2-ps4-baikal-native-dev`) and `publish_release`. Push/PR runs retain the
+6.18 default and publish expiring CI artifacts only. Authorized manual
+publication checks both downloads, selected target/release, source commit and
+firmware policy before creating a prerelease; it never marks it latest.
+
+The 7.2 target preserves the exact 62-patch native-Ethernet source/config
+identity tested locally in EXP-20261018-004. Fresh CI compilation produces a
+separate artifact identity: one successful local boot does not qualify the CI
+binary. Release notes and `hardware_acceptance` retain that distinction,
+unclassified local RX drops and the remaining duration/cycle/cold-load limits.
+The original 61-patch `7.2-ps4-baikal` development target remains separate.
+
+Before target-aware artifact naming was added, 6.18 builds used
+`linux-psx-ps4-baikal-<commit>` and `linux-psx-ps4-source-<commit>`. Their
+metadata, checksum and source-identity requirements are unchanged.

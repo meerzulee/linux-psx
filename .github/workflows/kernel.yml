@@ -7,6 +7,13 @@ on:
     branches: [master]
   workflow_dispatch:
     inputs:
+      target:
+        description: PS4 Baikal target to build and optionally publish
+        type: choice
+        options:
+          - 6.18-ps4-baikal
+          - 7.2-ps4-baikal-native-dev
+        default: 6.18-ps4-baikal
       publish_release:
         description: Publish an experimental prerelease after build checks pass
         type: boolean
@@ -14,6 +21,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  BUILD_TARGET: ${{ inputs.target || '6.18-ps4-baikal' }}
 
 concurrency:
   group: kernel-${{ github.ref }}
@@ -32,17 +42,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends bc bison cpio dwarves flex gcc git kmod libelf-dev libssl-dev make python3 rsync xz-utils zstd binutils
       - name: Check provenance and host contracts
-        run: make check
+        run: |
+          case "$BUILD_TARGET" in
+            6.18-ps4-baikal|7.2-ps4-baikal-native-dev) ;;
+            *) echo 'Unsupported release target' >&2; exit 1 ;;
+          esac
+          make check
       - name: Build distribution-independent PS4 target
         env:
           PSX_KERNEL_BUILDER_IMAGE: github-ubuntu-24.04-native
-        run: ./build.sh --target 6.18-ps4-baikal
+        run: ./build.sh --target "$BUILD_TARGET"
       - name: Package matching kernel, modules and corresponding source
-        run: ./scripts/ci/package-release
+        run: ./scripts/ci/package-release --target "$BUILD_TARGET"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         name: Upload kernel download
         with:
-          name: linux-psx-ps4-baikal-${{ github.sha }}
+          name: linux-psx-${{ env.BUILD_TARGET }}-${{ github.sha }}
           path: dist/runtime/*
           if-no-files-found: error
           compression-level: 6
@@ -50,7 +65,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         name: Upload corresponding source separately
         with:
-          name: linux-psx-ps4-source-${{ github.sha }}
+          name: linux-psx-${{ env.BUILD_TARGET }}-source-${{ github.sha }}
           path: dist/source/*
           if-no-files-found: error
           compression-level: 0
@@ -69,11 +84,11 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: linux-psx-ps4-baikal-${{ github.sha }}
+          name: linux-psx-${{ env.BUILD_TARGET }}-${{ github.sha }}
           path: dist/runtime
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: linux-psx-ps4-source-${{ github.sha }}
+          name: linux-psx-${{ env.BUILD_TARGET }}-source-${{ github.sha }}
           path: dist/source
       - name: Verify both downloads and assemble release assets
         run: ./scripts/ci/package-release --assemble-release --runtime dist/runtime --source dist/source --destination release --expected-commit "$GITHUB_SHA"
@@ -83,8 +98,17 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          python3 - "$BUILD_TARGET" "$GITHUB_SHA" <<'PY'
+          import json, sys
+          target = json.load(open(f"provenance/{sys.argv[1]}.json"))
+          artifact = json.load(open("release/artifacts.json"))
+          for key in ("target", "platform", "kernel_release"):
+              if artifact[key] != target[key]:
+                  raise SystemExit(f"Release {key} differs from selected target")
+          if artifact["source_commit"] != sys.argv[2] or artifact["embedded_firmware"] is not False:
+              raise SystemExit("Release commit or firmware policy differs")
+          PY
           cd release
           sha256sum -c SHA256SUMS
           version=$(python3 -c 'import json; print(json.load(open("artifacts.json"))["kernel_release"])')
-          test "$version" = 6.18.44-psx-ps4-baikal2
           gh release create "v$version" ./* --target "$GITHUB_SHA" --prerelease --latest=false --title "Experimental PS4 Baikal — $version" --notes-file RELEASE-NOTES.md
