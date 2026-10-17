@@ -2,9 +2,9 @@ name: Kernel build and experimental artifacts
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
     inputs:
       publish_release:
@@ -49,7 +49,7 @@ jobs:
 
   release:
     needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_release && github.ref == 'refs/heads/main' && github.repository == 'meerzulee/linux-psx'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_release && github.ref == 'refs/heads/master' && github.repository == 'meerzulee/linux-psx'
     runs-on: ubuntu-24.04
     permissions:
       actions: read

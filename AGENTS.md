@@ -61,6 +61,8 @@
 
 ## Hosts and publication
 
+- `master` is this repository's default development and publication branch.
+  Keep CI push/PR filters, release guards and download links on `master`.
 - Use native tools on Linux x86-64. On macOS ARM64 use the OrbStack helper;
   never run the kernel build directly on Darwin. Preserve both build paths.
 - Use OrbStack exclusively for local containers and Linux VMs. Verify it is

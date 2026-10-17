@@ -27,7 +27,7 @@ Wi-Fi stays configured; the Ethernet profile uses IPv4 route metric 100.
 For an older bundle without the script, download it first:
 
 ```sh
-curl -fL https://raw.githubusercontent.com/meerzulee/linux-psx/main/contrib/networkmanager/ps4-ethernet -o ps4-ethernet
+curl -fL https://raw.githubusercontent.com/meerzulee/linux-psx/master/contrib/networkmanager/ps4-ethernet -o ps4-ethernet
 ```
 
 Use the metadata **from your exact kernel/module build**:
