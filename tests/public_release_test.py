@@ -22,7 +22,7 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertEqual(tool, (ROOT / "contrib/networkmanager/ps4-ethernet").read_bytes())
             self.assertIn(b"SPDX-License-Identifier: MIT", tool)
             guide = (destination / "ETHERNET-SETUP.md").read_text()
-            self.assertIn('--setup --manifest "$PWD/artifacts.json"', guide)
+            self.assertIn('sudo python3 ./ps4-ethernet --setup\n', guide)
             self.assertIn("(BOOTING.md)", guide)
             self.assertIn("(ETHERNET.md)", guide)
             self.assertNotIn("../../", guide)

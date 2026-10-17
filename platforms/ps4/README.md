@@ -48,7 +48,7 @@ not require Omarchy. Boot a supported kernel and install its complete matching
 modules first. In a new CI artifact bundle:
 
 ```sh
-sudo python3 ./ps4-ethernet --setup --manifest "$PWD/artifacts.json"
+sudo python3 ./ps4-ethernet --setup
 ```
 
 This installs and starts a boot service, then hands `psx0` to NetworkManager

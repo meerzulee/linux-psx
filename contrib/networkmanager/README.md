@@ -11,49 +11,40 @@ as described in [the boot guide](../../docs/BOOTING.md). Have Python 3,
 NetworkManager, systemd, `ip` and `kmod` installed, with NetworkManager running.
 A stock Arch/CachyOS kernel does not contain this driver.
 
-New Linux psX CI bundles include `ps4-ethernet` beside `artifacts.json`. From
-the extracted bundle, run:
-
-```sh
-sudo python3 ./ps4-ethernet --setup --manifest "$PWD/artifacts.json"
-```
-
-**Done:** setup installs and starts `ps4-ethernet.service`, enables it for future
-boots, and creates a NetworkManager Ethernet profile with IPv4 DHCP and
-autoconnect enabled. With a connected cable, addressing proceeds automatically.
-The service prepares the driver before NetworkManager brings up the connection.
-Wi-Fi stays configured; the Ethernet profile uses IPv4 route metric 100.
-
-For an older bundle without the script, download it first:
+Download the script and run setup:
 
 ```sh
 curl -fL https://raw.githubusercontent.com/meerzulee/linux-psx/master/contrib/networkmanager/ps4-ethernet -o ps4-ethernet
+sudo python3 ./ps4-ethernet --setup
 ```
 
-Use the metadata **from your exact kernel/module build**:
+Setup detects your running kernel, finds its matching build data locally or
+fetches it from the same public release, then enables Ethernet now and at
+future boots. **You do not need to find, download or specify a JSON file.**
+NetworkManager handles IPv4 DHCP and autoconnect; Ethernet uses route metric
+100 while Wi-Fi stays configured.
 
-| Running kernel (`uname -r`) | Metadata for `--manifest` |
-| --- | --- |
-| `6.18.44-psx-ps4-baikal1` | `artifacts.json` from the same Linux psX CI artifact bundle. |
-| `6.18.44-ps4-baikal-mts2-public1` | `ethernet-candidate.json` from the same earlier public MTS2 release. |
-| `6.18.44-ps4-baikal-mts2` | Your existing original MTS2 `ethernet-candidate.json`; typically `/etc/omarchy-ps4/ethernet-candidate.json`. |
+**Offline setup:** new CI bundles already contain the script and matching data.
+Extract the full bundle and run `sudo python3 ./ps4-ethernet --setup` there.
 
-For example, in an extracted earlier public MTS2 release:
+## Kernel downloads
 
-```sh
-sudo python3 ./ps4-ethernet --setup --manifest "$PWD/ethernet-candidate.json"
-```
+The existing public MTS2 Ethernet tester build is available without a GitHub
+account:
 
-On an existing Omarchy installation that already enables the older
-`omarchy-ps4-ethernet.service`, disable its **future** startup after the new
-setup succeeds, so only the new adapter starts next boot:
+https://github.com/meerzulee/linux-ps4/releases/tag/v6.18.44-ps4-baikal-mts2-public1
 
-```sh
-sudo systemctl disable omarchy-ps4-ethernet.service
-```
+Get `bzImage` and its complete matching modules archive and follow that build's
+boot guide. The setup script automatically downloads its small matching build
+record when needed. The newer psX builds are currently CI downloads:
 
-The command does not stop the current driver or connection. This migration
-step has already been completed on the development PS4.
+https://github.com/meerzulee/linux-psx/actions/workflows/kernel.yml
+
+For CI, open a completed successful run, sign in to GitHub, download its kernel
+artifact and extract it. Its build data is included. A standalone psX metadata
+download becomes available when that exact build is published as a release;
+unpublished or custom builds need their original bundle. Setup never invents
+checksums or substitutes another kernel's data.
 
 The tool rejects other kernels and mismatched config/module identities. It
 installs the script at `/usr/local/sbin/ps4-ethernet`, root-private metadata at
@@ -81,43 +72,49 @@ DHCP/carrier are asynchronous; a successful service alone does not prove
 packet traffic. See [Ethernet verification](../../docs/ETHERNET.md) for
 interface-bound traffic checks and the current hardware scope.
 
-## Manual mode and disabling future startup
+## Advanced options and existing Omarchy installations
 
-To stage files without enabling a service or activating the driver:
+Automatic discovery checks installed root-private build data, the original
+Omarchy MTS2 record when applicable, the script's folder and current folder,
+then the exact public release. An existing invalid record is refused.
 
-```sh
-sudo python3 ./ps4-ethernet --install --manifest "$PWD/artifacts.json"
-```
+| Running kernel (`uname -r`) | Build data used automatically |
+| --- | --- |
+| `6.18.44-psx-ps4-baikal1` | Bundle `artifacts.json`, installed record, or the same public psX release. |
+| `6.18.44-ps4-baikal-mts2-public1` | Bundle record or the existing public MTS2 release. |
+| `6.18.44-ps4-baikal-mts2` | Installed record or original `/etc/omarchy-ps4/ethernet-candidate.json`; private builds have no public fallback. |
 
-Then explicitly activate once for the current boot when ready:
+An explicit `--manifest /path/to/build-record.json` remains available for a
+custom location. To stage files without activation or startup changes, use
+`sudo python3 ./ps4-ethernet --install`; later activate with
+`sudo /usr/local/sbin/ps4-ethernet --activate`.
 
-```sh
-sudo /usr/local/sbin/ps4-ethernet --activate
-```
+On an existing Omarchy installation, after new setup succeeds, disable the
+older duplicate's future startup with
+`sudo systemctl disable omarchy-ps4-ethernet.service`. This migration is already
+complete on the development PS4. The command leaves the current driver running.
 
-To disable automatic activation on **future boots**:
+To disable new automatic activation on future boots:
 
 ```sh
 sudo systemctl disable ps4-ethernet.service
 ```
 
-This leaves the current driver and network connection running. Do not unload,
-reset, unbind or rearm a published MTS2 module. The tool permits one initial
-publication attempt per boot; a healthy already-published instance is recognized
-without another attempt. On an activation fault, preserve the service log and
-driver report rather than restarting the service or rerunning old experiments.
+This leaves the current connection running. Do not unload, reset, unbind or
+rearm a published MTS2 module. The tool permits one initial publication attempt
+per boot and recognizes a healthy initialized instance without another attempt.
+On an activation fault, preserve service logs and the driver report.
 
 ## Validation and license
 
-Host tests cover artifact checks, all three release contracts, installation,
-startup ordering, healthy repeat calls and refusal to retry uncertain state.
-Same-boot service adoption and hash-checked wired transfers passed on the
-original MTS2 kernel; see the [test record](../../docs/ETHERNET-AUTOCONNECT-TEST.md).
-The new service still needs an observed unattended boot test on PS4; cable
-recovery and additional console revisions remain unqualified. It does not
-change the kernel patch or establish new hardware acceptance.
+Host tests cover artifact checks, release contracts, local discovery, anonymous
+HTTPS download, installation, startup ordering and retained-state guards. The
+public MTS2 metadata URL was also fetched anonymously and verified successfully.
+A previous adapter revision passed same-boot service adoption and hash-checked
+wired transfers on the original MTS2 kernel; see the
+[test record](../../docs/ETHERNET-AUTOCONNECT-TEST.md). The new discovery path is
+host-tested. Unattended startup and cable recovery remain unqualified.
 
-The single-file tool preserves its original **MIT license** and Omarchy PS4
-contributors' notice. The kernel's existing licenses are unchanged. Source
-inputs and adaptations are recorded in
-[the import manifest](../../provenance/ethernet-activation-import.json).
+The single-file tool preserves its **MIT license** and Omarchy PS4 contributors'
+notice. The kernel's licenses are unchanged. Source inputs and adaptations are
+recorded in [the import manifest](../../provenance/ethernet-activation-import.json).

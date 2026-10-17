@@ -43,6 +43,8 @@ import subprocess
 import sys
 import time
 import uuid
+import urllib.parse
+import urllib.request
 
 NAME = "psx_mts_net"
 RELEASE = "6.18.44-psx-ps4-baikal1"
@@ -89,6 +91,8 @@ RELEASES = {
         ("PS4Ethernet", "ce7c9971-6092-45d5-aa40-7d59bded5cb9", "omarchy-ps4-ethernet", False),
 }
 BASE_TEMPLATE = TEMPLATE
+METADATA_LIMIT = 1024 * 1024
+LEGACY_PRIVATE_METADATA = Path("/etc/omarchy-ps4/ethernet-candidate.json")
 LEGACY_FIELDS = {"schema", "kernel_release", "kernel_config_sha256", "module_path",
                  "module_sha256", "loaded_note_hex"}
 
@@ -541,6 +545,83 @@ def read_install_source(path, limit):
     return value
 
 
+def require_https(url):
+    parsed = urllib.parse.urlsplit(url)
+    require(parsed.scheme == "https" and parsed.hostname and not parsed.username and not parsed.password,
+            "Metadata download/redirect must use HTTPS without credentials")
+
+
+class HTTPSRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, newurl):
+        require_https(newurl)
+        return super().redirect_request(request, response, code, message, headers, newurl)
+
+
+def fetch_metadata(url):
+    """Anonymous bounded HTTPS read; never execute downloaded content."""
+    require_https(url)
+    opener = urllib.request.build_opener(HTTPSRedirectHandler())
+    request = urllib.request.Request(url, headers={"User-Agent": "linux-psx-ps4-ethernet/1"})
+    try:
+        with opener.open(request, timeout=10) as response:
+            require_https(response.geturl())
+            value = response.read(METADATA_LIMIT + 1)
+    except Exception as error:
+        raise RuntimeError("Cannot fetch matching Ethernet metadata from " + url +
+                           "; matching published metadata is unavailable. Obtain metadata from the complete "
+                           "matching kernel/module bundle and pass --manifest PATH: " + str(error)) from error
+    require(len(value) <= METADATA_LIMIT, "Downloaded Ethernet metadata exceeds1 MiB")
+    return value
+
+
+def metadata_locations():
+    """Exact filenames, ordered by installed identity then local download context."""
+    paths = [(installed_manifest(), True)]
+    if RELEASE == "6.18.44-ps4-baikal-mts2":
+        paths.append((LEGACY_PRIVATE_METADATA, True))
+    name = "artifacts.json" if RELEASE == PSX_RELEASE else "ethernet-candidate.json"
+    paths.extend(((Path(__file__).absolute().parent / name, False), (Path.cwd() / name, False)))
+    return paths
+
+
+def metadata_exists(path):
+    try:
+        path.lstat()  # Includes dangling symlinks: refuse them rather than fall through.
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def resolve_metadata(system, manifest=None):
+    """Select and fully validate bytes; no files, locks, services or hardware writes."""
+    select_release()
+    if manifest is not None:
+        require(manifest.is_absolute(), "Manifest path must be absolute")
+        metadata = read_install_source(manifest, METADATA_LIMIT)
+    else:
+        metadata = None
+        visited = set()
+        for path, sealed in metadata_locations():
+            if path in visited:
+                continue
+            visited.add(path)
+            if metadata_exists(path):
+                metadata = system.sealed(str(path), 0o600) if sealed else read_install_source(path, METADATA_LIMIT)
+                break
+        if metadata is None:
+            if RELEASE == PSX_RELEASE:
+                url = "https://github.com/meerzulee/linux-psx/releases/download/v" + RELEASE + "/artifacts.json"
+            elif RELEASE == "6.18.44-ps4-baikal-mts2-public1":
+                url = "https://github.com/meerzulee/linux-ps4/releases/download/v" + RELEASE + "/ethernet-candidate.json"
+            else:
+                raise RuntimeError("This original private MTS2 kernel has no public metadata download; "
+                                   "supply its original ethernet-candidate.json with --manifest")
+            metadata = fetch_metadata(url)
+    require(len(metadata) <= METADATA_LIMIT, "Ethernet metadata exceeds1 MiB")
+    candidate_guard(system, metadata)
+    return metadata
+
+
 def check_install_destination(system, path, data, mode):
     for parent in reversed(path.parents):
         try:
@@ -570,13 +651,8 @@ def service_unit():
             "[Install]\nWantedBy=multi-user.target\n").encode()
 
 
-def install(system, manifest, *, setup=False):
-    """Stage sealed files; startup and activation require explicit setup=True."""
-    require(os.geteuid() == 0, "Run installation explicitly with sudo")
-    select_release()  # Unknown kernels fail before directories, files or locks.
-    require(manifest.is_absolute(), "Manifest path must be absolute")
-    metadata = read_install_source(manifest, 1024 * 1024)
-    candidate_guard(system, metadata)  # Read-only runtime/module validation.
+def stage_install(system, metadata, *, setup=False):
+    """Publish already validated bytes; only install/setup entry points call this."""
     script = read_install_source(Path(__file__).absolute(), 1024 * 1024)
     outputs = [(INSTALL_SCRIPT, script, 0o755), (installed_manifest(), metadata, 0o600)]
     if setup:
@@ -614,16 +690,23 @@ def install(system, manifest, *, setup=False):
     return "INSTALLED: " + str(INSTALL_SCRIPT) + " (no activation/startup changes). Run: sudo ps4-ethernet --activate"
 
 
-def setup(system, manifest):
+def install(system, manifest=None):
+    """Validate matching metadata, then stage files without startup/activation."""
+    require(os.geteuid() == 0, "Run installation explicitly with sudo")
+    metadata = resolve_metadata(system, manifest)
+    return stage_install(system, metadata)
+
+
+def setup(system, manifest=None):
     """Explicitly authorize this boot's activation and subsequent boot startup."""
     require(os.geteuid() == 0, "Run setup explicitly with sudo")
-    select_release()
+    metadata = resolve_metadata(system, manifest)
     system.resolve_tool("nmcli")
     system.resolve_tool("systemctl")
     require(system.command("/usr/bin/systemctl", "is-active", "NetworkManager.service") == "active",
             "NetworkManager.service must be installed and active before setup")
     # Includes all output conflict checks before publishing any installed file.
-    install(system, manifest, setup=True)
+    stage_install(system, metadata, setup=True)
     system.deadline = time.monotonic() + 100
     system.command("/usr/bin/systemctl", "daemon-reload")
     system.command("/usr/bin/systemctl", "enable", "--now", "ps4-ethernet.service", timeout=90)
@@ -638,14 +721,13 @@ def main():
     mode.add_argument("--install", action="store_true", help="Install this script and sealed matching metadata; do not activate")
     mode.add_argument("--setup", action="store_true", help="Install, activate now and enable matching-kernel startup with systemd")
     parser.add_argument("--manifest", "--artifacts", dest="manifest", type=Path,
-                        help="Matching artifacts.json (psX) or ethernet-candidate.json (MTS2); required for installation")
+                        help="Optional matching metadata; otherwise find it locally or download the exact public release")
     args = parser.parse_args()
     require(os.geteuid() == 0, "Run as root")
     select_release()
     system = System()
     if args.install or args.setup:
-        require(args.manifest is not None, "Installation/setup requires --manifest PATH")
-        manifest = args.manifest.absolute()
+        manifest = args.manifest.absolute() if args.manifest is not None else None
         print(setup(system, manifest) if args.setup else install(system, manifest), flush=True)
         return
     manifest = args.manifest.absolute() if args.manifest is not None else installed_manifest()

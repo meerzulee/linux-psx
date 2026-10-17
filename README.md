@@ -84,13 +84,14 @@ NetworkManager tool enables Ethernet now and at future boots. From the extracted
 CI bundle, run:
 
 ```sh
-sudo python3 ./ps4-ethernet --setup --manifest "$PWD/artifacts.json"
+sudo python3 ./ps4-ethernet --setup
 ```
 
 It installs a boot service and an IPv4 DHCP autoconnect profile. Python 3,
 NetworkManager and systemd are required by this optional tool; Omarchy is not.
 [Download and usage instructions](contrib/networkmanager/README.md) also cover
-the earlier MTS2 releases and their `ethernet-candidate.json` metadata. The new
+the earlier MTS2 releases. Matching build data is discovered or fetched
+automatically. The new
 autostart path is host-tested; [same-boot service adoption and wired traffic
 passed](docs/ETHERNET-AUTOCONNECT-TEST.md) on the original MTS2 kernel.
 Unattended PS4 boot acceptance remains pending.

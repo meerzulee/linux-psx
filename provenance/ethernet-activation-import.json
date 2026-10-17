@@ -44,12 +44,13 @@
     "Added explicit --setup to install an exact-release systemd oneshot, enable it at future boots and start it now. No automatic activation retries, unload, reset or rearm.",
     "A repeat invocation only accepts independently verified healthy published state with completed NetworkManager handoff; it does not repeat hardware activation.",
     "Added synthetic release, installation, startup-order and retained-state coverage; no hardware or service operation occurs in host tests.",
-    "Included the optional helper and portable setup guide in new CI bundles without adding a NetworkManager/systemd requirement to kernel builds or generic metadata."
+    "Included the optional helper and portable setup guide in new CI bundles without adding a NetworkManager/systemd requirement to kernel builds or generic metadata.",
+    "2026-10-17: --setup/--install discover exact matching root-sealed installed metadata, original private metadata or adjacent/current-folder bundle data, then anonymously fetch the exact public release over bounded HTTPS when available. Explicit --manifest remains optional. Full config/module checks precede installation or service actions; no fabricated identity or driver contract change. Discovery/download additions have synthetic host coverage; the older hardware test retains its original helper hash."
   ],
   "adapted_outputs": [
     {
       "path": "contrib/networkmanager/ps4-ethernet",
-      "sha256": "cdde1893455e097df1366a83f12fd30593ff2d6a22ae0cf663b622857dd04779"
+      "sha256": "d85ea39fb5df797f4a511912fa69bc8d0e0a5adbc1e4afec5ae560abfecc3510"
     },
     {
       "path": "tests/ethernet_activation_test.py",
@@ -57,7 +58,7 @@
     },
     {
       "path": "tests/ethernet_install_test.py",
-      "sha256": "88ee3992d899bfe381c0541389a6283343e44ed33ba37782fa5dedbdd48b979a"
+      "sha256": "0305a512a2fab2326b715e2bfdfea50e6b103e07ded9d29e4f110035e9b3a8ac"
     }
   ],
   "hardware_acceptance": "EXP-20261017-017 PASS for same-boot service adoption, healthy read-only repeat, independent hash-checked 4MiB wired transfers in each direction and interface-bound verified HTTPS on original 6.18.44-ps4-baikal-mts2. No first activation or fresh unattended boot tested. New psX build and cable recovery remain unqualified; historical EXP016 remains DEGRADED.",

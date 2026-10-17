@@ -13,6 +13,7 @@ sys.dont_write_bytecode = True
 import ethernet_activation_test as fixture
 
 APP = fixture.APP
+REAL_FETCH_METADATA = APP.fetch_metadata
 
 
 class InstallerSystem(fixture.FakeSystem):
@@ -62,6 +63,7 @@ class InstallTests(unittest.TestCase):
         self.unit = self.directory / "etc/systemd/system/ps4-ethernet.service"
         mock.patch.object(APP, "INSTALL_UNIT", self.unit).start()
         self.addCleanup(mock.patch.stopall)
+        self.no_network = mock.patch.object(APP, "fetch_metadata", side_effect=AssertionError("Unexpected network" )).start()
         APP.select_release()
         self.host = InstallerSystem(self.directory)
         self.manifest = self.directory / "downloaded-artifacts.json"
@@ -269,6 +271,180 @@ class InstallTests(unittest.TestCase):
              mock.patch("builtins.print"):
             APP.main()
         self.assertEqual(setup.call_args.args[1], Path("artifacts.json").absolute())
+
+    def metadata_bytes(self):
+        return json.dumps(self.host.candidate).encode()
+
+    def test_setup_and_install_main_allow_no_manifest(self):
+        for mode in ("--setup", "--install"):
+            with self.subTest(mode=mode), \
+                 mock.patch.object(APP.sys, "argv", ["ps4-ethernet", mode]), \
+                 mock.patch.object(APP, "setup", return_value="setup") as setup, \
+                 mock.patch.object(APP, "install", return_value="installed") as install, \
+                 mock.patch("builtins.print"):
+                APP.main()
+            selected = setup if mode == "--setup" else install
+            self.assertIsNone(selected.call_args.args[1])
+        self.no_network.assert_not_called()
+
+    def test_installed_metadata_is_first_sealed_choice_and_runs_real_preflight(self):
+        path = APP.installed_manifest()
+        original = self.host.sealed
+        def sealed(source, mode=None):
+            return self.metadata_bytes() if source == str(path) and mode == 0o600 else original(source, mode)
+        with mock.patch.object(APP, "metadata_exists", side_effect=lambda candidate: candidate == path) as exists, \
+             mock.patch.object(self.host, "sealed", side_effect=sealed) as checked, \
+             mock.patch.object(APP, "read_install_source", side_effect=AssertionError("unsealed input")):
+            self.assertEqual(APP.resolve_metadata(self.host), self.metadata_bytes())
+        self.assertEqual(exists.call_args_list, [mock.call(path)])
+        self.assertIn(mock.call(str(path), 0o600), checked.call_args_list)
+        self.assertTrue(any(event[:3] == ("command", "/usr/bin/modprobe", "--show-depends")
+                            for event in self.host.events))
+        self.assert_no_activation()
+        self.no_network.assert_not_called()
+
+    def test_adjacent_before_working_directory_and_exact_release_filename(self):
+        self.assertEqual(APP.metadata_locations()[1][0].name, "artifacts.json")
+        self.assertEqual(APP.metadata_locations()[-1][0].parent, Path.cwd())
+        paths = [(Path("/etc/psx/installed.json"), True), (Path("/download/artifacts.json"), False),
+                 (Path("/work/artifacts.json"), False)]
+        with mock.patch.object(APP, "metadata_locations", return_value=paths), \
+             mock.patch.object(APP, "metadata_exists", side_effect=lambda path: path != paths[0][0]) as exists, \
+             mock.patch.object(APP, "read_install_source", return_value=self.metadata_bytes()) as read:
+            self.assertEqual(APP.resolve_metadata(self.host), self.metadata_bytes())
+        read.assert_called_once_with(paths[1][0], APP.METADATA_LIMIT)
+        self.assertEqual(exists.call_count, 2)
+        self.no_network.assert_not_called()
+        self.assert_no_activation()
+
+    def test_corrupt_or_mismatched_local_candidate_never_falls_through_to_download_or_service(self):
+        self.setup_host()
+        for data in (b"not JSON", json.dumps(dict(self.host.candidate, kernel_config_sha256="0" * 64)).encode()):
+            self.host.events.clear()
+            with self.subTest(data=data), \
+                 mock.patch.object(APP, "metadata_locations", return_value=[(Path("/local/artifacts.json"), False)]), \
+                 mock.patch.object(APP, "metadata_exists", return_value=True), \
+                 mock.patch.object(APP, "read_install_source", return_value=data):
+                with self.assertRaises((RuntimeError, ValueError)):
+                    APP.setup(self.host)
+            self.assertFalse(any(event[:2] == ("command", "/usr/bin/systemctl") for event in self.host.events))
+            self.assertFalse(self.script.parent.exists() or self.unit.parent.exists())
+        self.no_network.assert_not_called()
+
+    def test_unsealed_installed_metadata_is_not_accepted_as_downloaded_input(self):
+        installed = APP.installed_manifest()
+        installed.parent.mkdir(parents=True)
+        installed.write_bytes(self.metadata_bytes())
+        installed.chmod(0o644)
+        with self.assertRaisesRegex(RuntimeError, "sealed root-owned"):
+            APP.install(self.host)
+        self.assertFalse(self.script.parent.exists())
+        self.no_network.assert_not_called()
+
+    def test_missing_local_metadata_fetches_exact_psx_release_and_stages_after_real_validation(self):
+        self.no_network.side_effect = None
+        self.no_network.return_value = self.metadata_bytes()
+        with mock.patch.object(APP, "metadata_exists", return_value=False):
+            APP.install(self.host)
+        self.no_network.assert_called_once_with(
+            "https://github.com/meerzulee/linux-psx/releases/download/v" + APP.PSX_RELEASE + "/artifacts.json")
+        self.assertEqual(APP.installed_manifest().read_bytes(), self.metadata_bytes())
+        self.assert_no_activation()
+
+    def test_downloaded_wrong_module_or_bad_json_never_installs_or_calls_services(self):
+        self.setup_host()
+        bad_module = dict(self.host.candidate)
+        bad_module["module"] = dict(bad_module["module"], sha256="0" * 64)
+        for data in (b"not JSON", json.dumps(bad_module).encode()):
+            self.no_network.side_effect = None
+            self.no_network.return_value = data
+            self.host.events.clear()
+            with self.subTest(data=data), mock.patch.object(APP, "metadata_exists", return_value=False):
+                with self.assertRaises((RuntimeError, ValueError)):
+                    APP.setup(self.host)
+            self.assertFalse(self.script.parent.exists() or self.unit.parent.exists())
+            self.assertFalse(any(event[:2] == ("command", "/usr/bin/systemctl") for event in self.host.events))
+            self.assert_no_activation()
+
+    def legacy_metadata_host(self, release):
+        mock.patch.object(APP.os, "uname", return_value=SimpleNamespace(release=release, machine="x86_64")).start()
+        APP.select_release()
+        module = f"/usr/lib/modules/{release}/kernel/drivers/net/ethernet/{APP.NAME}.ko"
+        mock.patch.object(fixture, "MODULE_PATH", module).start()
+        host = InstallerSystem(self.directory)
+        host.candidate = {"schema": 1, "kernel_release": release,
+                          "kernel_config_sha256": APP.digest(host.config), "module_path": module,
+                          "module_sha256": APP.digest(host.module), "loaded_note_hex": host.note.hex()}
+        return host
+
+    def test_public_legacy_fetch_uses_original_candidate_metadata_and_exact_tag(self):
+        self.host = self.legacy_metadata_host("6.18.44-ps4-baikal-mts2-public1")
+        self.assertEqual(APP.metadata_locations()[1][0].name, "ethernet-candidate.json")
+        self.no_network.side_effect = None
+        self.no_network.return_value = self.metadata_bytes()
+        with mock.patch.object(APP, "metadata_exists", return_value=False):
+            self.assertEqual(APP.resolve_metadata(self.host), self.metadata_bytes())
+        self.no_network.assert_called_once_with(
+            "https://github.com/meerzulee/linux-ps4/releases/download/v6.18.44-ps4-baikal-mts2-public1/ethernet-candidate.json")
+        self.assert_no_activation()
+
+    def test_private_legacy_uses_sealed_original_path_and_has_no_public_fallback(self):
+        self.host = self.legacy_metadata_host("6.18.44-ps4-baikal-mts2")
+        self.assertEqual(APP.metadata_locations()[1], (APP.LEGACY_PRIVATE_METADATA, True))
+        original = self.host.sealed
+        def sealed(path, mode=None):
+            return self.metadata_bytes() if path == str(APP.LEGACY_PRIVATE_METADATA) and mode == 0o600 else original(path, mode)
+        with mock.patch.object(APP, "metadata_exists", side_effect=lambda path: path == APP.LEGACY_PRIVATE_METADATA), \
+             mock.patch.object(self.host, "sealed", side_effect=sealed):
+            self.assertEqual(APP.resolve_metadata(self.host), self.metadata_bytes())
+        with mock.patch.object(APP, "metadata_exists", return_value=False):
+            with self.assertRaisesRegex(RuntimeError, "no public metadata download"):
+                APP.resolve_metadata(self.host)
+        self.no_network.assert_not_called()
+        self.assert_no_activation()
+
+    def test_explicit_metadata_never_discovers_or_downloads(self):
+        with mock.patch.object(APP, "metadata_locations", side_effect=AssertionError("discovery")):
+            APP.resolve_metadata(self.host, self.manifest)
+        self.no_network.assert_not_called()
+        self.assert_no_activation()
+
+    def test_anonymous_https_fetch_bounds_size_timeout_and_rejects_http_redirect(self):
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.geturl.return_value = "https://release-assets.githubusercontent.com/artifacts.json"
+        response.read.return_value = self.metadata_bytes()
+        opener = mock.Mock()
+        opener.open.return_value = response
+        with mock.patch.object(APP.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(REAL_FETCH_METADATA("https://github.com/test/artifacts.json"), self.metadata_bytes())
+            opener.open.assert_called_once()
+            self.assertEqual(opener.open.call_args.kwargs, {"timeout": 10})
+            self.assertNotIn("Authorization", opener.open.call_args.args[0].headers)
+            response.read.assert_called_once_with(APP.METADATA_LIMIT + 1)
+            response.read.return_value = b"x" * (APP.METADATA_LIMIT + 1)
+            with self.assertRaisesRegex(RuntimeError, "exceeds1 MiB"):
+                REAL_FETCH_METADATA("https://github.com/test/artifacts.json")
+            response.read.return_value = self.metadata_bytes()
+            response.geturl.return_value = "http://unexpected/artifacts.json"
+            with self.assertRaisesRegex(RuntimeError, "HTTPS"):
+                REAL_FETCH_METADATA("https://github.com/test/artifacts.json")
+        with self.assertRaisesRegex(RuntimeError, "HTTPS"):
+            REAL_FETCH_METADATA("http://github.com/test/artifacts.json")
+        handler = APP.HTTPSRedirectHandler()
+        with self.assertRaisesRegex(RuntimeError, "HTTPS"):
+            handler.redirect_request(None, None, 302, "found", {}, "http://insecure/metadata.json")
+
+    def test_no_mode_or_unknown_kernel_never_discovers_downloads_or_opens_output(self):
+        with mock.patch.object(APP.sys, "argv", ["ps4-ethernet"]), mock.patch.object(APP.sys, "stderr"):
+            with self.assertRaises(SystemExit):
+                APP.main()
+        with mock.patch.object(APP.sys, "argv", ["ps4-ethernet", "--setup"]), \
+             mock.patch.object(APP.os, "uname", return_value=SimpleNamespace(release="unknown", machine="x86_64")), \
+             mock.patch.object(APP, "metadata_locations", side_effect=AssertionError("discovery")):
+            with self.assertRaisesRegex(RuntimeError, "Unsupported kernel"):
+                APP.main()
+        self.no_network.assert_not_called()
 
     def test_activation_defaults_to_installed_metadata_and_artifacts_alias_still_works(self):
         for options, expected in (([], APP.installed_manifest()),
