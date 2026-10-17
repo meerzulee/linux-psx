@@ -104,6 +104,10 @@ autostart path is host-tested; [same-boot service adoption and wired traffic
 passed](docs/ETHERNET-AUTOCONNECT-TEST.md) on the original MTS2 kernel.
 Unattended PS4 boot acceptance remains pending.
 
+The `6.18-ps4-baikal-native-dev` development target needs no tool: udev loads
+the driver and NetworkManager connects with its default profile. One boot
+passed; see [native Ethernet autoload](docs/ETHERNET-NATIVE.md).
+
 ## Current stage
 
 **PS4 development target.** The 54 base patches remain byte-for-byte preserved.
@@ -124,6 +128,7 @@ future-console support remain planned.
 | [Generic boot guide](docs/BOOTING.md) | Loader/initramfs/rootfs requirements for any distribution. |
 | [Ethernet contract](docs/ETHERNET.md) | Explicit first activation, retained DMA and current limitations. |
 | [Ethernet setup](contrib/networkmanager/README.md) | One-time setup for automatic NetworkManager Ethernet connection. |
+| [Native Ethernet autoload](docs/ETHERNET-NATIVE.md) | Development target that needs no Ethernet tool: PCI-alias autoload and a self-arming first open. |
 | [PS4 status](platforms/ps4/STATUS.md) | Historical evidence and remaining qualification. |
 | [PS4 development knowledge](platforms/ps4/docs/README.md) | Curated display/MSI, Ethernet, fan/storage/UART findings and historical evidence. |
 | [Knowledge migration](platforms/ps4/docs/KNOWLEDGE-MIGRATION.md) | Disposition of 117 legacy knowledge/tool sources, corrected hypotheses and deliberate exclusions. |

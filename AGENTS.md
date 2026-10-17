@@ -6,7 +6,9 @@
   artifact identities, provenance and hardware evidence. The active target is
   `6.18-ps4-baikal`; PS5 integration remains planned. `7.2-ps4-baikal` and
   `7.2-ps4` are compile-tested development targets (`docs/PORT-7.2.md`) with
-  no hardware acceptance.
+  no hardware acceptance. `6.18-ps4-baikal-native-dev` is the active series
+  plus native Ethernet autoload (`docs/ETHERNET-NATIVE.md`); one boot passed
+  (EXP-20261017-019), no hardware acceptance.
 - Keep runtime/build inputs distribution-independent. Omarchy setup and boot
   profiles belong to `omarchy-psx`. The optional, standalone NetworkManager
   adapter lives in `contrib/networkmanager/`; it may be bundled as a convenience
@@ -15,11 +17,16 @@
 - Ethernet `--setup` explicitly installs and enables the optional systemd
   service. Bare `--install` only stages files. Preserve exact artifact checks,
   one first-publication attempt per boot, retained DMA and read-only healthy
-  repeat calls. Do not add blind module autoload, retries, unload or reset.
+  repeat calls. The adapter and the active target add no module autoload,
+  retries, unload or reset. PCI-alias autoload and the self-arming first open
+  belong only to the native patch `0700-network-mts/0002`, which keeps one
+  attempt per boot and retained DMA; add no retries, unload or reset there.
 - Read `docs/PS4-PATCHES.md`, `CREDITS.md`, `provenance/ps4-import.json` and
   `docs/UNIVERSAL-KERNEL.md` before changing a patch or making support claims.
 - Read `docs/BUILDING.md`, `docs/ARTIFACTS.md`, `docs/ETHERNET.md` and
-  `provenance/6.18-ps4-baikal.json` for the active target.
+  `provenance/6.18-ps4-baikal.json` for the active target. Read
+  `docs/ETHERNET-NATIVE.md` and `provenance/6.18-ps4-baikal-native-dev.json`
+  before changing native autoload.
 - Read `platforms/ps4/docs/README.md` and `CONTRIBUTING.md` for the migrated
   research and source workflow. `provenance/knowledge-migration.json` records
   historical input dispositions and curated output hashes. Preserve negative

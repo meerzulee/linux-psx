@@ -62,6 +62,10 @@ Build/packaging tools are adapted from that same published source. The earlier
 54-patch source lineage above still applies; the Ethernet addition does not
 replace or consolidate other contributors' authorship.
 
+The native autoload patch `0700-network-mts/0002`, used only by the
+`6.18-ps4-baikal-native-dev` development target, is a Linux psX addition on
+top of MTS2 under the same `GPL-2.0-only` terms.
+
 ## rmux Strawberry 7.x imports
 
 Linux psX reuses rmux's Strawberry kernel work instead of reimplementing it.

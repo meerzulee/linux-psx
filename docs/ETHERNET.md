@@ -5,6 +5,11 @@ netdevice normally named `psx0`; it has no desktop, distribution, init-system
 or network-manager dependency. The patch is unchanged from the published
 PS4 MTS2 source. The new psX build still needs its own hardware qualification.
 
+The `6.18-ps4-baikal-native-dev` development target adds PCI-alias autoload
+and a self-arming first open, so it needs no adapter; see
+[ETHERNET-NATIVE.md](ETHERNET-NATIVE.md). The rest of this page describes the
+active target.
+
 ## What changed in the earlier investigation
 
 The investigation used public Linux source, local PS4 research and UART plus
@@ -25,8 +30,9 @@ packet captures and console logs are not copied into this repository.
 
 ## First-publication integration contract
 
-The driver has no PCI modalias autoload. Loading it does not authorize first
-packet publication. A distribution adapter must perform a reviewed sequence:
+The active target's driver has no PCI modalias autoload. Loading it does not
+authorize first packet publication. A distribution adapter must perform a
+reviewed sequence:
 
 1. Verify the running release, resolved config, entire matching module archive
    and installed/loaded module build identity against `artifacts.json`.

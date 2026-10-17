@@ -16,6 +16,13 @@ source paths and adaptations. Run `make check` to verify both imports.
 
 See [BUILDING.md](BUILDING.md) and [the PS4 status](../platforms/ps4/STATUS.md).
 
+`platforms/ps4/patches/6.18-baikal-mts2/series-native-dev` is the active
+series plus `0700-network-mts/0002-net-ps4-mts-native-autoload.patch`, used
+only by the `6.18-ps4-baikal-native-dev` development target. The patch adds
+PCI-alias autoload and a self-arming first open; see
+[ETHERNET-NATIVE.md](ETHERNET-NATIVE.md) and
+[its provenance](../provenance/6.18-ps4-baikal-native-dev.json).
+
 ## rmux 7.x source imports
 
 `platforms/ps4/patches/rmux-7.1.7/` and `rmux-7.0.8-baikal/` are per-commit
