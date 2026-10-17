@@ -10,7 +10,8 @@ in [the PS4 status](../platforms/ps4/STATUS.md).
 1. A PS4 loader compatible with your console, firmware and Linux boot protocol.
 2. An initramfs that can find and mount your chosen Linux root filesystem.
 3. A Linux x86-64 root filesystem and the **whole matching** module tree.
-4. Separately obtained device firmware required by the selected drivers.
+4. Separately obtained device firmware required by the selected drivers
+   (see [Early firmware and the initramfs](#early-firmware-and-the-initramfs)).
 5. Boot arguments matching that loader/initramfs, root device and display.
 
 No loader payload, jailbreak, firmware, initramfs, distribution image or
@@ -47,21 +48,50 @@ internal-storage changes while evaluating a new kernel. Loader VRAM settings
 and boot-file naming belong to the selected loader; no universal defaults are
 assumed here.
 
+The Omarchy-specific partitioned USB profile is maintained in the companion
+project:
+
+https://github.com/meerzulee/omarchy-psx/blob/master/docs/USING-LINUX-PSX.md
+
+## Early firmware and the initramfs
+
 `CONFIG_EXTRA_FIRMWARE=""` means no device firmware is embedded. Built-in
-display/Wi-Fi drivers can request firmware before the real root mounts;
-provide the required EDID/vendor firmware in a compatible initramfs where
-needed. Rootfs firmware alone may arrive too late. Keep independent recovery
-access; do not assume built-in Wi-Fi will work without its firmware.
+drivers can request firmware before the real root mounts, so put it in the
+initramfs; rootfs firmware alone may arrive too late. On the PS4 Baikal
+target that means:
 
-The Omarchy-specific partitioned USB profile and optional network integration
-are maintained in the companion project:
+- Display: the Liverpool AMDGPU firmware and the 1920x1080 EDID. The existing
+  Omarchy PS4 initramfs already carries them.
+- Wi-Fi and Bluetooth (MediaTek MT7668): `mediatek/mt7668pr2h.bin` from
+  upstream [linux-firmware](https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git),
+  and nine Wi-Fi files from `extra_firmware/` in the Linux 5.4 PS4 kernel
+  [feeRnt/ps4-linux-12xx](https://github.com/feeRnt/ps4-linux-12xx/tree/3070025bad397ad499f3c4919f35e8abd547af2b/extra_firmware)
+  (branch `5.4.247-baikal-dfaus`): `WIFI_RAM_CODE_MT7668.bin`,
+  `WIFI_RAM_CODE2_SDIO_MT7668.bin`, `WIFI_RAM_CODE2_USB_MT7668.bin`,
+  `mt7668_patch_e1_hdr.bin`, `mt7668_patch_e2_hdr.bin`, `EEPROM_MT7668.bin`,
+  `EEPROM_MT7668_e1.bin`, `TxPwrLimit_MT76x8.dat` and `wifi.cfg`, placed
+  directly in `/lib/firmware/`.
 
-https://github.com/meerzulee/omarchy-psx/blob/main/docs/USING-LINUX-PSX.md
+Linux psX does not host or redistribute any firmware. The linux-firmware file
+is redistributable under its `LICENCE.mediatek`; the Wi-Fi files have no
+recorded license, so keep them local. Omarchy psX has scripts that download
+exactly these files from those sources, check their pinned SHA-256 hashes and
+add them to an initramfs. The pins in its `manifests/ps4-firmware.json` suit
+any distribution:
+
+https://github.com/meerzulee/omarchy-psx/blob/master/docs/INITRAMFS.md#add-wi-fi-and-bluetooth-firmware
+
+One fresh boot (omarchy-psx EXP-20261017-018) ran display, Wi-Fi and
+Bluetooth with that initramfs on one console. Orbis initializes the MT7668
+before every launch, so whether Linux loaded these files was not witnessed.
+Keep independent recovery access; do not assume built-in Wi-Fi will work
+without its firmware.
 
 ## First evaluation
 
 Boot-file writes and console tests require a bounded UART experiment with an
 explicit rollback. Follow [HARDWARE-TESTING.md](HARDWARE-TESTING.md). After boot,
 check `uname -r`, the installed module/config identities and early firmware
-errors before activating new hardware. Ethernet first activation is explicit;
-booting this kernel alone does not enable it. Read [ETHERNET.md](ETHERNET.md).
+errors. Ethernet starts by itself: udev loads `psx_mts_net` and the network
+manager's first open publishes `psx0`. Boot with `psx_mts_net.autoarm=0` or
+`modprobe.blacklist=psx_mts_net` to keep it off. Read [ETHERNET.md](ETHERNET.md).
