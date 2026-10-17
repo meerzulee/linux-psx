@@ -71,3 +71,127 @@ build ran incrementally over three passes (the first with `make -k`); the
 curated branch gets a clean build.
 
 The image has not been booted. Compilation is not hardware acceptance.
+
+## Step 2: drop the Strawberry banner and Mesa lock
+
+On the port branch both commits are removed with `git rebase --onto`, which
+leaves 168 of the 170 imported patches. Two later patches needed adjusting:
+
+- `ps4-apcie: detect and log southbridge variant, GPU, and function map at
+  boot` also edited the banner. That hunk is removed.
+- `drivers/ps4: add Aeolia front panel buzzer driver` loses the Mesa lock
+  lines from its `drivers/ps4/Makefile` context.
+
+Compared with step 1, the tree differs only in `init/version-timestamp.c`
+(now identical to v7.2.11), `drivers/ps4/Makefile` and the two deleted Mesa
+lock files. No source file references either feature.
+
+The liverpool_clk SCLK force driver is added (rmux `0050`) and removed again
+(`0163`). The pair has no net effect, so it stays rather than rewriting the
+commits between them.
+
+`CONFIG_PS4_DMI_SPOOF` is off. Its Kconfig help says it confirms a PS4 through
+the ACPI OEM identity, but the code does not check: `dmi_scan_machine()` calls
+`ps4_dmi_populate()` on every boot, including when SMBIOS is valid, and fills
+each missing field with a fixed value (serial `STRWB3RRYWA5H3R3`, a constant
+UUID, board name `Belize` on every southbridge). It needs a runtime console
+check and detected values before it can be enabled.
+
+## Step 3: psX MTS2 Ethernet
+
+The 6.18 MTS2 patch applies unchanged (line offsets only) and builds
+`psx_mts_net.ko` with `CONFIG_PS4_MTS=m`. The series references the 6.18 file
+directly, so its hash stays the one recorded in
+[`6.18-ps4-baikal.json`](../provenance/6.18-ps4-baikal.json).
+
+## The 7.2-ps4 development target
+
+| Item | Location |
+| --- | --- |
+| Target | [`targets/7.2-ps4.env`](../targets/7.2-ps4.env), release `7.2.11-psx-ps4-dev1` |
+| Series | [`platforms/ps4/patches/7.2-ps4/series`](../platforms/ps4/patches/7.2-ps4/series): 174 patches plus MTS2 |
+| Config | [`platforms/ps4/config/7.2-psx-ps4.config`](../platforms/ps4/config/7.2-psx-ps4.config) with the MT7668 and USB Ethernet fragments |
+| Provenance | [`provenance/7.2-ps4.json`](../provenance/7.2-ps4.json) |
+
+The 174 patches are exported from the local port branch with
+`git format-patch --zero-commit` and the same pinned diff options as the rmux
+import. The provenance maps each one to its rmux import entry and source commit
+and classifies the difference:
+
+| Class | Count | Patches |
+| --- | --- | --- |
+| Unchanged from the rmux import | 160 | |
+| Context lines only | 3 | `0014`, `0133`, `0163` |
+| Adapted, with the resolution recorded | 5 | `0008`, `0011`, `0030`, `0101`, `0116` |
+| Port fixes (new) | 6 | `0169`–`0172` compile fixes, `0173`–`0174` xHCI shutdown |
+
+`make check` verifies the series order, every hash, each rmux mapping, the
+target definition and the firmware-free config. The port branch itself is not
+published.
+
+The config is the 6.18 config moved to 7.2 with `make olddefconfig` after the
+two fragments and these changes:
+
+- `CONFIG_LOCALVERSION="-psx-ps4-dev1"`.
+- `PS4_CPUFREQ` (new with the rmux stack, enabled in rmux's 7.1.7 config) is
+  off. It has never run on Baikal; enabling it is a separate experiment.
+- `PS4_DMI_SPOOF` is off (see step 2).
+- `PS4_MTS=m`, as in the 6.18 target.
+- `PREEMPT_VOLUNTARY` no longer exists on x86. `make olddefconfig` selects
+  `PREEMPT`, which is also what rmux's 7.0.8 and 7.1.7 configs use.
+- Every other difference is a Linux 7.2 Kconfig change: removed or renamed
+  crypto, MDIO and helper symbols, and `NTFS3_FS` becoming a module next to
+  the new `NTFS_FS`.
+
+## Baikal reference audit
+
+rmux's field-tested `baikal/7.0.8-Stable` has 11 commits with no counterpart
+in the port's source (listed in [RMUX-IMPORT.md](RMUX-IMPORT.md)). A read-only
+review compared each with the port; the findings below that led to changes or
+decisions were checked against the source.
+
+| Commit | Result |
+| --- | --- |
+| `4237de231b41` xHCI IRQ offsets | Already equivalent in the port |
+| `7aed26ac6127`, `13ca33b98833` DP training counter | Added and removed again; the port already retrains as the pair ends up |
+| `bc0d84377983` ACPI SCI bypass | Present |
+| `3a29a5b9f700` x86 PCI INTx skip | Only reachable with `pci=routeirq`; not carried |
+| `a90c0d1c0c17` Baikal Kconfig and config | Config only; the port selects Baikal at run time |
+| `d98d3e9e0df2` mt76x8 copy | Replaced by port fix `0172` |
+| `c9e16f3ad259` Liverpool/Gladius display paths | Not carried; part of the step 4 display decision |
+| `c4e7f040d08f` Baikal IOMMU and interrupt remapping | Not carried; see the IOMMU decision below |
+| `a827d7936c44` Baikal AHCI, xHCI and SDHCI | Partly present; see below |
+| `ad61075172f1` MT7668 Bluetooth on Baikal | Not carried; it changes generic LE and HCI code for every MediaTek SDIO chip |
+
+The review also found a bug outside those commits. `xhci_hcd_pci_shutdown()`
+sent every device except Belize to `usb_hcd_pci_shutdown()`, which reads the
+PCI driver data as a `struct usb_hcd`, while `xhci-aeolia` stores a
+`struct aeolia_xhci` there. On Aeolia and Baikal every reboot or power-off
+read past that allocation and could call through a garbage pointer. feeRnt had
+fixed it for Baikal, and the 6.18 target carries that fix
+(`0800-usb-aeolia/0002`), but bebez had lost it. Two port fixes follow:
+
+- `0173` sends only Aeolia to the generic path, which restores the 6.18
+  behaviour on Baikal.
+- `0174` shuts down Aeolia's three hosts through the same per-host loop. It
+  has not been tested on an Aeolia console and can be dropped on its own.
+
+### Decisions before the first Baikal boot
+
+- **AMD IOMMU on Baikal.** The port means to skip IOMMU detection on Baikal,
+  but `amd_iommu_detect()` runs from `arch_mm_preinit()`, before PCI
+  enumeration, so `ps4_is_baikal()` (a PCI lookup) is false and the IOMMU is
+  detected anyway. The Baikal reference skips detection on every PS4
+  (`c4e7f040d08f`), and the 6.18 target uses the IOMMU with its own Baikal
+  coherent-DMA patch (`1000-iommu/0003`). The 7.2 tree as built therefore
+  runs a combination nobody has tested. Choose one behaviour before boot
+  testing; `ps4_is_baikal_early()` exists if the skip is wanted.
+- **Baikal SATA PHY.** `ahci.c` skips the Baikal SATA PHY setup when
+  `xhci_aeolia` is already bound to the Baikal xHCI, assuming the xHCI driver
+  did it, but this `xhci-aeolia` only does that for Belize. With both drivers
+  built in, AHCI registers and retries deferred probes first, so the expected
+  order still sets up the PHY; a modular AHCI or a different probe order would
+  skip it. `a827d7936c44` adds the xHCI-side setup.
+- **Rest of `a827d7936c44`.** Its xHCI-attached AHCI host for Baikal and its
+  separate AHCI `dma_boundary` change all Sony AHCI devices and need hardware
+  evidence first.

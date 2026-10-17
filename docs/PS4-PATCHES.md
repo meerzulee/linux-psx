@@ -24,6 +24,10 @@ Baikal unification attempt) and 7.0.8 (Baikal). They are inputs for the Linux
 7.2 port, not build targets. See [RMUX-IMPORT.md](RMUX-IMPORT.md) for sources,
 filters, validation and the maintainer's stated request.
 
+`platforms/ps4/patches/7.2-ps4/` is the development series built from the
+7.1.7 import on Linux 7.2.11. [PORT-7.2.md](PORT-7.2.md) records how each
+patch differs from its rmux source.
+
 ## Original frozen import
 
 Imported on 2026-10-16 from:

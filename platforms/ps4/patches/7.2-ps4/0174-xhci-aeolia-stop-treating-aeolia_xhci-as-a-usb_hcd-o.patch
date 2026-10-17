@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 17:47:45 +0600
+Subject: [PATCH] xhci-aeolia: stop treating aeolia_xhci as a usb_hcd on Aeolia
+ shutdown
+
+Aeolia still went through usb_hcd_pci_shutdown(), which reads the PCI
+driver data as a struct usb_hcd while this driver stores a struct
+aeolia_xhci there.
+
+Shut down every Aeolia host through the same per-HCD loop as Belize
+and Baikal. Aeolia registers a host at all three indices (probe skips
+index 1 only on Belize and Baikal), so the loop now skips the same
+index as probe; its previous condition excluded Aeolia entirely.
+
+Belize and Baikal behave as before. This has not been tested on an
+Aeolia console.
+---
+ drivers/usb/host/xhci-aeolia.c | 26 +++++++++-----------------
+ 1 file changed, 9 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 4139932eec14a26685249208d427979e4125e1ea..2e7afc807dad5a96bdd7ba2c0dccf83375a73228 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -493,13 +493,6 @@ static void xhci_aeolia_remove(struct pci_dev *dev)
+ 
+ static void xhci_hcd_pci_shutdown(struct pci_dev *dev){
+ 
+-	// Belize and Baikal use the per-HCD shutdown below
+-	if (dev->device == PCI_DEVICE_ID_SONY_AEOLIA_XHCI)
+-	{
+-		usb_hcd_pci_shutdown(dev);
+-		return;
+-	}
+-
+ 	struct aeolia_xhci *axhci;
+ 	struct usb_hcd	   *hcd;
+ 	int idx;
+@@ -509,16 +502,15 @@ static void xhci_hcd_pci_shutdown(struct pci_dev *dev){
+ 		return;
+ 
+ 	for (idx = 0; idx < NR_DEVICES; idx++) {
+-		if(dev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI) {
+-			if(idx != 1) {
+-				hcd = axhci->hcd[idx];
+-				if (hcd) {
+-					if (test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) && hcd->driver->shutdown) {
+-						hcd->driver->shutdown(hcd);
+-						if (usb_hcd_is_primary_hcd(hcd) && hcd->irq > 0)
+-							free_irq(hcd->irq, hcd);
+-					}
+-				}
++		/* As in probe: Belize and Baikal have no host at index 1 */
++		if (dev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI && idx == 1)
++			continue;
++		hcd = axhci->hcd[idx];
++		if (hcd) {
++			if (test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags) && hcd->driver->shutdown) {
++				hcd->driver->shutdown(hcd);
++				if (usb_hcd_is_primary_hcd(hcd) && hcd->irq > 0)
++					free_irq(hcd->irq, hcd);
+ 			}
+ 		}
+ 	}

@@ -13,7 +13,7 @@
   },
   "port": {
     "branch": "port/7.2.11-psx",
-    "tip": "6feb93d721387083592ce1e1834b03146a92daae",
+    "tip": "e08510a06c71c23ee26af498f9146a494f2649fc",
     "published": false,
     "method": "git am -3 of the rmux-7.1.7 import onto v7.2.11, the listed drops, four compile fixes, then MTS2 from the 6.18 target",
     "git_config": [
@@ -49,13 +49,13 @@
     "ordered_patchset_sha256": "f9783c181d17f4e749943f69895f579ea8df4a6e03dd2ff6a76a771c016af3a4"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4/series",
-  "series_sha256": "45055c3bfa75ac4488e6ed8e61df0c35f3a71b70bb261f9c24aa02946aaf8e14",
-  "active_patch_count": 173,
-  "ordered_patchset_sha256": "ccc4c890bec9d0b70b479d5e194f3ab4863f41de5ec9b39508b99577422e8202",
+  "series_sha256": "9104f43c31bb2cf7a77f89f4fcc9858aa8ca956a8cb376cd7a6b10d6b489efd9",
+  "active_patch_count": 175,
+  "ordered_patchset_sha256": "b44b2c367384b0522e81dafb31bb9cb09a701759247709a7cc6fa968ad02ed39",
   "change_counts": {
     "adapted": 5,
     "context": 3,
-    "port-fix": 4,
+    "port-fix": 6,
     "unchanged": 160
   },
   "patches": [
@@ -2426,7 +2426,8 @@
       "date": "Sat, 17 Oct 2026 17:10:25 +0600",
       "subject": "ps4: icc: use strscpy_pad() for the adapter name",
       "origin": "port-fix",
-      "change": "port-fix"
+      "change": "port-fix",
+      "note": "Linux 7.2 removed strncpy()."
     },
     {
       "entry": "0170-mt76x8-replace-strncpy-removed-in-Linux-7.2.patch",
@@ -2437,7 +2438,8 @@
       "date": "Sat, 17 Oct 2026 17:10:42 +0600",
       "subject": "mt76x8: replace strncpy() removed in Linux 7.2",
       "origin": "port-fix",
-      "change": "port-fix"
+      "change": "port-fix",
+      "note": "kalStrnCpy() keeps strncpy() semantics; some callers fill length-delimited firmware fields."
     },
     {
       "entry": "0171-mt76x8-adapt-remain_on_channel-to-Linux-7.2.patch",
@@ -2448,7 +2450,8 @@
       "date": "Sat, 17 Oct 2026 17:11:29 +0600",
       "subject": "mt76x8: adapt remain_on_channel to Linux 7.2",
       "origin": "port-fix",
-      "change": "port-fix"
+      "change": "port-fix",
+      "note": "Upstream 4dbd1829045e added rx_addr; the driver does not set NL80211_EXT_FEATURE_ROC_ADDR_FILTER."
     },
     {
       "entry": "0172-mt76x8-make-proc-write-bounds-checks-overflow-safe.patch",
@@ -2459,7 +2462,32 @@
       "date": "Sat, 17 Oct 2026 17:15:19 +0600",
       "subject": "mt76x8: make proc write bounds checks overflow-safe",
       "origin": "port-fix",
-      "change": "port-fix"
+      "change": "port-fix",
+      "note": "GCC 16 rejects the count + 1 wrap in copy_from_user(); used instead of rmux d98d3e9e0df2."
+    },
+    {
+      "entry": "0173-xhci-aeolia-use-the-per-HCD-shutdown-path-on-Baikal.patch",
+      "path": "platforms/ps4/patches/7.2-ps4/0173-xhci-aeolia-use-the-per-HCD-shutdown-path-on-Baikal.patch",
+      "sha256": "6d69f71276e932fb5812775432bc68c86f0caba40aa10c40df580504b005b52b",
+      "size": 1634,
+      "author": "Meerzulee <17146298+meerzulee@users.noreply.github.com>",
+      "date": "Sat, 17 Oct 2026 17:47:19 +0600",
+      "subject": "xhci-aeolia: use the per-HCD shutdown path on Baikal",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Reimplements feeRnt b0969f7d101f89cfe6f60c42d607aff9d35b142a, carried by the 6.18 target as 0800-usb-aeolia/0002; bebez had lost it, so Baikal passed aeolia_xhci to usb_hcd_pci_shutdown()."
+    },
+    {
+      "entry": "0174-xhci-aeolia-stop-treating-aeolia_xhci-as-a-usb_hcd-o.patch",
+      "path": "platforms/ps4/patches/7.2-ps4/0174-xhci-aeolia-stop-treating-aeolia_xhci-as-a-usb_hcd-o.patch",
+      "sha256": "fab85504c92f4574be9c42c629b474a7d6d66bb71624a62f8296ec1c6707bc68",
+      "size": 2369,
+      "author": "Meerzulee <17146298+meerzulee@users.noreply.github.com>",
+      "date": "Sat, 17 Oct 2026 17:47:45 +0600",
+      "subject": "xhci-aeolia: stop treating aeolia_xhci as a usb_hcd on Aeolia shutdown",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Same type confusion on Aeolia; untested on an Aeolia console."
     }
   ],
   "direct_references": [

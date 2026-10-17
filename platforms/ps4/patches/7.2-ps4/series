@@ -173,6 +173,8 @@
 0170-mt76x8-replace-strncpy-removed-in-Linux-7.2.patch
 0171-mt76x8-adapt-remain_on_channel-to-Linux-7.2.patch
 0172-mt76x8-make-proc-write-bounds-checks-overflow-safe.patch
+0173-xhci-aeolia-use-the-per-HCD-shutdown-path-on-Baikal.patch
+0174-xhci-aeolia-stop-treating-aeolia_xhci-as-a-usb_hcd-o.patch
 
 # psX MTS2 Ethernet, unchanged from the 6.18 target; this config builds it as a module.
 ../6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch

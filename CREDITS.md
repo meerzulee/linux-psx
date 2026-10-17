@@ -87,6 +87,13 @@ into a patch repository and presented as one's own work; see
 [RMUX-IMPORT.md](docs/RMUX-IMPORT.md) for the quotation and how this import
 handles attribution.
 
+The [`7.2-ps4` development target](docs/PORT-7.2.md) is built from the
+7.1.7 import. Its 168 rebased rmux patches keep their original authors, and
+[its provenance](provenance/7.2-ps4.json) maps each one to the rmux commit it
+came from and records every change made while rebasing. Its six port fixes
+are by Meerzulee; one of them reimplements feeRnt's Baikal xHCI shutdown
+fix and credits it. MTS2 is the psX work credited below.
+
 ## Licensing
 
 The GPLv2 license text is copied from the source repository into [LICENSE](LICENSE).
