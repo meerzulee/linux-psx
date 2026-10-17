@@ -1,0 +1,120 @@
+From 97be8d49dd76f169c05bb05ddfa47433cd476124 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Apr 2026 18:57:14 +0200
+Subject: [PATCH] ps4: disable mwifiex power save
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The PS4 internal WiFi device uses the mwifiex SDIO path. Runtime logs
+show clean disconnect/reassociate cycles while power save can be enabled
+by userspace.
+
+Force cfg80211 power-management requests to disable power save on PS4 so
+NetworkManager or wpa_supplicant cannot re-enable mwifiex WiFi power
+save on the internal adapter.
+
+The driver also enables station power save by default during mwifiex
+station init, so force the same PS4-only CAM/DIS_AUTO_PS path there to
+keep the internal adapter out of power save from first bring-up.
+
+This only changes PS4 behavior. Non-PS4 mwifiex users keep the existing
+power-management handling.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c |  3 +++
+ drivers/net/wireless/marvell/mwifiex/main.h     | 13 +++++++++++++
+ drivers/net/wireless/marvell/mwifiex/sta_cmd.c  | 16 +++++++++++++---
+ 3 files changed, 29 insertions(+), 3 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0070-ps4-disable-mwifiex-power-save.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0070-ps4-disable-mwifiex-power-save.patch"
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+index ca04aaae1e2f318c339153bb72376ab529a90cc6..48b79a14ad22d8dc0a3be8fd5aa91f7b209dba46 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+@@ -446,6 +446,9 @@ mwifiex_cfg80211_set_power_mgmt(struct wiphy *wiphy,
+ 		mwifiex_dbg(priv->adapter, INFO,
+ 			    "info: ignore timeout value for IEEE Power Save\n");
+ 
++	if (mwifiex_is_ps4())
++		enabled = false;
++
+ 	ps_mode = enabled;
+ 
+ 	return mwifiex_drv_set_power(priv, &ps_mode);
+diff --git a/drivers/net/wireless/marvell/mwifiex/main.h b/drivers/net/wireless/marvell/mwifiex/main.h
+index 27559e2ddc31757f4575071a7eb827f26cdfb1e0..a2556c903ad3f8ca2fe85f65d83802d339f65984 100644
+--- a/drivers/net/wireless/marvell/mwifiex/main.h
++++ b/drivers/net/wireless/marvell/mwifiex/main.h
+@@ -37,6 +37,10 @@
+ #include <linux/of_irq.h>
+ #include <linux/workqueue.h>
+ 
++#ifdef CONFIG_X86_PS4
++#include <asm/ps4.h>
++#endif
++
+ #include "decl.h"
+ #include "ioctl.h"
+ #include "util.h"
+@@ -52,6 +56,15 @@ extern bool aggr_ctrl;
+ struct mwifiex_adapter;
+ struct mwifiex_private;
+ 
++static inline bool mwifiex_is_ps4(void)
++{
++#ifdef CONFIG_X86_PS4
++	return apcie_status() >= 0;
++#else
++	return false;
++#endif
++}
++
+ enum {
+ 	MWIFIEX_ASYNC_CMD,
+ 	MWIFIEX_SYNC_CMD
+diff --git a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
+index 70ce31d7c76e536edd63d19a8e87ce093a70464c..aaa2267d9fa59deb63b1f10d009150992cedcc3a 100644
+--- a/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
++++ b/drivers/net/wireless/marvell/mwifiex/sta_cmd.c
+@@ -2438,12 +2438,22 @@ int mwifiex_sta_init_cmd(struct mwifiex_private *priv, u8 first_sta)
+ 			return -1;
+ 
+ 		if (priv->bss_type != MWIFIEX_BSS_TYPE_UAP) {
+-			/* Enable IEEE PS by default */
+-			priv->adapter->ps_mode = MWIFIEX_802_11_POWER_MODE_PSP;
+-			ret = mwifiex_send_cmd(priv,
++			if (mwifiex_is_ps4()) {
++				priv->adapter->ps_mode =
++					MWIFIEX_802_11_POWER_MODE_CAM;
++				ret = mwifiex_send_cmd(priv,
++					       HostCmd_CMD_802_11_PS_MODE_ENH,
++					       DIS_AUTO_PS, BITMAP_STA_PS,
++					       NULL, true);
++			} else {
++				/* Enable IEEE PS by default */
++				priv->adapter->ps_mode =
++					MWIFIEX_802_11_POWER_MODE_PSP;
++				ret = mwifiex_send_cmd(priv,
+ 					       HostCmd_CMD_802_11_PS_MODE_ENH,
+ 					       EN_AUTO_PS, BITMAP_STA_PS, NULL,
+ 					       true);
++			}
+ 			if (ret)
+ 				return -1;
+ 		}
+
+--------------false--
+
+

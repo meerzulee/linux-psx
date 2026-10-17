@@ -1,0 +1,56 @@
+From 38895df5840748c1f2648c1f042fc7f4cf67e933 Mon Sep 17 00:00:00 2001
+From: M H <mircoho@gmail.com>
+Date: Sat, 21 Jun 2025 12:25:16 +0000
+Subject: [PATCH] ioremap fix
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ arch/x86/platform/ps4/calibrate.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0016-ioremap-fix.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0016-ioremap-fix.patch"
+
+diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
+index 2328668165124a7379dff0bdc41565eba6937f13..681e5954f1b60f8fed1f4288296cecce91bd13a8 100644
+--- a/arch/x86/platform/ps4/calibrate.c
++++ b/arch/x86/platform/ps4/calibrate.c
+@@ -15,6 +15,7 @@
+ #include <asm/ps4.h>
+ #include <asm/delay.h>
+ #include <asm/apic.h>
++#include <linux/io.h>
+ 
+ /* The PS4 southbridge (Aeolia) has an EMC timer that ticks at 32.768kHz,
+  * which seems to be an appropriate clock reference for calibration. Both TSC
+@@ -52,7 +53,7 @@ static __init unsigned long ps4_measure_tsc_freq(void)
+ 
+ 	// This is part of the Aeolia pcie device, but it's too early to
+ 	// do this in a driver.
+-	emc_timer = ioremap(EMC_TIMER_BASE, 0x100);
++	emc_timer = early_ioremap(EMC_TIMER_BASE, 0x100);
+ 	if (!emc_timer)
+ 		goto fail;
+ 
+@@ -95,7 +96,7 @@ static __init unsigned long ps4_measure_tsc_freq(void)
+ 	pr_info("Calibrated TSC frequency: %ld kHz\n", ret);
+ fail:
+ 	if (emc_timer) {
+-		iounmap(emc_timer);
++		early_iounmap(emc_timer, 0x100);
+ 		emc_timer = NULL;
+ 	}
+ 	return ret;
+
+--------------false--
+
+

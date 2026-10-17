@@ -1,0 +1,42 @@
+From 17152a3bdad3253ba6f4894268a42e045568b046 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 1 Aug 2026 13:56:50 +0200
+Subject: [PATCH] amdgpu: ps4_bridge: exclude interlaced/non-1920 modes from
+ 1080p60 preference
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0161-amdgpu-ps4_bridge-exclude-interlaced-non-1920-modes-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0161-amdgpu-ps4_bridge-exclude-interlaced-non-1920-modes-.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 66cde6f004bc60f7f389405af99dbfac776c0d7e..261a70e2646f7a4ce02a86de8d406e36f2b30a45 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -1228,7 +1228,9 @@ edid_ready:
+ 			struct drm_display_mode *m, *first_1080p = NULL;
+ 
+ 			list_for_each_entry(m, &connector->probed_modes, head) {
+-				if (m->vdisplay == 1080 &&
++				if (m->hdisplay == 1920 &&
++				    m->vdisplay == 1080 &&
++				    !(m->flags & DRM_MODE_FLAG_INTERLACE) &&
+ 				    drm_mode_vrefresh(m) == 60 &&
+ 				    !first_1080p)
+ 					first_1080p = m;
+
+--------------false--
+
+

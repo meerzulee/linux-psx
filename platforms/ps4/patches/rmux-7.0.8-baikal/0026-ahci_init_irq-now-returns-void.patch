@@ -1,0 +1,40 @@
+From 572f2a37d56fcec9a627c3cfba99a3b29f9947ec Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 21:37:39 +0200
+Subject: [PATCH] ahci_init_irq now returns void
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/ata/ahci.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0026-ahci_init_irq-now-returns-void.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0026-ahci_init_irq-now-returns-void.patch"
+
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index ed80976eee77ef9bad6e049bdd5db77478199542..243e4b8e49b21b805396afff938f24f56c610396 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -1766,7 +1766,8 @@ static void ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 
+ 	#ifdef CONFIG_X86_PS4
+ 	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		return apcie_assign_irqs(pdev, n_ports);
++		apcie_assign_irqs(pdev, n_ports);
++		return;
+ 	}
+ 	#endif
+ 	
+
+--------------false--
+
+

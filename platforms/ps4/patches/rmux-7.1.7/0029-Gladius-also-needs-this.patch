@@ -1,0 +1,39 @@
+From 9477762331699b8d4aee8a603b9f2a9754cf192e Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Thu, 10 Jul 2025 17:58:55 +0200
+Subject: [PATCH] Gladius also needs this
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/atombios_dp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0029-Gladius-also-needs-this.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0029-Gladius-also-needs-this.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+index 0dcfa96dea79ab15817201ef9a71f5d1d781fca2..d5641030f9b0ecfc7be3be61ae707ab981ab5d6d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
++++ b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+@@ -266,7 +266,7 @@ static int amdgpu_atombios_dp_get_dp_link_config(struct drm_connector *connector
+ 	struct amdgpu_device *adev = drm_to_adev(dev);
+ 
+ 	/* Liverpool is always connected to an encoder that needs 4 lanes */
+-	if (adev->asic_type == CHIP_LIVERPOOL)
++	if ((adev->asic_type == CHIP_LIVERPOOL) || (adev->asic_type == CHIP_GLADIUS))
+ 		min_lane_num = 4;
+ 
+ 	if (amdgpu_connector_encoder_get_dp_bridge_encoder_id(connector) ==
+
+--------------false--
+
+

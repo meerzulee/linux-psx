@@ -1,0 +1,116 @@
+From 0ffd91bf838b2cef8dfaf83e00574322d769d383 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 12:31:18 +0200
+Subject: [PATCH] Revert "usb: xhci-aeolia: use per-subfunction MSI-X vectors
+ on Baikal"
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The direct PCI MSI allocation bypasses the bpcie interrupt demux,
+which is required for proper interrupt delivery on Baikal. The hardware
+only signals on the base MSI vector — additional vectors never fire.
+
+This caused:
+- xHCI 'Command Aborted' (USB devices can't enumerate)
+- ICC interrupt timeout (cascading to LED, HDMI bridge, fan control)
+- SATA IDENTIFY timeouts
+
+Revert to bpcie_assign_irqs() which properly routes through the
+bpcie_handle_edge_irq demux. The AHCI interrupt issue from the
+original commit needs to be fixed in the bpcie demux instead.
+
+This reverts commit 5dd545431a398f12763dc546f3679300dbd962c9.
+---
+ drivers/usb/host/xhci-aeolia.c | 36 +++++-----------------------------
+ 1 file changed, 5 insertions(+), 31 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0119-Revert-usb-xhci-aeolia-use-per-subfunction-MSI-X-vec.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0119-Revert-usb-xhci-aeolia-use-per-subfunction-MSI-X-vec.patch"
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 1868ab3bf11798ee62cb9df0657097a63cae9dc9..24cf0ef79362f6057af517a047cf3358e9e9cd7d 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -28,7 +28,6 @@ static struct hc_driver __read_mostly xhci_aeolia_hc_driver;
+ struct aeolia_xhci {
+ 	struct ata_host *host;
+ 	int nr_irqs;
+-	bool baikal_msix_path;
+ 	struct usb_hcd *hcd[NR_DEVICES];
+ };
+ 
+@@ -46,6 +45,9 @@ static void xhci_aeolia_quirks(struct device *dev, struct xhci_hcd *xhci)
+ 	 * Do not touch DMA mask, we need a custom one
+ 	 */
+ 	xhci->quirks |= XHCI_PLAT | XHCI_PLAT_DMA;
++
++	/* Disable interrupt moderation for minimum USB latency */
++	xhci->imod_interval = 0;
+ }
+ 
+ /* called during probe() after chip reset completes */
+@@ -79,49 +81,21 @@ static int xhci_aeolia_irqnum(struct aeolia_xhci *axhci,
+ 	if (axhci->nr_irqs <= 1 || index >= axhci->nr_irqs)
+ 		return dev->irq;
+ 
+-	if (axhci->baikal_msix_path)
+-		return pci_irq_vector(dev, index);
+-
+ 	return dev->irq + index;
+ }
+ 
+ static int xhci_aeolia_assign_irqs(struct pci_dev *dev)
+ {
+-	struct aeolia_xhci *axhci = pci_get_drvdata(dev);
+-	int ret;
+-
+-	if (xhci_aeolia_is_baikal(dev)) {
+-		ret = pci_alloc_irq_vectors(dev, NR_DEVICES, INT_MAX,
+-					    PCI_IRQ_MSIX | PCI_IRQ_MSI);
+-		if (ret >= NR_DEVICES) {
+-			axhci->baikal_msix_path = true;
+-			dev_info(&dev->dev,
+-				 "xhci_aeolia: allocated %d vectors via PCI MSI%s\n",
+-				 ret, dev->msix_enabled ? "-X" : "");
+-			return ret;
+-		}
+-		if (ret > 0)
+-			pci_free_irq_vectors(dev);
+-
+-		dev_warn(&dev->dev,
+-			 "xhci_aeolia: MSI-X alloc failed (%d), falling back to bpcie\n",
+-			 ret);
+-		axhci->baikal_msix_path = false;
++	if (xhci_aeolia_is_baikal(dev))
+ 		return bpcie_assign_irqs(dev, NR_DEVICES);
+-	}
+ 
+ 	return apcie_assign_irqs(dev, NR_DEVICES);
+ }
+ 
+ static void xhci_aeolia_free_irqs(struct pci_dev *dev, int nr_irqs)
+ {
+-	struct aeolia_xhci *axhci = pci_get_drvdata(dev);
+-
+ 	if (xhci_aeolia_is_baikal(dev)) {
+-		if (axhci && axhci->baikal_msix_path)
+-			pci_free_irq_vectors(dev);
+-		else
+-			bpcie_free_irqs(dev->irq, nr_irqs);
++		bpcie_free_irqs(dev->irq, nr_irqs);
+ 		return;
+ 	}
+ 
+
+--------------false--
+
+

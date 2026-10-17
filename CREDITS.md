@@ -62,6 +62,31 @@ Build/packaging tools are adapted from that same published source. The earlier
 54-patch source lineage above still applies; the Ethernet addition does not
 replace or consolidate other contributors' authorship.
 
+## rmux Strawberry 7.x imports
+
+The [rmux imports](docs/RMUX-IMPORT.md) are per-commit `format-patch` exports
+from the 2026-08-28 snapshot of rmux's Strawberry kernel, with only
+non-kernel paths removed. Each patch keeps its own `From:` author, date,
+message and sign-offs. Authors recorded in the imported commits:
+
+| Author as recorded | Imported work |
+| --- | --- |
+| **rmuxnet**, **rmux**, **rmxunet**, **Armandas Kvietkus** | Most of the 7.x work: forward ports, Baikal migration and unification attempt, ICC/APCIE hardening, LED, fan, buzzer, hwinfo, cpufreq, SMU mailbox, display and Wi-Fi fixes |
+| **Niels Westphal (crashniels)** | 6.15 PS4 platform, Aeolia, USB, Ethernet, SDHCI, AHCI, thermal, radeon and amdgpu foundation |
+| **feeRnt** | SDIO/Marvell work, MT7668 API fixes, display fixes and the mt76x8 import |
+| **M H** | ioremap, Ethernet and APCIE fixes |
+| **Regie Vorkman (TheVorkMan)** | DMI string updates |
+| **Comfy702** | MT7668 Bluetooth fix for Baikal (Baikal reference only) |
+| **Piotr Gorski**, **Peter Jung** | BORE scheduler and dmem cgroup commits carried in the Baikal reference; not platform support |
+
+rmux's README additionally credits whitehax0r for the original 5.4 Baikal
+bring-up; Blyadimir, deWaardt, leg (eclipsed.starr) and Package (packagebob)
+as core 7.0 Baikal contributors; and the Baikal and general testers it names.
+The snapshot README asks that the tree not be used as a kernel base or copied
+into a patch repository and presented as one's own work; see
+[RMUX-IMPORT.md](docs/RMUX-IMPORT.md) for the quotation and how this import
+handles attribution.
+
 ## Licensing
 
 The GPLv2 license text is copied from the source repository into [LICENSE](LICENSE).

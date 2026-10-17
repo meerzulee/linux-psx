@@ -1,0 +1,39 @@
+From 8fd5576a4f6bd8658fd30c951094cd10835be298 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Thu, 3 Jul 2025 19:00:34 +0200
+Subject: [PATCH] Remove comments
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0025-Remove-comments.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0025-Remove-comments.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index 092cfbbf4556d1001dc14401dc40c0895544bf2c..0a31146cc775e5222624445994b34d6e7c2245df 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4896,7 +4896,7 @@ static void gfx_v7_0_gpu_early_init(struct amdgpu_device *adev)
+ 		adev->gfx.config.sc_prim_fifo_size_backend = 0x100;
+ 		adev->gfx.config.sc_hiz_tile_fifo_size = 0x30;
+ 		adev->gfx.config.sc_earlyz_tile_fifo_size = 0x130;
+-		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN; //0x22011003; //0x12011003;
++		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN;
+ 		break;
+ 	case CHIP_KABINI:
+ 	case CHIP_MULLINS:
+
+--------------false--
+
+

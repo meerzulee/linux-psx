@@ -1,0 +1,52 @@
+From fad3b466c4fa2b78f2c12a0bee303b408e9c1533 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Jul 2026 15:41:33 +0000
+Subject: [PATCH] usb: xhci-aeolia: drop deprecated quirk, set imod_interval
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/usb/host/xhci-aeolia.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0155-usb-xhci-aeolia-drop-deprecated-quirk-set-imod_inter.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0155-usb-xhci-aeolia-drop-deprecated-quirk-set-imod_inter.patch"
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 16c82421f0855c291eff7134488422955d03ead0..538d37c00f68d27732bf1dbf11b0a604ab9b7d81 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -41,15 +41,19 @@ static const struct xhci_driver_overrides xhci_aeolia_overrides __initconst = {
+ static void xhci_aeolia_quirks(struct device *dev, struct xhci_hcd *xhci)
+ {
+ 	/*
+-	 * Do not try to enable MSIs, we provide the MSIs ourselves
+ 	 * Do not touch DMA mask, we need a custom one
+ 	 */
+-	xhci->quirks |= XHCI_PLAT | XHCI_PLAT_DMA;
++	xhci->quirks |= XHCI_PLAT_DMA;
+ }
+ 
+ /* called during probe() after chip reset completes */
+ static int xhci_aeolia_setup(struct usb_hcd *hcd)
+ {
++	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
++
++	/* imod_interval is the interrupt moderation value in nanoseconds. */
++	xhci->imod_interval = 40000;
++
+ 	return xhci_gen_setup(hcd, xhci_aeolia_quirks);
+ }
+ 
+
+--------------false--
+
+

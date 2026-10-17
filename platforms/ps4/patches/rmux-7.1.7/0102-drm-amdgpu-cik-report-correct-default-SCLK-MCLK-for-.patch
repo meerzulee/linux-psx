@@ -1,0 +1,46 @@
+From 6974b845265bf7e2072fdd6c449c723f940749df Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 12:55:54 +0000
+Subject: [PATCH] drm/amdgpu: cik: report correct default SCLK/MCLK for PS4
+ APUs
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/cik.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0102-drm-amdgpu-cik-report-correct-default-SCLK-MCLK-for-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0102-drm-amdgpu-cik-report-correct-default-SCLK-MCLK-for-.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index a6830399c3e93543a4fbb0f3fc1001414f93b6c5..d837cfc77b5bf9705c50b933e4bc62a25c03c027 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -2571,6 +2571,14 @@ static int cik_common_hw_init(struct amdgpu_ip_block *ip_block)
+ 	    adev->asic_type == CHIP_GLADIUS)
+ 		liverpool_clk_force_max(adev);
+ 
++	if (adev->asic_type == CHIP_LIVERPOOL) {
++		adev->clock.default_sclk = 80000;
++		adev->clock.default_mclk = 137500;
++	} else if (adev->asic_type == CHIP_GLADIUS) {
++		adev->clock.default_sclk = 91100;
++		adev->clock.default_mclk = 170000;
++	}
++
+ 	return 0;
+ }
+ 
+
+--------------false--
+
+

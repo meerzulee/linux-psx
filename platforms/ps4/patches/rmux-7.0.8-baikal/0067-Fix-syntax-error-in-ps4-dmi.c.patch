@@ -1,0 +1,48 @@
+From f9593ac6993fc25f6ff60682f1531f6fb4bb1819 Mon Sep 17 00:00:00 2001
+From: Regie Vorkman <97987863+TheVorkMan@users.noreply.github.com>
+Date: Tue, 21 Apr 2026 13:22:47 +0200
+Subject: [PATCH] Fix syntax error in ps4-dmi.c
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/firmware/ps4-dmi.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0067-Fix-syntax-error-in-ps4-dmi.c.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0067-Fix-syntax-error-in-ps4-dmi.c.patch"
+
+diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
+index 47563f6edde806f3b87cda08d29cce6a50c50c53..395df035e4cd0d2b76067320062d18f0e34ad0d5 100644
+--- a/drivers/firmware/ps4-dmi.c
++++ b/drivers/firmware/ps4-dmi.c
+@@ -43,7 +43,7 @@ static const char * const ps4_strings[DMI_STRING_MAX] = {
+ 	
+ 	[DMI_PRODUCT_NAME]       = "NeverGonna 4",
+ 	[DMI_PRODUCT_VERSION]    = "CUH-GIVEYOUUP",
+-	[DMI_PRODUCT_SERIAL]     = "MARCANANDDUDES"
++	[DMI_PRODUCT_SERIAL]     = "MARCANANDDUDES",
+ 	[DMI_PRODUCT_SKU]        = "sku1489666",
+ 	[DMI_PRODUCT_FAMILY]     = "PlayStation",
+ 
+@@ -62,7 +62,7 @@ static const char * const ps4_strings[DMI_STRING_MAX] = {
+ 	[DMI_CHASSIS_TYPE]       = "3",
+ 	[DMI_CHASSIS_ASSET_TAG]  = "",
+ 	[DMI_CHASSIS_SERIAL]     = "",
+-	[DMI_CHASSIS_VERSION]    = "",
++	[DMI_CHASSIS_VERSION]    = ""
+ };
+ 
+ void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
+
+--------------false--
+
+

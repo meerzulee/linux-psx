@@ -1,0 +1,52 @@
+From 8eb6711a695111dc9317629644e982f53129fa80 Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Thu, 24 Jul 2025 15:44:43 +0000
+Subject: [PATCH] FIX: SDIO Card. Added SDHCI host controller quirks that might
+ be needed for SDIO function. Only the last two commits will give error at
+ initialization and tuning.
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+       .quirks         = SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
+                         SDHCI_QUIRK_DELAY_AFTER_POWER |
+                         SDHCI_QUIRK_SINGLE_POWER_WRITE,
+       .quirks2        = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+                         SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+                         SDHCI_QUIRK2_TUNING_WORK_AROUND
+---
+ drivers/mmc/host/sdhci-pci-core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0037-FIX-SDIO-Card.-Added-SDHCI-host-controller-quirks-th.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0037-FIX-SDIO-Card.-Added-SDHCI-host-controller-quirks-th.patch"
+
+diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
+index 4b9af99408306dd0ddd92d034d4a59b4d5887860..8852306185e2365d5652bb71f55b04b90b4a7ba2 100644
+--- a/drivers/mmc/host/sdhci-pci-core.c
++++ b/drivers/mmc/host/sdhci-pci-core.c
+@@ -372,6 +372,12 @@ static const struct sdhci_pci_fixes sdhci_aeolia = {
+ 	.probe_slot	= aeolia_probe_slot,
+ 	.remove_slot	= aeolia_remove_slot,
+ 	.enable_dma	= aeolia_enable_dma,
++	.quirks		= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
++			  SDHCI_QUIRK_DELAY_AFTER_POWER |
++			  SDHCI_QUIRK_SINGLE_POWER_WRITE,
++	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
++			  SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
++			  SDHCI_QUIRK2_TUNING_WORK_AROUND,
+ };
+ #endif
+ 
+
+--------------false--
+
+

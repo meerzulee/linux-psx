@@ -1,0 +1,42 @@
+From 7c90e5dfd7337d21dc8a3d9ecbdaabf3b0716fac Mon Sep 17 00:00:00 2001
+From: crashniels <nielswest@live.de>
+Date: Tue, 11 Feb 2025 20:30:16 +0100
+Subject: [PATCH] Revert "genirq/irqdomain: Don't call ops->select for
+ DOMAIN_BUS_ANY tokens"
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+This reverts commit 5aa3c0cf5bba6437c9e63a56f684f61de8b503d6.
+---
+ kernel/irq/irqdomain.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0015-Revert-genirq-irqdomain-Don-t-call-ops-select-for-DO.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0015-Revert-genirq-irqdomain-Don-t-call-ops-select-for-DO.patch"
+
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index cc93abf009e88754a13cd8ae50043f96d52eb76c..09346cf1fc90f97420947cf5bcf0fcdb39d45a74 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -539,7 +539,7 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	 */
+ 	mutex_lock(&irq_domain_mutex);
+ 	list_for_each_entry(h, &irq_domain_list, link) {
+-		if (h->ops->select && bus_token != DOMAIN_BUS_ANY)
++		if (h->ops->select)
+ 			rc = h->ops->select(h, fwspec, bus_token);
+ 		else if (h->ops->match)
+ 			rc = h->ops->match(h, to_of_node(fwnode), bus_token);
+
+--------------false--
+
+

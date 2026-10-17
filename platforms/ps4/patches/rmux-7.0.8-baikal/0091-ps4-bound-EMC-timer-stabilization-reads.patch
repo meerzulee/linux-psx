@@ -1,0 +1,129 @@
+From c205594daca14de0ab5fd66e85f3b207aa96c620 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 5 May 2026 12:36:53 +0200
+Subject: [PATCH] ps4: bound EMC timer stabilization reads
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The early PS4 TSC calibration path polled the Aeolia EMC timer until two consecutive reads matched, with no escape if the register never stabilized.
+
+Bound the stabilization loop and let the existing fallback path take over when the EMC timer stays unstable, so bring-up falls back to the default TSC frequency instead of hanging in early boot.
+
+The existing timer start sequence, measurement window, and default-frequency fallback remain unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ arch/x86/platform/ps4/calibrate.c | 51 +++++++++++++++++++++++++------
+ 1 file changed, 42 insertions(+), 9 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0091-ps4-bound-EMC-timer-stabilization-reads.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0091-ps4-bound-EMC-timer-stabilization-reads.patch"
+
+diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
+index 681e5954f1b60f8fed1f4288296cecce91bd13a8..c54520bd53e27c48d50ae40367632df9751a1ad3 100644
+--- a/arch/x86/platform/ps4/calibrate.c
++++ b/arch/x86/platform/ps4/calibrate.c
+@@ -33,21 +33,29 @@ static __init inline void emctimer_write32(unsigned int reg, u32 val)
+ 	iowrite32(val, emc_timer + reg);
+ }
+ 
+-static __init inline u32 emctimer_read(void)
++static __init bool emctimer_read(u32 *value)
+ {
+ 	u32 t1, t2;
++	int tries;
++
+ 	t1 = emctimer_read32(EMC_TIMER_VALUE);
+-	while (1) {
++	for (tries = 0; tries < 10000; tries++) {
+ 		t2 = emctimer_read32(EMC_TIMER_VALUE);
+-		if (t1 == t2)
+-			return t1;
++		if (t1 == t2) {
++			*value = t1;
++			return true;
++		}
+ 		t1 = t2;
+ 	}
++
++	*value = t1;
++	return false;
+ }
+ 
+ static __init unsigned long ps4_measure_tsc_freq(void)
+ {
+ 	unsigned long ret = 0;
++	u32 now;
+ 	u32 t1, t2;
+ 	u64 tsc1, tsc2;
+ 
+@@ -65,10 +73,20 @@ static __init unsigned long ps4_measure_tsc_freq(void)
+ 	emctimer_write32(0x00, emctimer_read32(0x00) | 0x01);
+ 	emctimer_write32(0x84, emctimer_read32(0x84) | 0x01);
+ 
+-	t1 = emctimer_read();
++	if (!emctimer_read(&t1)) {
++		pr_warn("EMC timer did not stabilize.\n");
++		goto fail;
++	}
+ 	tsc1 = tsc2 = rdtsc();
+ 
+-	while (emctimer_read() == t1) {
++	for (;;) {
++		if (!emctimer_read(&now)) {
++			pr_warn("EMC timer did not stabilize.\n");
++			goto fail;
++		}
++		if (now != t1)
++			break;
++
+ 		// 0.1s timeout should be enough
+ 		tsc2 = rdtsc();
+ 		if ((tsc2 - tsc1) > (PS4_DEFAULT_TSC_FREQ/10)) {
+@@ -79,15 +97,30 @@ static __init unsigned long ps4_measure_tsc_freq(void)
+ 	pr_info("EMC timer started in %lld TSC ticks\n", tsc2 - tsc1);
+ 
+ 	// Wait for a tick boundary
+-	t1 = emctimer_read();
+-	while ((t2 = emctimer_read()) == t1);
++	if (!emctimer_read(&t1)) {
++		pr_warn("EMC timer did not stabilize.\n");
++		goto fail;
++	}
++	do {
++		if (!emctimer_read(&t2)) {
++			pr_warn("EMC timer did not stabilize.\n");
++			goto fail;
++		}
++	} while (t2 == t1);
+ 	tsc1 = rdtsc();
+ 
+ 	// Wait for 1024 ticks to elapse (31.25ms)
+ 	// We don't need to wait very long, as we are looking for transitions.
+ 	// At this value, a TSC uncertainty of ~50 ticks corresponds to 1ppm of
+ 	// clock accuracy.
+-	while ((emctimer_read() - t2) < 1024);
++	for (;;) {
++		if (!emctimer_read(&now)) {
++			pr_warn("EMC timer did not stabilize.\n");
++			goto fail;
++		}
++		if ((now - t2) >= 1024)
++			break;
++	}
+ 	tsc2 = rdtsc();
+ 
+ 	// TSC rate is 32 times the elapsed time
+
+--------------false--
+
+

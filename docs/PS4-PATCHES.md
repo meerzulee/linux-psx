@@ -16,6 +16,14 @@ source paths and adaptations. Run `make check` to verify both imports.
 
 See [BUILDING.md](BUILDING.md) and [the PS4 status](../platforms/ps4/STATUS.md).
 
+## rmux 7.x source imports
+
+`platforms/ps4/patches/rmux-7.1.7/` and `rmux-7.0.8-baikal/` are per-commit
+exports of rmux's Strawberry kernel for Linux 7.1.7 (Aeolia/Belize plus a
+Baikal unification attempt) and 7.0.8 (Baikal). They are inputs for the Linux
+7.2 port, not build targets. See [RMUX-IMPORT.md](RMUX-IMPORT.md) for sources,
+filters, validation and the maintainer's stated request.
+
 ## Original frozen import
 
 Imported on 2026-10-16 from:

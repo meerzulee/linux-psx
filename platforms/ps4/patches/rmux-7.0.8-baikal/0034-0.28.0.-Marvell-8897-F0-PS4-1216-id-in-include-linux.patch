@@ -1,0 +1,40 @@
+From c62fa8ad47722c505f035bf32e88e173e5ad6a4b Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Sat, 7 Jun 2025 10:04:58 +0000
+Subject: [PATCH] 0.28.0. Marvell 8897 F0 PS4-1216 id in
+ include/linux/mmc/sdio_ids.h. To hopefully be polled by mwifiex during func
+ initialization.
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ include/linux/mmc/sdio_ids.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0034-0.28.0.-Marvell-8897-F0-PS4-1216-id-in-include-linux.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0034-0.28.0.-Marvell-8897-F0-PS4-1216-id-in-include-linux.patch"
+
+diff --git a/include/linux/mmc/sdio_ids.h b/include/linux/mmc/sdio_ids.h
+index 673cbdf4345330a1a474922216f2acb310b579ef..67df5cc2a369e5c74b43dd5da5fa6fe6161eae23 100644
+--- a/include/linux/mmc/sdio_ids.h
++++ b/include/linux/mmc/sdio_ids.h
+@@ -93,6 +93,7 @@
+ #define SDIO_DEVICE_ID_MARVELL_8797_F0		0x9128
+ #define SDIO_DEVICE_ID_MARVELL_8797_WLAN	0x9129
+ #define SDIO_DEVICE_ID_MARVELL_8797_BT		0x912a
++#define SDIO_DEVICE_ID_MARVELL_8897_F0		0x912c //Marvell_8897_F0 PS4_1216
+ #define SDIO_DEVICE_ID_MARVELL_8897_WLAN	0x912d
+ #define SDIO_DEVICE_ID_MARVELL_8897_BT		0x912e
+ #define SDIO_DEVICE_ID_MARVELL_8887_F0		0x9134
+
+--------------false--
+
+

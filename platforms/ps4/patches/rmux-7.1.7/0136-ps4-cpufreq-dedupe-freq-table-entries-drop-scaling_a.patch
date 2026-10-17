@@ -1,0 +1,80 @@
+From 0e59b11eb25a4328bf6b6a412d3bb2f098369544 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 6 Jul 2026 00:16:01 +0200
+Subject: [PATCH] ps4-cpufreq: dedupe freq-table entries, drop
+ scaling_available_freqs attr
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/cpufreq/ps4-cpufreq.c | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0136-ps4-cpufreq-dedupe-freq-table-entries-drop-scaling_a.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0136-ps4-cpufreq-dedupe-freq-table-entries-drop-scaling_a.patch"
+
+diff --git a/drivers/cpufreq/ps4-cpufreq.c b/drivers/cpufreq/ps4-cpufreq.c
+index 22b15de95da7265f46ad67772888f74e1babb878..2cc4975d1e713d104aa9381565a57206fafd0e66 100644
+--- a/drivers/cpufreq/ps4-cpufreq.c
++++ b/drivers/cpufreq/ps4-cpufreq.c
+@@ -80,11 +80,6 @@ static int ps4_cpufreq_cpu_init(struct cpufreq_policy *policy)
+ 	return 0;
+ }
+ 
+-static struct freq_attr *ps4_cpufreq_attr[] = {
+-	&cpufreq_freq_attr_scaling_available_freqs,
+-	NULL,
+-};
+-
+ static struct cpufreq_driver ps4_cpufreq_driver = {
+ 	.name = "ps4-cpufreq",
+ 	.flags = CPUFREQ_CONST_LOOPS,
+@@ -92,21 +87,34 @@ static struct cpufreq_driver ps4_cpufreq_driver = {
+ 	.verify = cpufreq_generic_frequency_table_verify,
+ 	.target_index = ps4_cpufreq_target_index,
+ 	.get = ps4_cpufreq_get,
+-	.attr = ps4_cpufreq_attr,
+ };
+ 
+ static int __init ps4_cpufreq_build_table(void)
+ {
+ 	int i, n = 0;
+ 	u64 val;
++	unsigned int khz;
++	bool duplicate;
++	int j;
+ 
+ 	for (i = 0; i < PS4_NUM_PSTATES; i++) {
+ 		rdmsrq(MSR_AMD_PSTATE_DEF_BASE + i, val);
+ 		if (!(val & PSTATE_EN))
+ 			continue;
+ 
++		khz = pstate_to_khz(val);
++		duplicate = false;
++		for (j = 0; j < n; j++) {
++			if (ps4_freq_table[j].frequency == khz) {
++				duplicate = true;
++				break;
++			}
++		}
++		if (duplicate)
++			continue;
++
+ 		ps4_freq_table[n].driver_data = i;
+-		ps4_freq_table[n].frequency = pstate_to_khz(val);
++		ps4_freq_table[n].frequency = khz;
+ 		n++;
+ 	}
+ 	ps4_freq_table[n].driver_data = 0;
+
+--------------false--
+
+

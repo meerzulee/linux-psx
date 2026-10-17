@@ -1,0 +1,40 @@
+From 7fb5346090af2cc5d5dc461635f27b62fc362c2e Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Jul 2026 12:25:09 +0000
+Subject: [PATCH] cpufreq: ps4-cpufreq: fix inverted CurPstateLimit clamp,
+ default general profile to performance governor
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/cpufreq/ps4-cpufreq.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0158-cpufreq-ps4-cpufreq-fix-inverted-CurPstateLimit-clam.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0158-cpufreq-ps4-cpufreq-fix-inverted-CurPstateLimit-clam.patch"
+
+diff --git a/drivers/cpufreq/ps4-cpufreq.c b/drivers/cpufreq/ps4-cpufreq.c
+index 0c66b114bd86dba5457270f7d80dc53df90fefc5..527659fec81655d34e420871f7d2c136ab4ee43a 100644
+--- a/drivers/cpufreq/ps4-cpufreq.c
++++ b/drivers/cpufreq/ps4-cpufreq.c
+@@ -40,7 +40,7 @@ static int ps4_cpufreq_target_index(struct cpufreq_policy *policy,
+ 	int i, cpu;
+ 
+ 	rdmsrq_on_cpu(policy->cpu, MSR_AMD_PSTATE_CUR_LIMIT, &val);
+-	if (requested > (val & PSTATE_CURLIMIT_MASK))
++	if (requested < (val & PSTATE_CURLIMIT_MASK))
+ 		requested = val & PSTATE_CURLIMIT_MASK;
+ 
+ 	for_each_cpu(cpu, policy->cpus)
+
+--------------false--
+
+

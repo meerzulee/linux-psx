@@ -1,0 +1,44 @@
+From 8d1b69e4b2ee8d38f34d870d7bfc7b4255dbb115 Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Thu, 24 Jul 2025 14:05:29 +0000
+Subject: [PATCH] 3 retries on each MMC CMD52 or 53. Possibly needed for
+ Marvell cards according to patch.
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/mmc/core/sdio_ops.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0036-3-retries-on-each-MMC-CMD52-or-53.-Possibly-needed-f.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0036-3-retries-on-each-MMC-CMD52-or-53.-Possibly-needed-f.patch"
+
+diff --git a/drivers/mmc/core/sdio_ops.c b/drivers/mmc/core/sdio_ops.c
+index 4c229dd2b6e543d2318d83888e8a9d1798335dd3..955f03214646f641b42aa2b8ba3f29cf1a5df969 100644
+--- a/drivers/mmc/core/sdio_ops.c
++++ b/drivers/mmc/core/sdio_ops.c
+@@ -80,7 +80,11 @@ static int mmc_io_rw_direct_host(struct mmc_host *host, int write, unsigned fn,
+ 	cmd.arg |= in;
+ 	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
+ 
+-	err = mmc_wait_for_cmd(host, &cmd, 0);
++	/* err = mmc_wait_for_cmd(host, &cmd, 0);
++	 * https://fa.linux.kernel.narkive.com/t6hn0noQ/patch-mmc-sdio-retry-cmd52-53-when-error-happens
++	 * Use 3 retries instead of 0 retries:
++	 */
++	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
+ 	if (err)
+ 		return err;
+ 
+
+--------------false--
+
+

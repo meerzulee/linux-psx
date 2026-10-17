@@ -1,0 +1,43 @@
+From 2df3c4877d3ecbc150fa4b43eaabacb73ef0a403 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 8 Aug 2026 18:03:13 +0200
+Subject: [PATCH] irqdomain: skip select on DOMAIN_BUS_ANY only on Baikal
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ kernel/irq/irqdomain.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0167-irqdomain-skip-select-on-DOMAIN_BUS_ANY-only-on-Baik.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0167-irqdomain-skip-select-on-DOMAIN_BUS_ANY-only-on-Baik.patch"
+
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index 09346cf1fc90f97420947cf5bcf0fcdb39d45a74..c26345686f78337951e11547199e418647921880 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -539,7 +539,12 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	 */
+ 	mutex_lock(&irq_domain_mutex);
+ 	list_for_each_entry(h, &irq_domain_list, link) {
++#ifdef CONFIG_X86_PS4
++		extern bool ps4_is_baikal(void);
++		if (h->ops->select && (bus_token != DOMAIN_BUS_ANY || !ps4_is_baikal()))
++#else
+ 		if (h->ops->select)
++#endif
+ 			rc = h->ops->select(h, fwspec, bus_token);
+ 		else if (h->ops->match)
+ 			rc = h->ops->match(h, to_of_node(fwnode), bus_token);
+
+--------------false--
+
+

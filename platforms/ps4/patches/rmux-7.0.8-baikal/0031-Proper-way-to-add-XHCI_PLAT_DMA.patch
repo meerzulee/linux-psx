@@ -1,0 +1,61 @@
+From 0fb6cd052915b240cdb0e087b2331f3dc1982302 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 11 Jul 2025 17:08:47 +0200
+Subject: [PATCH] Proper way to add XHCI_PLAT_DMA
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/net/ethernet/marvell/sky2.c | 1 +
+ drivers/usb/host/xhci.h             | 6 +++---
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0031-Proper-way-to-add-XHCI_PLAT_DMA.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0031-Proper-way-to-add-XHCI_PLAT_DMA.patch"
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index be6fcd55e48c31265f2d886511cb5c3d9e60220b..c47c7b991de3f417e1524e9cbfc76800cdafdced 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -3215,6 +3215,7 @@ static int sky2_init(struct sky2_hw *hw)
+ 			hw->chip_id);
+ 		return -EOPNOTSUPP;
+ 	}
++	dev_info(&hw->pdev->dev, "chip type 0x%x\n", hw->chip_id);
+ 
+ 	hw->pmd_type = sky2_read8(hw, B2_PMD_TYP);
+ 	if (hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P')
+diff --git a/drivers/usb/host/xhci.h b/drivers/usb/host/xhci.h
+index 0debf085cde9efa80fe09d0335f9e9adddf4a907..e84e86e263a4349815db8af7368c21de59cfbf1c 100644
+--- a/drivers/usb/host/xhci.h
++++ b/drivers/usb/host/xhci.h
+@@ -1637,14 +1637,14 @@ struct xhci_hcd {
+ #define XHCI_BROKEN_D3COLD_S2I	BIT_ULL(41)
+ #define XHCI_EP_CTX_BROKEN_DCS	BIT_ULL(42)
+ #define XHCI_SUSPEND_RESUME_CLKS	BIT_ULL(43)
+-#define XHCI_PLAT_DMA		BIT_ULL(43)
+ #define XHCI_RESET_TO_DEFAULT	BIT_ULL(44)
+ #define XHCI_TRB_OVERFETCH	BIT_ULL(45)
+ #define XHCI_ZHAOXIN_HOST	BIT_ULL(46)
+ #define XHCI_WRITE_64_HI_LO	BIT_ULL(47)
+-#define XHCI_CDNS_SCTX_QUIRK	BIT_ULL(48)
+-#define XHCI_ETRON_HOST	BIT_ULL(49)
++#define XHCI_CDNS_SCTX_QUIRK    BIT_ULL(48)
++#define XHCI_ETRON_HOST BIT_ULL(49)
+ #define XHCI_LIMIT_ENDPOINT_INTERVAL_9 BIT_ULL(50)
++#define XHCI_PLAT_DMA       BIT_ULL(51)
+ 
+ 	unsigned int		num_active_eps;
+ 	unsigned int		limit_active_eps;
+
+--------------false--
+
+

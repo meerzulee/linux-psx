@@ -1,0 +1,54 @@
+From 756f3673ae2557aea7d27fe674d72254a26aba5f Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 29 Jul 2026 18:10:31 +0200
+Subject: [PATCH] amdgpu: ps4_bridge: prefer first 1080p60 EDID mode
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0160-amdgpu-ps4_bridge-prefer-first-1080p60-EDID-mode.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0160-amdgpu-ps4_bridge-prefer-first-1080p60-EDID-mode.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 63207acc6b93e67972368f8829ddadd56fb1b85f..66cde6f004bc60f7f389405af99dbfac776c0d7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -1223,6 +1223,23 @@ edid_ready:
+ 		amdgpu_connector->edid = drm_edid_dup(drm_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
++
++		{
++			struct drm_display_mode *m, *first_1080p = NULL;
++
++			list_for_each_entry(m, &connector->probed_modes, head) {
++				if (m->vdisplay == 1080 &&
++				    drm_mode_vrefresh(m) == 60 &&
++				    !first_1080p)
++					first_1080p = m;
++			}
++			if (first_1080p) {
++				list_for_each_entry(m, &connector->probed_modes, head)
++					m->type &= ~DRM_MODE_TYPE_PREFERRED;
++				first_1080p->type |= DRM_MODE_TYPE_PREFERRED;
++			}
++		}
++
+ 		drm_info(dev, "ps4_bridge: EDID loaded from %s, %d modes, %u extension block(s)\n",
+ 			 edid_source ? edid_source : "unknown", count,
+ 			 raw_edid ? raw_edid->extensions : 0);
+
+--------------false--
+
+

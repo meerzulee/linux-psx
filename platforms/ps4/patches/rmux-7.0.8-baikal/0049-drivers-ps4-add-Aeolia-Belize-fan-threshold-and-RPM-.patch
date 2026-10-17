@@ -1,0 +1,654 @@
+From d727d1ade39216099e1ce1df6ac464b1f40f6d6c Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Wed, 18 Mar 2026 19:14:36 +0100
+Subject: [PATCH] drivers/ps4: add Aeolia/Belize fan threshold and RPM hwmon
+ driver
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Adds ps4-fan.c and ps4-fan.h, a Linux hwmon driver for the PS4 fan
+controller on Aeolia (CXD90025G) and Belize southbridges.
+
+Exposes three hwmon attributes under /sys/class/hwmon/hwmonX/:
+  temp1_input  (RO) - live APU temperature in milli-Celsius
+                      source: ICC 0x0B/0x01 reply[3], plain u8 Celsius
+  temp1_crit   (RW) - fan threshold in milli-Celsius (45000-85000)
+                      read:  ICC 0x0A/0x07 reply[5]
+                      write: read-modify-write via 0x0A/0x07 -> 0x0A/0x06
+  fan1_input   (RO) - fan speed in RPM
+                      source: ICC 0x0A/0x08 reply[8:12], u32 LE 16.16
+                      fixed-point, divide by 65536
+
+The fan threshold write implements a full read-modify-write cycle.
+The EMC thermal config struct (0x0A/0x07) contains factory PID flags
+at bytes [9]=0x08 and [12]=0x80 that must be preserved. Sending a
+zero-filled payload destroys these flags, disabling the EMC PID loop
+and causing fan RPM to read 0 until hard power cycle. This was the
+bug in the legacy ps4fancontrol userspace tool (6-byte alloc, 52-byte
+length passed to ioctl, random kernel stack injected into EMC config).
+
+Register map confirmed via live hardware probing on Aeolia PHAT:
+  0x0A/0x08 reply[8:12]: RPM as u32 LE 16.16 fixed-point
+  0x0A/0x08 reply[16:18]: APU temp as u16 LE 8.8 fixed-point
+  0x0B/0x01 reply[3]: APU temp as plain u8 integer Celsius
+
+Compatible with lm_sensors, fancontrol, and any hwmon-aware tool.
+
+Signed-off-by: rmux <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/Makefile  |  10 +-
+ drivers/ps4/ps4-fan.c | 435 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/ps4/ps4-fan.h | 124 ++++++++++++
+ 3 files changed, 564 insertions(+), 5 deletions(-)
+ create mode 100644 drivers/ps4/ps4-fan.c
+ create mode 100644 drivers/ps4/ps4-fan.h
+
+
+--------------false
+Content-Type: text/x-patch; name="0049-drivers-ps4-add-Aeolia-Belize-fan-threshold-and-RPM-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0049-drivers-ps4-add-Aeolia-Belize-fan-threshold-and-RPM-.patch"
+
+diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
+index 11162a26055db432fb6652952dec18460cf108d4..e4728125d394a5fd9d38e6a22fceafce73867291 100644
+--- a/drivers/ps4/Makefile
++++ b/drivers/ps4/Makefile
+@@ -3,9 +3,9 @@
+ # N.B. this driver must be init'd before pretty much everything, but actual dependants are:
+ # drivers/net/ethernet/marvell/sky2 (implements ps4-gbe)
+ obj-y += ps4-apcie.o \
+-	ps4-apcie-uart.o \
+-	ps4-apcie-icc.o \
+-	ps4-apcie-pwrbutton.o \
+-	icc/i2c.o
+-
++    ps4-apcie-uart.o \
++    ps4-apcie-icc.o \
++    ps4-apcie-pwrbutton.o \
++    icc/i2c.o
+ obj-y += ps4-led.o
++obj-y += ps4-fan.o
+\ No newline at end of file
+diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..868ae9c37661a1dfa1fdf33faf9ef6decc1771f3
+--- /dev/null
++++ b/drivers/ps4/ps4-fan.c
+@@ -0,0 +1,435 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/**
++ * PS4 Aeolia/Belize Fan + Thermal hwmon Driver
++ *
++ * Copyright (C) rmux <armandas.kvietkus@proton.me>
++ *
++ *Based on ps4fancontrol by Ps3itaTeam.
++ *Thanks to Zer0xFF for finding the ICC fan threshold command
++ *and to shuffle2 for the patch exposing ICC to usermode.
++ * ============================================================
++ * Overview
++ * ============================================================
++ * hwmon driver for the PlayStation 4 fan controller on Aeolia
++ * and Belize southbridges. Exposes APU temperature, fan RPM,
++ * and fan threshold via standard hwmon sysfs attributes.
++ *
++ * ============================================================
++ * Critical: Read-Modify-Write Protocol
++ * ============================================================
++ * The EMC fan configuration struct (0x0A/0x07) contains factory
++ * flags at bytes [9]=0x08 and [12]=0x80 that control the PID
++ * loop. If these are zeroed, the EMC disables active cooling
++ * and fan RPM reads 0 until a hard power cycle restores them.
++ *
++ * The legacy ps4fancontrol userspace tool had this exact bug:
++ * it allocated 6 bytes but told the ICC the payload was 0x34
++ * bytes, injecting random kernel stack memory into the config.
++ *
++ * The correct write protocol is:
++ *   1. Read full 52-byte config from 0x0A/0x07
++ *   2. Modify ONLY byte[5] (threshold in integer Celsius)
++ *   3. Write the same 52 bytes back to 0x0A/0x06
++ *
++ * icc_write_fan_threshold() implements this correctly.
++ *
++ * ============================================================
++ * Register Map (discovered via live hardware probing)
++ * ============================================================
++ *
++ * 0x0B/0x01 reply[3]:
++ *   APU temperature, plain u8 integer Celsius. Primary source
++ *   for temp1_input. Not fixed-point — no division needed.
++ *
++ * 0x0A/0x07 reply[5]:
++ *   Fan threshold, plain u8 integer Celsius. Read for temp1_crit.
++ *
++ * 0x0A/0x08 reply[8:12]:
++ *   Fan RPM, u32 little-endian, 16.16 fixed-point.
++ *   RPM = raw_u32 / 65536. Values 0xFFFFFFFF and 0x0FFFFFFF
++ *   indicate fan at base idle (below threshold) — reported as 0.
++ *
++ * 0x0A/0x08 reply[16:18]:
++ *   APU temperature, u16 little-endian, 8.8 fixed-point.
++ *   temp_C = raw_u16 / 256.0. Alternative source — currently
++ *   unused in favour of the simpler 0x0B/0x01 path.
++ *
++ * ============================================================
++ * hwmon Interface
++ * ============================================================
++ *   /sys/class/hwmon/hwmonX/
++ *     temp1_input  (RO) — APU temperature, milli-Celsius
++ *     temp1_crit   (RW) — Fan threshold, milli-Celsius (45000–85000)
++ *     fan1_input   (RO) — Fan speed, RPM
++ *
++ * ============================================================
++ * License: GPL-2.0-only
++ * ============================================================
++ */
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/hwmon.h>
++#include <linux/mutex.h>
++#include <linux/slab.h>
++#include <linux/err.h>
++#include "aeolia.h"
++#include "ps4-fan.h"
++
++/* ============================================================
++ * Private Driver State
++ * ============================================================
++ * @lock: Serializes all ICC transactions to prevent interleaved
++ *        read-modify-write sequences from concurrent sysfs access.
++ */
++struct ps4_fan_priv {
++	struct mutex lock;
++};
++
++/* ============================================================
++ * icc_read_apu_temp - Read live APU temperature
++ * ============================================================
++ * @temp_mc: Output, milli-Celsius on success.
++ *
++ * Source: ICC 0x0B/0x01, reply[3], plain integer Celsius.
++ * Reply buffer zeroed before call to prevent stale-data reads.
++ *
++ * Caller must hold priv->lock.
++ */
++static int icc_read_apu_temp(long *temp_mc)
++{
++	u8 reply[PS4_FAN_TEMP_REPLY_LEN];
++	int ret;
++
++	memset(reply, 0, sizeof(reply));
++	ret = apcie_icc_cmd(PS4_FAN_TEMP_ICC_MAJOR, PS4_FAN_TEMP_ICC_MINOR,
++			    NULL, 0, reply, sizeof(reply));
++	if (ret < 0)
++		return ret;
++	if (reply[PS4_ICC_STATUS_BYTE] != 0x00)
++		return -EIO;
++
++	*temp_mc = (long)reply[PS4_FAN_TEMP_BYTE] * 1000L;
++	return 0;
++}
++
++/* ============================================================
++ * icc_read_fan_threshold - Read current fan threshold
++ * ============================================================
++ * @thresh_mc: Output, milli-Celsius on success.
++ *
++ * Source: ICC 0x0A/0x07, reply[5], plain integer Celsius.
++ *
++ * Caller must hold priv->lock.
++ */
++static int icc_read_fan_threshold(long *thresh_mc)
++{
++	u8 reply[PS4_FAN_CONFIG_REPLY_LEN];
++	int ret;
++
++	memset(reply, 0, sizeof(reply));
++	ret = apcie_icc_cmd(PS4_FAN_ICC_MAJOR, PS4_FAN_ICC_MINOR_GET,
++			    NULL, 0, reply, sizeof(reply));
++	if (ret < 0)
++		return ret;
++	if (reply[PS4_ICC_STATUS_BYTE] != 0x00)
++		return -EIO;
++	if (reply[PS4_FAN_THRESH_BYTE] < PS4_FAN_THRESH_MIN_C ||
++	    reply[PS4_FAN_THRESH_BYTE] > PS4_FAN_THRESH_MAX_C)
++		return -ERANGE;
++
++	*thresh_mc = (long)reply[PS4_FAN_THRESH_BYTE] * 1000L;
++	return 0;
++}
++
++/* ============================================================
++ * icc_write_fan_threshold - Set fan threshold (read-modify-write)
++ * ============================================================
++ * @thresh_mc: Desired threshold, milli-Celsius (45000–85000).
++ *
++ * IMPORTANT: Implements a full read-modify-write cycle.
++ *
++ *   Step 1: Read the full 52-byte config from 0x0A/0x07.
++ *           This preserves the factory flags at bytes [9] and
++ *           [12] that control the EMC PID loop. Zeroing these
++ *           disables active cooling until a hard power cycle.
++ *
++ *   Step 2: Overwrite only byte[5] with the new threshold.
++ *
++ *   Step 3: Write the full 52 bytes back to 0x0A/0x06.
++ *
++ * Caller must hold priv->lock.
++ */
++static int icc_write_fan_threshold(long thresh_mc)
++{
++	u8 config[PS4_FAN_CONFIG_REPLY_LEN];
++	u8 reply[0x20];
++	u8 thresh_c;
++	int ret;
++
++	if (thresh_mc < PS4_FAN_THRESH_MIN_MC ||
++	    thresh_mc > PS4_FAN_THRESH_MAX_MC)
++		return -EINVAL;
++
++	thresh_c = (u8)(thresh_mc / 1000L);
++
++	/* Step 1: Read current config — preserves factory flags */
++	memset(config, 0, sizeof(config));
++	ret = apcie_icc_cmd(PS4_FAN_ICC_MAJOR, PS4_FAN_ICC_MINOR_GET,
++			    NULL, 0, config, sizeof(config));
++	if (ret < 0)
++		return ret;
++	if (config[PS4_ICC_STATUS_BYTE] != 0x00)
++		return -EIO;
++
++	/* Step 2: Modify only the threshold byte */
++	config[PS4_FAN_THRESH_BYTE] = thresh_c;
++
++	/* Step 3: Write full config back — PS4_FAN_CONFIG_LEN = 52 bytes */
++	memset(reply, 0, sizeof(reply));
++	ret = apcie_icc_cmd(PS4_FAN_ICC_MAJOR, PS4_FAN_ICC_MINOR_SET,
++			    config, PS4_FAN_CONFIG_LEN,
++			    reply, sizeof(reply));
++	if (ret < 0)
++		return ret;
++	if (reply[PS4_ICC_STATUS_BYTE] != 0x00)
++		return -EIO;
++
++	return 0;
++}
++
++/* ============================================================
++ * icc_read_fan_rpm - Read live fan RPM
++ * ============================================================
++ * @rpm: Output, fan speed in RPM (integer) on success.
++ *
++ * Source: ICC 0x0A/0x08, reply[8:12], u32 LE, 16.16 fixed-point.
++ * Divide raw value by PS4_FAN_RPM_SCALE (65536) to get RPM.
++ *
++ * Sentinel values 0xFFFFFFFF and 0x0FFFFFFF indicate the fan
++ * is running at base idle speed (below threshold). Reported
++ * as 0 RPM — the hwmon layer handles display appropriately.
++ *
++ * Caller must hold priv->lock.
++ */
++static int icc_read_fan_rpm(long *rpm)
++{
++	u8 reply[PS4_FAN_STATUS_REPLY_LEN];
++	u32 raw;
++	int ret;
++
++	memset(reply, 0, sizeof(reply));
++	ret = apcie_icc_cmd(PS4_FAN_ICC_MAJOR, PS4_FAN_ICC_MINOR_STATUS,
++			    NULL, 0, reply, sizeof(reply));
++	if (ret < 0)
++		return ret;
++	if (reply[PS4_ICC_STATUS_BYTE] != 0x00)
++		return -EIO;
++
++	raw = le32_to_cpup((__le32 *)(reply + PS4_FAN_RPM_OFFSET));
++
++	if (raw == PS4_FAN_RPM_INVALID_1 || raw == PS4_FAN_RPM_INVALID_2)
++		*rpm = 0;
++	else
++		*rpm = (long)(raw / PS4_FAN_RPM_SCALE);
++
++	return 0;
++}
++
++/* ============================================================
++ * hwmon ops: is_visible
++ * ============================================================
++ */
++static umode_t ps4_fan_is_visible(const void *drvdata,
++				   enum hwmon_sensor_types type,
++				   u32 attr, int channel)
++{
++	switch (type) {
++	case hwmon_temp:
++		if (channel != 0)
++			return 0;
++		switch (attr) {
++		case hwmon_temp_input: return 0444;
++		case hwmon_temp_crit:  return 0644;
++		default:               return 0;
++		}
++	case hwmon_fan:
++		if (channel != 0)
++			return 0;
++		if (attr == hwmon_fan_input)
++			return 0444;
++		return 0;
++	default:
++		return 0;
++	}
++}
++
++/* ============================================================
++ * hwmon ops: read
++ * ============================================================
++ * Dispatches:
++ *   temp1_input  → icc_read_apu_temp()      (0x0B/0x01 reply[3])
++ *   temp1_crit   → icc_read_fan_threshold() (0x0A/0x07 reply[5])
++ *   fan1_input   → icc_read_fan_rpm()       (0x0A/0x08 reply[8:12])
++ */
++static int ps4_fan_read(struct device *dev, enum hwmon_sensor_types type,
++			u32 attr, int channel, long *val)
++{
++	struct ps4_fan_priv *priv = dev_get_drvdata(dev);
++	int ret;
++
++	mutex_lock(&priv->lock);
++
++	switch (type) {
++	case hwmon_temp:
++		if (channel != 0) { ret = -EOPNOTSUPP; break; }
++		switch (attr) {
++		case hwmon_temp_input:
++			ret = icc_read_apu_temp(val);
++			break;
++		case hwmon_temp_crit:
++			ret = icc_read_fan_threshold(val);
++			break;
++		default:
++			ret = -EOPNOTSUPP;
++		}
++		break;
++	case hwmon_fan:
++		if (channel != 0 || attr != hwmon_fan_input) {
++			ret = -EOPNOTSUPP;
++			break;
++		}
++		ret = icc_read_fan_rpm(val);
++		break;
++	default:
++		ret = -EOPNOTSUPP;
++	}
++
++	mutex_unlock(&priv->lock);
++	return ret;
++}
++
++/* ============================================================
++ * hwmon ops: write
++ * ============================================================
++ * Only temp1_crit is writable. Triggers read-modify-write.
++ */
++static int ps4_fan_write(struct device *dev, enum hwmon_sensor_types type,
++			 u32 attr, int channel, long val)
++{
++	struct ps4_fan_priv *priv = dev_get_drvdata(dev);
++	int ret;
++
++	if (type != hwmon_temp || channel != 0 || attr != hwmon_temp_crit)
++		return -EOPNOTSUPP;
++
++	mutex_lock(&priv->lock);
++	ret = icc_write_fan_threshold(val);
++	mutex_unlock(&priv->lock);
++
++	return ret;
++}
++
++/* ============================================================
++ * hwmon Chip Info
++ * ============================================================
++ * Two channels:
++ *   temp[0]: temp1_input (RO), temp1_crit (RW)
++ *   fan[0]:  fan1_input (RO)
++ */
++static const struct hwmon_channel_info * const ps4_fan_channel_info[] = {
++	HWMON_CHANNEL_INFO(temp,
++		HWMON_T_INPUT | HWMON_T_CRIT),
++	HWMON_CHANNEL_INFO(fan,
++		HWMON_F_INPUT),
++	NULL,
++};
++
++static const struct hwmon_ops ps4_fan_hwmon_ops = {
++	.is_visible = ps4_fan_is_visible,
++	.read       = ps4_fan_read,
++	.write      = ps4_fan_write,
++};
++
++static const struct hwmon_chip_info ps4_fan_chip_info = {
++	.ops  = &ps4_fan_hwmon_ops,
++	.info = ps4_fan_channel_info,
++};
++
++/* ============================================================
++ * Platform Driver: probe / remove
++ * ============================================================ */
++static int ps4_fan_probe(struct platform_device *pdev)
++{
++	struct ps4_fan_priv *priv;
++	struct device *hwmon_dev;
++
++	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
++	if (!priv)
++		return -ENOMEM;
++
++	mutex_init(&priv->lock);
++	platform_set_drvdata(pdev, priv);
++
++	hwmon_dev = devm_hwmon_device_register_with_info(
++			&pdev->dev, "ps4_fan", priv,
++			&ps4_fan_chip_info, NULL);
++	if (IS_ERR(hwmon_dev))
++		return PTR_ERR(hwmon_dev);
++
++	dev_info(&pdev->dev,
++		 "PS4 fan hwmon ready — "
++		 "temp1_input, temp1_crit (%d–%d°C), fan1_input\n",
++		 PS4_FAN_THRESH_MIN_C, PS4_FAN_THRESH_MAX_C);
++	return 0;
++}
++
++static void ps4_fan_remove(struct platform_device *pdev) {}
++
++/* ============================================================
++ * Platform Driver / Module Registration
++ * ============================================================ */
++static struct platform_driver ps4_fan_driver = {
++	.probe  = ps4_fan_probe,
++	.remove = ps4_fan_remove,
++	.driver = { .name = "ps4-fan" },
++};
++
++static struct platform_device *ps4_fan_pdev;
++
++static int __init ps4_fan_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&ps4_fan_driver);
++	if (ret) {
++		pr_err("ps4-fan: failed to register driver: %d\n", ret);
++		return ret;
++	}
++
++	ps4_fan_pdev = platform_device_register_simple("ps4-fan", -1, NULL, 0);
++	if (IS_ERR(ps4_fan_pdev)) {
++		ret = PTR_ERR(ps4_fan_pdev);
++		pr_err("ps4-fan: failed to register device: %d\n", ret);
++		platform_driver_unregister(&ps4_fan_driver);
++		ps4_fan_pdev = NULL;
++		return ret;
++	}
++
++	return 0;
++}
++
++static void __exit ps4_fan_exit(void)
++{
++	if (ps4_fan_pdev)
++		platform_device_unregister(ps4_fan_pdev);
++	platform_driver_unregister(&ps4_fan_driver);
++}
++
++module_init(ps4_fan_init);
++module_exit(ps4_fan_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("rmux <armandas.kvietkus@proton.me>");
++MODULE_DESCRIPTION("PS4 Aeolia/Belize fan threshold and RPM hwmon driver");
++MODULE_ALIAS("platform:ps4-fan");
+\ No newline at end of file
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..8515fb298c78a80f041f183ed9ca1228dac1263f
+--- /dev/null
++++ b/drivers/ps4/ps4-fan.h
+@@ -0,0 +1,124 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/**
++ * ps4-fan.h — PS4 Aeolia/Belize fan + thermal hwmon driver header
++ *
++ * Copyright (C) rmux <armandas.kvietkus@proton.me>
++ *
++ * ============================================================
++ * Hardware Compatibility
++ * ============================================================
++ * Confirmed on:
++ *   PS4 Original        — Aeolia southbridge (CXD90025G)
++ *   PS4 Slim            — Belize southbridge (protocol identical)
++ *
++ * ============================================================
++ * ICC Command Map — Fan Info Device (Major 0x0A)
++ * ============================================================
++ *
++ * 0x0A/0x07 — Read thermal configuration (52 bytes)
++ *   reply[0]   = ICC status (0x00 = OK)
++ *   reply[5]   = fan threshold, integer Celsius (u8)
++ *   reply[9]   = factory flag 0x08  — must be preserved on write
++ *   reply[12]  = factory flag 0x80  — must be preserved on write
++ *   reply[16-27] = 0xff,0xff,0xff,0x0f pattern (sensor slot markers)
++ *                  must be preserved on write
++ *
++ * 0x0A/0x06 — Write thermal configuration (52 bytes)
++ *   CRITICAL: This command must receive the FULL 52-byte struct
++ *   read from 0x0A/0x07 with ONLY byte[5] modified.
++ *   Sending a zero-filled buffer destroys the factory flags at
++ *   bytes [9] and [12], which disables the EMC PID loop and
++ *   causes fan RPM to read 0 permanently until hard power cycle.
++ *   This was the bug in the legacy ps4fancontrol userspace tool.
++ *
++ * 0x0A/0x08 — Read live fan + thermal data (0x52 bytes)
++ *   reply[0]    = ICC status (0x00 = OK)
++ *   reply[5]    = fan duty ADC (raw, scale TBD)
++ *   reply[8:12] = fan RPM, u32 little-endian, 16.16 fixed-point
++ *                 RPM = raw / 65536.0
++ *                 Returns 0xFFFFFFFF or 0x0FFFFFFF when fan is
++ *                 at base idle (below threshold). Treat as 0.
++ *   reply[16:18]= APU temperature, u16 little-endian, 8.8 fixed-point
++ *                 temp_C = raw / 256.0
++ *
++ * ============================================================
++ * ICC Command Map — Device Power Info (Major 0x0B)
++ * ============================================================
++ *
++ * 0x0B/0x01 — Read APU temperature (0x10 bytes)
++ *   reply[0]  = ICC status (0x00 = OK)
++ *   reply[3]  = APU temperature, plain integer Celsius (u8)
++ *   NOTE: Plain integer, NOT fixed-point. No division required.
++ *   This is the primary temperature source for temp1_input.
++ *
++ * ============================================================
++ * hwmon Attribute Map
++ * ============================================================
++ *   temp1_input  (RO) — Live APU temp, milli-Celsius
++ *                       Source: 0x0B/0x01 reply[3] * 1000
++ *   temp1_crit   (RW) — Fan threshold, milli-Celsius
++ *                       Read:  0x0A/0x07 reply[5] * 1000
++ *                       Write: read-modify-write via 0x0A/0x07→0x0A/0x06
++ *                       Valid: 45000–85000 milli-Celsius
++ *   fan1_input   (RO) — Fan speed, RPM (integer)
++ *                       Source: 0x0A/0x08 reply[8:12], 16.16 fixed-point
++ */
++
++#ifndef _PS4_FAN_H
++#define _PS4_FAN_H
++
++/* ============================================================
++ * ICC Identifiers — Fan Info Device
++ * ============================================================ */
++#define PS4_FAN_ICC_MAJOR               0x0A
++#define PS4_FAN_ICC_MINOR_GET           0x07  /* read thermal config  */
++#define PS4_FAN_ICC_MINOR_SET           0x06  /* write thermal config */
++#define PS4_FAN_ICC_MINOR_STATUS        0x08  /* live RPM + temp data */
++
++/* ============================================================
++ * ICC Identifiers — APU Temperature
++ * ============================================================ */
++#define PS4_FAN_TEMP_ICC_MAJOR          0x0B
++#define PS4_FAN_TEMP_ICC_MINOR          0x01
++
++/* ============================================================
++ * Buffer Sizes
++ * ============================================================ */
++#define PS4_FAN_CONFIG_LEN              0x34  /* 52 bytes — full config struct */
++#define PS4_FAN_CONFIG_REPLY_LEN        0x52  /* reply buffer for 0x0A/0x07    */
++#define PS4_FAN_STATUS_REPLY_LEN        0x52  /* reply buffer for 0x0A/0x08    */
++#define PS4_FAN_TEMP_REPLY_LEN          0x10  /* reply buffer for 0x0B/0x01    */
++
++/* ============================================================
++ * Byte Offsets Within ICC Reply Buffers
++ * ============================================================ */
++#define PS4_ICC_STATUS_BYTE             0     /* reply[0]: 0x00 = success       */
++#define PS4_FAN_THRESH_BYTE             5     /* config[5]: threshold °C        */
++#define PS4_FAN_RPM_OFFSET              8     /* status[8:12]: u32 LE 16.16 RPM */
++#define PS4_FAN_TEMP_ALT_OFFSET         16    /* status[16:18]: u16 LE 8.8 °C   */
++#define PS4_FAN_TEMP_BYTE               3     /* temp reply[3]: plain u8 °C     */
++
++/* ============================================================
++ * RPM Fixed-Point Scaling
++ * ============================================================
++ * Fan RPM is encoded as 16.16 fixed-point (u32 LE).
++ * Divide raw value by 65536 to get RPM.
++ * Values 0xFFFFFFFF and 0x0FFFFFFF indicate fan at base idle
++ * (below threshold) — report as 0 RPM.
++ */
++#define PS4_FAN_RPM_SCALE               65536U
++#define PS4_FAN_RPM_INVALID_1           0xFFFFFFFFU
++#define PS4_FAN_RPM_INVALID_2           0x0FFFFFFFU
++
++/* ============================================================
++ * Fan Threshold Limits
++ * ============================================================ */
++#define PS4_FAN_THRESH_MIN_C            45
++#define PS4_FAN_THRESH_MAX_C            85
++#define PS4_FAN_THRESH_DEFAULT_C        79    /* hardware power-on default */
++
++#define PS4_FAN_THRESH_MIN_MC           ((long)(PS4_FAN_THRESH_MIN_C) * 1000L)
++#define PS4_FAN_THRESH_MAX_MC           ((long)(PS4_FAN_THRESH_MAX_C) * 1000L)
++#define PS4_FAN_THRESH_DEFAULT_MC       ((long)(PS4_FAN_THRESH_DEFAULT_C) * 1000L)
++
++#endif /* _PS4_FAN_H */
+\ No newline at end of file
+
+--------------false--
+
+

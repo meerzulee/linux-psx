@@ -1,0 +1,87 @@
+From 13fcf376724622eaba467e945d9b00aab59800e1 Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Mon, 25 Aug 2025 16:09:29 +0000
+Subject: [PATCH] drm: amdgpu/ps4_bridge - Revert 1080p120Hz support
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Revert commit :
+be5a7aaee76faf815de8c995993ac48451dc6678 - (Add 1080p120 mode)
+
+Having a 120Hz modeline causes incorrect mode selection
+by the GUI / Display Manager, causing a 60Hz monitor to try
+with a 120Hz mode - leading to a blackscreen at graphical startup.
+The only fix seems to be having a xorg.conf in
+/usr/share/X11/xorg.conf.d/
+
+Disabling for now to test fix.
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0040-drm-amdgpu-ps4_bridge-Revert-1080p120Hz-support.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0040-drm-amdgpu-ps4_bridge-Revert-1080p120Hz-support.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index bd50c960280f5cf0c5033a50477edb10ebf6598a..e1f7807749831ee63291b21f734731bf589b4daf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -693,13 +693,22 @@ static const struct drm_display_mode mode_1080p = {
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
++/* Having a 120Hz modeline causes incorrect mode selection
++ * by GUI / Display Manager, causing a 60Hz monitor to try
++ * with a 120Hz mode - leading to a blackscreen.
++ * Only fix seems to be having a xorg.conf in /usr/share/X11/xorg.conf.d/
++ *
++ * Disable for now
++ */
+ /* 63 - 1920x1080@120Hz */
++/*
+ static const struct drm_display_mode mode_1080p120 = {
+ 	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 297000, 1920, 2008,
+ 			2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
+ 		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	  .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
++*/
+ 
+ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+@@ -710,8 +719,10 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 	newmode = drm_mode_duplicate(dev, &mode_1080p);
+ 	drm_mode_probed_add(connector, newmode);
+ 
++	/*
+ 	newmode = drm_mode_duplicate(dev, &mode_1080p120);
+ 	drm_mode_probed_add(connector, newmode);
++	*/
+ 
+ 	//newmode = drm_mode_duplicate(dev, &mode_720p);
+ 	//drm_mode_probed_add(connector, newmode);
+@@ -760,7 +771,10 @@ enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
+ 	int vic = drm_match_cea_mode(mode);
+ 
+ 	/* Allow anything that we can match up to a VIC (CEA modes) */
+-	if (!vic || (vic != 16 && vic != 4 && vic != 63)) {
++	//if (!vic || (vic != 16 && vic != 4 && vic != 63)) {
++	//Disabled 1920x1080-120Hz for now
++
++	if (!vic || (vic != 16 && vic != 4)) {
+ 		return MODE_BAD;
+ 	}
+ 
+
+--------------false--
+
+

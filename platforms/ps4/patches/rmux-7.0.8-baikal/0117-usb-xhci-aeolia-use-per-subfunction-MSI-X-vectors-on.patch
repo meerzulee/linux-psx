@@ -1,0 +1,115 @@
+From a6dd65e0c4b1e973c294287a17803b2ed0e09c2f Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 10:08:18 +0200
+Subject: [PATCH] usb: xhci-aeolia: use per-subfunction MSI-X vectors on Baikal
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+On Baikal, bpcie_assign_irqs() clamps nvec=1 for non-glue PCI
+functions, forcing all 3 subfunctions (USB0, AHCI, USB2) of
+0000:00:14.7 to share a single IRQ. The bpcie demux only maps
+subfunction 0, so AHCI completions get silently dropped — causing
+libata EH timeouts (5s/10s/30s) and eventual device disable.
+
+Stock 5.4 solved this by calling pci_alloc_irq_vectors() directly
+with PCI_IRQ_MSIX|PCI_IRQ_MSI, bypassing the bpcie domain entirely
+for this device. Each subfunction gets its own vector.
+
+Port the same approach: try standard PCI MSI-X/MSI allocation first
+on Baikal, fall back to bpcie single-vector on failure. Use
+pci_irq_vector() for lookup since MSI-X vectors may be
+non-contiguous.
+
+This fixes the internal HDD being disabled on boot due to missed
+AHCI interrupts, reducing boot time from 27-130s to ~6s.
+---
+ drivers/usb/host/xhci-aeolia.c | 41 +++++++++++++++++++++++++++++-----
+ 1 file changed, 36 insertions(+), 5 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0117-usb-xhci-aeolia-use-per-subfunction-MSI-X-vectors-on.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0117-usb-xhci-aeolia-use-per-subfunction-MSI-X-vectors-on.patch"
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 4540326f1ce2472df98bd0eddc88199975a810fa..1868ab3bf11798ee62cb9df0657097a63cae9dc9 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -28,6 +28,7 @@ static struct hc_driver __read_mostly xhci_aeolia_hc_driver;
+ struct aeolia_xhci {
+ 	struct ata_host *host;
+ 	int nr_irqs;
++	bool baikal_msix_path;
+ 	struct usb_hcd *hcd[NR_DEVICES];
+ };
+ 
+@@ -78,23 +79,53 @@ static int xhci_aeolia_irqnum(struct aeolia_xhci *axhci,
+ 	if (axhci->nr_irqs <= 1 || index >= axhci->nr_irqs)
+ 		return dev->irq;
+ 
++	if (axhci->baikal_msix_path)
++		return pci_irq_vector(dev, index);
++
+ 	return dev->irq + index;
+ }
+ 
+ static int xhci_aeolia_assign_irqs(struct pci_dev *dev)
+ {
+-	if (xhci_aeolia_is_baikal(dev))
++	struct aeolia_xhci *axhci = pci_get_drvdata(dev);
++	int ret;
++
++	if (xhci_aeolia_is_baikal(dev)) {
++		ret = pci_alloc_irq_vectors(dev, NR_DEVICES, INT_MAX,
++					    PCI_IRQ_MSIX | PCI_IRQ_MSI);
++		if (ret >= NR_DEVICES) {
++			axhci->baikal_msix_path = true;
++			dev_info(&dev->dev,
++				 "xhci_aeolia: allocated %d vectors via PCI MSI%s\n",
++				 ret, dev->msix_enabled ? "-X" : "");
++			return ret;
++		}
++		if (ret > 0)
++			pci_free_irq_vectors(dev);
++
++		dev_warn(&dev->dev,
++			 "xhci_aeolia: MSI-X alloc failed (%d), falling back to bpcie\n",
++			 ret);
++		axhci->baikal_msix_path = false;
+ 		return bpcie_assign_irqs(dev, NR_DEVICES);
++	}
+ 
+ 	return apcie_assign_irqs(dev, NR_DEVICES);
+ }
+ 
+ static void xhci_aeolia_free_irqs(struct pci_dev *dev, int nr_irqs)
+ {
+-	if (xhci_aeolia_is_baikal(dev))
+-		bpcie_free_irqs(dev->irq, nr_irqs);
+-	else
+-		apcie_free_irqs(dev->irq, nr_irqs);
++	struct aeolia_xhci *axhci = pci_get_drvdata(dev);
++
++	if (xhci_aeolia_is_baikal(dev)) {
++		if (axhci && axhci->baikal_msix_path)
++			pci_free_irq_vectors(dev);
++		else
++			bpcie_free_irqs(dev->irq, nr_irqs);
++		return;
++	}
++
++	apcie_free_irqs(dev->irq, nr_irqs);
+ }
+ 
+ static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
+
+--------------false--
+
+

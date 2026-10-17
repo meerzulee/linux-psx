@@ -1,0 +1,45 @@
+From a90c0d1c0c171de66795a78725cddae216b8d740 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 10 May 2026 20:02:41 +0200
+Subject: [PATCH] ps4: add Baikal southbridge selection and update kernel
+ config
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ arch/x86/Kconfig | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0110-ps4-add-Baikal-southbridge-selection-and-update-kern.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0110-ps4-add-Baikal-southbridge-selection-and-update-kern.patch"
+
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 4c11f258361802b9b9430c9245b79598dc69422b..0113dd674f8e4a31dbe78aca5d3e164e3174274a 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -612,6 +612,13 @@ config X86_PS4
+ 	depends on PCI
+ 	help
+ 	  Select to include support for the Sony PlayStation 4 game console.
++
++config X86_PS4_BAIKAL
++	bool "Sony PlayStation 4 Baikal southbridge support"
++	depends on X86_PS4
++	help
++	  Enable support for the Baikal southbridge used by PlayStation 4
++	  Slim and Pro systems.
+  
+ config X86_VSMP
+ 	bool "ScaleMP vSMP"
+
+--------------false--
+
+

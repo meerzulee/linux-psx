@@ -1,0 +1,107 @@
+From 732f6ec470af3e66fa1e05b73bcf99cae4d41b16 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 28 Apr 2026 10:16:13 +0200
+Subject: [PATCH] amdgpu: require MSI/MSI-X for PS4 Liverpool IRQs
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c | 37 +++++++++++++++++++++++--
+ 1 file changed, 34 insertions(+), 3 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0087-amdgpu-require-MSI-MSI-X-for-PS4-Liverpool-IRQs.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0087-amdgpu-require-MSI-MSI-X-for-PS4-Liverpool-IRQs.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+index 254a4e983f40a89b8ce7be78adb061064b71808e..1f216031fe5e8580095e6b285ed1ec956f7b1576 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_irq.c
+@@ -278,6 +278,12 @@ static bool amdgpu_msi_ok(struct amdgpu_device *adev)
+ 	return true;
+ }
+ 
++static bool amdgpu_irq_is_ps4_asic(struct amdgpu_device *adev)
++{
++	return adev->asic_type == CHIP_LIVERPOOL ||
++	       adev->asic_type == CHIP_GLADIUS;
++}
++
+ void amdgpu_restore_msix(struct amdgpu_device *adev)
+ {
+ 	u16 ctrl;
+@@ -307,6 +313,7 @@ void amdgpu_restore_msix(struct amdgpu_device *adev)
+ int amdgpu_irq_init(struct amdgpu_device *adev)
+ {
+ 	unsigned int irq, flags;
++	bool ps4_asic = amdgpu_irq_is_ps4_asic(adev);
+ 	int r;
+ 
+ 	spin_lock_init(&adev->irq.lock);
+@@ -314,19 +321,39 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
+ 	/* Enable MSI if not disabled by module parameter */
+ 	adev->irq.msi_enabled = false;
+ 
+-	if (!amdgpu_msi_ok(adev))
++	if (ps4_asic) {
++		if (!amdgpu_msi_ok(adev)) {
++			dev_err(adev->dev,
++				"PS4: INTx is not supported for Liverpool/Gladius; MSI/MSI-X required\n");
++			return -EINVAL;
++		}
++
++		flags = PCI_IRQ_MSI | PCI_IRQ_MSIX;
++	} else if (!amdgpu_msi_ok(adev)) {
+ 		flags = PCI_IRQ_INTX;
+-	else
++	} else {
+ 		flags = PCI_IRQ_ALL_TYPES;
++	}
+ 
+ 	/* we only need one vector */
++	dev_dbg(adev->dev, "irq allocation flags=0x%x\n", flags);
+ 	r = pci_alloc_irq_vectors(adev->pdev, 1, 1, flags);
+ 	if (r < 0) {
+ 		dev_err(adev->dev, "Failed to alloc msi vectors\n");
+ 		return r;
+ 	}
+ 
+-	if (amdgpu_msi_ok(adev)) {
++	if (ps4_asic) {
++		adev->irq.msi_enabled = pci_dev_msi_enabled(adev->pdev);
++		if (!adev->irq.msi_enabled) {
++			dev_err(adev->dev,
++				"PS4: INTx is not supported for Liverpool/Gladius; MSI/MSI-X required\n");
++			pci_free_irq_vectors(adev->pdev);
++			return -ENODEV;
++		}
++
++		dev_dbg(adev->dev, "using MSI/MSI-X.\n");
++	} else if (amdgpu_msi_ok(adev)) {
+ 		adev->irq.msi_enabled = true;
+ 		dev_dbg(adev->dev, "using MSI/MSI-X.\n");
+ 	}
+@@ -351,6 +378,10 @@ int amdgpu_irq_init(struct amdgpu_device *adev)
+ 	adev->irq.irq = irq;
+ 	adev_to_drm(adev)->max_vblank_count = 0x00ffffff;
+ 
++	if (ps4_asic)
++		dev_info(adev->dev,
++			 "PS4 GPU IRQ: vector=%u msi_enabled=%d pdev_irq=%u\n",
++			 irq, adev->irq.msi_enabled, adev->pdev->irq);
+ 	dev_dbg(adev->dev, "irq initialized.\n");
+ 	return 0;
+ 
+
+--------------false--
+
+

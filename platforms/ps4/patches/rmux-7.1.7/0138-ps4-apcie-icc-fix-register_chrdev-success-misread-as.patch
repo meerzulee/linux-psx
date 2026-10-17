@@ -1,0 +1,39 @@
+From a8ab3de2a12f670cbe7907c5505bb68f434a0f18 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 6 Jul 2026 19:23:49 +0200
+Subject: [PATCH] ps4-apcie-icc: fix register_chrdev success misread as failure
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/ps4/ps4-apcie-icc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0138-ps4-apcie-icc-fix-register_chrdev-success-misread-as.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0138-ps4-apcie-icc-fix-register_chrdev-success-misread-as.patch"
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index 01656be1b0c9afdae9b31b5d68e893ff75be8b2f..b7f5665de0d035ddef7d1531e6188f856561a8c3 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -645,7 +645,7 @@ int apcie_icc_init(struct apcie_dev *sc)
+ 	}
+ 
+ 	ret = register_chrdev(0, "icc", &icc_fops);
+-	if (ret) {
++	if (ret < 0) {
+ 		sc_warn("icc: register_chrdev failed: %d\n", ret);
+ 		kfree(ioctl_reply_buf);
+ 		kfree(ioctl_send_buf);
+
+--------------false--
+
+

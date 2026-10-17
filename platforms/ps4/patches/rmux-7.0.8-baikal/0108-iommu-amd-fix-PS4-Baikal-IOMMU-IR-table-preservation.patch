@@ -1,0 +1,151 @@
+From c4e7f040d08f37e2cedac4920183913aac242556 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 10 May 2026 20:02:37 +0200
+Subject: [PATCH] iommu/amd: fix PS4 Baikal IOMMU/IR table preservation and
+ cleanup
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/iommu/amd/init.c  | 38 ++++++++++++++++++++++++++++++++++----
+ drivers/iommu/amd/iommu.c | 25 ++++++++++++++++++++++---
+ 2 files changed, 56 insertions(+), 7 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0108-iommu-amd-fix-PS4-Baikal-IOMMU-IR-table-preservation.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0108-iommu-amd-fix-PS4-Baikal-IOMMU-IR-table-preservation.patch"
+
+diff --git a/drivers/iommu/amd/init.c b/drivers/iommu/amd/init.c
+index ad1c12d8705b34cd4dc00d99dd35c9eba3cc0a37..71b4c8edba72e2a8e447e09aa536619f1e09a8b6 100644
+--- a/drivers/iommu/amd/init.c
++++ b/drivers/iommu/amd/init.c
+@@ -28,6 +28,7 @@
+ #include <asm/x86_init.h>
+ #include <asm/io_apic.h>
+ #include <asm/irq_remapping.h>
++#include <asm/processor.h>
+ #include <asm/set_memory.h>
+ #include <asm/sev.h>
+ 
+@@ -1962,10 +1963,19 @@ static int __init init_iommu_one_late(struct amd_iommu *iommu)
+ 
+ 	init_translation_status(iommu);
+ 	if (translation_pre_enabled(iommu) && !is_kdump_kernel()) {
+-		iommu_disable(iommu);
+-		clear_translation_pre_enabled(iommu);
+-		pr_warn("Translation was enabled for IOMMU:%d but we are not in kdump mode\n",
+-			iommu->index);
++#ifdef CONFIG_X86_PS4_BAIKAL
++		if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
++		    boot_cpu_data.x86 == 0x16) {
++			pr_info("AMD-Vi: PS4 Baikal: IOMMU:%d pre-enabled, preserving state\n",
++				iommu->index);
++		} else
++#endif
++		{
++			iommu_disable(iommu);
++			clear_translation_pre_enabled(iommu);
++			pr_warn("Translation was enabled for IOMMU:%d but we are not in kdump mode\n",
++				iommu->index);
++		}
+ 	}
+ 	if (amd_iommu_pre_enabled)
+ 		amd_iommu_pre_enabled = translation_pre_enabled(iommu);
+@@ -3268,6 +3278,20 @@ static int __init early_amd_iommu_init(void)
+ 	}
+ 
+ 	/* Disable any previously enabled IOMMUs */
++#ifdef CONFIG_X86_PS4_BAIKAL
++	/*
++	 * On PS4 Baikal, the PS4 OS leaves the IOMMU enabled with valid IR
++	 * tables. If we disable and re-init, the Baikal device's MSI config
++	 * still targets old IR entries → IO_PAGE_FAULT. Skip disable to
++	 * preserve existing IR table entries. The kernel will take ownership
++	 * and manage new allocations on top of the existing state.
++	 */
++	if (amd_iommu_pre_enabled &&
++	    boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
++	    boot_cpu_data.x86 == 0x16) {
++		pr_info("AMD-Vi: PS4 Baikal: keeping IOMMU enabled to preserve IR tables\n");
++	} else
++#endif
+ 	if (!is_kdump_kernel() || amd_iommu_disabled)
+ 		disable_iommus();
+ 
+@@ -3610,6 +3634,12 @@ void __init amd_iommu_detect(void)
+ {
+ 	int ret;
+ 
++#ifdef CONFIG_X86_PS4_BAIKAL
++	if (boot_cpu_data.x86_vendor == X86_VENDOR_AMD &&
++	    boot_cpu_data.x86 == 0x16)
++		goto disable_snp;
++#endif
++
+ 	if (no_iommu || (iommu_detected && !gart_iommu_aperture))
+ 		goto disable_snp;
+ 
+diff --git a/drivers/iommu/amd/iommu.c b/drivers/iommu/amd/iommu.c
+index 39556f25fafaee2d2121586dea8f3ac16a2b7937..8ca9361e370a70253454fa0fffdd3af9fed5e118 100644
+--- a/drivers/iommu/amd/iommu.c
++++ b/drivers/iommu/amd/iommu.c
+@@ -3115,6 +3115,21 @@ static bool amd_iommu_is_attach_deferred(struct device *dev)
+ 	return dev_data->defer_attach;
+ }
+ 
++#ifdef CONFIG_X86_PS4_BAIKAL
++static bool amd_iommu_ps4_baikal_force_identity(struct device *dev)
++{
++	struct pci_dev *pdev;
++
++	if (!dev_is_pci(dev))
++		return false;
++
++	pdev = to_pci_dev(dev);
++	return pdev->vendor == PCI_VENDOR_ID_SONY &&
++	       pdev->device >= PCI_DEVICE_ID_SONY_BAIKAL_ACPI &&
++	       pdev->device <= PCI_DEVICE_ID_SONY_BAIKAL_XHCI;
++}
++#endif
++
+ static int amd_iommu_def_domain_type(struct device *dev)
+ {
+ 	struct iommu_dev_data *dev_data;
+@@ -3127,6 +3142,13 @@ static int amd_iommu_def_domain_type(struct device *dev)
+ 	if (dev_is_pci(dev) && to_pci_dev(dev)->untrusted)
+ 		return IOMMU_DOMAIN_DMA;
+ 
++#ifdef CONFIG_X86_PS4_BAIKAL
++	if (amd_iommu_ps4_baikal_force_identity(dev) &&
++	    !cc_platform_has(CC_ATTR_MEM_ENCRYPT) &&
++	    !amd_iommu_snp_en)
++		return IOMMU_DOMAIN_IDENTITY;
++#endif
++
+ 	/*
+ 	 * Do not identity map IOMMUv2 capable devices when:
+ 	 *  - memory encryption is active, because some of those devices
+@@ -3915,12 +3937,9 @@ static int irq_remapping_select(struct irq_domain *d, struct irq_fwspec *fwspec,
+ 		devid = get_ioapic_devid(fwspec->param[0]);
+ 	else if (x86_fwspec_is_hpet(fwspec))
+ 		devid = get_hpet_devid(fwspec->param[0]);
+-	else if(x86_fwspec_is_aeolia(fwspec))
+-		devid = fwspec->param[0];
+ 
+ 	if (devid < 0)
+ 		return 0;
+-	pr_err("Remapping Selected: %x\n", devid);
+ 	iommu = __rlookup_amd_iommu((devid >> 16), (devid & 0xffff));
+ 
+ 	return iommu && iommu->ir_domain == d;
+
+--------------false--
+
+

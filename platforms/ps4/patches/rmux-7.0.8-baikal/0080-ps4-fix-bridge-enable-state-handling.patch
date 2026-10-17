@@ -1,0 +1,157 @@
+From dfefaa4efa4edddfb275fe8480105a405c0b4947 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 11:43:43 +0200
+Subject: [PATCH] ps4: fix bridge enable state handling
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Belize display logs show that DPCD, AUX DDC, and EDID work, but the
+bridge enable path can skip with "already enabled/enabling" while the
+display is not actually active. pre_enable must not cause enable to skip
+the real MN864729 bridge programming sequence.
+
+Allow ps4_bridge_enable() to proceed when an enable is in progress, and
+only skip when the bridge is already fully enabled. Clear the enabling
+state on all enable exits and on disable so failed or partial enable
+attempts do not poison later modesets.
+
+The bridge register sequences, EDID/DDC handling, mode validation, and
+post-enable DP retrain path are unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 43 ++++++++++++++-----------
+ 1 file changed, 24 insertions(+), 19 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0080-ps4-fix-bridge-enable-state-handling.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0080-ps4-fix-bridge-enable-state-handling.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 1055b6bbefde98f9ed88132d53ff8871e51fb3e4..8ab5373c65e3f968582ec7493703f3af3947de88 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -449,7 +449,7 @@ static void ps4_bridge_pre_enable(struct drm_bridge *bridge)
+ 	DRM_DEBUG("Enable ps4_bridge_pre_enable\n");
+ 	mutex_lock(&mn_bridge->mutex);
+ 	if (mn_bridge->enabled || mn_bridge->enabling) {
+-		DRM_DEBUG_KMS("ps4_bridge_pre_enable (already enabled/enabling, skip)\n");
++		DRM_DEBUG_KMS("ps4_bridge_pre_enable (already enabled or enabling, skip)\n");
+ 		mutex_unlock(&mn_bridge->mutex);
+ 		return;
+ 	}
+@@ -526,27 +526,28 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 	u8 dp[3];
+ 	bool is_mn864729 = pdev->device != PCI_DEVICE_ID_CUH_11XX;
+ 	bool success = false;
++	int ret;
+ 
+ 	DRM_DEBUG("Enable PS4_BRIDGE_ENABLE\n");
+-	if (!mn_bridge->mode) {
+-		DRM_ERROR("mode not available\n");
+-		return;
+-	}
+-
+-	if(pdev->vendor != PCI_VENDOR_ID_ATI) {
+-		DRM_ERROR("Invalid vendor: %04x", pdev->vendor);
+-		return;
+-	}
+-
+ 	mutex_lock(&mn_bridge->mutex);
+-	if (mn_bridge->enabled || mn_bridge->enabling) {
+-		DRM_DEBUG_KMS("ps4_bridge_enable (already enabled/enabling, skip)\n");
++	if (mn_bridge->enabled) {
++		DRM_DEBUG_KMS("ps4_bridge_enable (already enabled, skip)\n");
+ 		mutex_unlock(&mn_bridge->mutex);
+ 		return;
+ 	}
+ 	mn_bridge->enabling = true;
+ 	mutex_unlock(&mn_bridge->mutex);
+ 
++	if (!mn_bridge->mode) {
++		DRM_ERROR("mode not available\n");
++		goto out;
++	}
++
++	if (pdev->vendor != PCI_VENDOR_ID_ATI) {
++		DRM_ERROR("Invalid vendor: %04x", pdev->vendor);
++		goto out;
++	}
++
+ 	DRM_DEBUG_KMS("ps4_bridge_enable (mode: %d)\n", mn_bridge->mode);
+ 
+ 	/* Here come the dragons */
+@@ -622,8 +623,11 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 		cq_writereg(&mn_bridge->cq, 0x7020, 0x21);
+ 
+ 		cq_writereg(&mn_bridge->cq, VMUTECNT, VMUTECNT_LINEWIDTH_90);
+-		if (cq_exec(&mn_bridge->cq) < 0) {
++		ret = cq_exec(&mn_bridge->cq);
++		if (ret < 0) {
+ 			DRM_ERROR("Failed to configure ps4-bridge (MN86471A) mode\n");
++		} else {
++			success = true;
+ 		}
+ 		#if 1
+ 		// preinit
+@@ -668,13 +672,10 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 		}
+ 		#endif
+ 		mutex_unlock(&mn_bridge->mutex);
+-		success = true;
+ 	}
+ 	else
+ 	{
+ 		/* Panasonic MN864729 */
+-		int ret;
+-
+ 		mutex_lock(&mn_bridge->mutex);
+ 		cq_init(&mn_bridge->cq, 4);
+ 		cq_mask(&mn_bridge->cq, 0x6005, 0x01, 0x01);
+@@ -802,8 +803,7 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 
+ out:
+ 	mutex_lock(&mn_bridge->mutex);
+-	if (success)
+-		mn_bridge->enabled = true;
++	mn_bridge->enabled = success;
+ 	mn_bridge->enabling = false;
+ 	mutex_unlock(&mn_bridge->mutex);
+ 
+@@ -815,12 +815,15 @@ static void ps4_bridge_disable(struct drm_bridge *bridge)
+ 
+ 	mutex_lock(&mn_bridge->mutex);
+ 	if (!mn_bridge->enabled) {
++		mn_bridge->enabled = false;
++		mn_bridge->enabling = false;
+ 		DRM_DEBUG_KMS("ps4_bridge_disable (already disabled, skip)\n");
+ 		mutex_unlock(&mn_bridge->mutex);
+ 		return;
+ 	}
+ 
+ 	mn_bridge->enabled = false;
++	mn_bridge->enabling = false;
+ 	DRM_DEBUG_KMS("ps4_bridge_disable\n");
+ 
+ 	cq_init(&mn_bridge->cq, 4);
+@@ -839,6 +842,8 @@ static void ps4_bridge_post_disable(struct drm_bridge *bridge)
+ 	DRM_DEBUG_KMS("ps4_bridge_post_disable\n");
+ 
+ 	mutex_lock(&mn_bridge->mutex);
++	mn_bridge->enabled = false;
++	mn_bridge->enabling = false;
+ 	if (!mn_bridge->mode) {
+ 		mutex_unlock(&mn_bridge->mutex);
+ 		return;
+
+--------------false--
+
+

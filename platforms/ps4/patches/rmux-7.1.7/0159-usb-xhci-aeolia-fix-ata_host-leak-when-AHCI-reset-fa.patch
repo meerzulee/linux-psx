@@ -1,0 +1,40 @@
+From 59cd0108f5b8f92987339b70e44b1b27987b2d26 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 27 Jul 2026 11:52:51 +0000
+Subject: [PATCH] usb: xhci-aeolia: fix ata_host leak when AHCI reset fails
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/usb/host/xhci-aeolia.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0159-usb-xhci-aeolia-fix-ata_host-leak-when-AHCI-reset-fa.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0159-usb-xhci-aeolia-fix-ata_host-leak-when-AHCI-reset-fa.patch"
+
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 2b2f0589dafd854cf9f02f3d8856bcb1155e4387..5f32bb5243b17477691a18538da5a43e14ce214c 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -349,8 +349,8 @@ static int ahci_init_one(struct pci_dev *pdev)
+ 	return 0;
+ 
+ 	host_deactivate:
+-		ata_host_detach(host);
+ 	release_host:
++		ata_host_detach(host);
+ 	unmap_registers:
+ 		iounmap(hpriv->mmio);
+ 	release_mem_region:
+
+--------------false--
+
+

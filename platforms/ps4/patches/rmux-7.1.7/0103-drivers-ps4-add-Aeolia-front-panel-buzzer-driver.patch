@@ -1,0 +1,179 @@
+From 30b9134941971ddcd37af1b95ee760778d7fb1ba Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 13:05:50 +0000
+Subject: [PATCH] drivers/ps4: add Aeolia front panel buzzer driver
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Adds a sysfs-driven buzzer driver for the PS4 front-panel piezo.
+The buzzer shares the indicator ICC channel (major 0x09, minor 0x20)
+with the LED subsystem. The EMC distinguishes buzzer from LED by
+payload length: LED sends 35 bytes, buzzer sends 1 byte.
+
+Reverse-engineered from Orbis kernel module 12.02.elf
+(icc_indicator_set_buzzer function).
+
+Usage:
+  echo 1 > /sys/devices/platform/ps4-buzzer/beep
+
+Signed-off-by: Armandas Kvietkus <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/Makefile     |   1 +
+ drivers/ps4/ps4-buzzer.c | 102 +++++++++++++++++++++++++++++++++++++++
+ drivers/ps4/ps4-buzzer.h |  10 ++++
+ 3 files changed, 113 insertions(+)
+ create mode 100644 drivers/ps4/ps4-buzzer.c
+ create mode 100644 drivers/ps4/ps4-buzzer.h
+
+
+--------------false
+Content-Type: text/x-patch; name="0103-drivers-ps4-add-Aeolia-front-panel-buzzer-driver.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0103-drivers-ps4-add-Aeolia-front-panel-buzzer-driver.patch"
+
+diff --git a/drivers/ps4/Makefile b/drivers/ps4/Makefile
+index d0851f1ca224534f3d9ece59377d739cb2d4af2f..bea98a74c6ff665946a52e004b30de606d86c201 100644
+--- a/drivers/ps4/Makefile
++++ b/drivers/ps4/Makefile
+@@ -9,6 +9,7 @@ obj-y += ps4-apcie.o \
+     icc/i2c.o
+ obj-y += ps4-led.o
+ obj-y += ps4-fan.o
++obj-y += ps4-buzzer.o
+ obj-y += ps4-mesa-lock.o
+ 
+ ifneq ($(PS4_MESA_LOCK_TOKEN),)
+diff --git a/drivers/ps4/ps4-buzzer.c b/drivers/ps4/ps4-buzzer.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..8dd29babf1a95a1bc26a75847df3d254c32c070d
+--- /dev/null
++++ b/drivers/ps4/ps4-buzzer.c
+@@ -0,0 +1,102 @@
++// SPDX-License-Identifier: GPL-2.0-only
++
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/mutex.h>
++#include "aeolia.h"
++#include "ps4-buzzer.h"
++
++static DEFINE_MUTEX(ps4_buzzer_lock);
++
++static int ps4_buzzer_send(u8 value)
++{
++	u8 payload = value;
++	u8 reply[16];
++	int ret;
++
++	mutex_lock(&ps4_buzzer_lock);
++	ret = apcie_icc_cmd(PS4_BUZZER_ICC_MAJOR, PS4_BUZZER_ICC_MINOR,
++			    &payload, PS4_BUZZER_PAYLOAD_LEN,
++			    reply, sizeof(reply));
++	mutex_unlock(&ps4_buzzer_lock);
++
++	return ret;
++}
++
++static ssize_t beep_store(struct device *dev, struct device_attribute *attr,
++			  const char *buf, size_t count)
++{
++	u8 val;
++	int ret;
++
++	ret = kstrtou8(buf, 0, &val);
++	if (ret)
++		return ret;
++
++	ret = ps4_buzzer_send(val);
++	if (ret)
++		return ret;
++
++	return count;
++}
++
++static DEVICE_ATTR_WO(beep);
++
++static struct attribute *ps4_buzzer_attrs[] = {
++	&dev_attr_beep.attr,
++	NULL,
++};
++
++ATTRIBUTE_GROUPS(ps4_buzzer);
++
++static int ps4_buzzer_probe(struct platform_device *pdev)
++{
++	dev_info(&pdev->dev, "PS4 buzzer driver ready.\n");
++	return 0;
++}
++
++static struct platform_driver ps4_buzzer_driver = {
++	.probe  = ps4_buzzer_probe,
++	.driver = {
++		.name		= "ps4-buzzer",
++		.dev_groups	= ps4_buzzer_groups,
++	},
++};
++
++static struct platform_device *ps4_buzzer_pdev;
++
++static int __init ps4_buzzer_init(void)
++{
++	int ret;
++
++	ret = platform_driver_register(&ps4_buzzer_driver);
++	if (ret)
++		return ret;
++
++	ps4_buzzer_pdev = platform_device_register_simple("ps4-buzzer", -1,
++							  NULL, 0);
++	if (IS_ERR(ps4_buzzer_pdev)) {
++		ret = PTR_ERR(ps4_buzzer_pdev);
++		platform_driver_unregister(&ps4_buzzer_driver);
++		ps4_buzzer_pdev = NULL;
++		return ret;
++	}
++
++	return 0;
++}
++
++static void __exit ps4_buzzer_exit(void)
++{
++	if (ps4_buzzer_pdev)
++		platform_device_unregister(ps4_buzzer_pdev);
++
++	platform_driver_unregister(&ps4_buzzer_driver);
++}
++
++module_init(ps4_buzzer_init);
++module_exit(ps4_buzzer_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Armandas Kvietkus <armandas.kvietkus@proton.me>");
++MODULE_DESCRIPTION("PS4 Aeolia front panel buzzer driver");
++MODULE_ALIAS("platform:ps4-buzzer");
+diff --git a/drivers/ps4/ps4-buzzer.h b/drivers/ps4/ps4-buzzer.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..2617bccb34c28c6b628826678d72ce0499f8f6e9
+--- /dev/null
++++ b/drivers/ps4/ps4-buzzer.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++
++#ifndef _PS4_BUZZER_H
++#define _PS4_BUZZER_H
++
++#define PS4_BUZZER_ICC_MAJOR	0x09
++#define PS4_BUZZER_ICC_MINOR	0x20
++#define PS4_BUZZER_PAYLOAD_LEN	1
++
++#endif /* _PS4_BUZZER_H */
+
+--------------false--
+
+

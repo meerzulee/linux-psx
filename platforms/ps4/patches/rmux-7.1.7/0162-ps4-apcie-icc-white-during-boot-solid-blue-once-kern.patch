@@ -1,0 +1,81 @@
+From 334a7bfa8fd214e9018f53ac9eb526dfd9cdb7eb Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 1 Aug 2026 15:11:40 +0200
+Subject: [PATCH] ps4: apcie-icc: white during boot, solid blue once kernel is
+ up, no orange loop
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/ps4/ps4-apcie-icc.c | 35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0162-ps4-apcie-icc-white-during-boot-solid-blue-once-kern.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0162-ps4-apcie-icc-white-during-boot-solid-blue-once-kern.patch"
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index b7f5665de0d035ddef7d1531e6188f856561a8c3..4581ba7853551d3cff9586b61b05b9d4fcf45594 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -395,15 +395,11 @@ void do_icc_init(void) {
+ 	u8 svc = 0x10;
+ 	u8 reply[0x30];
+ 	static const u8 led_config[] = {
+-		3, 1, 0, 0,
+-			0x10, 1, /* Blue: on */
+-				2, 0xff, 2, 1, 0x00,
+-			0x11, 1, /* White: off */
++		2, 1, 0, 0,
++			0x10, 1, /* Blue: off */
+ 				2, 0x00, 2, 1, 0x00,
+-			0x02, 3, /* Orange: delay and pulse, loop forever */
+-				1, 0x00, 4, 1, 0xbf,
+-				2, 0xff, 5, 1, 0xff,
+-				2, 0x00, 5, 1, 0xff,
++			0x11, 1, /* White: on */
++				2, 0xff, 2, 1, 0x00,
+ 	};
+ 	int ret;
+ 	// test: get FW version
+@@ -432,6 +428,29 @@ void do_icc_init(void) {
+ 			 reply[4], reply[5], reply[6], reply[7]);
+ }
+ 
++static int __init ps4_led_boot_complete(void)
++{
++	static const u8 led_config[] = {
++		2, 1, 0, 0,
++			0x10, 1, /* Blue: on */
++				2, 0xff, 2, 1, 0x00,
++			0x11, 1, /* White: off */
++				2, 0x00, 2, 1, 0x00,
++	};
++	u8 reply[0x30];
++	int ret;
++
++	if (!icc_sc)
++		return 0;
++
++	ret = apcie_icc_cmd(9, 0x20, led_config, ARRAY_SIZE(led_config), reply, 0x30);
++	if (ret < 0)
++		pr_err("icc: boot-complete LED set failed: %d\n", ret);
++
++	return 0;
++}
++late_initcall(ps4_led_boot_complete);
++
+ static void icc_shutdown(void)
+ {
+ 	uint8_t command[] = {
+
+--------------false--
+
+

@@ -1,0 +1,62 @@
+From cbcd20b9cf97a4bd1d7c182025ce682a1084bfaa Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Sat, 28 Mar 2026 14:33:01 +0100
+Subject: [PATCH] ps4_bridge: Fix premature drm_kms_helper_poll_enable() call
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+ps4_bridge_register() is called before drm_kms_helper_poll_init(),
+so poll_enabled is still false at that point, triggering a WARN_ON
+and leaving the poll worker unscheduled. detect() is never called
+after boot, breaking monitor hotplug and power-cycle entirely.
+
+Remove the drm_kms_helper_poll_enable() calls from both the amdgpu
+and radeon ps4_bridge_register(). amdgpu calls it itself at the
+correct time and will pick up the connector->polled flags already set.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 2 --
+ drivers/gpu/drm/radeon/ps4_bridge.c     | 2 --
+ 2 files changed, 4 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0052-ps4_bridge-Fix-premature-drm_kms_helper_poll_enable-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0052-ps4_bridge-Fix-premature-drm_kms_helper_poll_enable-.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index d242bca381b36b88e035e79cb951ab01cf836dd9..db6b842d2fa915845d6fce7c1302fa4b3352a173 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -848,7 +848,5 @@ int ps4_bridge_register(struct drm_connector *connector,
+ 		return -EINVAL;
+ 	}
+ 
+-	drm_kms_helper_poll_enable(connector->dev);
+-
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/radeon/ps4_bridge.c b/drivers/gpu/drm/radeon/ps4_bridge.c
+index 4a9aa26d97d3219c6ed8db767db6065397da6949..6fdf6ee043ae35933996229f246abf637d2000b5 100644
+--- a/drivers/gpu/drm/radeon/ps4_bridge.c
++++ b/drivers/gpu/drm/radeon/ps4_bridge.c
+@@ -789,7 +789,5 @@ int radeon_ps4_bridge_register(struct drm_connector *connector,
+ 		return -EINVAL;
+ 	}
+ 
+-	drm_kms_helper_poll_enable(connector->dev);
+-
+ 	return 0;
+ }
+
+--------------false--
+
+

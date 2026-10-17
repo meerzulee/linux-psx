@@ -1,0 +1,49 @@
+From 3a29a5b9f700727cc6dfa8dcb0228e499d8ffce9 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 7 May 2026 13:23:24 +0200
+Subject: [PATCH] x86/pci: skip INTx fallback entirely on PS4 to prevent IRQ
+ storms
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+ The PS4 Southbridge (Aeolia) supports MSI for all onboard devices. When
+ devices fall back to legacy INTx routing (which isn't wired up correctly
+ in the BIOS/ACPI tables), they share IRQ 0 or an unmapped IRQ line,
+ resulting in severe interrupt storms and lost interrupts under load.
+ Skip legacy fallback completely on PS4.
+---
+ arch/x86/pci/irq.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0105-x86-pci-skip-INTx-fallback-entirely-on-PS4-to-preven.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0105-x86-pci-skip-INTx-fallback-entirely-on-PS4-to-preven.patch"
+
+diff --git a/arch/x86/pci/irq.c b/arch/x86/pci/irq.c
+index 0de436316a1dd147c057ac6b2db56701e357834f..2aee854129831883a342b9f4efda0e75901ee1df 100644
+--- a/arch/x86/pci/irq.c
++++ b/arch/x86/pci/irq.c
+@@ -1720,6 +1720,11 @@ static int pirq_enable_irq(struct pci_dev *dev)
+ {
+ 	u8 pin = 0;
+ 
++	if (!boot_cpu_has(X86_FEATURE_HYPERVISOR) && boot_cpu_data.x86_vendor == X86_VENDOR_AMD && boot_cpu_data.x86 == 0x16) {
++		/* On PS4, skip INTx fallback entirely to prevent IRQ storms */
++		return 0;
++	}
++
+ 	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &pin);
+ 	if (pin && !pcibios_lookup_irq(dev, 1)) {
+ 		char *msg = "";
+
+--------------false--
+
+

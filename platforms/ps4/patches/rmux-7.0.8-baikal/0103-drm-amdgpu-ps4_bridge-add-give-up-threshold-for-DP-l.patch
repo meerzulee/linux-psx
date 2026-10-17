@@ -1,0 +1,46 @@
+From 7aed26ac6127261d06d2d58fc0872ea47b5ba696 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 7 May 2026 12:57:02 +0200
+Subject: [PATCH] drm/amdgpu: ps4_bridge: add give-up threshold for DP link
+ training
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+ Prevent the driver from getting stuck in an infinite loop by giving up after 5 link training attempts.
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0103-drm-amdgpu-ps4_bridge-add-give-up-threshold-for-DP-l.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0103-drm-amdgpu-ps4_bridge-add-give-up-threshold-for-DP-l.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index ac30fbf42f32b4420a91a2a433138cb3261d8d7e..576d9fc286fdb3a2b41187c69f98a3eaf68a22b5 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -424,6 +424,12 @@ static void ps4_bridge_retrain_dp(struct ps4_bridge *mn_bridge)
+ 	if (ret)
+ 		return;
+ 
++	static int link_train_attempts = 0;
++	if (link_train_attempts > 5) {
++		DRM_ERROR("ps4_bridge: DP link training gave up after 5 attempts\n");
++		return;
++	}
++	link_train_attempts++;
+ 	DRM_DEBUG_KMS("ps4_bridge: retraining DP link after bridge enable\n");
+ 	amdgpu_atombios_dp_link_train(encoder, connector);
+ }
+
+--------------false--
+
+

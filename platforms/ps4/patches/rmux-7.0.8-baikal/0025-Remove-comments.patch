@@ -1,0 +1,62 @@
+From 1bb97a9bdb5f40a06355130d4ee622fad088ed2b Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Thu, 3 Jul 2025 19:00:34 +0200
+Subject: [PATCH] Remove comments
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/cik.c      | 4 ----
+ drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c | 2 +-
+ 2 files changed, 1 insertion(+), 5 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0025-Remove-comments.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0025-Remove-comments.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+index 18884b9fc3fe412970d1a950ffdb31a5e74f6bf2..98613b21fb645bff08586c47e2d28c8799b53565 100644
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -802,8 +802,6 @@ static const u32 liverpool_golden_common_registers[] =
+ 	0xa0d5, 0xffffffff, 0x00000000, /* PA_SC_RASTER_CONFIG_1 */
+ 	0x2684, 0xffffffff, 0x00018208, /* CB_HW_CONTROL */
+ 	0x263e, 0xffffffff, 0x12011003	/* GB_ADDR_CONFIG */
+-	// is this needed?
+-	// 0x1401, 0x00002000, 0x00002000, /* GARLIC_FLUSH_CNTL */
+ };
+ 
+ static const u32 liverpool_golden_registers[] =
+@@ -932,8 +930,6 @@ static const u32 liverpool_mgcg_cgcg_init[] =
+ 	0x21c2, 0xffffffff, 0x00900100, /* CP_RB_WPTR_POLL_CNTL */
+ 	0x3109, 0xffffffff, 0x0020003f, /* RLC_CGCG_CGLS_CTRL */
+ 	0x1579, 0xff607fff, 0xfc000100, /* CGTT_DRM_CLK_CTRL0 */
+-	// should be handled by gfx7 rlc
+-	// 0x30df, 0xffffffff, 0x00000b00, /* RLC_PG_DELAY_2 */
+ };
+ 
+ static const u32 gladius_golden_common_registers[] =
+diff --git a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+index 092cfbbf4556d1001dc14401dc40c0895544bf2c..0a31146cc775e5222624445994b34d6e7c2245df 100644
+--- a/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gfx_v7_0.c
+@@ -4896,7 +4896,7 @@ static void gfx_v7_0_gpu_early_init(struct amdgpu_device *adev)
+ 		adev->gfx.config.sc_prim_fifo_size_backend = 0x100;
+ 		adev->gfx.config.sc_hiz_tile_fifo_size = 0x30;
+ 		adev->gfx.config.sc_earlyz_tile_fifo_size = 0x130;
+-		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN; //0x22011003; //0x12011003;
++		gb_addr_config = HAWAII_GB_ADDR_CONFIG_GOLDEN;
+ 		break;
+ 	case CHIP_KABINI:
+ 	case CHIP_MULLINS:
+
+--------------false--
+
+

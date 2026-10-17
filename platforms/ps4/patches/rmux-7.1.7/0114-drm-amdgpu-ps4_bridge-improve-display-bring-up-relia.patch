@@ -1,0 +1,129 @@
+From 049589ea15925cf13ce80b54a896cbf03c09f73d Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 12:14:01 +0200
+Subject: [PATCH] drm/amdgpu: ps4_bridge: improve display bring-up reliability
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 64 +++++++++++++++++++++++--
+ 1 file changed, 61 insertions(+), 3 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0114-drm-amdgpu-ps4_bridge-improve-display-bring-up-relia.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0114-drm-amdgpu-ps4_bridge-improve-display-bring-up-relia.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index cb3abd47b2deb6b7eea7f112f1693313cb885c50..3f971cb9d216a0aa98284f94275bea8c1a83f2c9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -130,8 +130,9 @@
+ #define PCI_DEVICE_ID_CUH_2XXX 0x9923
+ #define PCI_DEVICE_ID_CUH_7XXX 0x9924
+ 
+-#define PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS 3
+-#define PS4_BRIDGE_BELIZE_RETRY_DELAY_MS 120
++#define PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS 5
++#define PS4_BRIDGE_BELIZE_RETRY_DELAY_MS 200
++#define PS4_BRIDGE_DPCD_READY_TIMEOUT_MS 3000
+ 
+ struct edid *drm_get_edid(struct drm_connector *connector,
+  				 struct i2c_adapter *adapter);
+@@ -171,6 +172,9 @@ struct ps4_bridge {
+ 	int mode;
+ 	bool enabled;
+ 	bool enabling;
++
++	void *cached_edid;
++	size_t cached_edid_size;
+ };
+ 
+ /* this should really be taken care of by the connector, but that is currently
+@@ -518,6 +522,39 @@ static void ps4_bridge_pre_enable(struct drm_bridge *bridge)
+ 	mutex_unlock(&mn_bridge->mutex);
+ }
+ 
++static int ps4_bridge_wait_dpcd_ready(struct ps4_bridge *mn_bridge,
++				      unsigned long timeout_ms)
++{
++	struct drm_connector *connector = mn_bridge->connector;
++	struct amdgpu_connector *amdgpu_connector;
++	struct amdgpu_connector_atom_dig *dig_connector;
++	unsigned long deadline;
++	int ret;
++
++	if (!connector)
++		return -ENODEV;
++
++	amdgpu_connector = to_amdgpu_connector(connector);
++	if (!amdgpu_connector->ddc_bus ||
++	    !amdgpu_connector->ddc_bus->has_aux)
++		return 0;
++
++	dig_connector = amdgpu_connector->con_priv;
++	if (dig_connector)
++		dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
++
++	deadline = jiffies + msecs_to_jiffies(timeout_ms);
++	do {
++		ret = amdgpu_atombios_dp_get_dpcd(amdgpu_connector);
++		if (ret == 0)
++			return 0;
++		msleep(20);
++	} while (time_before(jiffies, deadline));
++
++	DRM_WARN("ps4_bridge: DPCD not ready after %lu ms\n", timeout_ms);
++	return -ETIMEDOUT;
++}
++
+ static void ps4_bridge_reset_mn864729(struct ps4_bridge *mn_bridge)
+ {
+ 	mutex_lock(&mn_bridge->mutex);
+@@ -821,7 +858,9 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 	}
+ 	else
+ 	{
+-		/* Panasonic MN864729 */
++		ps4_bridge_wait_dpcd_ready(mn_bridge,
++					   PS4_BRIDGE_DPCD_READY_TIMEOUT_MS);
++
+ 		for (attempt = 1; attempt <= PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS;
+ 		     attempt++) {
+ 			DRM_DEBUG_KMS("ps4_bridge_enable: Belize attempt %u/%u\n",
+@@ -1045,6 +1084,25 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		}
+ 	}
+ 
++	if (drm_edid && g_bridge) {
++		const struct edid *raw = drm_edid_raw(drm_edid);
++		if (raw) {
++			size_t sz = (raw->extensions + 1) * EDID_LENGTH;
++			void *copy = kmemdup(raw, sz, GFP_KERNEL);
++			if (copy) {
++				kfree(g_bridge->cached_edid);
++				g_bridge->cached_edid = copy;
++				g_bridge->cached_edid_size = sz;
++			}
++		}
++	}
++
++	if (!drm_edid && g_bridge && g_bridge->cached_edid) {
++		DRM_DEBUG_KMS("ps4_bridge_get_modes: DDC failed, using cached EDID\n");
++		drm_edid = drm_edid_alloc(g_bridge->cached_edid,
++					  g_bridge->cached_edid_size);
++	}
++
+ edid_ready:
+ 	if (drm_edid) {
+ 		raw_edid = drm_edid_raw(drm_edid);
+
+--------------false--
+
+

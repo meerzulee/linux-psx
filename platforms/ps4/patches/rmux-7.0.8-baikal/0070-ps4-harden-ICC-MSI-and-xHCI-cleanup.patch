@@ -1,0 +1,359 @@
+From f4af089848910815c2262420e264ec11a4f280b6 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 25 Apr 2026 13:04:02 +0200
+Subject: [PATCH] ps4: harden ICC, MSI and xHCI cleanup
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Fix the ICC mutex leak and tighten ICC ioctl bounds handling.
+
+Clear stale MSI irq_map entries and fix xHCI/Belize AHCI cleanup on error and remove.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/aeolia.h           |   2 +-
+ drivers/ps4/ps4-apcie-icc.c    | 109 ++++++++++++++++++++++-----------
+ drivers/ps4/ps4-apcie.c        |  32 ++++++++--
+ drivers/usb/host/xhci-aeolia.c |  24 ++++----
+ 4 files changed, 113 insertions(+), 54 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0070-ps4-harden-ICC-MSI-and-xHCI-cleanup.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0070-ps4-harden-ICC-MSI-and-xHCI-cleanup.patch"
+
+diff --git a/drivers/ps4/aeolia.h b/drivers/ps4/aeolia.h
+index 7840aec71f28b95bb88fc64913ebecfc00986eb4..db386ace94344867b9f965648c89226643d81df2 100644
+--- a/drivers/ps4/aeolia.h
++++ b/drivers/ps4/aeolia.h
+@@ -147,7 +147,7 @@ struct apcie_dev {
+ 	void __iomem *bar4;
+ 
+ 	int nvec;
+-	int8_t irq_map[100];
++	int irq_map[100];
+ 	int serial_line[2];
+ 	struct apcie_icc_dev icc;
+ };
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index 442ae9a78d9045abfebcc1a4dc4b9bad9b4853a8..dc2b7ed35332a6d5ca593f78150cf7de52dda25c 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -16,6 +16,7 @@
+  * having to get a reference to the device. */
+ static struct apcie_dev *icc_sc;
+ DEFINE_MUTEX(icc_mutex);
++static DEFINE_MUTEX(icc_ioctl_mutex);
+ 
+ /* The ICC message passing interface seems to be potentially designed to
+  * support multiple outstanding requests at once, but the original PS4 OS never
+@@ -296,10 +297,12 @@ int apcie_icc_cmd(u8 major, u16 minor, const void *data, u16 length,
+ 	mutex_lock(&icc_mutex);
+ 	if (!icc_sc) {
+ 		pr_err("icc: not ready\n");
+-		return -EAGAIN;
++		ret = -EAGAIN;
++		goto out_unlock;
+ 	}
+ 	ret = _apcie_icc_cmd(icc_sc, major, minor, data, length, reply, reply_length,
+ 		       false);
++out_unlock:
+ 	mutex_unlock(&icc_mutex);
+ 	return ret;
+ }
+@@ -424,40 +427,68 @@ static void *ioctl_tmp_buf = NULL;
+ 
+  static long icc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+  {
+- 	int ret;
+- 	void __user *uap = (void __user *)arg;
+- 	switch (cmd) {
+- 	case ICC_IOCTL_CMD: {
+- 		struct icc_cmd cmd;
+- 		int reply_len;
+- 		ret = copy_from_user(&cmd, uap, sizeof(cmd));
+- 		if (ret) {
+- 			ret = -EFAULT;
+- 			break;
+- 		}
+- 		ret = copy_from_user(ioctl_tmp_buf, cmd.data, cmd.length);
+- 		if (ret) {
+- 			ret = -EFAULT;
+- 			break;
+- 		}
+- 		reply_len = apcie_icc_cmd(cmd.major, cmd.minor, ioctl_tmp_buf,
+- 			cmd.length, ioctl_tmp_buf, cmd.reply_length);
+- 		if (reply_len < 0) {
+- 			ret = reply_len;
+- 			break;
+- 		}
+- 		ret = copy_to_user(cmd.reply, ioctl_tmp_buf, cmd.reply_length);
+- 		if (ret) {
+- 			ret = -EFAULT;
+- 			break;
+- 		}
+- 		ret = reply_len;
+- 		} break;
+- 	default:
+- 		ret = -ENOENT;
+- 		break;
+- 	}
+- 	return ret;
++	int ret;
++	void __user *uap = (void __user *)arg;
++
++	switch (cmd) {
++	case ICC_IOCTL_CMD: {
++		struct icc_cmd cmd;
++		int reply_len;
++		size_t reply_copy_len;
++
++		ret = copy_from_user(&cmd, uap, sizeof(cmd));
++		if (ret) {
++			ret = -EFAULT;
++			break;
++		}
++		if (cmd.length > ICC_MAX_PAYLOAD) {
++			ret = -E2BIG;
++			break;
++		}
++		if (cmd.reply_length > ICC_MAX_PAYLOAD) {
++			ret = -E2BIG;
++			break;
++		}
++		if (cmd.length && !cmd.data) {
++			ret = -EINVAL;
++			break;
++		}
++		if (cmd.reply_length && !cmd.reply) {
++			ret = -EINVAL;
++			break;
++		}
++
++		mutex_lock(&icc_ioctl_mutex);
++		if (cmd.length &&
++		    copy_from_user(ioctl_tmp_buf, cmd.data, cmd.length)) {
++			ret = -EFAULT;
++			goto out_unlock_ioctl;
++		}
++
++		reply_len = apcie_icc_cmd(cmd.major, cmd.minor, ioctl_tmp_buf,
++			cmd.length, ioctl_tmp_buf, cmd.reply_length);
++		if (reply_len < 0) {
++			ret = reply_len;
++			goto out_unlock_ioctl;
++		}
++
++		reply_copy_len = min_t(size_t, cmd.reply_length, reply_len);
++		if (reply_copy_len &&
++		    copy_to_user(cmd.reply, ioctl_tmp_buf, reply_copy_len)) {
++			ret = -EFAULT;
++			goto out_unlock_ioctl;
++		}
++
++		ret = reply_len;
++out_unlock_ioctl:
++		mutex_unlock(&icc_ioctl_mutex);
++		break;
++	}
++	default:
++		ret = -ENOENT;
++		break;
++	}
++	return ret;
+  }
+ 
+  static const struct file_operations icc_fops = {
+@@ -485,10 +516,13 @@ int apcie_icc_init(struct apcie_dev *sc)
+ 				APCIE_RGN_ICC_BASE, APCIE_RGN_ICC_SIZE,
+ 				"apcie.icc")) {
+ 		sc_err("icc: failed to request ICC register region\n");
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto put_mem_dev;
+ 	}
+ 
+ 	sc->icc.spm_base = pci_resource_start(mem_dev, 5) + APCIE_SPM_ICC_BASE;
++	pci_dev_put(mem_dev);
++	mem_dev = NULL;
+ 	if (!request_mem_region(sc->icc.spm_base, APCIE_SPM_ICC_SIZE,
+ 				"spm.icc")) {
+ 		sc_err("icc: failed to request ICC SPM region\n");
+@@ -580,6 +614,9 @@ release_spm:
+ release_icc:
+ 	release_mem_region(pci_resource_start(sc->pdev, 4) +
+ 			   APCIE_RGN_ICC_BASE, APCIE_RGN_ICC_SIZE);
++put_mem_dev:
++	if (mem_dev)
++		pci_dev_put(mem_dev);
+ 	return ret;
+ }
+ 
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index 285f25ff8aff7939d8772236562aed5393d8a4c5..5956cfe0ac921983a0714e1f8cda5194dc157ac8 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -174,9 +174,10 @@ static void apcie_irq_msi_compose_msg(struct irq_data *data,
+ 	{
+ 		struct apcie_dev *sc = data->chip_data;
+ 		int i;
++
+ 		msg->data = data->irq - 1;
+ 		if (sc) {
+-			for (i = 0; i < 100; i++) {
++			for (i = 0; i < ARRAY_SIZE(sc->irq_map); i++) {
+ 				if (sc->irq_map[i] == data->irq) {
+ 					msg->data = i;
+ 					break;
+@@ -211,6 +212,9 @@ static int apcie_msi_init(struct irq_domain *domain,
+ 			 irq_hw_number_t hwirq, msi_alloc_info_t *arg)
+ {
+ 	struct irq_data *data;
++	struct apcie_dev *sc = info->chip_data;
++	int i;
++
+ 	pr_err("apcie_msi_init(%p, %p, %d, 0x%lx, %p)\n", domain, info, virq, hwirq, arg);
+ 
+ 	data = irq_domain_get_irq_data(domain, virq);
+@@ -218,16 +222,16 @@ static int apcie_msi_init(struct irq_domain *domain,
+ 			    handle_edge_irq, NULL, "edge");
+ 	apcie_msi_calc_mask(data);
+ 
+-	/* virq in irq_map eintragen */
+-	struct apcie_dev *sc = info->chip_data;
+ 	if (sc) {
+-		int i;
+-		for (i = 0; i < 100; i++) {
++		for (i = 0; i < ARRAY_SIZE(sc->irq_map); i++) {
+ 			if (sc->irq_map[i] == -1) {
+ 				sc->irq_map[i] = virq;
+-				break;
++				return 0;
+ 			}
+ 		}
++
++		pr_err("apcie_msi_init: no free irq_map entry for virq %u\n", virq);
++		return -ENOSPC;
+ 	}
+ 
+ 	return 0;
+@@ -236,6 +240,18 @@ static int apcie_msi_init(struct irq_domain *domain,
+ static void apcie_msi_free(struct irq_domain *domain,
+ 			  struct msi_domain_info *info, unsigned int virq)
+ {
++	struct apcie_dev *sc = info->chip_data;
++	int i;
++
++	if (sc) {
++		for (i = 0; i < ARRAY_SIZE(sc->irq_map); i++) {
++			if (sc->irq_map[i] == virq) {
++				sc->irq_map[i] = -1;
++				break;
++			}
++		}
++	}
++
+ 	pr_err("apcie_msi_free(%d)\n", virq);
+ }
+ 
+@@ -368,6 +384,10 @@ int apcie_assign_irqs(struct pci_dev *dev, int nvec)
+ #endif
+ 
+ 	desc = msi_alloc_desc(bare_dev, nvec, NULL);
++	if (!desc) {
++		ret = -ENOMEM;
++		goto fail;
++	}
+ 
+ 	info.desc = desc;
+ 	info.data = sc;
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+index 0b048ca119ad13cfae1ec9e4d835defd60310482..a47dcfdacf45bfed3474a102f8a6058b1174aa6f 100644
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -139,10 +139,8 @@ static void xhci_aeolia_remove_one(struct pci_dev *dev, int index)
+ 	usb_remove_hcd(hcd);
+ 	usb_put_hcd(xhci->shared_hcd);
+ 
+-	// TODO (ps4patches): Does this really need to be disabled?
+-	if(dev->device == PCI_DEVICE_ID_SONY_BELIZE_XHCI) {
++	if (hcd->regs)
+ 		iounmap(hcd->regs);
+-	}
+ 	usb_put_hcd(hcd);
+ 	axhci->hcd[index] = NULL;
+ }
+@@ -363,6 +361,7 @@ static int xhci_aeolia_probe(struct pci_dev *dev, const struct pci_device_id *id
+ {
+ 	int idx;
+ 	int retval;
++	bool ahci_started = false;
+ 	struct aeolia_xhci *axhci;
+ 
+ 	if (apcie_status() == 0)
+@@ -371,7 +370,7 @@ static int xhci_aeolia_probe(struct pci_dev *dev, const struct pci_device_id *id
+ 	if (pci_enable_device(dev) < 0)
+ 		return -ENODEV;
+ 
+-	axhci = devm_kzalloc(&dev->dev, sizeof(*axhci), GFP_KERNEL);
++	axhci = kzalloc(sizeof(*axhci), GFP_KERNEL);
+ 	if (!axhci) {
+ 		retval = -ENOMEM;
+ 		goto disable_device;
+@@ -388,12 +387,15 @@ static int xhci_aeolia_probe(struct pci_dev *dev, const struct pci_device_id *id
+ 	}
+ 
+ 	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31))) {
+-		return -ENODEV;
++		retval = -ENODEV;
++		goto free_irqs;
+ 	}
+ 
+ 	if(dev->device == PCI_DEVICE_ID_SONY_BELIZE_XHCI) {
+ 		retval = ahci_init_one(dev);
+ 		dev_dbg(&dev->dev, "ahci_init_one returned %d", retval);
++		if (!retval)
++			ahci_started = true;
+ 		if (!bus_master) {
+ 			pci_set_master(dev);
+ 			bus_master = true;
+@@ -414,14 +416,14 @@ static int xhci_aeolia_probe(struct pci_dev *dev, const struct pci_device_id *id
+ remove_hcds:
+ 	while (idx--)
+ 		xhci_aeolia_remove_one(dev, idx);
++	if (ahci_started)
++		ahci_remove_one(dev);
++free_irqs:
+ 	apcie_free_irqs(dev->irq, axhci->nr_irqs);
+ free_axhci:
+-	devm_kfree(&dev->dev, axhci);
++	pci_set_drvdata(dev, NULL);
++	kfree(axhci);
+ 
+-	// TODO (ps4patches): Don't aeolia and baikal also need this?
+-	if(dev->device == PCI_DEVICE_ID_SONY_BELIZE_XHCI) {
+-		pci_set_drvdata(dev, NULL);
+-	}
+ disable_device:
+ 	pci_disable_device(dev);
+ 	return retval;
+@@ -447,7 +449,7 @@ static void xhci_aeolia_remove(struct pci_dev *dev)
+ 
+ 	apcie_free_irqs(dev->irq, axhci->nr_irqs);
+ 
+-	// TODO (ps4patches): Belize, remove in ahci commit
++	pci_set_drvdata(dev, NULL);
+ 	kfree(axhci);
+ 
+ 	pci_disable_device(dev);
+
+--------------false--
+
+

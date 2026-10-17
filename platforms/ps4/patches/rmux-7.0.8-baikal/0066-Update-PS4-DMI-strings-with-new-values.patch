@@ -1,0 +1,72 @@
+From ca422371c9b0ec320970f3f0218f6f7580e99123 Mon Sep 17 00:00:00 2001
+From: Regie Vorkman <97987863+TheVorkMan@users.noreply.github.com>
+Date: Tue, 21 Apr 2026 02:23:01 +0200
+Subject: [PATCH] Update PS4 DMI strings with new values
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/firmware/ps4-dmi.c | 35 ++++++++++++++++++++++++-----------
+ 1 file changed, 24 insertions(+), 11 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0066-Update-PS4-DMI-strings-with-new-values.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0066-Update-PS4-DMI-strings-with-new-values.patch"
+
+diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
+index a181a84056870b508312ff9a3ae7516e89e81726..47563f6edde806f3b87cda08d29cce6a50c50c53 100644
+--- a/drivers/firmware/ps4-dmi.c
++++ b/drivers/firmware/ps4-dmi.c
+@@ -39,17 +39,30 @@ bool __init ps4_dmi_is_ps4(void)
+ }
+ 
+ static const char * const ps4_strings[DMI_STRING_MAX] = {
+-	[DMI_SYS_VENDOR]      = "Sony Interactive Entertainment",
+-	[DMI_PRODUCT_NAME]    = "PlayStation 4",
+-	[DMI_PRODUCT_VERSION] = "PS4",
+-	[DMI_PRODUCT_FAMILY]  = "PlayStation",
+-	[DMI_BOARD_VENDOR]    = "SIE",
+-	[DMI_BOARD_NAME]      = "PlayStation 4",
+-	[DMI_BIOS_VENDOR]     = "SIE",
+-	[DMI_BIOS_VERSION]    = "ORBIS",
+-	[DMI_BIOS_DATE]       = "09/01/2021",
+-	[DMI_CHASSIS_VENDOR]  = "Sony",
+-	[DMI_CHASSIS_TYPE]    = "3",
++	[DMI_SYS_VENDOR]         = "Sony Interactive Entertainment",
++	
++	[DMI_PRODUCT_NAME]       = "NeverGonna 4",
++	[DMI_PRODUCT_VERSION]    = "CUH-GIVEYOUUP",
++	[DMI_PRODUCT_SERIAL]     = "MARCANANDDUDES"
++	[DMI_PRODUCT_SKU]        = "sku1489666",
++	[DMI_PRODUCT_FAMILY]     = "PlayStation",
++
++	[DMI_BOARD_ASSET_TAG]    = "",
++	[DMI_BOARD_VENDOR]       = "SCEI",
++	[DMI_BOARD_NAME]         = "Belize",
++	[DMI_BOARD_VERSION]      = "rev1",
++	[DMI_BOARD_SERIAL]       = "PS4HAXSONYCRY0",
++
++	[DMI_BIOS_VENDOR]        = "SIE",
++	[DMI_BIOS_VERSION]       = "PS4Homebrew",
++	[DMI_BIOS_DATE]          = "21/04/2026",
++	[DMI_BIOS_RELEASE]       = "69.0",
++
++	[DMI_CHASSIS_VENDOR]     = "Sony",
++	[DMI_CHASSIS_TYPE]       = "3",
++	[DMI_CHASSIS_ASSET_TAG]  = "",
++	[DMI_CHASSIS_SERIAL]     = "",
++	[DMI_CHASSIS_VERSION]    = "",
+ };
+ 
+ void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])
+
+--------------false--
+
+

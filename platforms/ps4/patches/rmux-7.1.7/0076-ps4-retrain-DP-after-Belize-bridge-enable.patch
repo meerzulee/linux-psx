@@ -1,0 +1,142 @@
+From ecc3c0c4640d2169bb7d86e4a405dff785333214 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 10:25:49 +0200
+Subject: [PATCH] ps4: retrain DP after Belize bridge enable
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Belize systems use the Panasonic MN864729 DP-to-HDMI bridge. Logs show
+that AUX DDC and EDID can work while the first AMD DP link training pass
+fails clock recovery before the bridge enable sequence has completed.
+
+After successfully programming the MN864729 bridge, refresh DPCD state
+and retrain the DP link once from the PS4 bridge enable path. This keeps
+the existing EDID/DDC handling and bridge programming sequence intact,
+but gives the AMD DP source another training pass after the bridge is
+awake.
+
+The CUH-11xx MN86471A path is left unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 50 +++++++++++++++++++++++--
+ 1 file changed, 46 insertions(+), 4 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0076-ps4-retrain-DP-after-Belize-bridge-enable.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0076-ps4-retrain-DP-after-Belize-bridge-enable.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 716a7aa602a9e09fd0c9ae2709185a9fd76098fc..1cc73daffd5cea9adcb92130e8f25393aef27dcf 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -393,6 +393,40 @@ static void ps4_bridge_clear_global(void *data)
+ 		g_bridge = NULL;
+ }
+ 
++static void ps4_bridge_retrain_dp(struct ps4_bridge *mn_bridge)
++{
++	struct drm_connector *connector = mn_bridge->connector;
++	struct drm_encoder *encoder = mn_bridge->encoder;
++	struct amdgpu_connector *amdgpu_connector;
++	struct amdgpu_connector_atom_dig *dig_connector;
++	int ret;
++
++	if (!connector || !encoder)
++		return;
++
++	amdgpu_connector = to_amdgpu_connector(connector);
++	if (!amdgpu_connector->ddc_bus ||
++	    !amdgpu_connector->ddc_bus->has_aux)
++		return;
++
++	dig_connector = amdgpu_connector->con_priv;
++	if (dig_connector)
++		dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
++
++	ret = amdgpu_atombios_dp_get_dpcd(amdgpu_connector);
++	DRM_DEBUG_KMS("ps4_bridge: post-enable DPCD ret=%d lanes=%u clock=%u sink_type=%d\n",
++		      ret,
++		      dig_connector ? dig_connector->dp_lane_count : 0,
++		      dig_connector ? dig_connector->dp_clock : 0,
++		      dig_connector ? dig_connector->dp_sink_type : -1);
++
++	if (ret)
++		return;
++
++	DRM_DEBUG_KMS("ps4_bridge: retraining DP link after bridge enable\n");
++	amdgpu_atombios_dp_link_train(encoder, connector);
++}
++
+ void ps4_bridge_mode_set(struct drm_bridge *bridge,
+ 			 const struct drm_display_mode *mode,
+ 			 const struct drm_display_mode *adjusted_mode)
+@@ -490,6 +524,7 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 	struct drm_device *dev = connector->dev;
+ 	struct pci_dev *pdev = to_pci_dev(dev->dev);
+ 	u8 dp[3];
++	bool is_mn864729 = pdev->device != PCI_DEVICE_ID_CUH_11XX;
+ 	bool success = false;
+ 
+ 	DRM_DEBUG("Enable PS4_BRIDGE_ENABLE\n");
+@@ -516,7 +551,7 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 
+ 	/* Here come the dragons */
+ 
+-	if(pdev->device == PCI_DEVICE_ID_CUH_11XX)
++	if (!is_mn864729)
+ 	{
+ 		/* Panasonic MN86471A */
+ 		mutex_lock(&mn_bridge->mutex);
+@@ -633,10 +668,13 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 		}
+ 		#endif
+ 		mutex_unlock(&mn_bridge->mutex);
++		success = true;
+ 	}
+ 	else
+ 	{
+ 		/* Panasonic MN864729 */
++		int ret;
++
+ 		mutex_lock(&mn_bridge->mutex);
+ 		cq_init(&mn_bridge->cq, 4);
+ 		cq_mask(&mn_bridge->cq, 0x6005, 0x01, 0x01);
+@@ -709,8 +747,11 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 		cq_mask(&mn_bridge->cq, 0x1e00, 0x01, 0x01);
+ 		cq_writereg(&mn_bridge->cq, VMUTECNT, VMUTECNT_LINEWIDTH_90);
+ 		cq_writereg(&mn_bridge->cq, HDCPEN, 0x00);
+-		if (cq_exec(&mn_bridge->cq) < 0) {
++		ret = cq_exec(&mn_bridge->cq);
++		if (ret < 0) {
+ 			DRM_ERROR("Failed to configure ps4-bridge (MN864729) mode\n");
++		} else {
++			success = true;
+ 		}
+ 		#if 1
+ 		// AUDIO preinit
+@@ -754,9 +795,10 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 		}
+ 		#endif
+ 		mutex_unlock(&mn_bridge->mutex);
+-	}
+ 
+-success = true;
++		if (success)
++			ps4_bridge_retrain_dp(mn_bridge);
++	}
+ 
+ out:
+ 	mutex_lock(&mn_bridge->mutex);
+
+--------------false--
+
+

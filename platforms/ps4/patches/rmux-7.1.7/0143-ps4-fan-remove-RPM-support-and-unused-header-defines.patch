@@ -1,0 +1,258 @@
+From 06f85ac4336aea3d5703d6539fc60bc9abb55416 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 15 Jul 2026 17:14:18 +0200
+Subject: [PATCH] ps4-fan: remove RPM support and unused header defines
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/ps4/ps4-fan.c | 127 +++++++++++-------------------------------
+ drivers/ps4/ps4-fan.h |   8 ---
+ 2 files changed, 32 insertions(+), 103 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0143-ps4-fan-remove-RPM-support-and-unused-header-defines.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0143-ps4-fan-remove-RPM-support-and-unused-header-defines.patch"
+
+diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
+index c329a4ee3f59bb82d5e22409867e055c6d21d4b9..ebc4f08fcb45470c8803d49a367503c4dafc051b 100644
+--- a/drivers/ps4/ps4-fan.c
++++ b/drivers/ps4/ps4-fan.c
+@@ -16,13 +16,10 @@ struct ps4_fan_priv {
+ 	struct mutex lock;
+ 	long temp_mc;
+ 	long thresh_mc;
+-	long rpm;
+ 	unsigned long temp_updated;
+ 	unsigned long thresh_updated;
+-	unsigned long rpm_updated;
+ 	bool temp_valid;
+ 	bool thresh_valid;
+-	bool rpm_valid;
+ };
+ 
+ static bool ps4_fan_cache_valid(unsigned long updated, bool valid)
+@@ -103,51 +100,17 @@ static int icc_write_fan_threshold(long thresh_mc)
+ 	return 0;
+ }
+ 
+-static int icc_read_fan_rpm(long *rpm)
+-{
+-	u8 reply[PS4_FAN_STATUS_REPLY_LEN];
+-	u32 raw;
+-	int ret;
+-
+-	memset(reply, 0, sizeof(reply));
+-	ret = apcie_icc_cmd(PS4_FAN_ICC_MAJOR, PS4_FAN_ICC_MINOR_STATUS,
+-			    NULL, 0, reply, sizeof(reply));
+-	if (ret < 0)
+-		return ret;
+-	if (reply[PS4_ICC_STATUS_BYTE] != 0x00)
+-		return -EIO;
+-
+-	raw = le32_to_cpup((__le32 *)(reply + PS4_FAN_RPM_OFFSET));
+-
+-	if (raw == PS4_FAN_RPM_INVALID_1 || raw == PS4_FAN_RPM_INVALID_2)
+-		*rpm = 0;
+-	else
+-		*rpm = (long)(raw / PS4_FAN_RPM_SCALE);
+-
+-	return 0;
+-}
+-
+ static umode_t ps4_fan_is_visible(const void *drvdata,
+ 				   enum hwmon_sensor_types type,
+ 				   u32 attr, int channel)
+ {
+-	switch (type) {
+-	case hwmon_temp:
+-		if (channel != 0)
+-			return 0;
+-		switch (attr) {
+-		case hwmon_temp_input: return 0444;
+-		case hwmon_temp_crit:  return 0644;
+-		default:               return 0;
+-		}
+-	case hwmon_fan:
+-		if (channel != 0)
+-			return 0;
+-		if (attr == hwmon_fan_input)
+-			return 0444;
+-		return 0;
+-	default:
++	if (type != hwmon_temp || channel != 0)
+ 		return 0;
++
++	switch (attr) {
++	case hwmon_temp_input: return 0444;
++	case hwmon_temp_crit:  return 0644;
++	default:               return 0;
+ 	}
+ }
+ 
+@@ -157,59 +120,36 @@ static int ps4_fan_read(struct device *dev, enum hwmon_sensor_types type,
+ 	struct ps4_fan_priv *priv = dev_get_drvdata(dev);
+ 	int ret;
+ 
++	if (type != hwmon_temp || channel != 0)
++		return -EOPNOTSUPP;
++
+ 	mutex_lock(&priv->lock);
+ 
+-	switch (type) {
+-	case hwmon_temp:
+-		if (channel != 0) { ret = -EOPNOTSUPP; break; }
+-		switch (attr) {
+-		case hwmon_temp_input:
+-			if (ps4_fan_cache_valid(priv->temp_updated,
+-						priv->temp_valid)) {
+-				*val = priv->temp_mc;
+-				ret = 0;
+-				break;
+-			}
+-			ret = icc_read_apu_temp(val);
+-			if (!ret) {
+-				priv->temp_mc = *val;
+-				priv->temp_updated = jiffies;
+-				priv->temp_valid = true;
+-			}
+-			break;
+-		case hwmon_temp_crit:
+-			if (ps4_fan_cache_valid(priv->thresh_updated,
+-						priv->thresh_valid)) {
+-				*val = priv->thresh_mc;
+-				ret = 0;
+-				break;
+-			}
+-			ret = icc_read_fan_threshold(val);
+-			if (!ret) {
+-				priv->thresh_mc = *val;
+-				priv->thresh_updated = jiffies;
+-				priv->thresh_valid = true;
+-			}
++	switch (attr) {
++	case hwmon_temp_input:
++		if (ps4_fan_cache_valid(priv->temp_updated, priv->temp_valid)) {
++			*val = priv->temp_mc;
++			ret = 0;
+ 			break;
+-		default:
+-			ret = -EOPNOTSUPP;
+ 		}
+-		break;
+-	case hwmon_fan:
+-		if (channel != 0 || attr != hwmon_fan_input) {
+-			ret = -EOPNOTSUPP;
+-			break;
++		ret = icc_read_apu_temp(val);
++		if (!ret) {
++			priv->temp_mc = *val;
++			priv->temp_updated = jiffies;
++			priv->temp_valid = true;
+ 		}
+-		if (ps4_fan_cache_valid(priv->rpm_updated, priv->rpm_valid)) {
+-			*val = priv->rpm;
++		break;
++	case hwmon_temp_crit:
++		if (ps4_fan_cache_valid(priv->thresh_updated, priv->thresh_valid)) {
++			*val = priv->thresh_mc;
+ 			ret = 0;
+ 			break;
+ 		}
+-		ret = icc_read_fan_rpm(val);
++		ret = icc_read_fan_threshold(val);
+ 		if (!ret) {
+-			priv->rpm = *val;
+-			priv->rpm_updated = jiffies;
+-			priv->rpm_valid = true;
++			priv->thresh_mc = *val;
++			priv->thresh_updated = jiffies;
++			priv->thresh_valid = true;
+ 		}
+ 		break;
+ 	default:
+@@ -252,8 +192,6 @@ static int ps4_fan_write(struct device *dev, enum hwmon_sensor_types type,
+ static const struct hwmon_channel_info * const ps4_fan_channel_info[] = {
+ 	HWMON_CHANNEL_INFO(temp,
+ 		HWMON_T_INPUT | HWMON_T_CRIT),
+-	HWMON_CHANNEL_INFO(fan,
+-		HWMON_F_INPUT),
+ 	NULL,
+ };
+ 
+@@ -272,7 +210,7 @@ static int ps4_fan_probe(struct platform_device *pdev)
+ {
+ 	struct ps4_fan_priv *priv;
+ 	struct device *hwmon_dev;
+-	long temp_mc = 0, thresh_mc = 0, rpm = 0;
++	long temp_mc = 0, thresh_mc = 0;
+ 	int ret;
+ 
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+@@ -296,13 +234,12 @@ static int ps4_fan_probe(struct platform_device *pdev)
+ 
+ 	icc_read_apu_temp(&temp_mc);
+ 	icc_read_fan_threshold(&thresh_mc);
+-	icc_read_fan_rpm(&rpm);
+ 
+ 	mutex_unlock(&priv->lock);
+ 
+ 	dev_info(&pdev->dev,
+-		 "PS4 fan hwmon ready: temp=%ldC threshold=%ldC rpm=%ld\n",
+-		 temp_mc / 1000, thresh_mc / 1000, rpm);
++		 "PS4 fan hwmon ready: temp=%ldC threshold=%ldC\n",
++		 temp_mc / 1000, thresh_mc / 1000);
+ 	return 0;
+ }
+ 
+@@ -349,6 +286,6 @@ module_init(ps4_fan_init);
+ module_exit(ps4_fan_exit);
+ 
+ MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("rmux <armandas.kvietkus@proton.me>");
+-MODULE_DESCRIPTION("PS4 Aeolia/Belize fan threshold and RPM hwmon driver");
++MODULE_AUTHOR("Armandas Kvietkus <armandas.kvietkus@proton.me>");
++MODULE_DESCRIPTION("PS4 Aeolia/Belize fan threshold hwmon driver");
+ MODULE_ALIAS("platform:ps4-fan");
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+index 267c201210f4f47263ef57cd1a4efbabd0194453..ba6dec65e2c8acdbc1e1e2ccb9e4c66feb9a3dce 100644
+--- a/drivers/ps4/ps4-fan.h
++++ b/drivers/ps4/ps4-fan.h
+@@ -6,26 +6,18 @@
+ #define PS4_FAN_ICC_MAJOR               0x0A
+ #define PS4_FAN_ICC_MINOR_GET           0x07
+ #define PS4_FAN_ICC_MINOR_SET           0x06
+-#define PS4_FAN_ICC_MINOR_STATUS        0x08
+ 
+ #define PS4_FAN_TEMP_ICC_MAJOR          0x0B
+ #define PS4_FAN_TEMP_ICC_MINOR          0x01
+ 
+ #define PS4_FAN_CONFIG_LEN              0x34
+ #define PS4_FAN_CONFIG_REPLY_LEN        0x52
+-#define PS4_FAN_STATUS_REPLY_LEN        0x52
+ #define PS4_FAN_TEMP_REPLY_LEN          0x10
+ 
+ #define PS4_ICC_STATUS_BYTE             0
+ #define PS4_FAN_THRESH_BYTE             5
+-#define PS4_FAN_RPM_OFFSET              8
+-#define PS4_FAN_TEMP_ALT_OFFSET         16
+ #define PS4_FAN_TEMP_BYTE               3
+ 
+-#define PS4_FAN_RPM_SCALE               65536U
+-#define PS4_FAN_RPM_INVALID_1           0xFFFFFFFFU
+-#define PS4_FAN_RPM_INVALID_2           0x0FFFFFFFU
+-
+ #define PS4_FAN_THRESH_MIN_C            20
+ #define PS4_FAN_THRESH_MAX_C            85
+ #define PS4_FAN_THRESH_DEFAULT_C        75
+
+--------------false--
+
+

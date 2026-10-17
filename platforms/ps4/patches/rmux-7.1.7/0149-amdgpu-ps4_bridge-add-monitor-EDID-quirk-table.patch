@@ -1,0 +1,139 @@
+From 971e3b153266798cf5b53b2cc5a537c46ab8265d Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 08:04:12 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: add monitor EDID quirk table
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/Makefile           |  2 +-
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 16 +++++++--
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    | 34 +++++++++++++++++++
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    |  8 +++++
+ 4 files changed, 57 insertions(+), 3 deletions(-)
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+ create mode 100644 drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+
+
+--------------false
+Content-Type: text/x-patch; name="0149-amdgpu-ps4_bridge-add-monitor-EDID-quirk-table.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0149-amdgpu-ps4_bridge-add-monitor-EDID-quirk-table.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index f6d984a9e19f85a77c40dac7bd11dc12dd9c5c9e..c4069b7898b9daaa6a03841e2cd374e468d5323a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -321,7 +321,7 @@ amdgpu-$(CONFIG_COMPAT) += amdgpu_ioc32.o
+ amdgpu-$(CONFIG_VGA_SWITCHEROO) += amdgpu_atpx_handler.o
+ amdgpu-$(CONFIG_ACPI) += amdgpu_acpi.o
+ amdgpu-$(CONFIG_HMM_MIRROR) += amdgpu_hmm.o
+-amdgpu-$(CONFIG_X86_PS4) += ps4_bridge.o
++amdgpu-$(CONFIG_X86_PS4) += ps4_bridge.o ps4_bridge_quirks.o
+ 
+ include $(FULL_AMD_PATH)/pm/Makefile
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index ecbe23b307b18311a98c587a3479af433d4eb646..1f7fac8a170e85003ef8f879a19d48328caab04d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -53,6 +53,7 @@
+ #include "atombios_dp.h"
+ #include "atombios_encoders.h"
+ #include "ObjectID.h"
++#include "ps4_bridge_quirks.h"
+ 
+ #define CMD_READ	1, 1
+ #define CMD_WRITE	2, 2
+@@ -953,8 +954,6 @@ static void ps4_bridge_post_disable(struct drm_bridge *bridge)
+ 	mutex_unlock(&mn_bridge->mutex);
+ }
+ 
+-/* Fallback modes, only used when no EDID can be read at all. */
+-
+ /* 4 - 1280x720@60Hz */
+ static const struct drm_display_mode mode_720p __maybe_unused = {
+ 	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+@@ -1105,6 +1104,19 @@ edid_ready:
+ 		struct drm_display_mode *mode;
+ 
+ 		raw_edid = drm_edid_raw(drm_edid);
++
++		if (ps4_bridge_quirk_force_1080p(raw_edid)) {
++			drm_info(dev, "ps4_bridge: EDID from %s is known-bad, forcing 1080p only\n",
++				 edid_source ? edid_source : "unknown");
++			drm_edid_free(drm_edid);
++			newmode = drm_mode_duplicate(dev, &mode_1080p);
++			if (newmode) {
++				drm_mode_probed_add(connector, newmode);
++				count++;
++			}
++			return count;
++		}
++
+ 		amdgpu_connector->edid = drm_edid_dup(drm_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..9fb6518eadb88ab5ec86372ae502712b4b6e9a8f
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+@@ -0,0 +1,34 @@
++#include <linux/array_size.h>
++#include <linux/kernel.h>
++#include <asm/byteorder.h>
++
++#include "ps4_bridge_quirks.h"
++
++struct ps4_bridge_monitor_quirk {
++	u16 manufacturer_name;
++	u16 product_code;
++};
++
++static const struct ps4_bridge_monitor_quirk ps4_bridge_monitor_quirks[] = {
++	{ 0x4a8b, 0x1366 },
++};
++
++bool ps4_bridge_quirk_force_1080p(const struct edid *edid)
++{
++	u16 mfg, prod;
++	size_t i;
++
++	if (!edid)
++		return false;
++
++	mfg = be16_to_cpu(edid->product_id.manufacturer_name);
++	prod = le16_to_cpu(edid->product_id.product_code);
++
++	for (i = 0; i < ARRAY_SIZE(ps4_bridge_monitor_quirks); i++) {
++		if (ps4_bridge_monitor_quirks[i].manufacturer_name == mfg &&
++		    ps4_bridge_monitor_quirks[i].product_code == prod)
++			return true;
++	}
++
++	return false;
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..432c79b65309d3e5e4bde2cbf6abbd41f484dcce
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+@@ -0,0 +1,8 @@
++#ifndef __PS4_BRIDGE_QUIRKS_H__
++#define __PS4_BRIDGE_QUIRKS_H__
++
++#include <drm/drm_edid.h>
++
++bool ps4_bridge_quirk_force_1080p(const struct edid *edid);
++
++#endif
+
+--------------false--
+
+

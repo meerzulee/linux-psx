@@ -1,0 +1,80 @@
+From ad2a1c9d6a7c63cc81abd80838cb6eca94a76b22 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 3 Jul 2026 18:17:57 +0000
+Subject: [PATCH] drm/amdgpu: bypass DP CR/EQ status poll for MN864729 fixed
+ link
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/atombios_dp.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0134-drm-amdgpu-bypass-DP-CR-EQ-status-poll-for-MN864729-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0134-drm-amdgpu-bypass-DP-CR-EQ-status-poll-for-MN864729-.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+index 4501b636abfcedace13d6769babb04bc349e336c..9a42f17adb7a41d1fcbe10d9844f17433df476fb 100644
+--- a/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
++++ b/drivers/gpu/drm/amd/amdgpu/atombios_dp.c
+@@ -503,6 +503,8 @@ void amdgpu_atombios_dp_set_rx_power_state(struct drm_connector *connector,
+ 	}
+ }
+ 
++#define PCI_DEVICE_ID_CUH_11XX 0x9920
++
+ struct amdgpu_atombios_dp_link_train_info {
+ 	struct amdgpu_device *adev;
+ 	struct drm_encoder *encoder;
+@@ -510,6 +512,7 @@ struct amdgpu_atombios_dp_link_train_info {
+ 	int dp_clock;
+ 	int dp_lane_count;
+ 	bool tp3_supported;
++	bool skip_status_check;
+ 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
+ 	u8 train_set[4];
+ 	u8 link_status[DP_LINK_STATUS_SIZE];
+@@ -626,6 +629,11 @@ amdgpu_atombios_dp_link_train_cr(struct amdgpu_atombios_dp_link_train_info *dp_i
+ 
+ 	udelay(400);
+ 
++	if (dp_info->skip_status_check) {
++		DRM_DEBUG_KMS("dp cr: skipping status poll (mn864729 fixed link)\n");
++		return 0;
++	}
++
+ 	/* clock recovery loop */
+ 	clock_recovery = false;
+ 	dp_info->tries = 0;
+@@ -694,6 +702,11 @@ amdgpu_atombios_dp_link_train_ce(struct amdgpu_atombios_dp_link_train_info *dp_i
+ 	else
+ 		amdgpu_atombios_dp_set_tp(dp_info, DP_TRAINING_PATTERN_2);
+ 
++	if (dp_info->skip_status_check) {
++		DRM_DEBUG_KMS("dp ce: skipping status poll (mn864729 fixed link)\n");
++		return 0;
++	}
++
+ 	/* channel equalization loop */
+ 	dp_info->tries = 0;
+ 	channel_eq = false;
+@@ -777,6 +790,7 @@ void amdgpu_atombios_dp_link_train(struct drm_encoder *encoder,
+ 	dp_info.dp_lane_count = dig_connector->dp_lane_count;
+ 	dp_info.dp_clock = dig_connector->dp_clock;
+ 	dp_info.aux = &amdgpu_connector->ddc_bus->aux;
++	dp_info.skip_status_check = adev->pdev->device != PCI_DEVICE_ID_CUH_11XX;
+ 
+ 	if (amdgpu_atombios_dp_link_train_init(&dp_info))
+ 		goto done;
+
+--------------false--
+
+

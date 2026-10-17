@@ -1,0 +1,56 @@
+From b93f17deaf130b9ce589f35a524ecc2b6c4958cc Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Tue, 24 Mar 2026 21:16:11 +0100
+Subject: [PATCH] sound/hda: atihdmi: enable IEC958 on R6xx converters at init
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The Liverpool APU (0x1002aa01, PS4 CUH-12xx) uses a Panasonic
+MN864729/MN86471A DP-to-HDMI bridge that requires AC_DIG1_ENABLE
+set on all converters at initialization. Without it, the bridge
+does not forward audio packets over HDMI despite the HDA codec
+being fully initialized with valid ELD data and pin presence.
+
+Signed-off-by: rmux <armandas.kvietkus@proton.me>
+---
+ sound/hda/codecs/hdmi/atihdmi.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0054-sound-hda-atihdmi-enable-IEC958-on-R6xx-converters-a.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0054-sound-hda-atihdmi-enable-IEC958-on-R6xx-converters-a.patch"
+
+diff --git a/sound/hda/codecs/hdmi/atihdmi.c b/sound/hda/codecs/hdmi/atihdmi.c
+index 44366f75de336f7bc6c4163327701f027115899c..eb78e3abb808bb1c7d766750641289be16e2b973 100644
+--- a/sound/hda/codecs/hdmi/atihdmi.c
++++ b/sound/hda/codecs/hdmi/atihdmi.c
+@@ -503,6 +503,17 @@ static int atihdmi_init(struct hda_codec *codec)
+ 					    ATI_VERB_SET_MULTICHANNEL_MODE,
+ 					    ATI_MULTICHANNEL_MODE_SINGLE);
+ 	}
++
++	if (codec->core.vendor_id == 0x1002aa01) {
++		int cvt_idx;
++		for (cvt_idx = 0; cvt_idx < spec->num_cvts; cvt_idx++) {
++			struct hdmi_spec_per_cvt *per_cvt = get_cvt(spec, cvt_idx);
++			snd_hda_codec_write(codec, per_cvt->cvt_nid, 0,
++					    AC_VERB_SET_DIGI_CONVERT_1,
++					    AC_DIG1_ENABLE);
++		}
++	}
++
+ 	codec->auto_runtime_pm = 1;
+ 
+ 	return 0;
+
+--------------false--
+
+

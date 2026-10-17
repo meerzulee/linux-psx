@@ -1,0 +1,133 @@
+From df220a159e7a056db2cff0a3cc4ea9f321be771e Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 10:44:42 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: add 720p-only quirk, VSC monitor
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 28 ++++++++++++-------
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    | 12 ++++----
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    |  8 +++++-
+ 3 files changed, 32 insertions(+), 16 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0150-amdgpu-ps4_bridge-add-720p-only-quirk-VSC-monitor.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0150-amdgpu-ps4_bridge-add-720p-only-quirk-VSC-monitor.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 1f7fac8a170e85003ef8f879a19d48328caab04d..d95ebcfe32f3b6278cd466cfa5510b62f66517df 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -955,7 +955,7 @@ static void ps4_bridge_post_disable(struct drm_bridge *bridge)
+ }
+ 
+ /* 4 - 1280x720@60Hz */
+-static const struct drm_display_mode mode_720p __maybe_unused = {
++static const struct drm_display_mode mode_720p = {
+ 	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+ 		 1430, 1650, 0, 720, 725, 730, 750, 0,
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+@@ -1105,16 +1105,24 @@ edid_ready:
+ 
+ 		raw_edid = drm_edid_raw(drm_edid);
+ 
+-		if (ps4_bridge_quirk_force_1080p(raw_edid)) {
+-			drm_info(dev, "ps4_bridge: EDID from %s is known-bad, forcing 1080p only\n",
+-				 edid_source ? edid_source : "unknown");
+-			drm_edid_free(drm_edid);
+-			newmode = drm_mode_duplicate(dev, &mode_1080p);
+-			if (newmode) {
+-				drm_mode_probed_add(connector, newmode);
+-				count++;
++		{
++			enum ps4_bridge_forced_mode forced = ps4_bridge_quirk_forced_mode(raw_edid);
++
++			if (forced != PS4_BRIDGE_FORCED_MODE_NONE) {
++				const struct drm_display_mode *quirk_mode =
++					forced == PS4_BRIDGE_FORCED_MODE_720P ? &mode_720p : &mode_1080p;
++
++				drm_info(dev, "ps4_bridge: EDID from %s is known-bad, forcing %s only\n",
++					 edid_source ? edid_source : "unknown",
++					 forced == PS4_BRIDGE_FORCED_MODE_720P ? "720p" : "1080p");
++				drm_edid_free(drm_edid);
++				newmode = drm_mode_duplicate(dev, quirk_mode);
++				if (newmode) {
++					drm_mode_probed_add(connector, newmode);
++					count++;
++				}
++				return count;
+ 			}
+-			return count;
+ 		}
+ 
+ 		amdgpu_connector->edid = drm_edid_dup(drm_edid);
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+index 9fb6518eadb88ab5ec86372ae502712b4b6e9a8f..bfec8cbde789659aa50a8001822cb236f253cfda 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+@@ -7,19 +7,21 @@
+ struct ps4_bridge_monitor_quirk {
+ 	u16 manufacturer_name;
+ 	u16 product_code;
++	enum ps4_bridge_forced_mode forced_mode;
+ };
+ 
+ static const struct ps4_bridge_monitor_quirk ps4_bridge_monitor_quirks[] = {
+-	{ 0x4a8b, 0x1366 },
++	{ 0x4a8b, 0x1366, PS4_BRIDGE_FORCED_MODE_1080P },
++	{ 0x5a63, 0x8a31, PS4_BRIDGE_FORCED_MODE_720P },
+ };
+ 
+-bool ps4_bridge_quirk_force_1080p(const struct edid *edid)
++enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid)
+ {
+ 	u16 mfg, prod;
+ 	size_t i;
+ 
+ 	if (!edid)
+-		return false;
++		return PS4_BRIDGE_FORCED_MODE_NONE;
+ 
+ 	mfg = be16_to_cpu(edid->product_id.manufacturer_name);
+ 	prod = le16_to_cpu(edid->product_id.product_code);
+@@ -27,8 +29,8 @@ bool ps4_bridge_quirk_force_1080p(const struct edid *edid)
+ 	for (i = 0; i < ARRAY_SIZE(ps4_bridge_monitor_quirks); i++) {
+ 		if (ps4_bridge_monitor_quirks[i].manufacturer_name == mfg &&
+ 		    ps4_bridge_monitor_quirks[i].product_code == prod)
+-			return true;
++			return ps4_bridge_monitor_quirks[i].forced_mode;
+ 	}
+ 
+-	return false;
++	return PS4_BRIDGE_FORCED_MODE_NONE;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+index 432c79b65309d3e5e4bde2cbf6abbd41f484dcce..8227fb3a786ea9e589d122b8ab3bdfd4eeb946cd 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+@@ -3,6 +3,12 @@
+ 
+ #include <drm/drm_edid.h>
+ 
+-bool ps4_bridge_quirk_force_1080p(const struct edid *edid);
++enum ps4_bridge_forced_mode {
++	PS4_BRIDGE_FORCED_MODE_NONE,
++	PS4_BRIDGE_FORCED_MODE_1080P,
++	PS4_BRIDGE_FORCED_MODE_720P,
++};
++
++enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid);
+ 
+ #endif
+
+--------------false--
+
+

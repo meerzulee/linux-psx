@@ -1,0 +1,59 @@
+From eed8ac0c0a01a0d6044ac3b9abc5db01b2efa828 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 21:40:15 +0200
+Subject: [PATCH] .mode_valid changes
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+now requires enum drm_mode_status as return and drm_display_mode is now a const
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c | 4 ++--
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c        | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0027-.mode_valid-changes.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0027-.mode_valid-changes.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index d430ae037e3b667fad3846499992763fc4a997d4..44b12f7d2ab5469c20c859d34f185932f9ca804d 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1579,8 +1579,8 @@ static const struct drm_connector_funcs amdgpu_connector_dp_funcs = {
+ 
+ #ifdef CONFIG_X86_PS4
+ int ps4_bridge_get_modes(struct drm_connector *connector);
+-int ps4_bridge_mode_valid(struct drm_connector *connector,
+-			struct drm_display_mode *mode);
++enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
++			const struct drm_display_mode *mode);
+ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 					  bool force);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index f29bdd9c4344d97d31c47ed5e1222f2a3a848f0f..ca35b66efc19b80e1a1b29b88725840f5ea75b09 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -736,8 +736,8 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 		return connector_status_disconnected;
+ }
+ 
+-int ps4_bridge_mode_valid(struct drm_connector *connector,
+-				  struct drm_display_mode *mode)
++enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
++				  const struct drm_display_mode *mode)
+ {
+ 	int vic = drm_match_cea_mode(mode);
+ 
+
+--------------false--
+
+

@@ -1,0 +1,47 @@
+From b5dd75a1e9e36a9ee4266e13fee0290171808fb7 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 17 Jul 2026 18:28:05 +0000
+Subject: [PATCH] Revert "ACPI: osl: treat SCI IRQ alloc failure as expected on
+ PS4/Aeolia"
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+This reverts commit 298941e87f757d66adf25b8857304c2d5d549470.
+---
+ drivers/acpi/osl.c | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0144-Revert-ACPI-osl-treat-SCI-IRQ-alloc-failure-as-expec.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0144-Revert-ACPI-osl-treat-SCI-IRQ-alloc-failure-as-expec.patch"
+
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+index cfff42d764e0e74d510c67bb05f09b2b91714077..ed2162a97bd2aa3f7c79706d238092a6b0399332 100644
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -586,12 +586,8 @@ acpi_os_install_interrupt_handler(u32 gsi, acpi_osd_handler handler,
+ 	acpi_irq_context = context;
+ 	if (request_threaded_irq(irq, NULL, acpi_irq, IRQF_SHARED | IRQF_ONESHOT,
+ 			         "acpi", acpi_irq)) {
+-		acpi_irq_handler = NULL;
+-
+-		if (memcmp(acpi_gbl_FADT.header.oem_id, "SIE   ", ACPI_OEM_ID_SIZE) == 0)
+-			return AE_OK;
+-
+ 		pr_err("SCI (IRQ%d) allocation failed\n", irq);
++		acpi_irq_handler = NULL;
+ 		return AE_NOT_ACQUIRED;
+ 	}
+ 	acpi_sci_irq = irq;
+
+--------------false--
+
+

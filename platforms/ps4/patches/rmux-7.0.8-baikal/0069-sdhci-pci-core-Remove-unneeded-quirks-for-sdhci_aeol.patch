@@ -1,0 +1,50 @@
+From 8846acba2d05ce2a132d75cc86d5202735dfa307 Mon Sep 17 00:00:00 2001
+From: feeRnt <81442162+feeRnt@users.noreply.github.com>
+Date: Sun, 19 Apr 2026 06:49:10 +0000
+Subject: [PATCH] sdhci-pci-core: Remove unneeded quirks for sdhci_aeolia
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+These were left in from the time of the CUH-1216 SDHCI fix search,
+accidentally left out from deletion.
+
+The SDHCI stack should be fine on all three SB's with these quirks reverted.
+
+Signed-off-by: feeRnt <81442162+feeRnt@users.noreply.github.com>
+---
+ drivers/mmc/host/sdhci-pci-core.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0069-sdhci-pci-core-Remove-unneeded-quirks-for-sdhci_aeol.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0069-sdhci-pci-core-Remove-unneeded-quirks-for-sdhci_aeol.patch"
+
+diff --git a/drivers/mmc/host/sdhci-pci-core.c b/drivers/mmc/host/sdhci-pci-core.c
+index 70d323c471b4fbb56189b87fd15601ffa1a40c85..955da2b2231face28a87b1a17f8fd3673588dc9f 100644
+--- a/drivers/mmc/host/sdhci-pci-core.c
++++ b/drivers/mmc/host/sdhci-pci-core.c
+@@ -398,12 +398,6 @@ static const struct sdhci_pci_fixes sdhci_aeolia = {
+ 	.probe_slot	= aeolia_probe_slot,
+ 	.remove_slot	= aeolia_remove_slot,
+ 	.enable_dma	= aeolia_enable_dma,
+-	.quirks		= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL |
+-			  SDHCI_QUIRK_DELAY_AFTER_POWER |
+-			  SDHCI_QUIRK_SINGLE_POWER_WRITE,
+-	.quirks2	= SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+-			  SDHCI_QUIRK2_CLOCK_DIV_ZERO_BROKEN,
+-			  SDHCI_QUIRK2_TUNING_WORK_AROUND,
+ };
+ #endif
+ 
+
+--------------false--
+
+

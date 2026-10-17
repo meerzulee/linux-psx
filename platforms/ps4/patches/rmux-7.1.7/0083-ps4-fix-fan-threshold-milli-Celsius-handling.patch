@@ -1,0 +1,55 @@
+From 792f168609a60f2a5affe06b808d1c3b49ee57d5 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 21:54:45 +0200
+Subject: [PATCH] ps4: fix fan threshold milli-Celsius handling
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The PS4 fan threshold is exposed through hwmon as milli-Celsius, but the
+underlying ICC thermal configuration stores the threshold as a plain
+integer Celsius byte. The driver converted milli-Celsius to Celsius with
+integer division, so a write such as 45500 was programmed as 45C while
+the cached hwmon value remained 45500.
+
+Reject non-integer Celsius milli-Celsius writes so the cached hwmon value
+always matches what the hardware can represent. Keep the existing
+read-modify-write protocol that preserves the full thermal configuration
+and only changes the threshold byte.
+
+This makes temp1_crit readback and duplicate-write handling consistent
+with the PS4 fan controller's actual precision.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-fan.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0083-ps4-fix-fan-threshold-milli-Celsius-handling.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0083-ps4-fix-fan-threshold-milli-Celsius-handling.patch"
+
+diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
+index 87a4cfb6f1f8e3e2ee567f62607c0450346ff016..53f0d336b4f90c066f36a1d865f5620a81059b03 100644
+--- a/drivers/ps4/ps4-fan.c
++++ b/drivers/ps4/ps4-fan.c
+@@ -228,6 +228,8 @@ static int ps4_fan_write(struct device *dev, enum hwmon_sensor_types type,
+ 
+ 	if (type != hwmon_temp || channel != 0 || attr != hwmon_temp_crit)
+ 		return -EOPNOTSUPP;
++	if (val % 1000)
++		return -EINVAL;
+ 
+ 	mutex_lock(&priv->lock);
+ 	if (ps4_fan_cache_valid(priv->thresh_updated, priv->thresh_valid) &&
+
+--------------false--
+
+

@@ -1,0 +1,86 @@
+From be47dca76248c2a8704aeaffbb07972f10e56708 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Fri, 13 Mar 2026 11:36:01 +0100
+Subject: [PATCH] net: sky2: fix interrupt storm on PS4 Aeolia (CXD90025G)
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The Aeolia NIC (CXD90025G) does not implement the standard Yukon-2
+ISRC2/LISR read side-effects that mask interrupts. Without explicit
+ICR writes the driver re-enters the IRQ handler continuously.
+
+- Add AEOLIA_SP_ICR register at offset 0x0068 (write 2=mask, 1=unmask)
+- Mask interrupts at IRQ handler entry before any register read to
+  close the re-assertion race window
+- Rearm via ICR write in sky2_poll() after napi_complete_done()
+
+All changes gated on CONFIG_X86_PS4.
+---
+ drivers/net/ethernet/marvell/sky2.c | 9 ++++++---
+ drivers/net/ethernet/marvell/sky2.h | 3 +++
+ 2 files changed, 9 insertions(+), 3 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0045-net-sky2-fix-interrupt-storm-on-PS4-Aeolia-CXD90025G.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0045-net-sky2-fix-interrupt-storm-on-PS4-Aeolia-CXD90025G.patch"
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 2c83c17ea20a99e34949b65d0f54328135183cc0..c71670de7a346e83d8bd41edb6c186da2ce4f9a9 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -3053,6 +3053,9 @@ static int sky2_poll(struct napi_struct *napi, int work_limit)
+ 
+ 	napi_complete_done(napi, work_done);
+ 	sky2_read32(hw, B0_Y2_SP_LISR);
++#ifdef CONFIG_X86_PS4
++	sky2_write32(hw, AEOLIA_SP_ICR,1);
++#endif
+ done:
+ 
+ 	return work_done;
+@@ -3062,8 +3065,9 @@ static irqreturn_t sky2_intr(int irq, void *dev_id)
+ {
+ 	struct sky2_hw *hw = dev_id;
+ 	u32 status;
+-
+-	/* Reading this mask interrupts as side effect */
++#ifdef CONFIG_X86_PS4
++	sky2_write32(hw, AEOLIA_SP_ICR, 2);
++#endif
+ 	status = sky2_read32(hw, B0_Y2_SP_ISRC2);
+ 	if (status == 0 || status == ~0) {
+ 		sky2_write32(hw, B0_Y2_SP_ICR, 2);
+@@ -3071,7 +3075,6 @@ static irqreturn_t sky2_intr(int irq, void *dev_id)
+ 	}
+ 
+ 	prefetch(&hw->st_le[hw->st_idx]);
+-
+ 	napi_schedule(&hw->napi);
+ 
+ 	return IRQ_HANDLED;
+diff --git a/drivers/net/ethernet/marvell/sky2.h b/drivers/net/ethernet/marvell/sky2.h
+index 33f5145ede89bc2822cbb81b6fe3ab24505898f4..d01d4642d1744f5acf5c53c59e620504cd19c362 100644
+--- a/drivers/net/ethernet/marvell/sky2.h
++++ b/drivers/net/ethernet/marvell/sky2.h
+@@ -268,6 +268,9 @@ enum csr_regs {
+ 	B0_Y2_SP_EISR	= 0x0024,
+ 	B0_Y2_SP_LISR	= 0x0028,
+ 	B0_Y2_SP_ICR	= 0x002c,
++#ifdef CONFIG_X86_PS4
++	AEOLIA_SP_ICR	= 0x0068,
++#endif
+ 
+ 	B2_MAC_1	= 0x0100,
+ 	B2_MAC_2	= 0x0108,
+
+--------------false--
+
+

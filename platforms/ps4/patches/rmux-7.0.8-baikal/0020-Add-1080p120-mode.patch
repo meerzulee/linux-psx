@@ -1,0 +1,63 @@
+From 3dde150fe1ad654e1f3f3f63f6f43ed7b410fe60 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Sat, 21 Jun 2025 22:06:59 +0200
+Subject: [PATCH] Add 1080p120 mode
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0020-Add-1080p120-mode.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0020-Add-1080p120-mode.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index d63ae6dddbb2b973b66c14fac9d995a29ca08df9..f29bdd9c4344d97d31c47ed5e1222f2a3a848f0f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -675,6 +675,13 @@ static const struct drm_display_mode mode_1080p = {
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
++/* 63 - 1920x1080@120Hz */
++static const struct drm_display_mode mode_1080p120 = {
++	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 297000, 1920, 2008,
++			2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
++		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
++	  .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
++};
+ 
+ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+@@ -685,6 +692,9 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 	newmode = drm_mode_duplicate(dev, &mode_1080p);
+ 	drm_mode_probed_add(connector, newmode);
+ 
++	newmode = drm_mode_duplicate(dev, &mode_1080p120);
++	drm_mode_probed_add(connector, newmode);
++
+ 	//newmode = drm_mode_duplicate(dev, &mode_720p);
+ 	//drm_mode_probed_add(connector, newmode);
+ 	//newmode = drm_mode_duplicate(dev, &mode_480p);
+@@ -732,7 +742,7 @@ int ps4_bridge_mode_valid(struct drm_connector *connector,
+ 	int vic = drm_match_cea_mode(mode);
+ 
+ 	/* Allow anything that we can match up to a VIC (CEA modes) */
+-	if (!vic || (vic != 16 && vic != 4)) {
++	if (!vic || (vic != 16 && vic != 4 && vic != 63)) {
+ 		return MODE_BAD;
+ 	}
+ 
+
+--------------false--
+
+

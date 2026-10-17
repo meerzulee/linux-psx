@@ -1,0 +1,41 @@
+From a61e4dd5872f358237c732717a17fca3808631c6 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 12:17:18 +0200
+Subject: [PATCH] sky2: remove bogus Baikal GBE PCI ID
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Baikal uses Synopsys DWMAC1000, not Marvell Yukon.
+The sky2 driver should not claim this device.
+---
+ drivers/net/ethernet/marvell/sky2.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0118-sky2-remove-bogus-Baikal-GBE-PCI-ID.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0118-sky2-remove-bogus-Baikal-GBE-PCI-ID.patch"
+
+diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
+index 44866d80ceeae068086bd8a524f93971658bbfd8..88dbd2c4f316cb10ea1b967970eed9b36dfe73e7 100644
+--- a/drivers/net/ethernet/marvell/sky2.c
++++ b/drivers/net/ethernet/marvell/sky2.c
+@@ -141,7 +141,6 @@ static const struct pci_device_id sky2_id_table[] = {
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_MARVELL, 0x4382) }, /* 88E8079 */
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_AEOLIA_GBE) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_BELIZE_GBE) },
+-	{ PCI_DEVICE(PCI_VENDOR_ID_SONY, PCI_DEVICE_ID_SONY_BAIKAL_GBE) },
+ 	{ 0 }
+ };
+ 
+
+--------------false--
+
+

@@ -1,0 +1,238 @@
+From 39fff5a4600bab62acbd5dfb1bc730e1d8572e56 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 16:59:59 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: add real ICC-based EDID read path
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 125 +++++++++++++++++++++---
+ 1 file changed, 112 insertions(+), 13 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0154-amdgpu-ps4_bridge-add-real-ICC-based-EDID-read-path.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0154-amdgpu-ps4_bridge-add-real-ICC-based-EDID-read-path.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 6273f463a40b4aa4b2894926c2c18a8cb4ead044..63207acc6b93e67972368f8829ddadd56fb1b85f 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -126,6 +126,12 @@
+ #define HDCPEN_ENC_EN 0x03
+ #define HDCPEN_ENC_DIS 0x05
+ 
++#define EDIDCTRL0 0x7a80
++#define EDIDCTRL1 0x7a81
++#define EDIDCTRL2 0x7a82
++#define EDIDCTRL3 0x7a83
++#define EDIDCTRL4 0x7a9c
++
+ #define PCI_DEVICE_ID_CUH_11XX 0x9920
+ #define PCI_DEVICE_ID_CUH_12XX 0x9922
+ #define PCI_DEVICE_ID_CUH_2XXX 0x9923
+@@ -145,6 +151,8 @@ struct i2c_cmd_hdr {
+ 	u8 count;
+ } __packed;
+ 
++#define ICC_REPLY_HEADER_SIZE 0x14
++
+ struct i2c_cmdqueue {
+ 	struct {
+ 		u8 code;
+@@ -153,10 +161,10 @@ struct i2c_cmdqueue {
+ 		u8 cmdbuf[0x7ec];
+ 	} __packed req;
+ 	struct {
++		u8 pad0[0xc];
+ 		u8 res1, res2;
+-		u8 unk1, unk2;
+-		u8 count;
+-		u8 databuf[0x7eb];
++		u8 pad1[6];
++		u8 databuf[0x7f0 - ICC_REPLY_HEADER_SIZE];
+ 	} __packed reply;
+ 
+ 	u8 *p;
+@@ -181,6 +189,7 @@ struct ps4_bridge {
+ /* this should really be taken care of by the connector, but that is currently
+  * contained/owned by radeon_connector so just use a global for now */
+ static struct ps4_bridge *g_bridge;
++static bool ps4_bridge_modes_logged;
+ 
+ /* Function prototype declarations, to fix compilation warnings */
+ void ps4_bridge_mode_set(struct drm_bridge *bridge,
+@@ -202,6 +211,8 @@ static int ps4_bridge_read_edid_block(void *data, u8 *buf,
+ 				       unsigned int block, size_t len);
+ static int ps4_bridge_read_edid_block_smbus(void *data, u8 *buf,
+ 					     unsigned int block, size_t len);
++static int ps4_bridge_read_edid_block_icc(void *data, u8 *buf,
++					   unsigned int block, size_t len);
+ 
+ 
+ static void cq_init(struct i2c_cmdqueue *q, u8 code)
+@@ -305,7 +316,7 @@ static int cq_exec(struct i2c_cmdqueue *q)
+ 	res = apcie_icc_cmd(0x10, 0, &q->req, q->req.length,
+ 		      &q->reply, sizeof(q->reply));
+ 
+-	if (res < 5) {
++	if (res < ICC_REPLY_HEADER_SIZE) {
+ 		DRM_ERROR("icc i2c commandqueue failed: %d\n", res);
+ 		return -EIO;
+ 	}
+@@ -387,6 +398,77 @@ static void cq_wait_clear(struct i2c_cmdqueue *q, u16 addr, u8 mask)
+ 	*q->p++ = mask;
+ }
+ 
++#define EDID_SEQ_CHUNK_SIZE (2 * EDID_LENGTH)
++#define EDID_SEQ_READ_ITERS 32
++#define EDID_SEQ_READ_COUNT 8
++#define EDID_FETCH_ADDR0 0x7c00
++#define EDID_FETCH_ADDR1 0x7c80
++
++static int ps4_bridge_read_edid_block_icc(void *data, u8 *buf,
++					   unsigned int block, size_t len)
++{
++	struct ps4_bridge *mn_bridge = data;
++	struct i2c_cmdqueue *q = &mn_bridge->cq;
++	unsigned int seq = block / 2;
++	unsigned int half = block % 2;
++	u8 seqbuf[EDID_SEQ_CHUNK_SIZE];
++	int ret;
++	unsigned int i;
++
++	DRM_INFO("ps4_bridge: icc-edid: requesting block=%u len=%zu (seq=%u half=%u)\n",
++		 block, len, seq, half);
++
++	if (len > EDID_LENGTH) {
++		DRM_INFO("ps4_bridge: icc-edid: len %zu too large\n", len);
++		return -1;
++	}
++
++	mutex_lock(&mn_bridge->mutex);
++
++	cq_init(q, 4);
++	cq_writereg(q, AKESRST, 0xff);
++	cq_writereg(q, EDIDCTRL3, 0x88);
++	cq_wait_set(q, AKESTA, 0xa0);
++	cq_wait_clear(q, AKESTA, AKESTA_BUSY);
++	cq_writereg(q, EDIDCTRL4, 0x0a);
++	cq_writereg(q, EDIDCTRL0, seq);
++	cq_writereg(q, EDIDCTRL1, 0x00);
++	cq_writereg(q, EDIDCTRL2, 0xff);
++	cq_writereg(q, EDIDCTRL3, 0x82);
++	cq_wait_set(q, AKESTA, 0xa0);
++	cq_wait_clear(q, AKESTA, AKESTA_BUSY);
++	ret = cq_exec(q);
++	DRM_INFO("ps4_bridge: icc-edid: kick seq=%u ret=%d\n", seq, ret);
++	if (ret < 0) {
++		mutex_unlock(&mn_bridge->mutex);
++		return -1;
++	}
++
++	for (i = 0; i < EDID_SEQ_READ_ITERS; i++) {
++		u16 addr = i == 0 ? EDID_FETCH_ADDR0 : EDID_FETCH_ADDR1;
++
++		cq_init(q, 4);
++		cq_read(q, addr, EDID_SEQ_READ_COUNT);
++		ret = cq_exec(q);
++		if (ret < 0) {
++			DRM_INFO("ps4_bridge: icc-edid: read iter=%u addr=0x%04x failed ret=%d res1=%u res2=%u\n",
++				 i, addr, ret, q->reply.res1, q->reply.res2);
++			mutex_unlock(&mn_bridge->mutex);
++			return -1;
++		}
++		memcpy(seqbuf + i * EDID_SEQ_READ_COUNT, q->reply.databuf,
++		       EDID_SEQ_READ_COUNT);
++	}
++
++	mutex_unlock(&mn_bridge->mutex);
++
++	memcpy(buf, seqbuf + half * EDID_LENGTH, len);
++	print_hex_dump(KERN_INFO, "ps4_bridge: icc-edid: ", DUMP_PREFIX_OFFSET,
++		       16, 1, buf, len, false);
++
++	return 0;
++}
++
+ static inline struct ps4_bridge *
+ 		bridge_to_ps4_bridge(struct drm_bridge *bridge)
+ {
+@@ -652,10 +734,10 @@ static int ps4_bridge_enable_mn864729_video(struct ps4_bridge *mn_bridge,
+ 
+ 	cq_init(&mn_bridge->cq, 1);
+ 	cq_read(&mn_bridge->cq, 0x60f8, 2);
+-	if (cq_exec(&mn_bridge->cq) >= 5)
++	if (cq_exec(&mn_bridge->cq) >= ICC_REPLY_HEADER_SIZE + 2)
+ 		DRM_DEBUG_KMS("mn864729: 0x60f8=0x%02x 0x60f9=0x%02x\n",
+-			      mn_bridge->cq.reply.databuf[3],
+-			      mn_bridge->cq.reply.databuf[4]);
++			      mn_bridge->cq.reply.databuf[0],
++			      mn_bridge->cq.reply.databuf[1]);
+ 	else
+ 		DRM_DEBUG_KMS("mn864729: 0x60f8/0x60f9 readback failed\n");
+ 
+@@ -753,12 +835,12 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 
+ 		/* Read DisplayPort status (?) */
+ 		cq_read(&mn_bridge->cq, 0x76e1, 3);
+-		if (cq_exec(&mn_bridge->cq) < 11) {
++		if (cq_exec(&mn_bridge->cq) < ICC_REPLY_HEADER_SIZE + 3) {
+ 			mutex_unlock(&mn_bridge->mutex);
+ 			DRM_ERROR("could not read DP status");
+ 			goto out;
+ 		}
+-		memcpy(dp, &mn_bridge->cq.reply.databuf[3], 3);
++		memcpy(dp, &mn_bridge->cq.reply.databuf[0], 3);
+ 
+ 		cq_init(&mn_bridge->cq, 4);
+ 
+@@ -1006,6 +1088,20 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		}
+ 	}
+ 
++	if (drm_edid)
++		goto edid_ready;
++
++	if (g_bridge) {
++		drm_info(dev, "ps4_bridge: trying ICC EDID fetch\n");
++		drm_edid = drm_edid_read_custom(connector,
++						ps4_bridge_read_edid_block_icc,
++						g_bridge);
++		if (drm_edid)
++			edid_source = "ICC";
++		else
++			drm_info(dev, "ps4_bridge: ICC EDID fetch failed\n");
++	}
++
+ 	if (drm_edid)
+ 		goto edid_ready;
+ 
+@@ -1130,10 +1226,13 @@ edid_ready:
+ 		drm_info(dev, "ps4_bridge: EDID loaded from %s, %d modes, %u extension block(s)\n",
+ 			 edid_source ? edid_source : "unknown", count,
+ 			 raw_edid ? raw_edid->extensions : 0);
+-		list_for_each_entry(mode, &connector->probed_modes, head)
+-			drm_info(dev, "ps4_bridge: mode %s %dx%d@%dHz\n",
+-				 mode->name, mode->hdisplay, mode->vdisplay,
+-				 drm_mode_vrefresh(mode));
++		if (!ps4_bridge_modes_logged) {
++			list_for_each_entry(mode, &connector->probed_modes, head)
++				drm_info(dev, "ps4_bridge: mode %s %dx%d@%dHz\n",
++					 mode->name, mode->hdisplay, mode->vdisplay,
++					 drm_mode_vrefresh(mode));
++			ps4_bridge_modes_logged = true;
++		}
+ 		drm_edid_free(drm_edid);
+ 		return count;
+ 	}
+
+--------------false--
+
+

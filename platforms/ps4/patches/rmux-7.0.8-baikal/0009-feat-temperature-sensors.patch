@@ -1,0 +1,51 @@
+From 74141a8ac47b409bd9253c109e60de4f783238d2 Mon Sep 17 00:00:00 2001
+From: crashniels <nielswest@live.de>
+Date: Wed, 12 Mar 2025 18:30:03 +0100
+Subject: [PATCH] feat: temperature sensors
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/hwmon/fam15h_power.c | 1 +
+ drivers/hwmon/k10temp.c      | 1 +
+ 2 files changed, 2 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0009-feat-temperature-sensors.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0009-feat-temperature-sensors.patch"
+
+diff --git a/drivers/hwmon/fam15h_power.c b/drivers/hwmon/fam15h_power.c
+index efcbea2d070e47d9f4265222ce06a3f3a0fab639..bf74244792309b881a62ed0e4267a95bb89c3107 100644
+--- a/drivers/hwmon/fam15h_power.c
++++ b/drivers/hwmon/fam15h_power.c
+@@ -484,6 +484,7 @@ static const struct pci_device_id fam15h_power_id_table[] = {
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_M70H_NB_F4) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_16H_NB_F4) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_16H_M30H_NB_F4) },
++	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_16H_M41H_F4) },
+ 	{}
+ };
+ MODULE_DEVICE_TABLE(pci, fam15h_power_id_table);
+diff --git a/drivers/hwmon/k10temp.c b/drivers/hwmon/k10temp.c
+index a5d8f45b78814bdca785a0d05df1dd45311386c0..87dd332c69d1f545132a444291e1e70c6c1c100b 100644
+--- a/drivers/hwmon/k10temp.c
++++ b/drivers/hwmon/k10temp.c
+@@ -544,6 +544,7 @@ static const struct pci_device_id k10temp_id_table[] = {
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_NB_F3) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_M10H_F3) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_M30H_NB_F3) },
++	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_16H_M41H_F3) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_M60H_NB_F3) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_15H_M70H_NB_F3) },
+ 	{ PCI_VDEVICE(AMD, PCI_DEVICE_ID_AMD_16H_NB_F3) },
+
+--------------false--
+
+

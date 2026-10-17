@@ -1,0 +1,39 @@
+From 9acbe5e8dbc328776419be31bba54044aec7c510 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 15 Jul 2026 17:02:47 +0200
+Subject: [PATCH] ps4-fan: set default fan threshold to 75C
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ drivers/ps4/ps4-fan.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0142-ps4-fan-set-default-fan-threshold-to-75C.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0142-ps4-fan-set-default-fan-threshold-to-75C.patch"
+
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+index d57f949eeb1b0717e23e4ec13d420a806c1f6e1e..267c201210f4f47263ef57cd1a4efbabd0194453 100644
+--- a/drivers/ps4/ps4-fan.h
++++ b/drivers/ps4/ps4-fan.h
+@@ -28,7 +28,7 @@
+ 
+ #define PS4_FAN_THRESH_MIN_C            20
+ #define PS4_FAN_THRESH_MAX_C            85
+-#define PS4_FAN_THRESH_DEFAULT_C        65
++#define PS4_FAN_THRESH_DEFAULT_C        75
+ 
+ #define PS4_FAN_THRESH_MIN_MC           ((long)(PS4_FAN_THRESH_MIN_C) * 1000L)
+ #define PS4_FAN_THRESH_MAX_MC           ((long)(PS4_FAN_THRESH_MAX_C) * 1000L)
+
+--------------false--
+
+

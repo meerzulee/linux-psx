@@ -1,0 +1,82 @@
+From 5265b5b86e7ef0098ce1c056d434f81c7639bb82 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Mon, 4 May 2026 22:18:04 +0200
+Subject: [PATCH] ps4: bridge: implement firmware EDID loading
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Add support for loading EDID from firmware if available.
+
+(cherry picked from commit 9c31112e55e1fb8fd2f8f2a6292092ff8cfeb02b)
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 27 +++++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0092-ps4-bridge-implement-firmware-EDID-loading.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0092-ps4-bridge-implement-firmware-EDID-loading.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 0f3c269224a3355aa8adcd96978f098a30f64ae6..8ce75cb9dea6723693d9a2e4a25f3bc9931c5e37 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -44,6 +44,7 @@
+ #include <linux/delay.h>
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
++#include <linux/firmware.h>
+ 
+ 
+ #include "amdgpu.h"
+@@ -962,6 +963,31 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 	amdgpu_connector->edid = NULL;
+ 	drm_connector_update_edid_property(connector, NULL);
+ 
++	/*
++	 * Try the payload-dumped EDID first. The payload extracts it from
++	 * kern.edid on every boot and stores it at lib/firmware/edid/my_edid.bin
++	 * in the firmware CPIO prepended to the initramfs. Using it avoids
++	 * the unreliable PS4 DDC/I2C path while still reflecting the actual
++	 * connected monitor's capabilities.
++	 */
++	{
++		const struct firmware *fw = NULL;
++
++		if (request_firmware(&fw, "edid/my_edid.bin",
++				      connector->dev->dev) == 0 && fw) {
++			DRM_DEBUG_KMS("ps4_bridge_get_modes: using firmware EDID "
++				      "(%zu bytes)\n", fw->size);
++			drm_edid = drm_edid_alloc(fw->data, fw->size);
++			release_firmware(fw);
++		} else {
++			DRM_DEBUG_KMS("ps4_bridge_get_modes: no firmware EDID "
++				      "(edid/my_edid.bin), falling back to DDC\n");
++		}
++	}
++
++	if (drm_edid)
++		goto edid_ready;
++
+ 	if (!amdgpu_connector->ddc_bus) {
+ 		DRM_DEBUG_KMS("ps4_bridge_get_modes: no DDC bus, using fallback modes\n");
+ 		goto fallback_modes;
+@@ -1023,6 +1049,7 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		}
+ 	}
+ 
++edid_ready:
+ 	if (drm_edid) {
+ 		raw_edid = drm_edid_raw(drm_edid);
+ 		amdgpu_connector->edid = drm_edid_duplicate(raw_edid);
+
+--------------false--
+
+

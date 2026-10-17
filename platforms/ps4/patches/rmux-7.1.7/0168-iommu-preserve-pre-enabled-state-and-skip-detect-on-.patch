@@ -1,0 +1,146 @@
+From 853d3557f1834fa4d9dea4e1e5dabaeaa47d19d4 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sat, 8 Aug 2026 18:51:10 +0200
+Subject: [PATCH] iommu: preserve pre-enabled state and skip detect on Baikal
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+---
+ arch/x86/include/asm/ps4.h  |  1 +
+ arch/x86/platform/ps4/ps4.c | 21 +++++++++++++++++++++
+ drivers/iommu/amd/init.c    | 27 +++++++++++++++++++++++----
+ kernel/irq/irqdomain.c      |  3 ++-
+ 4 files changed, 47 insertions(+), 5 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0168-iommu-preserve-pre-enabled-state-and-skip-detect-on-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0168-iommu-preserve-pre-enabled-state-and-skip-detect-on-.patch"
+
+diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
+index 8fcae43172781c8031f469a2aa86d7246b62d4db..70f9a90cb7ee8575cc5069a52d1c7d7e4c2150c1 100644
+--- a/arch/x86/include/asm/ps4.h
++++ b/arch/x86/include/asm/ps4.h
+@@ -47,6 +47,7 @@ extern int bpcie_icc_cmd(u8 major, u16 minor, const void *data,
+ 			 u16 length, void *reply, u16 reply_length);
+ 
+ extern bool ps4_is_baikal(void);
++extern int ps4_is_baikal_early(void);
+ 
+ 
+ #else
+diff --git a/arch/x86/platform/ps4/ps4.c b/arch/x86/platform/ps4/ps4.c
+index 7ecf66fe1bf76b728ee1e1bfffc4dd86b3673406..258154215cb70dd45d6cc76100cb89679e99ded6 100644
+--- a/arch/x86/platform/ps4/ps4.c
++++ b/arch/x86/platform/ps4/ps4.c
+@@ -83,6 +83,27 @@ bool ps4_is_baikal(void)
+ }
+ EXPORT_SYMBOL_GPL(ps4_is_baikal);
+ 
++static int ps4_baikal_cached = -1;
++
++int ps4_is_baikal_early(void)
++{
++	u32 id;
++	void *cfg;
++
++	if (!is_ps4)
++		return 0;
++
++	if (ps4_baikal_cached >= 0)
++		return ps4_baikal_cached;
++
++	cfg = phys_to_virt(0xf80a0000);
++	id = readl(cfg);
++
++	ps4_baikal_cached = ((id & 0xffff) == PCI_VENDOR_ID_SONY &&
++			     ((id >> 16) & 0xffff) == PCI_DEVICE_ID_SONY_BAIKAL_ACPI);
++	return ps4_baikal_cached;
++}
++
+ void icc_reboot(void);
+ 
+ /*
+diff --git a/drivers/iommu/amd/init.c b/drivers/iommu/amd/init.c
+index 6f8fd5a9388fcc0648f9159c3c6579e44d4f942d..ec2b851351a5ff21dc62d7e16539c641d2b15101 100644
+--- a/drivers/iommu/amd/init.c
++++ b/drivers/iommu/amd/init.c
+@@ -13,6 +13,7 @@
+ #include <linux/list.h>
+ #include <linux/bitmap.h>
+ #include <linux/syscore_ops.h>
++#include <asm/ps4.h>
+ #include <linux/interrupt.h>
+ #include <linux/msi.h>
+ #include <linux/irq.h>
+@@ -1976,10 +1977,18 @@ static int __init init_iommu_one_late(struct amd_iommu *iommu)
+ 
+ 	init_translation_status(iommu);
+ 	if (translation_pre_enabled(iommu) && !is_kdump_kernel()) {
+-		iommu_disable(iommu);
+-		clear_translation_pre_enabled(iommu);
+-		pr_warn("Translation was enabled for IOMMU:%d but we are not in kdump mode\n",
+-			iommu->index);
++#ifdef CONFIG_X86_PS4
++		if (ps4_is_baikal()) {
++			pr_info("AMD-Vi: PS4 Baikal: IOMMU:%d pre-enabled, preserving state\n",
++				iommu->index);
++		} else
++#endif
++		{
++			iommu_disable(iommu);
++			clear_translation_pre_enabled(iommu);
++			pr_warn("Translation was enabled for IOMMU:%d but we are not in kdump mode\n",
++				iommu->index);
++		}
+ 	}
+ 	if (amd_iommu_pre_enabled)
+ 		amd_iommu_pre_enabled = translation_pre_enabled(iommu);
+@@ -3281,6 +3290,11 @@ static int __init early_amd_iommu_init(void)
+ 	}
+ 
+ 	/* Disable any previously enabled IOMMUs */
++#ifdef CONFIG_X86_PS4
++	if (amd_iommu_pre_enabled && ps4_is_baikal()) {
++		pr_info("AMD-Vi: PS4 Baikal: keeping IOMMU enabled to preserve IR tables\n");
++	} else
++#endif
+ 	if (!is_kdump_kernel() || amd_iommu_disabled)
+ 		disable_iommus();
+ 
+@@ -3665,6 +3679,11 @@ void __init amd_iommu_detect(void)
+ {
+ 	int ret;
+ 
++#ifdef CONFIG_X86_PS4
++	if (ps4_is_baikal())
++		goto disable_snp;
++#endif
++
+ 	if (no_iommu || (iommu_detected && !gart_iommu_aperture))
+ 		goto disable_snp;
+ 
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index c26345686f78337951e11547199e418647921880..12058279c6ec62231ba2bd28e3a8237e9f427f61 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -541,7 +541,8 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	list_for_each_entry(h, &irq_domain_list, link) {
+ #ifdef CONFIG_X86_PS4
+ 		extern bool ps4_is_baikal(void);
+-		if (h->ops->select && (bus_token != DOMAIN_BUS_ANY || !ps4_is_baikal()))
++		extern int ps4_is_baikal_early(void);
++		if (h->ops->select && (bus_token != DOMAIN_BUS_ANY || !ps4_is_baikal_early()))
+ #else
+ 		if (h->ops->select)
+ #endif
+
+--------------false--
+
+

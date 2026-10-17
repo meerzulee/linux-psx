@@ -1,0 +1,50 @@
+From 13ca33b98833a03aced4fadbdac7713a6105a98a Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Mon, 11 May 2026 10:03:02 +0200
+Subject: [PATCH] amdgpu: ps4_bridge: remove broken static link_train_attempts
+ counter
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The static local link_train_attempts counter persists across calls
+and never resets on success. After 5 failures it permanently
+silences DP link training for the lifetime of the session — not a
+fix, just mutes the symptom forever. Remove the counter and always
+retrain when DPCD is available.
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0116-amdgpu-ps4_bridge-remove-broken-static-link_train_at.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0116-amdgpu-ps4_bridge-remove-broken-static-link_train_at.patch"
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 576d9fc286fdb3a2b41187c69f98a3eaf68a22b5..ac30fbf42f32b4420a91a2a433138cb3261d8d7e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -424,12 +424,6 @@ static void ps4_bridge_retrain_dp(struct ps4_bridge *mn_bridge)
+ 	if (ret)
+ 		return;
+ 
+-	static int link_train_attempts = 0;
+-	if (link_train_attempts > 5) {
+-		DRM_ERROR("ps4_bridge: DP link training gave up after 5 attempts\n");
+-		return;
+-	}
+-	link_train_attempts++;
+ 	DRM_DEBUG_KMS("ps4_bridge: retraining DP link after bridge enable\n");
+ 	amdgpu_atombios_dp_link_train(encoder, connector);
+ }
+
+--------------false--
+
+

@@ -1,0 +1,221 @@
+From afb57534f74803fe6f42962403ecff9bc25aa8b2 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 5 May 2026 12:36:02 +0200
+Subject: [PATCH] ps4: harden ICC IRQ and ioctl handling
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Mask ICC IRQ status down to the Aeolia SEND/ACK bits and cap the handler loop so stray status bits cannot trap the CPU in shared IRQ context.
+
+Use separate ioctl request and reply buffers for /dev/icc, allocate them to the actual ICC payload size, and switch the chrdev registration over to a dynamic major.
+
+Keep ICC bring-up, power control, reply handling, and the non-fatal optional /dev/icc path unchanged for systems that already boot and run correctly.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-apcie-icc.c | 88 ++++++++++++++++++++++++++-----------
+ 1 file changed, 62 insertions(+), 26 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0085-ps4-harden-ICC-IRQ-and-ioctl-handling.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0085-ps4-harden-ICC-IRQ-and-ioctl-handling.patch"
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index 18b014bad046d90b75347523d0754ed1629cbcef..45e9b47cdd7c62cd2925290d52446716b36b3857 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -16,6 +16,7 @@ static struct apcie_dev *icc_sc;
+ DEFINE_MUTEX(icc_mutex);
+ static DEFINE_MUTEX(icc_ioctl_mutex);
+ static bool icc_chrdev_registered;
++static int icc_major;
+ 
+ /* The ICC message passing interface seems to be potentially designed to
+  * support multiple outstanding requests at once, but the original PS4 OS never
+@@ -44,7 +45,7 @@ void icc_reboot(void);
+ int apcie_icc_init(struct apcie_dev *sc);
+ void apcie_icc_remove(struct apcie_dev *sc);
+ 
+-#define ICC_MAJOR	'I'
++#define ICC_IOCTL_TYPE	'I'
+ 
+  struct icc_cmd {
+  	u8 major;
+@@ -55,7 +56,7 @@ void apcie_icc_remove(struct apcie_dev *sc);
+  	u16 reply_length;
+  };
+ 
+-#define ICC_IOCTL_CMD _IOWR(ICC_MAJOR, 1, struct icc_cmd)
++#define ICC_IOCTL_CMD _IOWR(ICC_IOCTL_TYPE, 1, struct icc_cmd)
+ 
+ static u16 checksum(const void *p, int length)
+ {
+@@ -172,19 +173,24 @@ static void handle_message(struct apcie_dev *sc)
+ static irqreturn_t icc_interrupt(int irq, void *arg)
+ {
+ 	struct apcie_dev *sc = arg;
++	u32 pending;
+ 	u32 status;
+ 	u32 ret = IRQ_NONE;
++	int loops;
+ 
+-	do {
++	for (loops = 0; loops < 64; loops++) {
+ 		status = ioread32(sc->bar4 + APCIE_REG_ICC_STATUS);
++		pending = status & (APCIE_ICC_SEND | APCIE_ICC_ACK);
++		if (!pending)
++			return ret;
+ 
+-		if (status & APCIE_ICC_ACK) {
++		if (pending & APCIE_ICC_ACK) {
+ 			iowrite32(APCIE_ICC_ACK,
+ 				  sc->bar4 + APCIE_REG_ICC_STATUS);
+ 			ret = IRQ_HANDLED;
+ 		}
+ 
+-		if (status & APCIE_ICC_SEND) {
++		if (pending & APCIE_ICC_SEND) {
+ 			iowrite32(APCIE_ICC_SEND,
+ 				  sc->bar4 + APCIE_REG_ICC_STATUS);
+ 			handle_message(sc);
+@@ -194,7 +200,11 @@ static irqreturn_t icc_interrupt(int irq, void *arg)
+ 				  sc->bar4 + APCIE_REG_ICC_DOORBELL);
+ 			ret = IRQ_HANDLED;
+ 		}
+-	} while (status);
++	}
++
++	dev_warn_ratelimited(&sc->pdev->dev,
++			     "icc: IRQ status stuck after 64 loops (status=0x%08x)\n",
++			     status);
+ 
+ 	return ret;
+ }
+@@ -431,7 +441,8 @@ void icc_reboot(void)
+ 	WARN_ON(1);
+ }
+ 
+-static void *ioctl_tmp_buf = NULL;
++static void *ioctl_send_buf;
++static void *ioctl_reply_buf;
+ 
+  static long icc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+  {
+@@ -441,6 +452,8 @@ static void *ioctl_tmp_buf = NULL;
+ 	switch (cmd) {
+ 	case ICC_IOCTL_CMD: {
+ 		struct icc_cmd cmd;
++		void *reply_buf;
++		const void *send_buf;
+ 		int reply_len;
+ 		size_t reply_copy_len;
+ 
+@@ -466,15 +479,23 @@ static void *ioctl_tmp_buf = NULL;
+ 			break;
+ 		}
+ 
++		if (!ioctl_send_buf || !ioctl_reply_buf) {
++			ret = -ENODEV;
++			break;
++		}
++
+ 		mutex_lock(&icc_ioctl_mutex);
+ 		if (cmd.length &&
+-		    copy_from_user(ioctl_tmp_buf, cmd.data, cmd.length)) {
++		    copy_from_user(ioctl_send_buf, cmd.data, cmd.length)) {
+ 			ret = -EFAULT;
+ 			goto out_unlock_ioctl;
+ 		}
+ 
+-		reply_len = apcie_icc_cmd(cmd.major, cmd.minor, ioctl_tmp_buf,
+-			cmd.length, ioctl_tmp_buf, cmd.reply_length);
++		send_buf = cmd.length ? ioctl_send_buf : NULL;
++		reply_buf = cmd.reply_length ? ioctl_reply_buf : NULL;
++
++		reply_len = apcie_icc_cmd(cmd.major, cmd.minor, send_buf,
++			cmd.length, reply_buf, cmd.reply_length);
+ 		if (reply_len < 0) {
+ 			ret = reply_len;
+ 			goto out_unlock_ioctl;
+@@ -482,7 +503,7 @@ static void *ioctl_tmp_buf = NULL;
+ 
+ 		reply_copy_len = min_t(size_t, cmd.reply_length, reply_len);
+ 		if (reply_copy_len &&
+-		    copy_to_user(cmd.reply, ioctl_tmp_buf, reply_copy_len)) {
++		    copy_to_user(cmd.reply, reply_buf, reply_copy_len)) {
+ 			ret = -EFAULT;
+ 			goto out_unlock_ioctl;
+ 		}
+@@ -594,18 +615,30 @@ int apcie_icc_init(struct apcie_dev *sc)
+ 	do_icc_init();
+ 	pm_power_off = &icc_shutdown;
+ 
+-	ioctl_tmp_buf = kzalloc(1 << 16, GFP_KERNEL);
+- 	if (!ioctl_tmp_buf) {
+- 		sc_err("icc: alloc ioctl_tmp_buf failed\n");
+- 		goto done;
+- 	}
+- 	ret = register_chrdev(ICC_MAJOR, "icc", &icc_fops);
+- 	if (ret) {
+- 		sc_err("icc: register_chrdev failed: %d\n", ret);
+-		kfree(ioctl_tmp_buf);
+-		ioctl_tmp_buf = NULL;
+- 		goto done;
+- 	}
++	ioctl_send_buf = kzalloc(ICC_MAX_PAYLOAD, GFP_KERNEL);
++	if (!ioctl_send_buf) {
++		sc_warn("icc: alloc ioctl_send_buf failed, leaving /dev/icc disabled\n");
++		goto done;
++	}
++
++	ioctl_reply_buf = kzalloc(ICC_MAX_PAYLOAD, GFP_KERNEL);
++	if (!ioctl_reply_buf) {
++		sc_warn("icc: alloc ioctl_reply_buf failed, leaving /dev/icc disabled\n");
++		kfree(ioctl_send_buf);
++		ioctl_send_buf = NULL;
++		goto done;
++	}
++
++	ret = register_chrdev(0, "icc", &icc_fops);
++	if (ret) {
++		sc_warn("icc: register_chrdev failed: %d\n", ret);
++		kfree(ioctl_reply_buf);
++		kfree(ioctl_send_buf);
++		ioctl_reply_buf = NULL;
++		ioctl_send_buf = NULL;
++		goto done;
++	}
++	icc_major = ret;
+ 	icc_chrdev_registered = true;
+  done:
+ 
+@@ -635,11 +668,14 @@ void apcie_icc_remove(struct apcie_dev *sc)
+ {
+ 	sc_err("apcie_icc_remove: shouldn't normally be called\n");
+ 	if (icc_chrdev_registered) {
+-		unregister_chrdev(ICC_MAJOR, "icc");
++		unregister_chrdev(icc_major, "icc");
++		icc_major = 0;
+ 		icc_chrdev_registered = false;
+ 	}
+-	kfree(ioctl_tmp_buf);
+-	ioctl_tmp_buf = NULL;
++	kfree(ioctl_reply_buf);
++	kfree(ioctl_send_buf);
++	ioctl_reply_buf = NULL;
++	ioctl_send_buf = NULL;
+ 	pm_power_off = NULL;
+ 	icc_pwrbutton_remove(sc);
+ 	icc_i2c_remove(sc);
+
+--------------false--
+
+

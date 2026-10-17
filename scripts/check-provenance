@@ -60,8 +60,35 @@ def main():
         checked_file(item["path"], item["sha256"])
     if len(knowledge["files"]) != knowledge["scope"]["file_count"]:
         raise ValueError("historical knowledge coverage count differs")
+    rmux_count = check_rmux_import()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
+    print(f"PASS: {rmux_count} rmux import checksums; series order and pins match")
+
+
+def check_rmux_import():
+    """Verify the generated rmux source imports (see docs/RMUX-IMPORT.md)."""
+    sums = ROOT / "provenance/rmux-SHA256SUMS"
+    count = 0
+    for line in sums.read_text().splitlines():
+        checksum, name = line.split("  ", 1)
+        checked_file(name, checksum)
+        count += 1
+    manifest = json.loads((ROOT / "provenance/rmux-import.json").read_text())
+    for imp in manifest["imports"]:
+        series = ROOT / imp["dir"] / "series"
+        entries = [line for line in series.read_text().splitlines() if line.strip()]
+        if sha(series) != imp["series_sha256"] or entries != [p["entry"] for p in imp["patches"]]:
+            raise ValueError(f"rmux import series/order mismatch: {imp['name']}")
+        ordered = "".join(f"{p['sha256']}  {p['entry']}\n" for p in imp["patches"])
+        if hashlib.sha256(ordered.encode()).hexdigest() != imp["ordered_patchset_sha256"]:
+            raise ValueError(f"rmux import ordered patch-set mismatch: {imp['name']}")
+        pins = [imp["base"]["commit"]] + [x for seg in imp["segments"] for x in (seg["from"], seg["to"])]
+        if not all(re.fullmatch(r"[0-9a-f]{40}", pin) for pin in pins):
+            raise ValueError(f"rmux import must pin full commits: {imp['name']}")
+        if any(not re.fullmatch(r"[0-9a-f]{40}", p["commit"]) for p in imp["patches"]):
+            raise ValueError(f"rmux import patch lacks a source commit: {imp['name']}")
+    return count
 
 
 if __name__ == "__main__":

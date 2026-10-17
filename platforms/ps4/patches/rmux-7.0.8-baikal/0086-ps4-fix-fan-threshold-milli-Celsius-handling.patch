@@ -1,0 +1,94 @@
+From 235d87bb447d8551a218688b893ed9fb9910b6c3 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 21:54:45 +0200
+Subject: [PATCH] ps4: fix fan threshold milli-Celsius handling
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+The PS4 fan threshold is exposed through hwmon as milli-Celsius, but the
+underlying ICC thermal configuration stores the threshold as a plain
+integer Celsius byte. The driver converted milli-Celsius to Celsius with
+integer division, so a write such as 45500 was programmed as 45C while
+the cached hwmon value remained 45500.
+
+Reject non-integer Celsius milli-Celsius writes so the cached hwmon value
+always matches what the hardware can represent. Keep the existing
+read-modify-write protocol that preserves the full thermal configuration
+and only changes the threshold byte.
+
+This makes temp1_crit readback and duplicate-write handling consistent
+with the PS4 fan controller's actual precision.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/ps4/ps4-fan.c | 6 ++++--
+ drivers/ps4/ps4-fan.h | 4 ++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+
+--------------false
+Content-Type: text/x-patch; name="0086-ps4-fix-fan-threshold-milli-Celsius-handling.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0086-ps4-fix-fan-threshold-milli-Celsius-handling.patch"
+
+diff --git a/drivers/ps4/ps4-fan.c b/drivers/ps4/ps4-fan.c
+index 19db0b952dc8b527fd954e90eb97838553270e9b..bd3508755499797e88c802547848ae982adf9083 100644
+--- a/drivers/ps4/ps4-fan.c
++++ b/drivers/ps4/ps4-fan.c
+@@ -59,7 +59,7 @@
+  * ============================================================
+  *   /sys/class/hwmon/hwmonX/
+  *     temp1_input  (RO) — APU temperature, milli-Celsius
+- *     temp1_crit   (RW) — Fan threshold, milli-Celsius (45000–85000)
++ *     temp1_crit   (RW) — Fan threshold, milli-Celsius (20000–85000)
+  *     fan1_input   (RO) — Fan speed, RPM
+  *
+  * ============================================================
+@@ -163,7 +163,7 @@ static int icc_read_fan_threshold(long *thresh_mc)
+ /* ============================================================
+  * icc_write_fan_threshold - Set fan threshold (read-modify-write)
+  * ============================================================
+- * @thresh_mc: Desired threshold, milli-Celsius (45000–85000).
++ * @thresh_mc: Desired threshold, milli-Celsius (20000–85000).
+  *
+  * IMPORTANT: Implements a full read-modify-write cycle.
+  *
+@@ -372,6 +372,8 @@ static int ps4_fan_write(struct device *dev, enum hwmon_sensor_types type,
+ 
+ 	if (type != hwmon_temp || channel != 0 || attr != hwmon_temp_crit)
+ 		return -EOPNOTSUPP;
++	if (val % 1000)
++		return -EINVAL;
+ 
+ 	mutex_lock(&priv->lock);
+ 	if (ps4_fan_cache_valid(priv->thresh_updated, priv->thresh_valid) &&
+diff --git a/drivers/ps4/ps4-fan.h b/drivers/ps4/ps4-fan.h
+index 20664a92cda5104b10ee61fd15f5ccd97cd9b72b..87191c4628ac5a734bbd98a66e225fec4a95419d 100644
+--- a/drivers/ps4/ps4-fan.h
++++ b/drivers/ps4/ps4-fan.h
+@@ -59,7 +59,7 @@
+  *   temp1_crit   (RW) — Fan threshold, milli-Celsius
+  *                       Read:  0x0A/0x07 reply[5] * 1000
+  *                       Write: read-modify-write via 0x0A/0x07→0x0A/0x06
+- *                       Valid: 45000–85000 milli-Celsius
++ *                       Valid: 20000–85000 milli-Celsius
+  *   fan1_input   (RO) — Fan speed, RPM (integer)
+  *                       Source: 0x0A/0x08 reply[8:12], 16.16 fixed-point
+  */
+@@ -121,4 +121,4 @@
+ #define PS4_FAN_THRESH_MAX_MC           ((long)(PS4_FAN_THRESH_MAX_C) * 1000L)
+ #define PS4_FAN_THRESH_DEFAULT_MC       ((long)(PS4_FAN_THRESH_DEFAULT_C) * 1000L)
+ 
+-#endif /* _PS4_FAN_H */
+\ No newline at end of file
++#endif /* _PS4_FAN_H */
+
+--------------false--
+
+

@@ -1,0 +1,47 @@
+From ed469bbed4e19722aae0c6cd928e8e11c331c11c Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 10:41:54 +0000
+Subject: [PATCH] x86/amd: fixup family 16h model name for semi-custom Jaguar
+ parts
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+Semi-custom family 16h APUs report an OPN string via CPUID extended
+leaves instead of a readable model name.  Override x86_model_id when
+CONFIG_X86_PS4 is set so /proc/cpuinfo reports the microarchitecture.
+---
+ arch/x86/kernel/cpu/amd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0100-x86-amd-fixup-family-16h-model-name-for-semi-custom-.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0100-x86-amd-fixup-family-16h-model-name-for-semi-custom-.patch"
+
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index 31f01e9c711412ea0dc087f6d74ef13c4d9868f6..eac6ab2acce42fd62e6d413cc5acfdcbd8b98b57 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -848,6 +848,11 @@ static void init_amd_jg(struct cpuinfo_x86 *c)
+ 	 * instruction support via CPUID.
+ 	 */
+ 	clear_rdrand_cpuid_bit(c);
++
++#ifdef CONFIG_X86_PS4
++	if (c->x86_model <= 0x30)
++		strscpy(c->x86_model_id, "AMD Jaguar");
++#endif
+ }
+ 
+ static void init_amd_bd(struct cpuinfo_x86 *c)
+
+--------------false--
+
+

@@ -1,0 +1,54 @@
+From bc0d843779834cb7614c70e5cd4fc2bf03aa6cd0 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Thu, 7 May 2026 13:23:09 +0200
+Subject: [PATCH] acpi: osl: bypass SCI allocation on PS4 to prevent
+ CPU-burning polling
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="------------false"
+
+This is a multi-part message in MIME format.
+--------------false
+Content-Type: text/plain; charset=UTF-8; format=fixed
+Content-Transfer-Encoding: 8bit
+
+
+ The PS4 DSDT is broken and lacks proper IOAPIC routing for the SCI. This
+ causes acpi_os_install_interrupt_handler to fail, which forces the ACPI
+ subsystem into a busy-wait polling mode that prevents deep C-states.
+ Fake success during SCI allocation on PS4 to bypass polling.
+---
+ drivers/acpi/osl.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+
+--------------false
+Content-Type: text/x-patch; name="0104-acpi-osl-bypass-SCI-allocation-on-PS4-to-prevent-CPU.patch"
+Content-Transfer-Encoding: 8bit
+Content-Disposition: attachment; filename="0104-acpi-osl-bypass-SCI-allocation-on-PS4-to-prevent-CPU.patch"
+
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+index 62b9c83d4f20b75180ec39893c4eddec811da65d..bfa96a892c90bf9923f064a84b81047df8c2174f 100644
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -571,6 +571,17 @@ acpi_os_install_interrupt_handler(u32 gsi, acpi_osd_handler handler,
+ 	if (acpi_irq_handler)
+ 		return AE_ALREADY_ACQUIRED;
+ 
++	/* On PS4, the SCI is broken and missing IOAPIC routing.
++	 * Fake success to prevent ACPI from falling back to CPU-burning polling mode.
++	 */
++	if (gsi == 9 && !boot_cpu_has(X86_FEATURE_HYPERVISOR) && boot_cpu_data.x86_vendor == X86_VENDOR_AMD && boot_cpu_data.x86 == 0x16) {
++		pr_info("ACPI: Bypassing SCI allocation for PS4\n");
++		acpi_irq_handler = handler;
++		acpi_irq_context = context;
++		acpi_sci_irq = INVALID_ACPI_IRQ;
++		return AE_OK;
++	}
++
+ 	if (acpi_gsi_to_irq(gsi, &irq) < 0) {
+ 		pr_err("SCI (ACPI GSI %d) not registered\n", gsi);
+ 		return AE_OK;
+
+--------------false--
+
+
