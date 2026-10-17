@@ -60,8 +60,17 @@ def main():
         checked_file(item["path"], item["sha256"])
     if len(knowledge["files"]) != knowledge["scope"]["file_count"]:
         raise ValueError("historical knowledge coverage count differs")
+    adapter = json.loads((ROOT / "provenance/ethernet-activation-import.json").read_text())
+    if adapter["schema"] != 1 or not adapter["adapted_outputs"]:
+        raise ValueError("optional adapter provenance is incomplete")
+    for source in adapter["sources"]:
+        if not re.fullmatch(r"[0-9a-f]{40}", source["commit"]):
+            raise ValueError("optional adapter source must be pinned")
+    for item in adapter["adapted_outputs"]:
+        checked_file(item["path"], item["sha256"])
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
-          f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
+          f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; "
+          f"{len(adapter['adapted_outputs'])} optional adapter hashes; pins match")
 
 
 if __name__ == "__main__":

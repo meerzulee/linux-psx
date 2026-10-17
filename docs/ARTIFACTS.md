@@ -6,8 +6,10 @@ archive. A release string alone does not establish identical bytes.
 
 The builder writes `output/6.18-ps4-baikal/`. Linux CI packaging adds guidance,
 `artifacts.json`, `BUILD-SHA256SUMS`, complete corresponding source and a final
-`SHA256SUMS` in `dist/`. No distribution boot profile, installer, launcher,
-network-manager adapter or firmware is packaged.
+`SHA256SUMS` in `dist/`. It also includes the optional MIT-licensed
+`ps4-ethernet` tool and `ETHERNET-SETUP.md` for NetworkManager/systemd users;
+neither is required by the kernel or generic metadata. No distribution boot
+profile, root-filesystem installer, launcher or firmware is packaged.
 
 ## Generic metadata: schema 1
 

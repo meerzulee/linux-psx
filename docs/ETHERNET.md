@@ -43,14 +43,22 @@ packet publication. A distribution adapter must perform a reviewed sequence:
 5. Hand the healthy interface to the selected network configuration layer.
    DHCP, addressing and preferred routes are distribution choices.
 
-This protocol is not a universal activation script. The optional reviewed
-Omarchy/NetworkManager adapter belongs to the companion distribution project:
+The optional [NetworkManager tool](../contrib/networkmanager/README.md)
+implements this sequence without requiring Omarchy. Its explicit `--setup`
+command installs the matching metadata and a systemd service, enables the
+service for future boots and starts it now. A healthy published instance is
+recognized without arming or opening a second DMA generation. NetworkManager
+then handles ordinary IPv4 DHCP and autoconnect. Bare `--install` stages files
+without activation or startup changes.
 
-https://github.com/meerzulee/omarchy-psx/blob/main/docs/USING-LINUX-PSX.md
-
-Other distributions can implement the same driver/artifact contract without
-using Omarchy or NetworkManager. Do not replace it with a blind autoload,
-unconditional `ip link set up`, reset or retry loop.
+The service checks the selected kernel release, config and module identity on
+every boot, and has no automatic retry, reset or unload. A mismatched kernel is
+skipped; an uncertain activation is stopped for inspection. This autostart path
+has synthetic host tests and a [same-boot service/traffic pass on original
+MTS2](ETHERNET-AUTOCONNECT-TEST.md); unattended boot acceptance remains pending.
+Other distributions can implement the same contract without NetworkManager or
+systemd. Do not replace it with a blind autoload, unconditional `ip link set up`,
+reset or retry loop.
 
 ## Retention and limits
 

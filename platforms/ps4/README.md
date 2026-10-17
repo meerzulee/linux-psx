@@ -40,6 +40,23 @@ successful transport tests. See [PS4 status](STATUS.md),
 [detailed capabilities](docs/CAPABILITIES.md) and
 [Ethernet evidence](docs/ETHERNET-HISTORY.md) for scope and acceptance gaps.
 
+## Enable Ethernet autoconnect
+
+The optional [PS4 Ethernet tool](../../contrib/networkmanager/README.md) works
+with NetworkManager on Arch, CachyOS and other systemd distributions; it does
+not require Omarchy. Boot a supported kernel and install its complete matching
+modules first. In a new CI artifact bundle:
+
+```sh
+sudo python3 ./ps4-ethernet --setup --manifest "$PWD/artifacts.json"
+```
+
+This installs and starts a boot service, then hands `psx0` to NetworkManager
+with IPv4 DHCP and autoconnect enabled. Setup is done once, rather than manually
+loading the driver each boot. The linked guide covers downloading the script,
+older MTS2 metadata and viewing startup logs. Unattended boot and cable recovery
+still need hardware qualification.
+
 ## Kernel targets
 
 | Target | Base | Active patches | Status |

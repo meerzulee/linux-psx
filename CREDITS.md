@@ -64,6 +64,14 @@ replace or consolidate other contributors' authorship.
 
 ## Licensing
 
+The optional `contrib/networkmanager/ps4-ethernet` tool and its activation tests
+are adapted from the Omarchy PS4 contributors' MIT-licensed helper and tests in
+[Omarchy psX at `032459a3`](https://github.com/meerzulee/omarchy-psx/tree/032459a360406dadcf3e7d99770812145fbba052).
+The original MIT notice is preserved. Release-specific profiles also preserve
+the identities from the earlier public and private MTS2 adapters. The
+[adapter import record](provenance/ethernet-activation-import.json) pins the
+inputs and describes the standalone installer and boot-service adaptations.
+
 The GPLv2 license text is copied from the source repository into [LICENSE](LICENSE).
 Existing per-file licenses and notices, including vendor dual-license notices,
 remain unchanged. Firmware binaries and boot-loader code are outside this

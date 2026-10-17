@@ -13,6 +13,21 @@ RELEASE = "6.18.44-psx-ps4-baikal1"
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_optional_ethernet_bundle_preserves_tool_and_has_portable_guidance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory)
+            commit = "c" * 40
+            package.package_ethernet_tool(ROOT, destination, commit)
+            tool = (destination / "ps4-ethernet").read_bytes()
+            self.assertEqual(tool, (ROOT / "contrib/networkmanager/ps4-ethernet").read_bytes())
+            self.assertIn(b"SPDX-License-Identifier: MIT", tool)
+            guide = (destination / "ETHERNET-SETUP.md").read_text()
+            self.assertIn('--setup --manifest "$PWD/artifacts.json"', guide)
+            self.assertIn("(BOOTING.md)", guide)
+            self.assertIn("(ETHERNET.md)", guide)
+            self.assertNotIn("../../", guide)
+            self.assertIn(f"/blob/{commit}/provenance/ethernet-activation-import.json", guide)
+
     def test_firmware_embedding_and_wrong_release_are_refused(self):
         config = (ROOT / "platforms/ps4/config/6.18-psx-baikal.config").read_text()
         package.check_config(config, RELEASE)

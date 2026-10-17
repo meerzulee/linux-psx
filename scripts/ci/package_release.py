@@ -83,6 +83,19 @@ def validate_module_archive(archive, release):
             process.wait()
 
 
+def package_ethernet_tool(repo, destination, commit):
+    """Bundle the optional adapter without adding it to the kernel contract."""
+    shutil.copy2(repo / "contrib/networkmanager/ps4-ethernet", destination / "ps4-ethernet")
+    guide = (repo / "contrib/networkmanager/README.md").read_text()
+    guide = guide.replace("../../docs/BOOTING.md", "BOOTING.md")
+    guide = guide.replace("../../docs/ETHERNET.md", "ETHERNET.md")
+    guide = guide.replace("../../docs/ETHERNET-AUTOCONNECT-TEST.md",
+                          f"https://github.com/meerzulee/linux-psx/blob/{commit}/docs/ETHERNET-AUTOCONNECT-TEST.md")
+    guide = guide.replace("../../provenance/ethernet-activation-import.json",
+                          f"https://github.com/meerzulee/linux-psx/blob/{commit}/provenance/ethernet-activation-import.json")
+    (destination / "ETHERNET-SETUP.md").write_text(guide)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=DEFAULT_TARGET)
@@ -177,10 +190,14 @@ def main():
             "--null", "-T", str(files), "-C", str(temporary), "--no-null",
             "PSX-BUILD-INPUTS.tar.gz", "PSX-BUILD-MANIFEST.txt", "PSX-REBUILD.md",
         ], check=True, env={**os.environ, "ZSTD_CLEVEL": "8", "ZSTD_NBTHREADS": "2"})
-    # Bundle self-contained kernel guidance. Distribution instructions remain in companion projects.
+    # Bundle generic guidance plus an optional standalone NetworkManager tool.
+    package_ethernet_tool(repo, destination, commit)
     for name in ["BOOTING", "ETHERNET", "HARDWARE-TESTING", "ARTIFACTS"]:
         guide = (repo / f"docs/{name}.md").read_text()
         guide = guide.replace("../platforms/ps4/STATUS.md", f"https://github.com/meerzulee/linux-psx/blob/{commit}/platforms/ps4/STATUS.md")
+        guide = guide.replace("../contrib/networkmanager/README.md", "ETHERNET-SETUP.md")
+        guide = guide.replace("(ETHERNET-AUTOCONNECT-TEST.md)",
+                              f"(https://github.com/meerzulee/linux-psx/blob/{commit}/docs/ETHERNET-AUTOCONNECT-TEST.md)")
         (destination / f"{name}.md").write_text(guide)
     (destination / "RELEASE-NOTES.md").write_text(
         f"# Experimental PS4 Baikal — {release}\n\n"
@@ -189,8 +206,9 @@ def main():
         "on one PS4 Slim Baikal B1 do not qualify this build, other PS4 revisions or PS5.\n\n"
         "Use bzImage with the entire matching modules archive, a compatible PS4 loader, "
         "initramfs and root filesystem. Read BOOTING.md, ETHERNET.md and HARDWARE-TESTING.md. "
-        "No root filesystem, launcher PKG, boot-profile defaults, network-manager adapter "
-        "or firmware is included. Supply legally obtained device firmware separately; "
+        "The optional ps4-ethernet tool enables NetworkManager/systemd autoconnect; "
+        "read ETHERNET-SETUP.md for one-time setup. No root filesystem, launcher PKG, "
+        "boot-profile defaults or firmware is included. Supply legally obtained device firmware separately; "
         "early display/Wi-Fi firmware may be needed in initramfs.\n\n"
         "MTS Ethernet uses explicit first-publication gating and permanent DMA/code retention. "
         "Do not unload, reset, rearm or reuse old experiment modules. Driver qualification "

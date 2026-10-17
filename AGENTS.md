@@ -5,10 +5,15 @@
 - This repository owns console kernel patches, configs, build/CI tooling,
   artifact identities, provenance and hardware evidence. The active target is
   `6.18-ps4-baikal`; PS5 integration remains planned.
-- Keep runtime/build inputs distribution-independent. Omarchy setup, boot
-  profiles and its optional NetworkManager adapter belong to `omarchy-psx`.
-  Never introduce a desktop, package manager, init-system or network-manager
-  requirement into the kernel or artifact contract.
+- Keep runtime/build inputs distribution-independent. Omarchy setup and boot
+  profiles belong to `omarchy-psx`. The optional, standalone NetworkManager
+  adapter lives in `contrib/networkmanager/`; it may be bundled as a convenience
+  without adding a desktop, package manager, init-system or network-manager
+  requirement to the kernel or generic artifact contract.
+- Ethernet `--setup` explicitly installs and enables the optional systemd
+  service. Bare `--install` only stages files. Preserve exact artifact checks,
+  one first-publication attempt per boot, retained DMA and read-only healthy
+  repeat calls. Do not add blind module autoload, retries, unload or reset.
 - Read `docs/PS4-PATCHES.md`, `CREDITS.md`, `provenance/ps4-import.json` and
   `docs/UNIVERSAL-KERNEL.md` before changing a patch or making support claims.
 - Read `docs/BUILDING.md`, `docs/ARTIFACTS.md`, `docs/ETHERNET.md` and
