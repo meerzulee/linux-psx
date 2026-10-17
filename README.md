@@ -74,8 +74,16 @@ where required.
 
 [GitHub Actions](https://github.com/meerzulee/linux-psx/actions) builds on native
 Linux and packages these outputs with generic `artifacts.json` and complete
-corresponding GPL source. CI artifacts expire after 30 days. Creating a public
-experimental release is a separate, manual workflow option.
+corresponding GPL source as **two separate downloads**:
+
+- **`linux-psx-ps4-baikal-<commit>`**: the small kernel, matching modules, build
+  data, Ethernet setup script and instructions. Choose this to test Linux.
+- **`linux-psx-ps4-source-<commit>`**: complete corresponding source and matching
+  build data for rebuilding or inspection.
+
+Each download has its own checksums. CI artifacts expire after 30 days.
+Creating a public experimental release is a separate, manual workflow option;
+it likewise offers a kernel ZIP and a separate source archive.
 
 ## Ethernet autoconnect
 

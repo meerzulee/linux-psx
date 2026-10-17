@@ -40,9 +40,18 @@ jobs:
       - name: Package matching kernel, modules and corresponding source
         run: ./scripts/ci/package-release
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        name: Upload kernel and setup download
         with:
           name: linux-psx-ps4-baikal-${{ github.sha }}
-          path: dist/*
+          path: dist/runtime/*
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 30
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        name: Upload corresponding source separately
+        with:
+          name: linux-psx-ps4-source-${{ github.sha }}
+          path: dist/source/*
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -55,18 +64,27 @@ jobs:
       actions: read
       contents: write
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: linux-psx-ps4-baikal-${{ github.sha }}
-          path: dist
+          path: dist/runtime
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: linux-psx-ps4-source-${{ github.sha }}
+          path: dist/source
+      - name: Verify both downloads and assemble release assets
+        run: ./scripts/ci/package-release --assemble-release --runtime dist/runtime --source dist/source --destination release --expected-commit "$GITHUB_SHA"
       - name: Publish experimental prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          cd dist
+          cd release
           sha256sum -c SHA256SUMS
-          version=$(cat version.txt)
+          version=$(python3 -c 'import json; print(json.load(open("artifacts.json"))["kernel_release"])')
           test "$version" = 6.18.44-psx-ps4-baikal1
           gh release create "v$version" ./* --target "$GITHUB_SHA" --prerelease --latest=false --title "Experimental PS4 Baikal — $version" --notes-file RELEASE-NOTES.md

@@ -24,8 +24,8 @@ future boots. **You do not need to find, download or specify a JSON file.**
 NetworkManager handles IPv4 DHCP and autoconnect; Ethernet uses route metric
 100 while Wi-Fi stays configured.
 
-**Offline setup:** new CI bundles already contain the script and matching data.
-Extract the full bundle and run `sudo python3 ./ps4-ethernet --setup` there.
+**Offline setup:** the small CI kernel download already contains the script
+and matching data. Extract it and run `sudo python3 ./ps4-ethernet --setup` there.
 
 ## Kernel downloads
 
@@ -40,8 +40,10 @@ record when needed. The newer psX builds are currently CI downloads:
 
 https://github.com/meerzulee/linux-psx/actions/workflows/kernel.yml
 
-For CI, open a completed successful run, sign in to GitHub, download its kernel
-artifact and extract it. Its build data is included. A standalone psX metadata
+For CI, open a completed successful run, sign in to GitHub, download
+**`linux-psx-ps4-baikal-<commit>`** and extract it. The larger
+`linux-psx-ps4-source-<commit>` is a separate source download for developers.
+The small kernel download includes its build data. A standalone psX metadata
 download becomes available when that exact build is published as a release;
 unpublished or custom builds need their original bundle. Setup never invents
 checksums or substitutes another kernel's data.

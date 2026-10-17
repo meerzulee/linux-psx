@@ -7,9 +7,11 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import tarfile
 import tempfile
+import zipfile
 
 DEFAULT_TARGET = "6.18-ps4-baikal"
 
@@ -96,10 +98,164 @@ def package_ethernet_tool(repo, destination, commit):
     (destination / "ETHERNET-SETUP.md").write_text(guide)
 
 
+def safe_name(name):
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+        raise ValueError(f"unsafe artifact name: {name}")
+    return name
+
+
+def flat_files(directory):
+    directory = Path(directory)
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError(f"artifact directory must be a real directory: {directory}")
+    result = {}
+    for path in sorted(directory.iterdir()):
+        safe_name(path.name)
+        if path.is_symlink() or not stat.S_ISREG(path.lstat().st_mode):
+            raise ValueError(f"artifact must be a flat regular file: {path}")
+        result[path.name] = path
+    return result
+
+
+def write_checksums(directory):
+    files = flat_files(directory)
+    (Path(directory) / "SHA256SUMS").write_text("".join(
+        f"{digest(path)}  {name}\n" for name, path in files.items() if name != "SHA256SUMS"))
+
+
+def verified_files(directory):
+    files = flat_files(directory)
+    if "SHA256SUMS" not in files:
+        raise ValueError("artifact bundle lacks SHA256SUMS")
+    expected = {}
+    for line in files["SHA256SUMS"].read_text().splitlines():
+        match = re.fullmatch(r"([0-9a-f]{64})  ([A-Za-z0-9][A-Za-z0-9._-]*)", line)
+        if not match or match[2] == "SHA256SUMS" or match[2] in expected:
+            raise ValueError("invalid/duplicate artifact checksum entry")
+        expected[match[2]] = match[1]
+    if set(expected) != set(files) - {"SHA256SUMS"}:
+        raise ValueError("artifact checksums do not cover exactly all bundle files")
+    for name, value in expected.items():
+        if digest(files[name]) != value:
+            raise ValueError(f"artifact checksum mismatch: {name}")
+    return files
+
+
+def artifact_metadata(files, release=None, expected_commit=None):
+    if "artifacts.json" not in files:
+        raise ValueError("artifact bundle lacks artifacts.json")
+    metadata = json.loads(files["artifacts.json"].read_text())
+    if not isinstance(metadata, dict):
+        raise ValueError("artifact metadata must be a JSON object")
+    value = metadata.get("kernel_release")
+    safe_name(value)
+    if release is not None and value != release:
+        raise ValueError("artifact kernel release differs")
+    commit = metadata.get("source_commit")
+    if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("artifact source commit is not a full SHA")
+    if expected_commit is not None and commit != expected_commit:
+        raise ValueError("artifact source commit differs from expected commit")
+    archive = metadata.get("source_archive")
+    if not isinstance(archive, dict) or archive.get("path") != f"source-{value}.tar.zst" or not re.fullmatch(
+            r"[0-9a-f]{64}", str(archive.get("sha256", ""))):
+        raise ValueError("invalid corresponding source archive identity")
+    return metadata
+
+
+def verify_runtime(files, metadata):
+    release = metadata["kernel_release"]
+    required = {"bzImage", "config", "System.map", "manifest.txt", "version.txt", "artifacts.json",
+                "ps4-ethernet", "RELEASE-NOTES.md", "BUILD-SHA256SUMS", "BOOTING.md", "ETHERNET.md",
+                "HARDWARE-TESTING.md", "ARTIFACTS.md", "ETHERNET-SETUP.md", f"modules-{release}.tar.zst"}
+    if not required <= set(files):
+        raise ValueError("runtime bundle is missing required kernel/module/guidance files")
+    if any(name.startswith("source-") and name.endswith(".tar.zst") for name in files):
+        raise ValueError("runtime bundle must not contain corresponding source archives")
+    if files["version.txt"].read_text().strip() != release:
+        raise ValueError("runtime version differs from metadata")
+    if metadata.get("kernel_sha256") != digest(files["bzImage"]) or metadata.get("kernel_config_sha256") != digest(files["config"]):
+        raise ValueError("runtime kernel/config identity differs")
+    modules = metadata.get("modules_archive")
+    if not isinstance(modules, dict) or modules.get("path") != f"modules-{release}.tar.zst" or modules.get("sha256") != digest(files[f"modules-{release}.tar.zst"]):
+        raise ValueError("runtime modules archive identity differs")
+
+
+def stage_ci_artifacts(destination, release):
+    """Split canonical flat dist files without copying generated directories."""
+    destination = Path(destination)
+    safe_name(release)
+    files = verified_files(destination)
+    metadata = artifact_metadata(files, release)
+    source_name = metadata["source_archive"]["path"]
+    if source_name not in files or digest(files[source_name]) != metadata["source_archive"]["sha256"]:
+        raise ValueError("missing/mismatched complete corresponding source")
+    runtime_files = {name: path for name, path in files.items() if name not in (source_name, "SHA256SUMS")}
+    verify_runtime(runtime_files, metadata)
+    for name in ("runtime", "source"):
+        path = destination / name
+        if path.exists() or path.is_symlink():
+            raise ValueError(f"refusing existing CI staging directory: {path}")
+    runtime, source = destination / "runtime", destination / "source"
+    runtime.mkdir()
+    source.mkdir()
+    for name, path in runtime_files.items():
+        shutil.copy2(path, runtime / name)
+    for name in (source_name, "artifacts.json"):
+        shutil.copy2(files[name], source / name)
+    write_checksums(runtime)
+    write_checksums(source)
+    return runtime, source
+
+
+def assemble_release(runtime, source, destination, expected_commit=None):
+    """Verify independent CI downloads and assemble public assets using stdlib."""
+    if expected_commit is not None and not re.fullmatch(r"[0-9a-f]{40}", expected_commit):
+        raise ValueError("expected commit must be a full SHA")
+    runtime_files, source_files = verified_files(runtime), verified_files(source)
+    metadata = artifact_metadata(runtime_files, expected_commit=expected_commit)
+    release = metadata["kernel_release"]
+    source_metadata = artifact_metadata(source_files, release, expected_commit)
+    if metadata != source_metadata or runtime_files["artifacts.json"].read_bytes() != source_files["artifacts.json"].read_bytes():
+        raise ValueError("runtime and source metadata differ")
+    verify_runtime(runtime_files, metadata)
+    source_name = metadata["source_archive"]["path"]
+    if set(source_files) != {source_name, "artifacts.json", "SHA256SUMS"}:
+        raise ValueError("source bundle must contain exactly complete source, metadata and checksums")
+    if digest(source_files[source_name]) != metadata["source_archive"]["sha256"]:
+        raise ValueError("corresponding source archive identity differs")
+    destination = Path(destination)
+    if destination.exists() or destination.is_symlink():
+        raise ValueError("release destination already exists")
+    # All checksum/identity/path checks finish before any output is created.
+    destination.mkdir()
+    with zipfile.ZipFile(destination / f"kernel-{release}.zip", "x", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, path in runtime_files.items():
+            archive.write(path, name)
+    for name, path in ((source_name, source_files[source_name]), ("artifacts.json", runtime_files["artifacts.json"]),
+                       ("ps4-ethernet", runtime_files["ps4-ethernet"]), ("RELEASE-NOTES.md", runtime_files["RELEASE-NOTES.md"])):
+        shutil.copy2(path, destination / name)
+    write_checksums(destination)
+    return destination
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default=DEFAULT_TARGET)
+    parser.add_argument("--assemble-release", action="store_true")
+    parser.add_argument("--runtime", type=Path)
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--destination", type=Path)
+    parser.add_argument("--expected-commit")
     args = parser.parse_args()
+    if args.assemble_release:
+        if not all((args.runtime, args.source, args.destination)):
+            parser.error("assembly requires --runtime, --source and --destination")
+        assemble_release(args.runtime, args.source, args.destination, args.expected_commit)
+        print("PASS: assembled verified runtime ZIP and complete corresponding source")
+        return
+    if any((args.runtime, args.source, args.destination, args.expected_commit)):
+        parser.error("assembly paths/commit require --assemble-release")
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", args.target):
         parser.error("invalid target name")
     repo = Path(__file__).resolve().parents[2]
@@ -190,6 +346,9 @@ def main():
             "--null", "-T", str(files), "-C", str(temporary), "--no-null",
             "PSX-BUILD-INPUTS.tar.gz", "PSX-BUILD-MANIFEST.txt", "PSX-REBUILD.md",
         ], check=True, env={**os.environ, "ZSTD_CLEVEL": "8", "ZSTD_NBTHREADS": "2"})
+    source_archive = destination / f"source-{release}.tar.zst"
+    metadata["source_archive"] = {"path": source_archive.name, "sha256": digest(source_archive)}
+    (destination / "artifacts.json").write_text(json.dumps(metadata, indent=2) + "\n")
     # Bundle generic guidance plus an optional standalone NetworkManager tool.
     package_ethernet_tool(repo, destination, commit)
     for name in ["BOOTING", "ETHERNET", "HARDWARE-TESTING", "ARTIFACTS"]:
@@ -204,6 +363,10 @@ def main():
         "Pinned Linux 6.18.44 with 54 PS4 platform patches plus the MTS2 Ethernet patch. "
         "This distribution-independent build has not been boot-tested. Historical tests "
         "on one PS4 Slim Baikal B1 do not qualify this build, other PS4 revisions or PS5.\n\n"
+        f"For testing, download and extract kernel-{release}.zip. The separate "
+        f"source-{release}.tar.zst archive contains complete corresponding source. "
+        "CI likewise offers separate kernel/setup and source downloads; each has its "
+        "own complete SHA256SUMS.\n\n"
         "Use bzImage with the entire matching modules archive, a compatible PS4 loader, "
         "initramfs and root filesystem. Read BOOTING.md, ETHERNET.md and HARDWARE-TESTING.md. "
         "The optional ps4-ethernet tool enables NetworkManager/systemd autoconnect; "
@@ -218,8 +381,9 @@ def main():
         "SHA256SUMS with sha256sum -c SHA256SUMS on Linux or shasum -a 256 -c SHA256SUMS on macOS.\n\n"
         f"Source commit: {commit}\n\nCI build: {run_url}\n"
     )
-    (destination / "SHA256SUMS").write_text("".join(f"{digest(path)}  {path.name}\n" for path in sorted(destination.iterdir()) if path.is_file()))
-    print(f"PASS: packaged {release}, matching modules and complete corresponding source")
+    write_checksums(destination)
+    stage_ci_artifacts(destination, release)
+    print(f"PASS: packaged {release} as separate runtime and complete-source downloads")
 
 
 if __name__ == "__main__":
