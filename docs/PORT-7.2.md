@@ -5,7 +5,18 @@ Working record for moving the PS4 kernel to Linux 7.2.y. Upstream base:
 (current stable on 2026-10-17; 7.2.y will reach end of life a few weeks after
 7.3 is released).
 
-The port reuses rmux's Strawberry kernel work rather than reimplementing it,
+There are two development targets. Both compile; neither has booted.
+
+| Target | Stack | Role |
+| --- | --- | --- |
+| [`7.2-ps4-baikal`](#the-72-ps4-baikal-development-target) | The 6.18-ps4-baikal series (54 patches and MTS2) on 7.2.11 | First Linux 7.2 boot candidate for Baikal. It carries the series that has run on a Baikal console with 6.18, so after a `6.18-ps4-baikal` boot it changes one variable: the kernel version. |
+| [`7.2-ps4`](#the-72-ps4-development-target) | rmux's 7.1.7 Strawberry stack on 7.2.11, plus MTS2 | Reference for Aeolia and Belize, and the source of their features for a unified kernel. |
+
+The unified kernel for every southbridge is to be built on the stack that
+boots: once `7.2-ps4-baikal` runs on Baikal, rmux's Aeolia and Belize support
+moves onto it one feature at a time, each tested as a single hardware variable.
+
+`7.2-ps4` reuses rmux's Strawberry kernel work rather than reimplementing it,
 with credit in [CREDITS.md](../CREDITS.md). It starts from the
 [rmux 7.1.7 import](RMUX-IMPORT.md): rmux's Aeolia/Belize stack with its
 Baikal unification commits. It proceeds one
@@ -15,8 +26,9 @@ variable at a time:
    no curation.
 2. Drop the Strawberry banner and the Mesa lock endpoint.
 3. Add psX MTS2 Ethernet.
-4. Boot-test the display path. rmux's `ps4_bridge.c` is the first candidate,
-   and the hardware-tested psX 6.18 display patches are the alternate.
+4. Boot testing. Because the 6.18 series has run on Baikal, the first Baikal
+   boot uses `7.2-ps4-baikal` instead. rmux's display path (`ps4_bridge.c`) is
+   untested on Baikal.
 
 ## Step 1: rebase onto v7.2.11
 
@@ -45,8 +57,8 @@ rmux fixed the same `gl_proc.c` build error on `baikal/7.0.8-Stable` in
 `d98d3e9e0df2` (psX 6.18 carries the original as
 `0500-network-mt7668/0006`). That change switches to `__copy_from_user()` and
 makes `procDriverCmdWrite()` copy 2999 bytes whatever the write size, so the
-port does not use it. The 6.18 target still carries it; this is worth a
-separate fix there.
+port does not use it. The 6.18 and `7.2-ps4-baikal` targets still carry it
+(see [Known issues carried from 6.18](#known-issues-carried-from-618)).
 
 ### Compile result
 
@@ -167,6 +179,120 @@ recorded the same series and patch-set hashes:
 All warnings are in the mt76x8 vendor driver. The build artifacts stay local
 and have not been booted.
 
+## The 7.2-ps4-baikal development target
+
+The 6.18 series, MTS2 Ethernet included, has run on a PS4 Slim with a Baikal
+B1 southbridge as the private `6.18.44-ps4-baikal-mts2` build, which embedded
+firmware ([PS4 status](../platforms/ps4/STATUS.md)). The firmware-free
+`6.18-ps4-baikal` build of the same series has not been boot-tested. This
+target moves the series to 7.2.11, unchanged wherever Linux 7.2 allows, so that
+its first boot tests the kernel version rather than rmux's untested Baikal
+paths.
+
+| Item | Location |
+| --- | --- |
+| Target | [`targets/7.2-ps4-baikal.env`](../targets/7.2-ps4-baikal.env), release `7.2.11-psx-ps4-baikal-dev1` |
+| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the 55 6.18 entries in order, then five port fixes |
+| Config | [`platforms/ps4/config/7.2-psx-baikal.config`](../platforms/ps4/config/7.2-psx-baikal.config) with the MT7668 and USB Ethernet fragments |
+| Provenance | [`provenance/7.2-ps4-baikal.json`](../provenance/7.2-ps4-baikal.json) |
+
+The port branch applies the 6.18 series with `git am` to v6.18.44 (MTS2 with
+`git apply`), which gives the tree of the 6.18 build, then cherry-picks it onto
+v7.2.11. Seven patches needed a manual merge:
+
+| 6.18 patch | File | 7.2 change | Resolution |
+| --- | --- | --- | --- |
+| `0300-gpu-liverpool/0001` | `amdgpu_device.c` | Display Core is the default on CIK; the non-DC CIK case the patch extended is gone | Liverpool and Gladius get their own case that keeps Display Core opt-in (`amdgpu_dc > 0`), so the display stays on the DCE v8 path it uses on 6.18. Other CIK chips keep the 7.2 default. |
+| `0300-gpu-liverpool/0001` | `gmc_v7_0.c` | GART size set through `amdgpu_gmc_set_gart_size()` | `SZ_512M` for Liverpool and Gladius, as in `7.2-ps4` |
+| `0300-gpu-liverpool/0002` | `radeon_drv.c` | `radeon_pci_probe()` passes `dev` | Probe deferral unchanged, before `devm_drm_dev_alloc(dev, ...)` |
+| `0400-storage-ahci/0001` | `ahci.c` | `ahci_pci_tbl` rewritten with designated initializers | Sony entries in the new style, still between Enmotus and Loongson |
+| `0400-storage-ahci/0002` | `ahci.c` | `ahci_validate_bar_size()` added where the patch adds `ahci_baikal_shared_phy_seeded()` | Both kept |
+| `1000-iommu/0003` | `iommu/amd/iommu.c` | The IOTLB flush functions that followed the new helper moved | Only the helper is added |
+| `1100-pci-msi/0001` | `pci/msi/irqdomain.c` | The legacy `pci_msi_create_irq_domain()` code in the hunk is gone | `pci_msi_domain_write_msg()` is still made non-static |
+| `1100-pci-msi/0002` | `pci/probe.c` | New trace include | The PS4 includes follow it |
+
+The exporter keeps a 6.18 patch file wherever `git apply` of it gives the port
+commit's tree, and regenerates the others from the port commit with their
+original header and message bytes:
+
+| Class | Count | Patches |
+| --- | --- | --- |
+| Unchanged 6.18 file, referenced in place | 47 | including MTS2 |
+| Context lines only, regenerated | 6 | `0300/0002`, `0300/0004`, `0400/0002`, `1000/0003`, `1100/0001`, `1100/0002` |
+| Adapted, with the resolution recorded | 2 | `0300/0001`, `0400/0001` |
+| Port fixes (new) | 5 | below |
+
+| Port fix | Cause |
+| --- | --- |
+| `ps4: icc: use strscpy_pad() for the adapter name` | As `7.2-ps4` `0169` |
+| `mt76x8: replace strncpy() removed in Linux 7.2` | As `7.2-ps4` `0170` |
+| `mt76x8: adapt remain_on_channel to Linux 7.2` | As `7.2-ps4` `0171` |
+| `ps4: bpcie: replace pci_msi_create_irq_domain() removed in Linux 7.2` | psX creates the Baikal MSI parent domain with this helper. The driver now applies what the 6.18 helper did (the PCI/MSI domain flags, `IRQCHIP_ONESHOT_SAFE` and `DOMAIN_BUS_PCI_MSI`) and calls `msi_create_irq_domain()`. bpcie supplies its own domain and chip operations, so the helper's defaults never applied. The MSI core functions involved are unchanged from 6.18. |
+| `mt76x8: adapt key and station operations to Linux 7.1` | Linux 7.1 passes the key and station operations a `wireless_dev`. psX's mt76x8 already wraps these operations in adapters; they now pass on the `wireless_dev`'s `net_device` and refuse one without a `net_device`, which cfg80211 never passed before 7.1. rmux's newer mt76x8 handles this itself. |
+
+The other `7.2-ps4` port fixes are not needed: this stack already has feeRnt's
+Baikal xHCI shutdown fix (`0800-usb-aeolia/0002`), and its own `gl_proc.c`
+change (`0500-network-mt7668/0006`) builds with GCC 16.
+
+The port branch is local. With it, the series regenerates byte-for-byte:
+
+```sh
+scripts/export-port72-baikal --port-repo /path/to/port-repo          # rewrite series and provenance
+scripts/export-port72-baikal --port-repo /path/to/port-repo --check  # verify committed patches
+```
+
+Both exporters read `.gitattributes` from v7.2.11, so the output does not
+depend on what the repository has checked out. `make check` verifies every
+hash, and that each unchanged entry is the file recorded in the 6.18
+provenance, so a later change to a 6.18 patch fails this target too.
+
+The config is `6.18-psx-baikal.config` moved to 7.2 with `make olddefconfig`
+after the two fragments, with `CONFIG_LOCALVERSION="-psx-ps4-baikal-dev1"`.
+`CONFIG_EXTRA_FIRMWARE` is empty. Two of the config changes are more than
+renames:
+
+- `PREEMPT_VOLUNTARY` no longer exists on x86, so `make olddefconfig` selects
+  `PREEMPT`.
+- `NTFS3_FS` becomes a module next to the new `NTFS_FS`.
+
+### Behaviour that differs from 6.18
+
+- **Baikal AHCI probe.** Linux 7.2 calls `ahci_validate_bar_size()` after
+  `pcim_iomap()` and before the Baikal SATA PHY setup. It reads `HOST_CAP` and
+  fails the probe with `-ENODEV` if BAR0 is smaller than the reported ports
+  need.
+- **DRM bridge chain.** Linux 7.2's bridge chain iterators hold
+  `encoder->bridge_chain_mutex` and bridge references. The legacy helpers that
+  `0300-gpu-liverpool/0004` restores walk `encoder->bridge_chain` without
+  them, as on 6.18, which had neither. The PS4 bridge is attached once and
+  never removed.
+- **Preemption**, as above.
+
+### Known issues carried from 6.18
+
+- `0500-network-mt7668/0006` makes the proc write handlers use
+  `__copy_from_user()`, which skips `access_ok()`, and makes
+  `procDriverCmdWrite()` copy 2999 bytes whatever the write size. The nodes
+  are root-only (`0664`). It stays unchanged for the first boot; `7.2-ps4`
+  port fix `0172` is the candidate replacement afterwards.
+- On Aeolia, `xhci_hcd_pci_shutdown()` passes the driver's
+  `struct aeolia_xhci` to `usb_hcd_pci_shutdown()`, which expects a
+  `struct usb_hcd`. `7.2-ps4` fixes it with `0174`. Baikal is not affected.
+- The [mt76x8 vendor issues](#known-mt76x8-vendor-issues) below.
+
+### First boot
+
+Boot `6.18-ps4-baikal` first: it checks the firmware-free configuration on the
+kernel version that has run. Then boot this target with the same loader,
+initramfs, firmware and root filesystem, replacing only the kernel and its
+matching modules. Both configs build amdgpu and mt76x8 into the kernel, so
+their firmware must be in the initramfs. The previous boot files are the
+rollback.
+
+### Official builds
+
+Pending: `build.sh -t 7.2-ps4-baikal` on the native and OrbStack paths.
+
 ## Baikal reference audit
 
 rmux's field-tested `baikal/7.0.8-Stable` has 11 commits with no counterpart
@@ -202,6 +328,10 @@ fixed it for Baikal, and the 6.18 target carries that fix
 
 ### Decisions before the first Baikal boot
 
+These apply to `7.2-ps4`. `7.2-ps4-baikal` keeps the 6.18 behaviour: the IOMMU
+stays on with the Baikal functions in an identity domain (`1000-iommu/0003`),
+and the AHCI and xHCI code is 6.18's.
+
 - **AMD IOMMU on Baikal.** The port means to skip IOMMU detection on Baikal,
   but `amd_iommu_detect()` runs from `arch_mm_preinit()`, before PCI
   enumeration, so `ps4_is_baikal()` (a PCI lookup) is false and the IOMMU is
@@ -223,8 +353,7 @@ fixed it for Baikal, and the 6.18 target carries that fix
 ## Known mt76x8 vendor issues
 
 A review of the port fixes found these older problems in the MT7668 vendor
-driver. The 6.18 target carries the same code, and the port does not change
-it:
+driver. All three targets carry the same code, and neither port changes it:
 
 - `procCfgWrite()` (the `cfg` proc node) subtracts the 8-byte `set_cfg `
   prefix from the copy size and writes the terminator at the wrong offset, so

@@ -28,6 +28,10 @@ filters, validation and the maintainer's stated request.
 7.1.7 import on Linux 7.2.11. [PORT-7.2.md](PORT-7.2.md) records how each
 patch differs from its rmux source.
 
+`platforms/ps4/patches/7.2-ps4-baikal/` ports the 6.18 series to Linux 7.2.11.
+Its series references the unchanged 6.18 files in place; the directory holds
+only the patches regenerated for 7.2 and the port fixes.
+
 ## Original frozen import
 
 Imported on 2026-10-16 from:
