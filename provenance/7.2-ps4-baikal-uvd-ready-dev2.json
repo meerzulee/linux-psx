@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "status": "Private untested default-off readiness diagnostic; not hardware acceptance",
+  "target": "7.2-ps4-baikal-uvd-ready-dev2",
+  "release": "7.2.11-psx-ps4-baikal-uvd-ready-dev2",
+  "parent_commit": "f0a2683a698a82769ba3a2041f0e90a4bd37c519",
+  "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
+  "baseline_manifest_sha256": "d715c1503b409a08dffca30608ea1ed243820c427196ce8067d0c5da0fcc2f10",
+  "baseline_archive_sha256": "c4309c1530e42856ea38a7c3e1a04145c74b63ff5da4c53933aa64b45b2fc292",
+  "baseline_input_count": 669,
+  "baseline_active_patches": 64,
+  "active_patches": 65,
+  "guard_patch": "platforms/ps4/patches/7.2-ps4-baikal-uvd-ready-dev2/0003-amdgpu-ps4-uvd-observed-gb-preflight.patch",
+  "guard_patch_sha256": "de76bb34d08b180bb33fa89c19189f5a335309d74a2d8cc871ae3c6c3f25c261",
+  "baseline_ready_c_sha256": "265ee3b70f5806afa608840d7b15b33db995326b4bd8cbf1f258c0eb27ca951a",
+  "expected_ready_c_sha256": "1581085b0ec2fa668cbe0745b02f8286e2cb8851ad237e9b5004e07fc9271d02",
+  "change": "Only GB precondition02011002\u219202011003, matching diagnostic and comment; startup/mappings/timeouts/retention unchanged.",
+  "normal_gfx_writes": "Continue writing adev->gfx.config.gb_addr_config; no literal replacement",
+  "firmware_policy": "No embedded/bundled firmware; no firmware/initramfs reads or changes by this build task",
+  "publication": "Private local commit/build only; no push or release",
+  "native_build": "private-build/native-uvd-ready-dev2.sh uses unmodified f0 make/config/package tail"
+}

@@ -1,0 +1,27 @@
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -271,8 +271,8 @@
+ 	WREG32(mmUVD_SUVD_CGC_GATE, RREG32(mmUVD_SUVD_CGC_GATE) & 0xffffe000U);
+ 	WREG32(mmUVD_VCPU_CNTL, RREG32(mmUVD_VCPU_CNTL) | UVD_VCPU_CNTL__CLK_EN_MASK);
+ 
+-	/* These are address-layout registers, not clock dividers. The historical
+-	 * six equal 0x02011002 words must match the observed GFX layout first.
++	/* Public5/6 UDEC uses the current GFX layout. This observed-driver
++	 * precondition is 0x02011003; the additional MIF trio remains a hypothesis.
+ 	 */
+ 	value = adev->gfx.config.gb_addr_config;
+ 	WREG32(mmUVD_UDEC_DB_ADDR_CONFIG, value);
+@@ -389,11 +389,11 @@
+ 	ps4_ready_retained_pd = pd_addr;
+ 	if (!r1_cpu || backing_size != PS4_READY_BACKING_BYTES ||
+ 	    !pd_addr || (pd_addr & (AMDGPU_GPU_PAGE_SIZE - 1)) ||
+-	    adev->gfx.config.gb_addr_config != 0x02011002 ||
++	    adev->gfx.config.gb_addr_config != 0x02011003 ||
+ 	    adev->mman.buffer_funcs_enabled || adev->accel_working ||
+ 	    amdgpu_in_reset(adev)) {
+ 		dev_err(adev->dev,
+-			"PS4_UVD_READY PREFLIGHT backing_present=%d size=%zx pd=%llx gb_addr_config=%08x expected=02011002 buffer_funcs=%d accel=%d reset=%d\n",
++			"PS4_UVD_READY PREFLIGHT backing_present=%d size=%zx pd=%llx gb_addr_config=%08x expected=02011003 buffer_funcs=%d accel=%d reset=%d\n",
+ 			!!r1_cpu, backing_size, pd_addr, adev->gfx.config.gb_addr_config,
+ 			adev->mman.buffer_funcs_enabled, adev->accel_working,
+ 			amdgpu_in_reset(adev));

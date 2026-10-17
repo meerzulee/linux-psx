@@ -1,0 +1,990 @@
+Subject: [PRIVATE] amdgpu: one-shot PS4 UVD readiness hypothesis
+
+Default off. Retain complete owned VMID4 maps, require exact external firmware,
+keep ring fetch disabled and park after either finite terminal outcome.
+Public UVD5/6 field compatibility is a hypothesis; no decode qualification.
+The external helper has a defensive local continuation for objtool.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -353,3 +353,4 @@
+ 
+ # Private default-off PS4 VMID4 translation diagnostic.
+ amdgpu-y += amdgpu_ps4_map_canary.o
++amdgpu-y += amdgpu_ps4_uvd_ready.o
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: MIT
+ /*
+- * Private PS4 translation diagnostic. This does not initialize UVD or firmware.
++ * Private PS4 translation diagnostic and owned mapping for a separate,
++ * explicitly opted-in UVD readiness probe.
+  *
+  * Explicit boot-time opt-in only, with built-in AMDGPU. VMID4 stays outside
+  * the normal LRU for this boot. A failed enabled diagnostic parks initial
+@@ -14,6 +15,7 @@
+ #include <linux/atomic.h>
+ #include <linux/crc32.h>
+ #include <linux/moduleparam.h>
++#include <linux/mm.h>
+ #include <linux/overflow.h>
+ #include <linux/sizes.h>
+ #include <linux/wait.h>
+@@ -21,6 +23,7 @@
+ 
+ #include "amdgpu.h"
+ #include "amdgpu_ps4_map_canary.h"
++#include "amdgpu_ps4_uvd_ready.h"
+ #include "amdgpu_reset.h"
+ #include "gmc/gmc_7_1_d.h"
+ #include "gmc/gmc_7_1_sh_mask.h"
+@@ -30,6 +33,12 @@
+ #define PS4_CANARY_BYTES 256
+ #define PS4_CANARY_GUARD 0xa5deadc3U
+ #define PS4_CANARY_TIMEOUT msecs_to_jiffies(1000)
++#define PS4_READY_R_BYTES 0x308000ULL
++#define PS4_READY_RB_SLOT 776U
++#define PS4_READY_IB_SLOT 778U
++#define PS4_READY_IB_BYTES 0x20000ULL
++#define PS4_READY_SDMA_SLOT 1021U
++#define PS4_READY_MAPPED_PAGES 812U
+ 
+ static bool ps4_map_canary;
+ module_param_named(ps4_map_canary, ps4_map_canary, bool, 0444);
+@@ -45,15 +54,26 @@
+ 	void *cpu;
+ };
+ 
++struct ps4_canary_page {
++	u64 dma, pte;
++	unsigned long pfn;
++	unsigned int slot;
++};
++
+ struct ps4_canary_state {
+ 	struct amdgpu_device *adev;
+ 	struct ps4_canary_bo pd, pt, src, dst, ib;
++	struct ps4_canary_bo r1, uvd_rb, uvd_ib;
++	struct ps4_canary_page *pages;
++	unsigned int mapped_pages;
+ 	struct dma_fence *fence;
+ 	u64 pd_size, pt_size, pd_index, leaf_index;
++	u64 src_va, dst_va, ib_va;
+ 	u32 expected[PS4_CANARY_BYTES / sizeof(u32)];
+ 	u32 expected_ib[PAGE_SIZE / sizeof(u32)];
+ 	bool submitted;
+ 	bool passed;
++	bool ready_mode;
+ };
+ 
+ /* Retained ownership also makes timeout resources discoverable in a dump. */
+@@ -61,7 +81,8 @@
+ 
+ bool amdgpu_ps4_map_canary_enabled(struct amdgpu_device *adev)
+ {
+-	return ps4_map_canary && IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
++	return (ps4_map_canary || amdgpu_ps4_uvd_ready_enabled(adev)) &&
++		IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
+ 		IS_ENABLED(CONFIG_X86_PS4) &&
+ 		(adev->asic_type == CHIP_LIVERPOOL ||
+ 		 adev->asic_type == CHIP_GLADIUS);
+@@ -70,7 +91,7 @@
+ bool amdgpu_ps4_map_canary_completed(struct amdgpu_device *adev)
+ {
+ 	return ps4_canary_retained && ps4_canary_retained->adev == adev &&
+-		ps4_canary_retained->passed;
++		!ps4_canary_retained->ready_mode && ps4_canary_retained->passed;
+ }
+ 
+ bool amdgpu_ps4_map_canary_reserve(struct amdgpu_device *adev,
+@@ -133,6 +154,8 @@
+ {
+ 	const u64 max_pfn = adev->vm_manager.max_pfn;
+ 	u64 leaf_entries, root_entries, root_bytes;
++	u64 span = s->ready_mode ? SZ_4M : 3 * AMDGPU_GPU_PAGE_SIZE;
++	u64 va_end, end_pfn;
+ 	u32 control, start, end;
+ 	struct amdgpu_vmid_mgr *mgr =
+ 		&adev->vm_manager.id_mgr[AMDGPU_GFXHUB(0)];
+@@ -157,17 +180,21 @@
+ 		leaf_entries;
+ 	s->leaf_index = (PS4_CANARY_VA >> AMDGPU_GPU_PAGE_SHIFT) %
+ 		leaf_entries;
++	if (check_add_overflow(PS4_CANARY_VA, span, &va_end))
++		return -EOVERFLOW;
++	end_pfn = va_end >> AMDGPU_GPU_PAGE_SHIFT;
+ 	if (s->pd_index >= root_entries ||
+-	    s->leaf_index + 3 > leaf_entries ||
+-	    (PS4_CANARY_VA >> AMDGPU_GPU_PAGE_SHIFT) + 3 > max_pfn ||
++	    s->leaf_index + (span >> AMDGPU_GPU_PAGE_SHIFT) > leaf_entries ||
++	    end_pfn > max_pfn ||
+ 	    s->pd_index * sizeof(u64) + sizeof(u64) > s->pd_size ||
+-	    (s->leaf_index + 3) * sizeof(u64) > s->pt_size)
++	    (s->leaf_index + (span >> AMDGPU_GPU_PAGE_SHIFT)) * sizeof(u64) >
++		s->pt_size)
+ 		return -ERANGE;
+ 	/* VMID0 must not be able to pass this canary by a normal aperture alias. */
+ 	if ((PS4_CANARY_VA <= adev->gmc.gart_end &&
+-	     PS4_CANARY_VA + 3 * AMDGPU_GPU_PAGE_SIZE - 1 >= adev->gmc.gart_start) ||
++	     va_end - 1 >= adev->gmc.gart_start) ||
+ 	    (PS4_CANARY_VA <= adev->gmc.vram_end &&
+-	     PS4_CANARY_VA + 3 * AMDGPU_GPU_PAGE_SIZE - 1 >= adev->gmc.vram_start))
++	     va_end - 1 >= adev->gmc.vram_start))
+ 		return -ERANGE;
+ 
+ 	start = RREG32(mmVM_CONTEXT0_PAGE_TABLE_START_ADDR + PS4_CANARY_VMID);
+@@ -228,6 +255,138 @@
+ 	return 0;
+ }
+ 
++static int ps4_canary_vram_range(struct amdgpu_device *adev,
++				 struct ps4_canary_bo *bo, u64 size, u64 *end)
++{
++	if (!bo->bo || !bo->cpu || !bo->bo->tbo.resource ||
++	    !bo->bo->tbo.pin_count || amdgpu_bo_size(bo->bo) != size ||
++	    bo->bo->tbo.resource->mem_type != TTM_PL_VRAM ||
++	    !size || (size & AMDGPU_GPU_PAGE_MASK) ||
++	    (bo->gpu & AMDGPU_GPU_PAGE_MASK) ||
++	    check_add_overflow(bo->gpu, size, end))
++		return -EINVAL;
++	if (bo->gpu < adev->gmc.vram_start || *end - 1 > adev->gmc.vram_end ||
++	    ((*end - 1) & ~(adev->gmc.pte_addr_mask | AMDGPU_GPU_PAGE_MASK)) ||
++	    (bo->gpu & ~adev->gmc.pte_addr_mask))
++		return -ERANGE;
++	return 0;
++}
++
++/* Collect and validate every native GTT page before writing the private PT. */
++static int ps4_canary_add_bo_pages(struct amdgpu_device *adev,
++				   struct ps4_canary_state *s,
++				   struct ps4_canary_bo *bo, u64 bytes,
++				   unsigned int first_slot)
++{
++	struct ttm_tt *ttm;
++	u64 count, flags, required;
++	unsigned int p, j;
++
++	if (!bo->bo || !bo->cpu || !bo->bo->tbo.resource ||
++	    !bo->bo->tbo.pin_count || bo->bo->tbo.type != ttm_bo_type_kernel ||
++	    bo->bo->tbo.resource->mem_type != TTM_PL_TT ||
++	    amdgpu_bo_size(bo->bo) != bytes || !bytes ||
++	    (bytes & AMDGPU_GPU_PAGE_MASK) || !adev->gart.ptr)
++		return -EINVAL;
++	ttm = bo->bo->tbo.ttm;
++	count = bytes >> AMDGPU_GPU_PAGE_SHIFT;
++	if (!ttm || !ttm->dma_address || !ttm->pages ||
++	    (ttm->page_flags & TTM_TT_FLAG_EXTERNAL) ||
++	    !ttm_tt_is_populated(ttm) || count > ttm->num_pages ||
++	    first_slot >= s->pt_size / sizeof(u64) ||
++	    count > s->pt_size / sizeof(u64) - first_slot ||
++	    s->mapped_pages > PS4_READY_MAPPED_PAGES ||
++	    count > PS4_READY_MAPPED_PAGES - s->mapped_pages)
++		return -ERANGE;
++	flags = amdgpu_ttm_tt_pte_flags(adev, ttm, bo->bo->tbo.resource);
++	required = AMDGPU_PTE_VALID | AMDGPU_PTE_SYSTEM |
++		AMDGPU_PTE_READABLE | AMDGPU_PTE_WRITEABLE;
++	if ((flags & required) != required || (flags & adev->gmc.pte_addr_mask))
++		return -EINVAL;
++
++	for (p = 0; p < count; ++p) {
++		struct ps4_canary_page *page = &s->pages[s->mapped_pages];
++		u64 offset, gpu, index, pte_offset, pte, dma;
++		unsigned long pfn;
++		unsigned int slot = first_slot + p;
++
++		if (!ttm->pages[p] ||
++		    check_mul_overflow((u64)p, (u64)AMDGPU_GPU_PAGE_SIZE, &offset) ||
++		    check_add_overflow(bo->gpu, offset, &gpu) ||
++		    gpu < adev->gmc.gart_start || gpu > adev->gmc.gart_end ||
++		    AMDGPU_GPU_PAGE_SIZE - 1 > adev->gmc.gart_end - gpu ||
++		    ((gpu - adev->gmc.gart_start) & AMDGPU_GPU_PAGE_MASK))
++			return -ERANGE;
++		index = (gpu - adev->gmc.gart_start) >> AMDGPU_GPU_PAGE_SHIFT;
++		if (index >= adev->gart.num_gpu_pages ||
++		    check_mul_overflow(index, (u64)sizeof(u64), &pte_offset) ||
++		    pte_offset > adev->gart.table_size ||
++		    sizeof(u64) > adev->gart.table_size - pte_offset)
++			return -ERANGE;
++		dma = ttm->dma_address[p];
++		if (dma & ~adev->gmc.pte_addr_mask)
++			return -ERANGE;
++		pte = readq((void __iomem *)adev->gart.ptr + pte_offset);
++		if (pte != (dma | flags))
++			return -EINVAL;
++		pfn = page_to_pfn(ttm->pages[p]);
++		for (j = 0; j < s->mapped_pages; ++j)
++			if (s->pages[j].slot == slot || s->pages[j].dma == dma ||
++			    s->pages[j].pfn == pfn)
++				return -EINVAL;
++		page->dma = dma;
++		page->pte = pte;
++		page->pfn = pfn;
++		page->slot = slot;
++		++s->mapped_pages;
++	}
++	return 0;
++}
++
++static int ps4_canary_ready_pages(struct amdgpu_device *adev,
++				  struct ps4_canary_state *s, u64 ptes[3])
++{
++	u64 pd_end, pt_end;
++	unsigned int i;
++	int r;
++
++	r = ps4_canary_vram_range(adev, &s->pd, s->pd_size, &pd_end);
++	if (!r)
++		r = ps4_canary_vram_range(adev, &s->pt, s->pt_size, &pt_end);
++	if (r)
++		return r;
++	if (s->pd.bo == s->pt.bo ||
++	    (s->pd.gpu < pt_end && s->pt.gpu < pd_end))
++		return -EINVAL;
++	/* CPU-only metadata is retained on the heap, never a large stack array. */
++	s->pages = kcalloc(PS4_READY_MAPPED_PAGES, sizeof(*s->pages), GFP_KERNEL);
++	if (!s->pages)
++		return -ENOMEM;
++	r = ps4_canary_add_bo_pages(adev, s, &s->r1, PS4_READY_R_BYTES, 0);
++	if (!r)
++		r = ps4_canary_add_bo_pages(adev, s, &s->uvd_rb,
++			AMDGPU_GPU_PAGE_SIZE, PS4_READY_RB_SLOT);
++	if (!r)
++		r = ps4_canary_add_bo_pages(adev, s, &s->uvd_ib,
++			PS4_READY_IB_BYTES, PS4_READY_IB_SLOT);
++	if (!r)
++		r = ps4_canary_add_bo_pages(adev, s, &s->src,
++			AMDGPU_GPU_PAGE_SIZE, PS4_READY_SDMA_SLOT);
++	if (!r)
++		r = ps4_canary_add_bo_pages(adev, s, &s->dst,
++			AMDGPU_GPU_PAGE_SIZE, PS4_READY_SDMA_SLOT + 1);
++	if (!r)
++		r = ps4_canary_add_bo_pages(adev, s, &s->ib,
++			AMDGPU_GPU_PAGE_SIZE, PS4_READY_SDMA_SLOT + 2);
++	if (r)
++		return r;
++	if (s->mapped_pages != PS4_READY_MAPPED_PAGES)
++		return -EINVAL;
++	for (i = 0; i < 3; ++i)
++		ptes[i] = s->pages[s->mapped_pages - 3 + i].pte;
++	return 0;
++}
++
+ void amdgpu_ps4_map_canary_run(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ring *ring = &adev->sdma.instance[0].ring;
+@@ -241,6 +400,8 @@
+ 
+ 	if (!amdgpu_ps4_map_canary_enabled(adev))
+ 		return;
++	if (ps4_map_canary && amdgpu_ps4_uvd_ready_requested())
++		ps4_canary_park(adev, "conflicting-boot-gates", -EINVAL);
+ 	if (atomic_cmpxchg(&ps4_canary_attempted, 0, 1))
+ 		ps4_canary_park(adev, "second-init-refused", -EALREADY);
+ 	dev_info(adev->dev,
+@@ -262,6 +423,11 @@
+ 		ps4_canary_park(adev, "state-allocation", -ENOMEM);
+ 	ps4_canary_retained = s;
+ 	s->adev = adev;
++	s->ready_mode = amdgpu_ps4_uvd_ready_enabled(adev);
++	s->src_va = PS4_CANARY_VA + (s->ready_mode ?
++		(u64)PS4_READY_SDMA_SLOT * AMDGPU_GPU_PAGE_SIZE : 0);
++	s->dst_va = s->src_va + AMDGPU_GPU_PAGE_SIZE;
++	s->ib_va = s->dst_va + AMDGPU_GPU_PAGE_SIZE;
+ 	r = ps4_canary_geometry(adev, s);
+ 	if (r)
+ 		ps4_canary_park(adev, "geometry", r);
+@@ -274,17 +440,30 @@
+ 		r = ps4_canary_alloc(adev, &s->dst, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
+ 	if (!r)
+ 		r = ps4_canary_alloc(adev, &s->ib, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
++	if (!r && s->ready_mode)
++		r = ps4_canary_alloc(adev, &s->r1, PS4_READY_R_BYTES,
++			AMDGPU_GEM_DOMAIN_GTT);
++	if (!r && s->ready_mode)
++		r = ps4_canary_alloc(adev, &s->uvd_rb, PAGE_SIZE,
++			AMDGPU_GEM_DOMAIN_GTT);
++	if (!r && s->ready_mode)
++		r = ps4_canary_alloc(adev, &s->uvd_ib, PS4_READY_IB_BYTES,
++			AMDGPU_GEM_DOMAIN_GTT);
+ 	if (r)
+ 		ps4_canary_park(adev, "bo-allocation", r);
+ 
+ 	/* Avoid calling GMC7's BUG_ON-based PDE helper with unchecked addresses. */
+ 	if ((s->pd.gpu | s->pt.gpu) & ~adev->gmc.pte_addr_mask)
+ 		ps4_canary_park(adev, "table-address-domain", -ERANGE);
+-	r = ps4_canary_leaf_pte(adev, &s->src, &ptes[0]);
+-	if (!r)
+-		r = ps4_canary_leaf_pte(adev, &s->dst, &ptes[1]);
+-	if (!r)
+-		r = ps4_canary_leaf_pte(adev, &s->ib, &ptes[2]);
++	if (s->ready_mode) {
++		r = ps4_canary_ready_pages(adev, s, ptes);
++	} else {
++		r = ps4_canary_leaf_pte(adev, &s->src, &ptes[0]);
++		if (!r)
++			r = ps4_canary_leaf_pte(adev, &s->dst, &ptes[1]);
++		if (!r)
++			r = ps4_canary_leaf_pte(adev, &s->ib, &ptes[2]);
++	}
+ 	if (r)
+ 		ps4_canary_park(adev, "owned-gart-pte", r);
+ 	if (!((ptes[0] ^ ptes[1]) & adev->gmc.pte_addr_mask) ||
+@@ -299,9 +478,21 @@
+ 	if (!(pt_flags & AMDGPU_PTE_VALID) || (pt_flags & AMDGPU_PTE_SYSTEM))
+ 		ps4_canary_park(adev, "vram-pde", -EINVAL);
+ 	amdgpu_gmc_set_pte_pde(adev, s->pd.cpu, s->pd_index, pt_addr, pt_flags);
+-	for (i = 0; i < ARRAY_SIZE(ptes); ++i)
+-		writeq(ptes[i], (void __iomem *)s->pt.cpu +
+-		       (s->leaf_index + i) * sizeof(u64));
++	if (s->ready_mode) {
++		for (i = 0; i < s->mapped_pages; ++i)
++			writeq(s->pages[i].pte, (void __iomem *)s->pt.cpu +
++			       s->pages[i].slot * sizeof(u64));
++		memset(s->r1.cpu, 0, PS4_READY_R_BYTES);
++		memset(s->uvd_rb.cpu, 0, PAGE_SIZE);
++		memset(s->uvd_ib.cpu, 0, PS4_READY_IB_BYTES);
++		dev_info(adev->dev,
++			 "PS4_MAP_CANARY READY_LAYOUT pages=%u guards=777,810..1020 sdma_slots=1021..1023 all_dma_pfn_unique=1\n",
++			 s->mapped_pages);
++	} else {
++		for (i = 0; i < ARRAY_SIZE(ptes); ++i)
++			writeq(ptes[i], (void __iomem *)s->pt.cpu +
++			       (s->leaf_index + i) * sizeof(u64));
++	}
+ 
+ 	src = s->src.cpu;
+ 	dst = s->dst.cpu;
+@@ -322,9 +513,9 @@
+ 	job->vm_needs_flush = true;
+ 	/* Owned BO, no SA allocation: submit_direct job_free cannot release it. */
+ 	job->ibs[0].ptr = s->ib.cpu;
+-	job->ibs[0].gpu_addr = PS4_CANARY_VA + 2 * AMDGPU_GPU_PAGE_SIZE;
+-	adev->mman.buffer_funcs->emit_copy_buffer(&job->ibs[0], PS4_CANARY_VA,
+-		PS4_CANARY_VA + AMDGPU_GPU_PAGE_SIZE, PS4_CANARY_BYTES, 0);
++	job->ibs[0].gpu_addr = s->ib_va;
++	adev->mman.buffer_funcs->emit_copy_buffer(&job->ibs[0], s->src_va,
++		s->dst_va, PS4_CANARY_BYTES, 0);
+ 	amdgpu_ring_pad_ib(ring, &job->ibs[0]);
+ 	if (!job->ibs[0].length_dw || job->ibs[0].length_dw > PAGE_SIZE / sizeof(u32))
+ 		ps4_canary_park(adev, "ib-bounds", -ERANGE);
+@@ -362,6 +553,23 @@
+ 		if (dst[i] != PS4_CANARY_GUARD || src[i] != PS4_CANARY_GUARD)
+ 			ps4_canary_park(adev, "guard-readback", -EILSEQ);
+ 	crc = crc32_le(~0U, (u8 *)dst, PS4_CANARY_BYTES) ^ ~0U;
++	if (s->ready_mode) {
++		r = ps4_canary_exclusive_init(adev);
++		if (r)
++			ps4_canary_park(adev, "pre-ready-exclusive-init", r);
++		dev_info(adev->dev,
++			 "PS4_MAP_CANARY PRECHECK_PASS vmid=4 src_va=0x%llx dst_va=0x%llx ib_va=0x%llx bytes=%u crc32=%08x retained=1; entering ready probe\n",
++			 s->src_va, s->dst_va, s->ib_va, PS4_CANARY_BYTES, crc);
++		/* No PTE changes after precheck. The ready stage owns firmware data
++		 * publication before release and never returns or frees our BOs.
++		 */
++		amdgpu_ps4_uvd_ready_run(adev, s->r1.cpu,
++			(size_t)PS4_READY_R_BYTES, amdgpu_gmc_pd_addr(s->pd.bo));
++		/* Defensive local terminal path also gives object-only objtool a
++		 * valid continuation for the external readiness helper call.
++		 */
++		ps4_canary_park(adev, "ready-stage-returned", -EIO);
++	}
+ 	s->passed = true;
+ 	dev_info(adev->dev,
+ 		 "PS4_MAP_CANARY PASS vmid=4 bytes=%u exact_words=%zu crc32=%08x first=%08x last=%08x guards=ok retained_until_poweroff=1 UVD=off\n",
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+@@ -10,6 +10,9 @@
+ bool amdgpu_ps4_map_canary_completed(struct amdgpu_device *adev);
+ bool amdgpu_ps4_map_canary_reserve(struct amdgpu_device *adev,
+ 				 unsigned int vmhub, unsigned int vmid);
++/* Returns only for gate-off or the original copy-only mode's valid PASS.
++ * The separate readiness mode retains the complete mapping and never returns.
++ */
+ void amdgpu_ps4_map_canary_run(struct amdgpu_device *adev);
+ 
+ #endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -0,0 +1,514 @@
++// SPDX-License-Identifier: MIT
++/*
++ * Private, boot-only Liverpool UVD VCPU readiness hypothesis. Not a decoder.
++ *
++ * Public source comparison: Linux a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea,
++ * uvd_v5_0.c:uvd_v5_0_start/uvd_v5_0_mc_resume and uvd_v6_0.c:mc_resume,
++ * uvd_5_0_{d,sh_mask}.h. Register compatibility with Liverpool is an explicit
++ * experiment, not established by the matching public names. Historical layout:
++ * public linux-ps4-kernel 0cbe1644c38bf2030f74526b6670490271b89716,
++ * active 0034..0060. Its four untyped local addresses are deliberately omitted.
++ *
++ * This runs only after the separate owned-VMID4 SDMA copy precheck. No normal
++ * UVD IP registration, ring submission, retries, idle worker or return to TTM
++ * clients exists. Both outcomes park without releasing firmware or mapped BOs.
++ * Ready does not prove DMA quiescence, decoding or a safe shutdown procedure.
++ */
++#include <linux/atomic.h>
++#include <linux/crc32.h>
++#include <linux/delay.h>
++#include <linux/firmware.h>
++#include <linux/ktime.h>
++#include <linux/moduleparam.h>
++#include <linux/math64.h>
++#include <linux/unaligned.h>
++#include <linux/wait.h>
++
++#include "amdgpu.h"
++#include "amdgpu_ps4_uvd_ready.h"
++#include "amdgpu_reset.h"
++#include "atom.h"
++#include "atombios.h"
++#include "uvd/uvd_5_0_d.h"
++#include "uvd/uvd_5_0_sh_mask.h"
++#include "oss/oss_2_0_d.h"
++#include "oss/oss_2_0_sh_mask.h"
++#include "gmc/gmc_7_1_d.h"
++
++#define PS4_READY_FW "amdgpu/liverpool_uvd.bin"
++#define PS4_READY_FW_BYTES 314168U
++#define PS4_READY_PAYLOAD_BYTES 313912U
++#define PS4_READY_PAYLOAD_OFFSET 256U
++#define PS4_READY_FW_VERSION 0x012a6509U
++#define PS4_READY_PAYLOAD_CRC 0xa465ba07U
++#define PS4_READY_R1_BYTES 0x1e0000U
++#define PS4_READY_BACKING_BYTES 0x308000U
++#define PS4_READY_VCPU_VA 0x300000000ULL
++#define PS4_READY_RB_VA 0x300308000ULL
++#define PS4_READY_IB_VA 0x30030a000ULL
++#define PS4_READY_BIT 2U /* VCPU_REPORT convention used by public v5/v6 start */
++#define PS4_READY_LIMIT_NS (2ULL * NSEC_PER_SEC)
++#define PS4_READY_HOLD (UVD_SOFT_RESET__LMI_SOFT_RESET_MASK | \
++	UVD_SOFT_RESET__VCPU_SOFT_RESET_MASK | \
++	UVD_SOFT_RESET__RBC_SOFT_RESET_MASK | \
++	UVD_SOFT_RESET__LMI_UMC_SOFT_RESET_MASK)
++
++static bool ps4_uvd_ready;
++module_param_named(ps4_uvd_ready, ps4_uvd_ready, bool, 0444);
++MODULE_PARM_DESC(ps4_uvd_ready,
++	"Private one-shot PS4 UVD VCPU readiness probe; always parks boot (default 0)");
++
++static atomic_t ps4_ready_attempted = ATOMIC_INIT(0);
++static DECLARE_WAIT_QUEUE_HEAD(ps4_ready_park_queue);
++/* Deliberately retained, including all failure paths. No teardown API exists. */
++static const struct firmware *ps4_ready_firmware;
++static void *ps4_ready_retained_cpu;
++static u64 ps4_ready_retained_pd;
++
++bool amdgpu_ps4_uvd_ready_requested(void)
++{
++	return ps4_uvd_ready;
++}
++
++bool amdgpu_ps4_uvd_ready_enabled(struct amdgpu_device *adev)
++{
++	return ps4_uvd_ready && IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
++		IS_ENABLED(CONFIG_X86_PS4) &&
++		(adev->asic_type == CHIP_LIVERPOOL ||
++		 adev->asic_type == CHIP_GLADIUS);
++}
++
++static __noreturn void ps4_ready_park(struct amdgpu_device *adev,
++				    const char *result, int error)
++{
++	dev_err(adev->dev,
++		"PS4_UVD_READY RESULT=%s error=%d PARKED retained; full poweroff required, no retry/reset/cleanup\n",
++		result, error);
++	for (;;)
++		wait_event_idle(ps4_ready_park_queue, false);
++}
++
++/* Pure bounds/header/CRC validation, also exercised by synthetic host fixtures.
++ * No firmware header is trusted before the 32-byte common header is bounded.
++ * The staged exact-file hash is an operator/package contract, not a substitute
++ * for runtime validation. No other ASIC image or differently sized member fits.
++ */
++static int ps4_ready_validate_firmware(const u8 *data, size_t size,
++				     u32 *payload_crc)
++{
++	u32 offset, bytes, crc;
++
++	if (!data || !payload_crc || size != PS4_READY_FW_BYTES || size < 32)
++		return -EINVAL;
++	if (get_unaligned_le32(data) != size ||
++	    get_unaligned_le32(data + 4) != 32 ||
++	    get_unaligned_le16(data + 8) != 1 ||
++	    get_unaligned_le16(data + 10) != 0 ||
++	    get_unaligned_le16(data + 12) != 4 ||
++	    get_unaligned_le16(data + 14) != 2 ||
++	    get_unaligned_le32(data + 16) != PS4_READY_FW_VERSION)
++		return -EINVAL;
++	offset = get_unaligned_le32(data + 24);
++	bytes = get_unaligned_le32(data + 20);
++	if (offset != PS4_READY_PAYLOAD_OFFSET ||
++	    bytes != PS4_READY_PAYLOAD_BYTES || offset > size ||
++	    bytes > size - offset || bytes > PS4_READY_R1_BYTES ||
++	    bytes > 0x7d000U || offset + bytes != size)
++		return -ERANGE;
++	crc = crc32_le(~0U, data + offset, bytes) ^ ~0U;
++	if (crc != get_unaligned_le32(data + 28) ||
++	    crc != PS4_READY_PAYLOAD_CRC)
++		return -EBADMSG;
++	*payload_crc = crc;
++	return 0;
++}
++
++/* Bounded counterpart of atom.c:amdgpu_atom_parse_cmd_header. This validates
++ * the existing command table only; it does not execute Atom a second time.
++ * amdgpu_atombios_get_clock_dividers supplies post_divider only for crev4/6.
++ * The normal Atom interpreter remains responsible for executing its bytecode.
++ */
++static int ps4_ready_validate_atom_table(const u8 *bios, size_t size,
++				       u32 master, u32 index)
++{
++	u32 slot, table, length;
++
++	if (!bios || master > size || size - master < 4 ||
++	    index > (U32_MAX - 4) / 2)
++		return -EINVAL;
++	slot = 4 + index * 2;
++	length = get_unaligned_le16(bios + master);
++	if (length < 4 || length > size - master ||
++	    slot > length || length - slot < 2)
++		return -ERANGE;
++	table = get_unaligned_le16(bios + master + slot);
++	if (!table || table > size || size - table < ATOM_CT_CODE_PTR)
++		return -ERANGE;
++	length = get_unaligned_le16(bios + table);
++	if (length <= ATOM_CT_CODE_PTR || length > size - table)
++		return -ERANGE;
++	if (bios[table + 3] != 4 && bios[table + 3] != 6)
++		return -EOPNOTSUPP;
++	return 0;
++}
++
++static int ps4_ready_clock_preflight(struct amdgpu_device *adev)
++{
++	struct atom_context *ctx = adev->mode_info.atom_context;
++	int index = GetIndexIntoMasterTable(COMMAND, ComputeMemoryEnginePLL);
++
++	if (!adev->asic_funcs || !adev->asic_funcs->set_uvd_clocks ||
++	    !adev->reg.smc.rreg || !adev->reg.smc.wreg ||
++	    !adev->reg.uvd_ctx.rreg || !adev->reg.uvd_ctx.wreg ||
++	    !adev->bios || !ctx || ctx->bios != adev->bios || !ctx->card ||
++	    !ctx->card->reg_read || !ctx->card->reg_write ||
++	    !ctx->card->mc_read || !ctx->card->mc_write ||
++	    !ctx->card->pll_read || !ctx->card->pll_write || !ctx->iio)
++		return -EINVAL;
++	return ps4_ready_validate_atom_table(adev->bios, adev->bios_size,
++					     ctx->cmd_table, index);
++}
++
++/* Preserve the indexed selector, including across read/modify/write. */
++static u32 ps4_ready_ctx(struct amdgpu_device *adev, u32 index,
++			u32 preserve, u32 bits, bool write)
++{
++	unsigned long flags;
++	u32 saved, value;
++
++	spin_lock_irqsave(&adev->reg.uvd_ctx.lock, flags);
++	saved = RREG32(mmUVD_CTX_INDEX);
++	WREG32(mmUVD_CTX_INDEX, index);
++	value = RREG32(mmUVD_CTX_DATA);
++	if (write) {
++		value = (value & preserve) | bits;
++		WREG32(mmUVD_CTX_DATA, value);
++	}
++	WREG32(mmUVD_CTX_INDEX, saved);
++	spin_unlock_irqrestore(&adev->reg.uvd_ctx.lock, flags);
++	return value;
++}
++
++static void ps4_ready_snapshot(struct amdgpu_device *adev, const char *phase)
++{
++	dev_info(adev->dev,
++		"PS4_UVD_READY SNAP %s status=%08x reset=%08x lmi2=%08x int=%08x vcpu=%08x rbc=%08x\n",
++		phase, RREG32(mmUVD_STATUS), RREG32(mmUVD_SOFT_RESET),
++		RREG32(mmUVD_LMI_CTRL2), RREG32(mmUVD_MASTINT_EN),
++		RREG32(mmUVD_VCPU_CNTL), RREG32(mmUVD_RBC_RB_CNTL));
++	dev_info(adev->dev,
++		"PS4_UVD_READY VMID %s int=%08x int2=%08x int3=%08x cache=%08x rb=%08x ib=%08x\n",
++		phase, ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0, 0, false),
++		ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL2, 0, 0, false),
++		ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL3, 0, 0, false),
++		ps4_ready_ctx(adev, ixUVD_LMI_CACHE_CTRL, 0, 0, false),
++		RREG32(mmUVD_LMI_RBC_RB_VMID), RREG32(mmUVD_LMI_RBC_IB_VMID));
++	dev_info(adev->dev,
++		"PS4_UVD_READY BAR %s vcpu=%08x:%08x rb=%08x:%08x ib=%08x:%08x ib_size=%08x\n",
++		phase, RREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_HIGH),
++		RREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_LOW),
++		RREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_HIGH),
++		RREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_LOW),
++		RREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_HIGH),
++		RREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_LOW), RREG32(mmUVD_RBC_IB_SIZE));
++	dev_info(adev->dev,
++		"PS4_UVD_READY CACHE %s off_size=%08x/%08x,%08x/%08x,%08x/%08x rp=%08x wp=%08x\n",
++		phase, RREG32(mmUVD_VCPU_CACHE_OFFSET0), RREG32(mmUVD_VCPU_CACHE_SIZE0),
++		RREG32(mmUVD_VCPU_CACHE_OFFSET1), RREG32(mmUVD_VCPU_CACHE_SIZE1),
++		RREG32(mmUVD_VCPU_CACHE_OFFSET2), RREG32(mmUVD_VCPU_CACHE_SIZE2),
++		RREG32(mmUVD_RBC_RB_RPTR), RREG32(mmUVD_RBC_RB_WPTR));
++}
++
++static bool ps4_ready_fetch_guard(struct amdgpu_device *adev)
++{
++	u32 rbc = RREG32(mmUVD_RBC_RB_CNTL);
++	u32 required = UVD_RBC_RB_CNTL__RB_NO_FETCH_MASK |
++		UVD_RBC_RB_CNTL__RB_NO_UPDATE_MASK;
++
++	return (rbc & required) == required &&
++		!(RREG32(mmUVD_MASTINT_EN) &
++		  (UVD_MASTINT_EN__VCPU_EN_MASK | UVD_MASTINT_EN__SYS_EN_MASK)) &&
++		RREG32(mmUVD_RBC_IB_SIZE) == 0 &&
++		RREG32(mmUVD_RBC_RB_WPTR) == 0 && RREG32(mmUVD_RBC_RB_RPTR) == 0;
++}
++
++static int ps4_ready_setup_held(struct amdgpu_device *adev)
++{
++	u32 value;
++	int r;
++
++	/* v5 start ordering: mask, stall, initial held reset, scoped SRBM release.
++	 * RBC is initially held; its one initial release keeps NO_FETCH set.
++	 */
++	WREG32(mmUVD_MASTINT_EN, RREG32(mmUVD_MASTINT_EN) &
++		~(UVD_MASTINT_EN__VCPU_EN_MASK | UVD_MASTINT_EN__SYS_EN_MASK));
++	WREG32(mmUVD_LMI_CTRL2, RREG32(mmUVD_LMI_CTRL2) |
++		UVD_LMI_CTRL2__STALL_ARB_UMC_MASK);
++	mdelay(1);
++	WREG32(mmUVD_SOFT_RESET, RREG32(mmUVD_SOFT_RESET) | PS4_READY_HOLD);
++	mdelay(5);
++	WREG32(mmSRBM_SOFT_RESET, RREG32(mmSRBM_SOFT_RESET) &
++		~SRBM_SOFT_RESET__SOFT_RESET_UVD_MASK);
++	mdelay(5);
++	/* Establish the held/reset claim BEFORE a clock may change partially. */
++	if ((RREG32(mmUVD_SOFT_RESET) & PS4_READY_HOLD) != PS4_READY_HOLD ||
++	    !(RREG32(mmUVD_LMI_CTRL2) & UVD_LMI_CTRL2__STALL_ARB_UMC_MASK) ||
++	    (RREG32(mmUVD_MASTINT_EN) &
++	     (UVD_MASTINT_EN__VCPU_EN_MASK | UVD_MASTINT_EN__SYS_EN_MASK)))
++		return -EIO;
++
++	/* Public uvd_v5_0_hw_init policy; one callback, VCLK then DCLK.
++	 * cik.c rejects an unrepresentable divider BEFORE that control write.
++	 * A DCLK failure may follow a successful VCLK write: caller parks held.
++	 */
++	r = amdgpu_asic_set_uvd_clocks(adev, 10000, 10000);
++	if (r)
++		return r;
++
++	WREG32(mmUVD_CGC_CTRL, RREG32(mmUVD_CGC_CTRL) &
++		~UVD_CGC_CTRL__DYN_CLOCK_MODE_MASK);
++	WREG32(mmUVD_CGC_GATE, RREG32(mmUVD_CGC_GATE) & 0xfff00008U);
++	WREG32(mmUVD_SUVD_CGC_GATE, RREG32(mmUVD_SUVD_CGC_GATE) & 0xffffe000U);
++	WREG32(mmUVD_VCPU_CNTL, RREG32(mmUVD_VCPU_CNTL) | UVD_VCPU_CNTL__CLK_EN_MASK);
++
++	/* These are address-layout registers, not clock dividers. The historical
++	 * six equal 0x02011002 words must match the observed GFX layout first.
++	 */
++	value = adev->gfx.config.gb_addr_config;
++	WREG32(mmUVD_UDEC_DB_ADDR_CONFIG, value);
++	WREG32(mmUVD_UDEC_DBW_ADDR_CONFIG, value);
++	WREG32(mmUVD_UDEC_ADDR_CONFIG, value);
++	WREG32(mmUVD_MIF_CURR_ADDR_CONFIG, value);
++	WREG32(mmUVD_MIF_RECON1_ADDR_CONFIG, value);
++	WREG32(mmUVD_MIF_REF_ADDR_CONFIG, value);
++	WREG32(mmUVD_LMI_SWAP_CNTL, 0);
++	WREG32(mmUVD_MP_SWAP_CNTL, 0);
++	/* Historical 0x203108, using public field meanings where defined. */
++	value = 8 | UVD_LMI_CTRL__WRITE_CLEAN_TIMER_EN_MASK |
++		UVD_LMI_CTRL__MASK_MC_URGENT_MASK |
++		UVD_LMI_CTRL__DATA_COHERENCY_EN_MASK |
++		UVD_LMI_CTRL__VCPU_DATA_COHERENCY_EN_MASK;
++	WREG32(mmUVD_LMI_CTRL, value);
++	WREG32(mmUVD_MPC_CNTL, 0x10);
++	WREG32(mmUVD_MPC_SET_MUXA0, 0x040c2040);
++	WREG32(mmUVD_MPC_SET_MUXA1, 0);
++	WREG32(mmUVD_MPC_SET_MUXB0, 0x040c2040);
++	WREG32(mmUVD_MPC_SET_MUXB1, 0);
++	WREG32(mmUVD_MPC_SET_ALU, 0);
++	WREG32(mmUVD_MPC_SET_MUX, 0x88);
++
++	/* Public5/6 requester fields; JPEG/reserved high fields stay unchanged. */
++	ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0xff000000, 0x00444444, true);
++	ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL2, 0, 0x44444444, true);
++	ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL3, 0xffff0000, 0x4444, true);
++	WREG32(mmUVD_LMI_RBC_RB_VMID, 4);
++	WREG32(mmUVD_LMI_RBC_IB_VMID, 4);
++
++	WREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_LOW, lower_32_bits(PS4_READY_VCPU_VA));
++	WREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_HIGH, upper_32_bits(PS4_READY_VCPU_VA));
++	WREG32(mmUVD_LMI_ADDR_EXT, 0);
++	WREG32(mmUVD_LMI_EXT40_ADDR, 0);
++	/* v5/v6 mc_resume: relative offset in eight-byte units; SIZE is BYTES.
++	 * [0,7d000), [7d000,bd000), [bd000,1dd800) all fit the owned R1 BO.
++	 */
++	WREG32(mmUVD_VCPU_CACHE_OFFSET0, 0);
++	WREG32(mmUVD_VCPU_CACHE_SIZE0, 0x7d000);
++	WREG32(mmUVD_VCPU_CACHE_OFFSET1, 0xfa00);
++	WREG32(mmUVD_VCPU_CACHE_SIZE1, 0x40000);
++	WREG32(mmUVD_VCPU_CACHE_OFFSET2, 0x17a00);
++	WREG32(mmUVD_VCPU_CACHE_SIZE2, 0x120800);
++
++	value = 0;
++	value = REG_SET_FIELD(value, UVD_RBC_RB_CNTL, RB_BUFSZ, 12); /* 4KiB */
++	value = REG_SET_FIELD(value, UVD_RBC_RB_CNTL, RB_BLKSZ, 8);
++	value = REG_SET_FIELD(value, UVD_RBC_RB_CNTL, RB_NO_FETCH, 1);
++	value = REG_SET_FIELD(value, UVD_RBC_RB_CNTL, RB_NO_UPDATE, 1);
++	value = REG_SET_FIELD(value, UVD_RBC_RB_CNTL, RB_RPTR_WR_EN, 1);
++	WREG32(mmUVD_RBC_RB_CNTL, value);
++	WREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_LOW, lower_32_bits(PS4_READY_RB_VA));
++	WREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_HIGH, upper_32_bits(PS4_READY_RB_VA));
++	WREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_LOW, lower_32_bits(PS4_READY_IB_VA));
++	WREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_HIGH, upper_32_bits(PS4_READY_IB_VA));
++	WREG32(mmUVD_RBC_IB_SIZE, 0);
++	WREG32(mmUVD_RBC_RB_WPTR, 0);
++	WREG32(mmUVD_RBC_RB_RPTR, 0);
++	ps4_ready_ctx(adev, ixUVD_LMI_CACHE_CTRL,
++		~UVD_LMI_CACHE_CTRL__VCPU_EN_MASK, 0, true);
++	WREG32(mmUVD_VCPU_CNTL, RREG32(mmUVD_VCPU_CNTL) &
++		~UVD_VCPU_CNTL__TIMEOUT_DIS_MASK);
++	return 0;
++}
++
++/* Checked before the initial RBC release/UMC unstall. A field mismatch is a
++ * failed compatibility hypothesis, never a reason to try alternative MMIO.
++ */
++static bool ps4_ready_programmed(struct amdgpu_device *adev)
++{
++	return (ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0, 0, false) &
++		0x00ffffff) == 0x00444444 &&
++		ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL2, 0, 0, false) == 0x44444444 &&
++		(ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL3, 0, 0, false) &
++		0xffff) == 0x4444 &&
++		!(ps4_ready_ctx(adev, ixUVD_LMI_CACHE_CTRL, 0, 0, false) &
++		  UVD_LMI_CACHE_CTRL__VCPU_EN_MASK) &&
++		RREG32(mmUVD_LMI_RBC_RB_VMID) == 4 &&
++		RREG32(mmUVD_LMI_RBC_IB_VMID) == 4 &&
++		RREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_LOW) == lower_32_bits(PS4_READY_VCPU_VA) &&
++		RREG32(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_HIGH) == upper_32_bits(PS4_READY_VCPU_VA) &&
++		RREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_LOW) == lower_32_bits(PS4_READY_RB_VA) &&
++		RREG32(mmUVD_LMI_RBC_RB_64BIT_BAR_HIGH) == upper_32_bits(PS4_READY_RB_VA) &&
++		RREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_LOW) == lower_32_bits(PS4_READY_IB_VA) &&
++		RREG32(mmUVD_LMI_RBC_IB_64BIT_BAR_HIGH) == upper_32_bits(PS4_READY_IB_VA) &&
++		RREG32(mmUVD_VCPU_CACHE_OFFSET0) == 0 &&
++		RREG32(mmUVD_VCPU_CACHE_SIZE0) == 0x7d000 &&
++		RREG32(mmUVD_VCPU_CACHE_OFFSET1) == 0xfa00 &&
++		RREG32(mmUVD_VCPU_CACHE_SIZE1) == 0x40000 &&
++		RREG32(mmUVD_VCPU_CACHE_OFFSET2) == 0x17a00 &&
++		RREG32(mmUVD_VCPU_CACHE_SIZE2) == 0x120800 &&
++		RREG32(mmUVD_RBC_IB_SIZE) == 0 &&
++		RREG32(mmUVD_RBC_RB_WPTR) == 0 && RREG32(mmUVD_RBC_RB_RPTR) == 0 &&
++		(RREG32(mmUVD_RBC_RB_CNTL) &
++		 (UVD_RBC_RB_CNTL__RB_NO_FETCH_MASK | UVD_RBC_RB_CNTL__RB_NO_UPDATE_MASK)) ==
++		(UVD_RBC_RB_CNTL__RB_NO_FETCH_MASK | UVD_RBC_RB_CNTL__RB_NO_UPDATE_MASK);
++}
++
++__noreturn void amdgpu_ps4_uvd_ready_run(struct amdgpu_device *adev,
++				      void *r1_cpu, size_t backing_size,
++				      u64 pd_addr)
++{
++	u64 started, elapsed;
++	u32 crc, baseline_fault, fault, status;
++	const u32 remaining_hold = PS4_READY_HOLD &
++		~UVD_SOFT_RESET__RBC_SOFT_RESET_MASK;
++	int r, reset_count;
++
++	if (!amdgpu_ps4_uvd_ready_enabled(adev) ||
++	    atomic_xchg(&ps4_ready_attempted, 1))
++		ps4_ready_park(adev, "GATE_OR_REENTRY", -EPERM);
++	ps4_ready_retained_cpu = r1_cpu;
++	ps4_ready_retained_pd = pd_addr;
++	if (!r1_cpu || backing_size != PS4_READY_BACKING_BYTES ||
++	    !pd_addr || (pd_addr & (AMDGPU_GPU_PAGE_SIZE - 1)) ||
++	    adev->gfx.config.gb_addr_config != 0x02011002 ||
++	    adev->mman.buffer_funcs_enabled || adev->accel_working ||
++	    amdgpu_in_reset(adev)) {
++		dev_err(adev->dev,
++			"PS4_UVD_READY PREFLIGHT backing_present=%d size=%zx pd=%llx gb_addr_config=%08x expected=02011002 buffer_funcs=%d accel=%d reset=%d\n",
++			!!r1_cpu, backing_size, pd_addr, adev->gfx.config.gb_addr_config,
++			adev->mman.buffer_funcs_enabled, adev->accel_working,
++			amdgpu_in_reset(adev));
++		ps4_ready_park(adev, "PREFLIGHT", -EINVAL);
++	}
++	r = ps4_ready_clock_preflight(adev);
++	if (r)
++		ps4_ready_park(adev, "ATOM_PREFLIGHT", r);
++	/* No userspace helper or alternate filename; this must be in initramfs. */
++	r = request_firmware_direct(&ps4_ready_firmware, PS4_READY_FW, adev->dev);
++	if (r)
++		ps4_ready_park(adev, "FIRMWARE_REQUEST", r);
++	r = ps4_ready_validate_firmware(ps4_ready_firmware->data,
++					ps4_ready_firmware->size, &crc);
++	if (r)
++		ps4_ready_park(adev, "FIRMWARE_HEADER_CRC", r);
++	memset(r1_cpu, 0, backing_size);
++	memcpy(r1_cpu, ps4_ready_firmware->data + PS4_READY_PAYLOAD_OFFSET,
++	       PS4_READY_PAYLOAD_BYTES);
++	mb();
++	amdgpu_device_flush_hdp(adev, NULL);
++
++	dev_info(adev->dev,
++		"PS4_UVD_READY BEGIN hypothesis=public5/6 vmid=4 pd=%llx backing=%zx payload=%u crc=%08x clocks=10000/10000; SDMA precheck is not UVD evidence\n",
++		pd_addr, backing_size, PS4_READY_PAYLOAD_BYTES, crc);
++	/* GMC7 has no global monotonic fault counter for this PASID0/vm=NULL
++	 * probe: its cached fault_info is updated only for registered VMs. Reading
++	 * status cannot detect an IRQ-acknowledged transient. UART remains needed.
++	 */
++	dev_warn(adev->dev,
++		"PS4_UVD_READY FAULT_COVERAGE no usable global VM-fault counter; read-only status samples may miss IRQ-acknowledged faults\n");
++	baseline_fault = RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS);
++	reset_count = atomic_read(&adev->gpu_reset_counter);
++	dev_info(adev->dev, "PS4_UVD_READY FAULT_BASE status=%08x addr=%08x reset_count=%d\n",
++		baseline_fault, RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_ADDR), reset_count);
++	if (baseline_fault || reset_count || (RREG32(mmUVD_STATUS) & PS4_READY_BIT))
++		ps4_ready_park(adev, "BASELINE_NOT_CLEAN", -EBUSY);
++	ps4_ready_snapshot(adev, "before");
++	r = ps4_ready_setup_held(adev);
++	if (r) {
++		ps4_ready_snapshot(adev, "initial_setup_failure");
++		ps4_ready_park(adev, "INITIAL_SETUP_PARK", r);
++	}
++	ps4_ready_snapshot(adev, "held");
++	status = RREG32(mmUVD_STATUS);
++	if (!ps4_ready_programmed(adev) || !ps4_ready_fetch_guard(adev) ||
++	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
++	    atomic_read(&adev->gpu_reset_counter) != reset_count ||
++	    amdgpu_in_reset(adev) || (status & PS4_READY_BIT) ||
++	    (RREG32(mmUVD_SOFT_RESET) & PS4_READY_HOLD) != PS4_READY_HOLD ||
++	    !(RREG32(mmUVD_LMI_CTRL2) & UVD_LMI_CTRL2__STALL_ARB_UMC_MASK) ||
++	    !(RREG32(mmUVD_RBC_RB_CNTL) & UVD_RBC_RB_CNTL__RB_NO_FETCH_MASK) ||
++	    (RREG32(mmUVD_MASTINT_EN) &
++	     (UVD_MASTINT_EN__VCPU_EN_MASK | UVD_MASTINT_EN__SYS_EN_MASK)))
++		ps4_ready_park(adev, "HELD_BASELINE", -EINVAL);
++
++	/* Last CPU publication before the earliest potential memory fetch.
++	 * No reset, register reinitialization or cleanup occurs after this point.
++	 * LMI/VCPU/UMC release order is the public historical initial sequence;
++	 * RBC is released once while the remaining blocks stay held, matching the
++	 * public initial-start dependency. NO_FETCH/NO_UPDATE remain set, IB size
++	 * and pointers remain zero; no packet or pointer advance is submitted.
++	 */
++	mb();
++	amdgpu_device_flush_hdp(adev, NULL);
++	started = ktime_get_ns();
++	WREG32(mmUVD_SOFT_RESET, RREG32(mmUVD_SOFT_RESET) &
++		~UVD_SOFT_RESET__RBC_SOFT_RESET_MASK);
++	/* RBC release can expose a different latched register contract. Stop
++	 * here while VCPU/LMI/UMC remain held if ANY owned config/guard changed.
++	 * Do not unstall, rewrite the registers, or retry this initial release.
++	 */
++	if ((RREG32(mmUVD_SOFT_RESET) & PS4_READY_HOLD) != remaining_hold ||
++	    !(RREG32(mmUVD_LMI_CTRL2) & UVD_LMI_CTRL2__STALL_ARB_UMC_MASK) ||
++	    !ps4_ready_programmed(adev) || !ps4_ready_fetch_guard(adev) ||
++	    (RREG32(mmUVD_STATUS) & PS4_READY_BIT) ||
++	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
++	    atomic_read(&adev->gpu_reset_counter) != reset_count || amdgpu_in_reset(adev)) {
++		ps4_ready_snapshot(adev, "rbc_release_guard");
++		ps4_ready_park(adev, "RBC_RELEASE_GUARD", -EIO);
++	}
++	dev_info(adev->dev, "PS4_UVD_READY RBC_RELEASE verified remaining blocks held, fetch guards unchanged\n");
++	WREG32(mmUVD_LMI_CTRL2, RREG32(mmUVD_LMI_CTRL2) &
++		~UVD_LMI_CTRL2__STALL_ARB_UMC_MASK);
++	WREG32(mmUVD_SOFT_RESET, RREG32(mmUVD_SOFT_RESET) &
++		~UVD_SOFT_RESET__LMI_SOFT_RESET_MASK);
++	WREG32(mmUVD_SOFT_RESET, RREG32(mmUVD_SOFT_RESET) &
++		~UVD_SOFT_RESET__VCPU_SOFT_RESET_MASK);
++	WREG32(mmUVD_SOFT_RESET, RREG32(mmUVD_SOFT_RESET) &
++		~UVD_SOFT_RESET__LMI_UMC_SOFT_RESET_MASK);
++	msleep(16);
++	for (;;) {
++		fault = RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS);
++		if (fault != baseline_fault || amdgpu_in_reset(adev) ||
++		    atomic_read(&adev->gpu_reset_counter) != reset_count) {
++			ps4_ready_snapshot(adev, "fault");
++			ps4_ready_park(adev, "FAULT_OR_RESET", -EIO);
++		}
++		if (!ps4_ready_fetch_guard(adev)) {
++			ps4_ready_snapshot(adev, "fetch_guard_changed");
++			ps4_ready_park(adev, "FETCH_GUARD_CHANGED", -EIO);
++		}
++		status = RREG32(mmUVD_STATUS);
++		elapsed = ktime_get_ns() - started;
++		if (elapsed >= PS4_READY_LIMIT_NS) {
++			ps4_ready_snapshot(adev, "timeout");
++			ps4_ready_park(adev, "READY_TIMEOUT", -ETIMEDOUT);
++		}
++		if (status & PS4_READY_BIT) {
++			ps4_ready_snapshot(adev, "ready");
++			dev_info(adev->dev,
++				"PS4_UVD_READY OBSERVED fresh_ready=1 elapsed_us=%llu; firmware-fetch/decode not established, all resources retained\n",
++				div_u64(elapsed, 1000));
++			ps4_ready_park(adev, "READY_OBSERVED", 0);
++		}
++		usleep_range(1000, 2000);
++	}
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: MIT */
++#ifndef __AMDGPU_PS4_UVD_READY_H__
++#define __AMDGPU_PS4_UVD_READY_H__
++
++#include <linux/types.h>
++
++struct amdgpu_device;
++
++bool amdgpu_ps4_uvd_ready_requested(void);
++bool amdgpu_ps4_uvd_ready_enabled(struct amdgpu_device *adev);
++/* Caller retains every mapped BO and has completed the VMID4 SDMA precheck. */
++/* Keep the cross-object declaration ordinary: objtool cannot infer a new
++ * external noreturn symbol. The caller supplies a defensive local park.
++ */
++void amdgpu_ps4_uvd_ready_run(struct amdgpu_device *adev,
++				      void *r1_cpu, size_t backing_size,
++				      u64 pd_addr);
++
++#endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/cik.c b/drivers/gpu/drm/amd/amdgpu/cik.c
+--- a/drivers/gpu/drm/amd/amdgpu/cik.c
++++ b/drivers/gpu/drm/amd/amdgpu/cik.c
+@@ -31,6 +31,7 @@
+ #include "amdgpu.h"
+ #include "amdgpu_atombios.h"
+ #include "amdgpu_ih.h"
++#include "amdgpu_ps4_uvd_ready.h"
+ #include "amdgpu_uvd.h"
+ #include "amdgpu_vce.h"
+ #include "cikd.h"
+@@ -1797,11 +1798,26 @@
+ 	struct atom_clock_dividers dividers;
+ 	uint32_t tmp;
+ 
++	/* Private readiness gate only: the caller has bounded the Atom table.
++	 * Ordinary clock callers retain their exact pre-existing behavior.
++	 */
++	if (amdgpu_ps4_uvd_ready_enabled(adev) &&
++	    (!adev->mode_info.atom_context ||
++	     !adev->mode_info.atom_context->bios))
++		return -EINVAL;
++
+ 	r = amdgpu_atombios_get_clock_dividers(adev,
+ 					       COMPUTE_GPUCLK_INPUT_FLAG_DEFAULT_GPUCLK,
+ 					       clock, false, &dividers);
+ 	if (r)
+ 		return r;
++	/* post_divider is ORed below. Validate its public seven-bit field before
++	 * any control write; zero is representable and is not invented-invalid.
++	 * This executes Atom once, with no speculative validation execution.
++	 */
++	if (amdgpu_ps4_uvd_ready_enabled(adev) &&
++	    (dividers.post_divider & ~CG_DCLK_CNTL__DCLK_DIVIDER_MASK))
++		return -ERANGE;
+ 
+ 	tmp = RREG32_SMC(cntl_reg);
+ 	tmp &= ~(CG_DCLK_CNTL__DCLK_DIR_CNTL_EN_MASK |

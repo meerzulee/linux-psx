@@ -1,0 +1,475 @@
+From: Linux psX local diagnostic <noreply@ps4-linux>
+Subject: [PATCH] drm/amdgpu: private boot-only PS4 VMID4 mapping canary
+
+Experimental default-off diagnostic only. No UVD or firmware enablement.
+Normal native62-patch target remains unchanged. Failure parks boot without
+unwinding hardware-reachable allocations. Hardware execution is blocked
+until source containment review and a new bounded UART plan.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/Makefile b/drivers/gpu/drm/amd/amdgpu/Makefile
+index 9f62df2..6b83ab9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/Makefile
++++ b/drivers/gpu/drm/amd/amdgpu/Makefile
+@@ -350,3 +350,6 @@ include $(AMD_GPU_RAS_FULL_PATH)/Makefile
+ amdgpu-y += $(AMD_GPU_RAS_FILES)
+ 
+ obj-$(CONFIG_DRM_AMDGPU)+= amdgpu.o
++
++# Private default-off PS4 VMID4 translation diagnostic.
++amdgpu-y += amdgpu_ps4_map_canary.o
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+index e45ac2c..5b94b0e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -49,6 +49,7 @@
+ #include <linux/efi.h>
+ #include "amdgpu.h"
+ #include "amdgpu_trace.h"
++#include "amdgpu_ps4_map_canary.h"
+ #include "amdgpu_i2c.h"
+ #include "atom.h"
+ #include "amdgpu_atombios.h"
+@@ -2626,6 +2627,12 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
+ 	if (r)
+ 		goto init_failed;
+ 
++	/* Before TTM GPU entities, KFD and userspace can produce jobs. */
++	if (amdgpu_ps4_map_canary_enabled(adev)) {
++		amdgpu_fence_driver_hw_init(adev);
++		amdgpu_ps4_map_canary_run(adev);
++	}
++
+ 	/* If SDMA is not brought up during hwini, the ttm buffer funcs enablement
+ 	 * is delayed after reset-on-init completes.
+ 	 */
+@@ -4220,7 +4227,9 @@ fence_driver_init:
+ 		goto release_ras_con;
+ 	}
+ 
+-	amdgpu_fence_driver_hw_init(adev);
++	/* The opted-in canary already initialized fence interrupts in ip_init. */
++	if (!amdgpu_ps4_map_canary_completed(adev))
++		amdgpu_fence_driver_hw_init(adev);
+ 
+ 	dev_info(adev->dev,
+ 		"SE %d, SH per SE %d, CU per SH %d, active_cu_number %d\n",
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+index 124fb38..7bc1cd9 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+@@ -28,6 +28,7 @@
+ 
+ #include "amdgpu.h"
+ #include "amdgpu_trace.h"
++#include "amdgpu_ps4_map_canary.h"
+ 
+ /*
+  * PASID manager
+@@ -597,6 +598,10 @@ void amdgpu_vmid_mgr_init(struct amdgpu_device *adev)
+ 		for (j = 1; j < id_mgr->num_ids; ++j) {
+ 			amdgpu_vmid_reset(adev, i, j);
+ 			amdgpu_sync_create(&id_mgr->ids[j].active);
++			if (amdgpu_ps4_map_canary_reserve(adev, i, j)) {
++				INIT_LIST_HEAD(&id_mgr->ids[j].list);
++				continue;
++			}
+ 			list_add_tail(&id_mgr->ids[j].list, &id_mgr->ids_lru);
+ 		}
+ 	}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+new file mode 100644
+index 0000000..05c5496
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+@@ -0,0 +1,370 @@
++// SPDX-License-Identifier: MIT
++/*
++ * Private PS4 translation diagnostic. This does not initialize UVD or firmware.
++ *
++ * Explicit boot-time opt-in only, with built-in AMDGPU. VMID4 stays outside
++ * the normal LRU for this boot. A failed enabled diagnostic parks initial
++ * device initialization permanently: no local unwind, retry, or reset; normal
++ * TTM/client submissions have not yet been enabled. IRQ/fence work can continue.
++ * An operator must power off and restore the known-good boot image.
++ *
++ * Even on success, the small pinned allocation and fence are retained until
++ * poweroff. There is deliberately no runtime trigger or teardown interface.
++ */
++#include <linux/atomic.h>
++#include <linux/crc32.h>
++#include <linux/moduleparam.h>
++#include <linux/overflow.h>
++#include <linux/sizes.h>
++#include <linux/wait.h>
++#include <drm/ttm/ttm_tt.h>
++
++#include "amdgpu.h"
++#include "amdgpu_ps4_map_canary.h"
++#include "amdgpu_reset.h"
++#include "gmc/gmc_7_1_d.h"
++#include "gmc/gmc_7_1_sh_mask.h"
++
++#define PS4_CANARY_VMID 4
++#define PS4_CANARY_VA 0x300000000ULL
++#define PS4_CANARY_BYTES 256
++#define PS4_CANARY_GUARD 0xa5deadc3U
++#define PS4_CANARY_TIMEOUT msecs_to_jiffies(1000)
++
++static bool ps4_map_canary;
++module_param_named(ps4_map_canary, ps4_map_canary, bool, 0444);
++MODULE_PARM_DESC(ps4_map_canary,
++	"Private one-shot PS4 VMID4 copy diagnostic; failure parks boot (default 0)");
++
++static atomic_t ps4_canary_attempted = ATOMIC_INIT(0);
++static DECLARE_WAIT_QUEUE_HEAD(ps4_canary_park_queue);
++
++struct ps4_canary_bo {
++	struct amdgpu_bo *bo;
++	u64 gpu;
++	void *cpu;
++};
++
++struct ps4_canary_state {
++	struct amdgpu_device *adev;
++	struct ps4_canary_bo pd, pt, src, dst, ib;
++	struct dma_fence *fence;
++	u64 pd_size, pt_size, pd_index, leaf_index;
++	u32 expected[PS4_CANARY_BYTES / sizeof(u32)];
++	u32 expected_ib[PAGE_SIZE / sizeof(u32)];
++	bool submitted;
++	bool passed;
++};
++
++/* Retained ownership also makes timeout resources discoverable in a dump. */
++static struct ps4_canary_state *ps4_canary_retained;
++
++bool amdgpu_ps4_map_canary_enabled(struct amdgpu_device *adev)
++{
++	return ps4_map_canary && IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
++		IS_ENABLED(CONFIG_X86_PS4) &&
++		(adev->asic_type == CHIP_LIVERPOOL ||
++		 adev->asic_type == CHIP_GLADIUS);
++}
++
++bool amdgpu_ps4_map_canary_completed(struct amdgpu_device *adev)
++{
++	return ps4_canary_retained && ps4_canary_retained->adev == adev &&
++		ps4_canary_retained->passed;
++}
++
++bool amdgpu_ps4_map_canary_reserve(struct amdgpu_device *adev,
++				 unsigned int vmhub, unsigned int vmid)
++{
++	return amdgpu_ps4_map_canary_enabled(adev) && vmhub == AMDGPU_GFXHUB(0) &&
++		vmid == PS4_CANARY_VMID;
++}
++
++static __noreturn void ps4_canary_park(struct amdgpu_device *adev,
++				     const char *stage, int error)
++{
++	dev_err(adev->dev,
++		"PS4_MAP_CANARY FAIL stage=%s error=%d; PARKED no retry/reset/cleanup; power off and restore rollback\n",
++		stage, error);
++	/* TASK_IDLE is uninterruptible without hung-task noise. No wake exists. */
++	for (;;)
++		wait_event_idle(ps4_canary_park_queue, false);
++}
++
++static int ps4_canary_exclusive_init(struct amdgpu_device *adev)
++{
++	static const enum amd_ip_block_type topology[] = {
++		AMD_IP_BLOCK_TYPE_COMMON, AMD_IP_BLOCK_TYPE_GMC,
++		AMD_IP_BLOCK_TYPE_IH, AMD_IP_BLOCK_TYPE_DCE,
++		AMD_IP_BLOCK_TYPE_GFX, AMD_IP_BLOCK_TYPE_SDMA,
++	};
++	unsigned long flags;
++	unsigned int i;
++	bool empty;
++
++	if (IS_ENABLED(CONFIG_HSA_AMD) || adev->mman.buffer_funcs_enabled ||
++	    adev->accel_working || !adev->irq.installed ||
++	    adev->num_ip_blocks != ARRAY_SIZE(topology) ||
++	    amdgpu_in_reset(adev) ||
++	    atomic_read(&adev->gpu_reset_counter))
++		return -EBUSY;
++	for (i = 0; i < ARRAY_SIZE(topology); ++i)
++		if (!adev->ip_blocks[i].version ||
++		    adev->ip_blocks[i].version->type != topology[i] ||
++		    !adev->ip_blocks[i].status.hw)
++			return -EINVAL;
++	for (i = 0; i < AMDGPU_MAX_RINGS; ++i) {
++		struct amdgpu_ring *ring = adev->rings[i];
++
++		if (!ring || !ring->sched.ready)
++			continue;
++		spin_lock_irqsave(&ring->sched.job_list_lock, flags);
++		empty = list_empty(&ring->sched.pending_list);
++		spin_unlock_irqrestore(&ring->sched.job_list_lock, flags);
++		if (!empty || delayed_work_pending(&ring->sched.work_tdr) ||
++		    work_pending(&ring->sched.work_run_job))
++			return -EBUSY;
++	}
++	return 0;
++}
++
++static int ps4_canary_geometry(struct amdgpu_device *adev,
++			       struct ps4_canary_state *s)
++{
++	const u64 max_pfn = adev->vm_manager.max_pfn;
++	u64 leaf_entries, root_entries, root_bytes;
++	u32 control, start, end;
++	struct amdgpu_vmid_mgr *mgr =
++		&adev->vm_manager.id_mgr[AMDGPU_GFXHUB(0)];
++
++	/* This diagnostic has only been designed for the measured two-level VM. */
++	if (PAGE_SIZE != AMDGPU_GPU_PAGE_SIZE ||
++	    adev->vm_manager.num_level != 1 ||
++	    adev->vm_manager.root_level != AMDGPU_VM_PDB0 ||
++	    adev->vm_manager.block_size != 10 || !max_pfn ||
++	    max_pfn > U32_MAX || mgr->num_ids != 8 ||
++	    !list_empty(&mgr->ids[PS4_CANARY_VMID].list))
++		return -EINVAL;
++
++	leaf_entries = 1ULL << adev->vm_manager.block_size;
++	root_entries = DIV_ROUND_UP_ULL(max_pfn, leaf_entries);
++	if (check_mul_overflow(root_entries, sizeof(u64), &root_bytes) ||
++	    root_bytes > SZ_1M)
++		return -EOVERFLOW;
++	s->pd_size = ALIGN(root_bytes, PAGE_SIZE);
++	s->pt_size = leaf_entries * sizeof(u64);
++	s->pd_index = (PS4_CANARY_VA >> AMDGPU_GPU_PAGE_SHIFT) /
++		leaf_entries;
++	s->leaf_index = (PS4_CANARY_VA >> AMDGPU_GPU_PAGE_SHIFT) %
++		leaf_entries;
++	if (s->pd_index >= root_entries ||
++	    s->leaf_index + 3 > leaf_entries ||
++	    (PS4_CANARY_VA >> AMDGPU_GPU_PAGE_SHIFT) + 3 > max_pfn ||
++	    s->pd_index * sizeof(u64) + sizeof(u64) > s->pd_size ||
++	    (s->leaf_index + 3) * sizeof(u64) > s->pt_size)
++		return -ERANGE;
++	/* VMID0 must not be able to pass this canary by a normal aperture alias. */
++	if ((PS4_CANARY_VA <= adev->gmc.gart_end &&
++	     PS4_CANARY_VA + 3 * AMDGPU_GPU_PAGE_SIZE - 1 >= adev->gmc.gart_start) ||
++	    (PS4_CANARY_VA <= adev->gmc.vram_end &&
++	     PS4_CANARY_VA + 3 * AMDGPU_GPU_PAGE_SIZE - 1 >= adev->gmc.vram_start))
++		return -ERANGE;
++
++	start = RREG32(mmVM_CONTEXT0_PAGE_TABLE_START_ADDR + PS4_CANARY_VMID);
++	end = RREG32(mmVM_CONTEXT0_PAGE_TABLE_END_ADDR + PS4_CANARY_VMID);
++	control = RREG32(mmVM_CONTEXT1_CNTL);
++	if (start || end != max_pfn - 1 ||
++	    REG_GET_FIELD(control, VM_CONTEXT1_CNTL, ENABLE_CONTEXT) != 1 ||
++	    REG_GET_FIELD(control, VM_CONTEXT1_CNTL, PAGE_TABLE_DEPTH) != 1 ||
++	    REG_GET_FIELD(control, VM_CONTEXT1_CNTL, PAGE_TABLE_BLOCK_SIZE) !=
++		adev->vm_manager.block_size - 9)
++		return -EINVAL;
++	return 0;
++}
++
++static int ps4_canary_alloc(struct amdgpu_device *adev,
++			    struct ps4_canary_bo *bo, u64 size, u32 domain)
++{
++	int r;
++
++	r = amdgpu_bo_create_kernel(adev, size, PAGE_SIZE, domain,
++				    &bo->bo, &bo->gpu, &bo->cpu);
++	if (r)
++		return r;
++	if (!bo->cpu || amdgpu_bo_size(bo->bo) < size ||
++	    bo->gpu & AMDGPU_GPU_PAGE_MASK ||
++	    bo->bo->tbo.resource->mem_type !=
++		(domain == AMDGPU_GEM_DOMAIN_VRAM ? TTM_PL_VRAM : TTM_PL_TT))
++		return -EINVAL;
++	return 0;
++}
++
++static int ps4_canary_leaf_pte(struct amdgpu_device *adev,
++			       struct ps4_canary_bo *bo, u64 *pte)
++{
++	u64 offset, index, required, dma;
++
++	if (!adev->gart.ptr || !bo->bo->tbo.ttm ||
++	    !bo->bo->tbo.ttm->dma_address ||
++	    bo->gpu < adev->gmc.gart_start ||
++	    bo->gpu > adev->gmc.gart_end ||
++	    AMDGPU_GPU_PAGE_SIZE - 1 > adev->gmc.gart_end - bo->gpu)
++		return -ERANGE;
++	offset = bo->gpu - adev->gmc.gart_start;
++	if (offset & AMDGPU_GPU_PAGE_MASK)
++		return -EINVAL;
++	index = offset >> AMDGPU_GPU_PAGE_SHIFT;
++	if (index >= adev->gart.num_gpu_pages ||
++	    index * sizeof(u64) + sizeof(u64) > adev->gart.table_size)
++		return -ERANGE;
++	*pte = readq((void __iomem *)adev->gart.ptr + index * sizeof(u64));
++	required = AMDGPU_PTE_VALID | AMDGPU_PTE_SYSTEM |
++		AMDGPU_PTE_READABLE | AMDGPU_PTE_WRITEABLE;
++	dma = bo->bo->tbo.ttm->dma_address[0];
++	if ((*pte & required) != required ||
++	    (*pte & adev->gmc.pte_addr_mask) != dma ||
++	    (dma & ~adev->gmc.pte_addr_mask))
++		return -EINVAL;
++	return 0;
++}
++
++void amdgpu_ps4_map_canary_run(struct amdgpu_device *adev)
++{
++	struct amdgpu_ring *ring = &adev->sdma.instance[0].ring;
++	struct ps4_canary_state *s;
++	struct amdgpu_job *job;
++	u64 ptes[3], pt_addr, pt_flags;
++	u32 *src, *dst, crc;
++	unsigned int i;
++	long waited;
++	int r;
++
++	if (!amdgpu_ps4_map_canary_enabled(adev))
++		return;
++	if (atomic_cmpxchg(&ps4_canary_attempted, 0, 1))
++		ps4_canary_park(adev, "second-init-refused", -EALREADY);
++	dev_info(adev->dev,
++		 "PS4_MAP_CANARY BEGIN vmid=4 va=0x%llx bytes=%u timeout_ms=1000 UVD=off\n",
++		 PS4_CANARY_VA, PS4_CANARY_BYTES);
++	r = ps4_canary_exclusive_init(adev);
++	if (r)
++		ps4_canary_park(adev, "exclusive-init", r);
++	if (!ring->sched.ready || !ring->fence_drv.initialized ||
++	    adev->mman.buffer_funcs_enabled ||
++	    ring->vm_hub != AMDGPU_GFXHUB(0) ||
++	    !adev->mman.buffer_funcs ||
++	    !adev->mman.buffer_funcs->emit_copy_buffer ||
++	    !ring->funcs->emit_vm_flush)
++		ps4_canary_park(adev, "ring-preflight", -EINVAL);
++
++	s = kzalloc_obj(*s);
++	if (!s)
++		ps4_canary_park(adev, "state-allocation", -ENOMEM);
++	ps4_canary_retained = s;
++	s->adev = adev;
++	r = ps4_canary_geometry(adev, s);
++	if (r)
++		ps4_canary_park(adev, "geometry", r);
++	r = ps4_canary_alloc(adev, &s->pd, s->pd_size, AMDGPU_GEM_DOMAIN_VRAM);
++	if (!r)
++		r = ps4_canary_alloc(adev, &s->pt, s->pt_size, AMDGPU_GEM_DOMAIN_VRAM);
++	if (!r)
++		r = ps4_canary_alloc(adev, &s->src, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
++	if (!r)
++		r = ps4_canary_alloc(adev, &s->dst, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
++	if (!r)
++		r = ps4_canary_alloc(adev, &s->ib, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
++	if (r)
++		ps4_canary_park(adev, "bo-allocation", r);
++
++	/* Avoid calling GMC7's BUG_ON-based PDE helper with unchecked addresses. */
++	if ((s->pd.gpu | s->pt.gpu) & ~adev->gmc.pte_addr_mask)
++		ps4_canary_park(adev, "table-address-domain", -ERANGE);
++	r = ps4_canary_leaf_pte(adev, &s->src, &ptes[0]);
++	if (!r)
++		r = ps4_canary_leaf_pte(adev, &s->dst, &ptes[1]);
++	if (!r)
++		r = ps4_canary_leaf_pte(adev, &s->ib, &ptes[2]);
++	if (r)
++		ps4_canary_park(adev, "owned-gart-pte", r);
++	if (!((ptes[0] ^ ptes[1]) & adev->gmc.pte_addr_mask) ||
++	    !((ptes[0] ^ ptes[2]) & adev->gmc.pte_addr_mask) ||
++	    !((ptes[1] ^ ptes[2]) & adev->gmc.pte_addr_mask))
++		ps4_canary_park(adev, "physical-page-alias", -EINVAL);
++
++	memset_io((void __iomem *)s->pd.cpu, 0, s->pd_size);
++	memset_io((void __iomem *)s->pt.cpu, 0, s->pt_size);
++	amdgpu_gmc_get_pde_for_bo(s->pt.bo, adev->vm_manager.root_level,
++				  &pt_addr, &pt_flags);
++	if (!(pt_flags & AMDGPU_PTE_VALID) || (pt_flags & AMDGPU_PTE_SYSTEM))
++		ps4_canary_park(adev, "vram-pde", -EINVAL);
++	amdgpu_gmc_set_pte_pde(adev, s->pd.cpu, s->pd_index, pt_addr, pt_flags);
++	for (i = 0; i < ARRAY_SIZE(ptes); ++i)
++		writeq(ptes[i], (void __iomem *)s->pt.cpu +
++		       (s->leaf_index + i) * sizeof(u64));
++
++	src = s->src.cpu;
++	dst = s->dst.cpu;
++	for (i = 0; i < PAGE_SIZE / sizeof(u32); ++i) {
++		src[i] = PS4_CANARY_GUARD;
++		dst[i] = PS4_CANARY_GUARD;
++	}
++	for (i = 0; i < ARRAY_SIZE(s->expected); ++i)
++		src[i] = s->expected[i] = 0x50533400U ^ (i * 0x01020409U);
++	for (i = 0; i < PAGE_SIZE / sizeof(u32); ++i)
++		((u32 *)s->ib.cpu)[i] = PS4_CANARY_GUARD;
++	r = amdgpu_job_alloc(adev, NULL, NULL, NULL, 1, &job, 0);
++	if (r)
++		ps4_canary_park(adev, "job-allocation", r);
++	job->num_ibs = 1;
++	job->vmid = PS4_CANARY_VMID;
++	job->vm_pd_addr = amdgpu_gmc_pd_addr(s->pd.bo);
++	job->vm_needs_flush = true;
++	/* Owned BO, no SA allocation: submit_direct job_free cannot release it. */
++	job->ibs[0].ptr = s->ib.cpu;
++	job->ibs[0].gpu_addr = PS4_CANARY_VA + 2 * AMDGPU_GPU_PAGE_SIZE;
++	adev->mman.buffer_funcs->emit_copy_buffer(&job->ibs[0], PS4_CANARY_VA,
++		PS4_CANARY_VA + AMDGPU_GPU_PAGE_SIZE, PS4_CANARY_BYTES, 0);
++	amdgpu_ring_pad_ib(ring, &job->ibs[0]);
++	if (!job->ibs[0].length_dw || job->ibs[0].length_dw > PAGE_SIZE / sizeof(u32))
++		ps4_canary_park(adev, "ib-bounds", -ERANGE);
++	memcpy(s->expected_ib, s->ib.cpu, PAGE_SIZE);
++	r = ps4_canary_exclusive_init(adev);
++	if (r)
++		ps4_canary_park(adev, "pre-submit-exclusive-init", r);
++
++	/* Same CPU publication order as amdgpu_vm_cpu_commit, before ring TLB flush. */
++	mb();
++	amdgpu_device_flush_hdp(adev, NULL);
++	dev_info(adev->dev,
++		 "PS4_MAP_CANARY MAP max_pfn=0x%llx block=%u pd_bytes=0x%llx pde=0x%llx pt_bytes=0x%llx src_pte=0x%llx dst_pte=0x%llx ib_pte=0x%llx\n",
++		 adev->vm_manager.max_pfn, adev->vm_manager.block_size,
++		 s->pd_size, s->pd_index, s->pt_size, ptes[0], ptes[1], ptes[2]);
++	r = amdgpu_job_submit_direct(job, ring, &s->fence);
++	if (r) {
++		/* Pre-commit error: still deliberately retain job and BOs while parked. */
++		ps4_canary_park(adev, "submit", r);
++	}
++	s->submitted = true;
++	waited = dma_fence_wait_timeout(s->fence, false, PS4_CANARY_TIMEOUT);
++	if (waited <= 0)
++		ps4_canary_park(adev, "completion", waited ? (int)waited : -ETIMEDOUT);
++	r = dma_fence_get_status(s->fence);
++	if (r <= 0)
++		ps4_canary_park(adev, "fence-status", r ? r : -EIO);
++	amdgpu_device_invalidate_hdp(adev, NULL);
++	mb();
++	if (memcmp(dst, s->expected, sizeof(s->expected)) ||
++	    memcmp(src, s->expected, sizeof(s->expected)) ||
++	    memcmp(s->ib.cpu, s->expected_ib, PAGE_SIZE))
++		ps4_canary_park(adev, "pattern-readback", -EILSEQ);
++	for (i = ARRAY_SIZE(s->expected); i < PAGE_SIZE / sizeof(u32); ++i)
++		if (dst[i] != PS4_CANARY_GUARD || src[i] != PS4_CANARY_GUARD)
++			ps4_canary_park(adev, "guard-readback", -EILSEQ);
++	crc = crc32_le(~0U, (u8 *)dst, PS4_CANARY_BYTES) ^ ~0U;
++	s->passed = true;
++	dev_info(adev->dev,
++		 "PS4_MAP_CANARY PASS vmid=4 bytes=%u exact_words=%zu crc32=%08x first=%08x last=%08x guards=ok retained_until_poweroff=1 UVD=off\n",
++		 PS4_CANARY_BYTES, ARRAY_SIZE(s->expected), crc,
++		 dst[0], dst[ARRAY_SIZE(s->expected) - 1]);
++}
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+new file mode 100644
+index 0000000..725d060
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+@@ -0,0 +1,15 @@
++/* SPDX-License-Identifier: MIT */
++#ifndef AMDGPU_PS4_MAP_CANARY_H
++#define AMDGPU_PS4_MAP_CANARY_H
++
++#include <linux/types.h>
++
++struct amdgpu_device;
++
++bool amdgpu_ps4_map_canary_enabled(struct amdgpu_device *adev);
++bool amdgpu_ps4_map_canary_completed(struct amdgpu_device *adev);
++bool amdgpu_ps4_map_canary_reserve(struct amdgpu_device *adev,
++				 unsigned int vmhub, unsigned int vmid);
++void amdgpu_ps4_map_canary_run(struct amdgpu_device *adev);
++
++#endif
