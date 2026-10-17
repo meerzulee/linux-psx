@@ -96,6 +96,10 @@ PORT_FIX_NOTES = {
         ("Applies the flags, chip flag and bus token the 6.18 helper set before "
          "msi_create_irq_domain(); the 7.2 MSI core functions it relies on are "
          "unchanged from 6.18."),
+    "mt76x8: restore checked proc write copies":
+        ("Undoes 0500-network-mt7668/0006: its __copy_from_user() calls skip access_ok() "
+         "and procDriverCmdWrite() copied 2999 bytes whatever the write size. Uses "
+         "copy_from_user() with the driver's sizes and the comparison of 7.2-ps4 0172."),
     "mt76x8: adapt key and station operations to Linux 7.1":
         ("Linux 7.1 passes key and station operations a wireless_dev. The adapters "
          "pass on its net_device and refuse a wireless_dev without one, which "

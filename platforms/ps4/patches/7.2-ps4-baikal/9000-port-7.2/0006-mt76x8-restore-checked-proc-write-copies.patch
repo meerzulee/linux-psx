@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Sat, 17 Oct 2026 00:00:00 +0000
+Subject: [PATCH] mt76x8: restore checked proc write copies
+
+0500-network-mt7668/0006 avoided a GCC fortify build error by switching
+four proc write handlers to __copy_from_user(), which skips the
+access_ok() check on the user pointer, and by making procDriverCmdWrite()
+copy sizeof(g_aucProcBuf) - 1 bytes whatever the write size.
+
+Go back to copy_from_user() and the driver's original copy sizes, and fix
+the cause of the build error instead: the count + 1 comparison wraps for
+count == SIZE_MAX. Compare count < u4CopySize, as 7.2-ps4 does in 0172.
+---
+ .../drv_wlan/MT6632/wlan/os/linux/gl_proc.c   | 23 +++++++++++--------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+index c47928f357db9e1999bbb863eda36be1127673a1..19a81c80bbf927b70de395a5fd3c451a469c0590 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+@@ -488,7 +488,7 @@ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= (count+1))
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+@@ -554,9 +554,12 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize > sizeof(g_aucProcBuf) - 1)
+-		u4CopySize = sizeof(g_aucProcBuf) - 1;
+-	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (count < u4CopySize)
++		u4CopySize = count;
++	else
++		u4CopySize -= 1;
++
++	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -583,12 +586,12 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -1186,12 +1189,12 @@ static ssize_t procRoamWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+@@ -1265,12 +1268,12 @@ static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (u4CopySize >= count+1)
++	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+ 
+-	if (__copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
++	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}

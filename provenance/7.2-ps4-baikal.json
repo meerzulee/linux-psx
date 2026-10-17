@@ -13,7 +13,7 @@
   },
   "port": {
     "branch": "port/7.2.11-psx-baikal",
-    "tip": "4a107f395db68bc7be59c2183dd7592e182489f4",
+    "tip": "c86ac34545b196aa5b64143af720b9ee54c473ce",
     "published": false,
     "method": "git am of the 6.18-ps4-baikal series onto v6.18.44 (MTS2 with git apply), cherry-picked onto v7.2.11, then the port fixes; exported with scripts/export-port72-baikal",
     "git_config": [
@@ -52,13 +52,13 @@
     "ordered_patchset_sha256": "4fbc45bea17a78ceec00214220ee865896ea91841bedaefc2f481e8ea194ee0a"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4-baikal/series",
-  "series_sha256": "e1dfa3388176c404e57f47485eabba935d967df4bc27c18807ed98cd7d4b6734",
-  "active_patch_count": 60,
-  "ordered_patchset_sha256": "05fee65c046f9683bcc53d211fffa233bb5aa7e1a5e5f732274e140671bed267",
+  "series_sha256": "4ac75f4e898e8a096637b21ba5fc45f2f77a91ba310b9a589fc13debdd8a4a00",
+  "active_patch_count": 61,
+  "ordered_patchset_sha256": "99eb341e71a6acf213faa05710ea720f79c60c321f5821c5b6303d3894c08024",
   "change_counts": {
     "adapted": 2,
     "context": 6,
-    "port-fix": 5,
+    "port-fix": 6,
     "unchanged": 47
   },
   "patches": [
@@ -719,6 +719,15 @@
       "origin": "port-fix",
       "change": "port-fix",
       "note": "Linux 7.1 passes key and station operations a wireless_dev. The adapters pass on its net_device and refuse a wireless_dev without one, which cfg80211 never passed before."
+    },
+    {
+      "entry": "9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch",
+      "sha256": "bfdf844201106093b169a1af636b200b960f405b8f949d8e1827700e96b38cb7",
+      "subject": "mt76x8: restore checked proc write copies",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Undoes 0500-network-mt7668/0006: its __copy_from_user() calls skip access_ok() and procDriverCmdWrite() copied 2999 bytes whatever the write size. Uses copy_from_user() with the driver's sizes and the comparison of 7.2-ps4 0172."
     }
   ],
   "inputs": [

@@ -65,3 +65,4 @@
 9000-port-7.2/0003-mt76x8-adapt-remain_on_channel-to-Linux-7.2.patch
 9000-port-7.2/0004-ps4-bpcie-replace-pci_msi_create_irq_domain-removed-.patch
 9000-port-7.2/0005-mt76x8-adapt-key-and-station-operations-to-Linux-7.1.patch
+9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch
