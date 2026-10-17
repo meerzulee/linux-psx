@@ -111,7 +111,9 @@ PORT_FIX_NOTES = {
 
 
 def git(repo, *args, text=True, stdin=None):
-    cmd = ["git", "-C", str(repo)]
+    # Take .gitattributes (the kernel's diff=cpp hunk headers) from the pinned
+    # base rather than from whatever the repository has checked out.
+    cmd = ["git", "-C", str(repo), f"--attr-source={BASE_COMMIT}"]
     for item in GIT_CONFIG:
         cmd += ["-c", item]
     res = subprocess.run(cmd + list(args), capture_output=True, input=stdin, check=False)
@@ -286,7 +288,8 @@ def main():
             "method": ("git am -3 of the rmux-7.1.7 import onto v7.2.11, the listed drops and "
                        "the port fixes, then MTS2 from the 6.18 target; exported with "
                        "scripts/export-port72"),
-            "git_config": GIT_CONFIG, "format_patch_args": FORMAT_ARGS,
+            "git_config": GIT_CONFIG, "attr_source": BASE_COMMIT,
+            "format_patch_args": FORMAT_ARGS,
         },
         "rmux_import": {"manifest": "provenance/rmux-import.json", "import": imp["name"],
                         "ordered_patchset_sha256": imp["ordered_patchset_sha256"]},
