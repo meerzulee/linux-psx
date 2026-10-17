@@ -1,0 +1,198 @@
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Subject: [PRIVATE DRAFT] drm/amdgpu: test held cached-VCPU VMID selector hypothesis
+
+Source-only experiment draft. Later public VCN1 headers and five classic
+UVD6 offset anchors predict a separate low-nibble selector at 0x3d3c.
+Its application to Liverpool remains unproved. Require initial nibble 14,
+retain the full original word, change only the low nibble to owned VMID4
+inside confirmed holds, and refuse release on any readback mismatch.
+No other historical untyped address or VMID14 mapping is introduced.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -7,7 +7,7 @@
+  * uvd_5_0_{d,sh_mask}.h. Register compatibility with Liverpool is an explicit
+  * experiment, not established by the matching public names. Historical layout:
+  * public linux-ps4-kernel 0cbe1644c38bf2030f74526b6670490271b89716,
+- * active 0034..0060. Its four untyped local addresses are deliberately omitted.
++ * active 0034..0060. Other untyped historical addresses remain omitted.
+  *
+  * This runs only after the separate owned-VMID4 SDMA copy precheck. No normal
+  * UVD IP registration, ring submission, retries, idle worker or return to TTM
+@@ -52,6 +52,21 @@
+ 	UVD_SOFT_RESET__VCPU_SOFT_RESET_MASK | \
+ 	UVD_SOFT_RESET__RBC_SOFT_RESET_MASK | \
+ 	UVD_SOFT_RESET__LMI_UMC_SOFT_RESET_MASK)
++
++/* Cross-generation candidate, not a proved Liverpool register contract:
++ * Linux a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea,
++ * vcn/vcn_1_0_offset.h names UVD_LMI_VCPU_CACHE_VMID at 0x053c;
++ * vcn_1_0_sh_mask.h defines mask 0xf, shift 0. Five shared UVD6 anchors
++ * have the same +0x3800 difference, predicting classic offset 0x3d3c.
++ * Public GPL 0060 also writes its low nibble, default 4; its clock-divider
++ * label is not adopted. No public callsite establishes Liverpool semantics.
++ * EXP007 did not sample this register: initial nibble 14 is a hypothesis
++ * precondition, distinct from the observed UMC fault's VMID 14.
++ */
++#define PS4_READY_UVD_VCPU_CACHE_VMID 0x3d3cU
++#define PS4_READY_UVD_VCPU_CACHE_VMID_MASK 0xfU
++#define PS4_READY_UVD_VCPU_CACHE_VMID_INITIAL 14U
++#define PS4_READY_UVD_VCPU_CACHE_VMID_OWNED 4U
+ 
+ static bool ps4_uvd_ready;
+ module_param_named(ps4_uvd_ready, ps4_uvd_ready, bool, 0444);
+@@ -192,10 +207,12 @@
+ static void ps4_ready_snapshot(struct amdgpu_device *adev, const char *phase)
+ {
+ 	dev_info(adev->dev,
+-		"PS4_UVD_READY SNAP %s status=%08x reset=%08x lmi2=%08x int=%08x vcpu=%08x rbc=%08x\n",
++		"PS4_UVD_READY SNAP %s status=%08x reset=%08x lmi2=%08x int=%08x vcpu=%08x rbc=%08x "
++		"vcpu_cache_candidate=%08x\n",
+ 		phase, RREG32(mmUVD_STATUS), RREG32(mmUVD_SOFT_RESET),
+ 		RREG32(mmUVD_LMI_CTRL2), RREG32(mmUVD_MASTINT_EN),
+-		RREG32(mmUVD_VCPU_CNTL), RREG32(mmUVD_RBC_RB_CNTL));
++		RREG32(mmUVD_VCPU_CNTL), RREG32(mmUVD_RBC_RB_CNTL),
++		RREG32(PS4_READY_UVD_VCPU_CACHE_VMID));
+ 	dev_info(adev->dev,
+ 		"PS4_UVD_READY VMID %s int=%08x int2=%08x int3=%08x cache=%08x rb=%08x ib=%08x\n",
+ 		phase, ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0, 0, false),
+@@ -232,7 +249,52 @@
+ 		RREG32(mmUVD_RBC_RB_WPTR) == 0 && RREG32(mmUVD_RBC_RB_RPTR) == 0;
+ }
+ 
+-static int ps4_ready_setup_held(struct amdgpu_device *adev)
++/* Read and log before any setup write; a different initial selector refutes
++ * this experiment's precondition and is terminal, not an alternate VMID test.
++ */
++static int ps4_ready_cache_vmid_preflight(struct amdgpu_device *adev,
++					u32 *original)
++{
++	*original = RREG32(PS4_READY_UVD_VCPU_CACHE_VMID);
++	dev_info(adev->dev,
++		"PS4_UVD_READY CACHE_VMID_CANDIDATE before=%08x mask=%08x expected_initial=14 owned=4; cross-generation hypothesis\n",
++		*original, PS4_READY_UVD_VCPU_CACHE_VMID_MASK);
++	if ((*original & PS4_READY_UVD_VCPU_CACHE_VMID_MASK) !=
++	    PS4_READY_UVD_VCPU_CACHE_VMID_INITIAL)
++		return -EINVAL;
++	return 0;
++}
++
++static u32 ps4_ready_cache_vmid_owned(u32 original)
++{
++	return (original & ~PS4_READY_UVD_VCPU_CACHE_VMID_MASK) |
++		PS4_READY_UVD_VCPU_CACHE_VMID_OWNED;
++}
++
++/* Called only after confirmed holds. The entire original word must still
++ * match: do not overwrite upper bits that changed during the hold sequence.
++ * No release or retry follows any failure; the caller parks with BO/fw held.
++ */
++static int ps4_ready_cache_vmid_program_held(struct amdgpu_device *adev,
++					u32 original)
++{
++	u32 value = RREG32(PS4_READY_UVD_VCPU_CACHE_VMID);
++	u32 expected = ps4_ready_cache_vmid_owned(original);
++
++	if (value != original ||
++	    (value & PS4_READY_UVD_VCPU_CACHE_VMID_MASK) !=
++	    PS4_READY_UVD_VCPU_CACHE_VMID_INITIAL)
++		return -EIO;
++	WREG32(PS4_READY_UVD_VCPU_CACHE_VMID, expected);
++	value = RREG32(PS4_READY_UVD_VCPU_CACHE_VMID);
++	dev_info(adev->dev,
++		"PS4_UVD_READY CACHE_VMID_CANDIDATE held before=%08x expected=%08x readback=%08x\n",
++		original, expected, value);
++	return value == expected ? 0 : -EIO;
++}
++
++static int ps4_ready_setup_held(struct amdgpu_device *adev,
++				u32 cache_vmid_original)
+ {
+ 	u32 value;
+ 	int r;
+@@ -256,6 +318,13 @@
+ 	    (RREG32(mmUVD_MASTINT_EN) &
+ 	     (UVD_MASTINT_EN__VCPU_EN_MASK | UVD_MASTINT_EN__SYS_EN_MASK)))
+ 		return -EIO;
++
++	/* The candidate's only new hardware write stays inside confirmed holds,
++	 * before clocks, RBC release or UMC unstall. Preserve every upper bit.
++	 */
++	r = ps4_ready_cache_vmid_program_held(adev, cache_vmid_original);
++	if (r)
++		return r;
+ 
+ 	/* Public uvd_v5_0_hw_init policy; one callback, VCLK then DCLK.
+ 	 * cik.c rejects an unrepresentable divider BEFORE that control write.
+@@ -342,9 +411,11 @@
+ /* Checked before the initial RBC release/UMC unstall. A field mismatch is a
+  * failed compatibility hypothesis, never a reason to try alternative MMIO.
+  */
+-static bool ps4_ready_programmed(struct amdgpu_device *adev)
+-{
+-	return (ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0, 0, false) &
++static bool ps4_ready_programmed(struct amdgpu_device *adev,
++				 u32 cache_vmid_expected)
++{
++	return RREG32(PS4_READY_UVD_VCPU_CACHE_VMID) == cache_vmid_expected &&
++		(ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL, 0, 0, false) &
+ 		0x00ffffff) == 0x00444444 &&
+ 		ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL2, 0, 0, false) == 0x44444444 &&
+ 		(ps4_ready_ctx(adev, ixUVD_LMI_VMID_INTERNAL3, 0, 0, false) &
+@@ -378,6 +449,7 @@
+ {
+ 	u64 started, elapsed;
+ 	u32 crc, baseline_fault, fault, status;
++	u32 cache_vmid_original, cache_vmid_expected;
+ 	const u32 remaining_hold = PS4_READY_HOLD &
+ 		~UVD_SOFT_RESET__RBC_SOFT_RESET_MASK;
+ 	int r, reset_count;
+@@ -399,6 +471,10 @@
+ 			amdgpu_in_reset(adev));
+ 		ps4_ready_park(adev, "PREFLIGHT", -EINVAL);
+ 	}
++	r = ps4_ready_cache_vmid_preflight(adev, &cache_vmid_original);
++	if (r)
++		ps4_ready_park(adev, "VCPU_CACHE_VMID_PREFLIGHT", r);
++	cache_vmid_expected = ps4_ready_cache_vmid_owned(cache_vmid_original);
+ 	r = ps4_ready_clock_preflight(adev);
+ 	if (r)
+ 		ps4_ready_park(adev, "ATOM_PREFLIGHT", r);
+@@ -432,14 +508,14 @@
+ 	if (baseline_fault || reset_count || (RREG32(mmUVD_STATUS) & PS4_READY_BIT))
+ 		ps4_ready_park(adev, "BASELINE_NOT_CLEAN", -EBUSY);
+ 	ps4_ready_snapshot(adev, "before");
+-	r = ps4_ready_setup_held(adev);
++	r = ps4_ready_setup_held(adev, cache_vmid_original);
+ 	if (r) {
+ 		ps4_ready_snapshot(adev, "initial_setup_failure");
+ 		ps4_ready_park(adev, "INITIAL_SETUP_PARK", r);
+ 	}
+ 	ps4_ready_snapshot(adev, "held");
+ 	status = RREG32(mmUVD_STATUS);
+-	if (!ps4_ready_programmed(adev) || !ps4_ready_fetch_guard(adev) ||
++	if (!ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard(adev) ||
+ 	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
+ 	    atomic_read(&adev->gpu_reset_counter) != reset_count ||
+ 	    amdgpu_in_reset(adev) || (status & PS4_READY_BIT) ||
+@@ -468,7 +544,7 @@
+ 	 */
+ 	if ((RREG32(mmUVD_SOFT_RESET) & PS4_READY_HOLD) != remaining_hold ||
+ 	    !(RREG32(mmUVD_LMI_CTRL2) & UVD_LMI_CTRL2__STALL_ARB_UMC_MASK) ||
+-	    !ps4_ready_programmed(adev) || !ps4_ready_fetch_guard(adev) ||
++	    !ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard(adev) ||
+ 	    (RREG32(mmUVD_STATUS) & PS4_READY_BIT) ||
+ 	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
+ 	    atomic_read(&adev->gpu_reset_counter) != reset_count || amdgpu_in_reset(adev)) {
+@@ -492,6 +568,10 @@
+ 			ps4_ready_snapshot(adev, "fault");
+ 			ps4_ready_park(adev, "FAULT_OR_RESET", -EIO);
+ 		}
++		if (RREG32(PS4_READY_UVD_VCPU_CACHE_VMID) != cache_vmid_expected) {
++			ps4_ready_snapshot(adev, "cache_vmid_changed");
++			ps4_ready_park(adev, "VCPU_CACHE_VMID_CHANGED", -EIO);
++		}
+ 		if (!ps4_ready_fetch_guard(adev)) {
+ 			ps4_ready_snapshot(adev, "fetch_guard_changed");
+ 			ps4_ready_park(adev, "FETCH_GUARD_CHANGED", -EIO);
