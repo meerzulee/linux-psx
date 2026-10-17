@@ -4,6 +4,44 @@ The base snapshot is a byte-preserving import from `meerzulee/linux-ps4` at
 `f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75`. The MTS2 addition comes from
 `386df1ad97d92defee1794bf961a0e2f5dc85a1b`; original headers/licenses remain intact.
 
+## Hardware compatibility
+
+These results come from **one PS4 Slim with a Baikal B1 southbridge**, Orbis
+12.02 handoff and the recorded earlier Linux 6.18.44 boot sets. They are not
+claims for every PS4 model. **The new `6.18.44-psx-ps4-baikal1` build has not
+been boot-tested**; its firmware-free configuration needs separate validation.
+
+| Feature | Recorded status | What works / remaining limits |
+| --- | --- | --- |
+| CPU and RAM | ✅ Basic operation | Eight CPU cores online; about 6.8 GiB usable in the tested VRAM configuration. Sustained stress and extended memory tests remain pending; no CPU-frequency policy exposed. |
+| External USB root filesystem | ✅ Working | Linux boots from the tested external USB drive. |
+| USB keyboard and mouse | ✅ Working | Input worked with the tested devices. |
+| HDMI display | ✅ Working | 1920×1080 at 60 Hz; other monitors and modes need their own tests. |
+| OpenGL and Vulkan | 🟡 Smoke-tested | Radeonsi OpenGL 4.6 and RADV Vulkan 1.3 rendered short tests. Sustained load, GPU reset and video codecs are unqualified. |
+| MT7668 Wi-Fi | ✅ Working on historical stack | Association, DHCP, SSH, DNS and HTTPS passed with firmware present. The new psX kernel needs external firmware integration and a retest. |
+| Built-in Ethernet | 🟡 Working experimentally | MTS2 passed DHCP, independent two-way transfers, verified HTTPS and operation beyond 900 seconds. Automatic startup, strict admin gating and cable recovery remain incomplete. |
+| HDMI audio | 🟡 Partial | Device and PCM stream present; no audible output in the recorded test. |
+| Bluetooth | 🟡 Partial | Firmware and controller present; scanning, pairing and DualShock reconnect are unverified. |
+| Internal SATA | 🟡 Degraded | Disk detected, but reads timed out or failed. Internal storage is not accepted for normal use. |
+| Temperature monitoring | ✅ Working | Credible `k10temp` readings in short tests. |
+| Fan control | ❌ Unavailable | No Linux fan RPM/PWM interface or qualified fan-control implementation. |
+| UART boot logs | ✅ Working | Early-console capture with the recorded Baikal 6.x boot arguments; normal serial-port registration remains limited. |
+| Linux shutdown / reboot | ⚪ Unverified | No accepted exact-artifact lifecycle test recorded. |
+| Suspend / resume | ❌ Unavailable | Suspend was not exposed in the recorded runtime; MTS2 suspend is unqualified. |
+| Internal Linux installation | ❌ Unsupported | No accepted installation path; Linux-side writes to Sony filesystems are unqualified. |
+| Ultrawide display target | 🟡 Experimental | Optional patch series preserved; not qualified by this migration. |
+| Other PS4 revisions / PS4 Pro | ⚪ Untested | The Baikal B1 Slim results do not establish compatibility with other consoles. |
+
+✅ = observed working on the recorded stack; 🟡 = limited, partial or
+experimental; ❌ = unavailable or unsupported; ⚪ = no accepted test.
+
+Ethernet's overall EXP-20261017-016 verdict remains **DEGRADED**, despite the
+successful transport tests. See [PS4 status](STATUS.md),
+[detailed capabilities](docs/CAPABILITIES.md) and
+[Ethernet evidence](docs/ETHERNET-HISTORY.md) for scope and acceptance gaps.
+
+## Kernel targets
+
 | Target | Base | Active patches | Status |
 | --- | --- | --- | --- |
 | **Root target `6.18-ps4-baikal`** | Linux 6.18.44 | 55 | Active firmware-free psX build; experimental MTS2 Ethernet; new binaries unqualified. |
