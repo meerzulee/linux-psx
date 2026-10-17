@@ -15,6 +15,9 @@ There are two development targets. Both compile; neither has booted.
 The unified kernel for every southbridge is to be built on the stack that
 boots: once `7.2-ps4-baikal` runs on Baikal, rmux's Aeolia and Belize support
 moves onto it one feature at a time, each tested as a single hardware variable.
+Hardware testing follows the same order: Baikal first, then Aeolia and
+Belize. The 6.18 series has Aeolia and Belize device IDs and quirks, but has
+only run on Baikal.
 
 `7.2-ps4` reuses rmux's Strawberry kernel work rather than reimplementing it,
 with credit in [CREDITS.md](../CREDITS.md). It starts from the
@@ -57,8 +60,9 @@ rmux fixed the same `gl_proc.c` build error on `baikal/7.0.8-Stable` in
 `d98d3e9e0df2` (psX 6.18 carries the original as
 `0500-network-mt7668/0006`). That change switches to `__copy_from_user()` and
 makes `procDriverCmdWrite()` copy 2999 bytes whatever the write size, so the
-port does not use it. The 6.18 and `7.2-ps4-baikal` targets still carry it
-(see [Known issues carried from 6.18](#known-issues-carried-from-618)).
+port does not use it. The 6.18 target still carries it, and `7.2-ps4-baikal`
+undoes it with a port fix (see
+[The 7.2-ps4-baikal development target](#the-72-ps4-baikal-development-target)).
 
 ### Compile result
 
@@ -192,7 +196,7 @@ paths.
 | Item | Location |
 | --- | --- |
 | Target | [`targets/7.2-ps4-baikal.env`](../targets/7.2-ps4-baikal.env), release `7.2.11-psx-ps4-baikal-dev1` |
-| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the 55 6.18 entries in order, then five port fixes |
+| Series | [`platforms/ps4/patches/7.2-ps4-baikal/series`](../platforms/ps4/patches/7.2-ps4-baikal/series): the 55 6.18 entries in order, then six port fixes |
 | Config | [`platforms/ps4/config/7.2-psx-baikal.config`](../platforms/ps4/config/7.2-psx-baikal.config) with the MT7668 and USB Ethernet fragments |
 | Provenance | [`provenance/7.2-ps4-baikal.json`](../provenance/7.2-ps4-baikal.json) |
 
@@ -220,7 +224,7 @@ original header and message bytes:
 | Unchanged 6.18 file, referenced in place | 47 | including MTS2 |
 | Context lines only, regenerated | 6 | `0300/0002`, `0300/0004`, `0400/0002`, `1000/0003`, `1100/0001`, `1100/0002` |
 | Adapted, with the resolution recorded | 2 | `0300/0001`, `0400/0001` |
-| Port fixes (new) | 5 | below |
+| Port fixes (new) | 6 | below |
 
 | Port fix | Cause |
 | --- | --- |
@@ -229,10 +233,12 @@ original header and message bytes:
 | `mt76x8: adapt remain_on_channel to Linux 7.2` | As `7.2-ps4` `0171` |
 | `ps4: bpcie: replace pci_msi_create_irq_domain() removed in Linux 7.2` | psX creates the Baikal MSI parent domain with this helper. The driver now applies what the 6.18 helper did (the PCI/MSI domain flags, `IRQCHIP_ONESHOT_SAFE` and `DOMAIN_BUS_PCI_MSI`) and calls `msi_create_irq_domain()`. bpcie supplies its own domain and chip operations, so the helper's defaults never applied. The MSI core functions involved are unchanged from 6.18. |
 | `mt76x8: adapt key and station operations to Linux 7.1` | Linux 7.1 passes the key and station operations a `wireless_dev`. psX's mt76x8 already wraps these operations in adapters; they now pass on the `wireless_dev`'s `net_device` and refuse one without a `net_device`, which cfg80211 never passed before 7.1. rmux's newer mt76x8 handles this itself. |
+| `mt76x8: restore checked proc write copies` | Undoes `0500-network-mt7668/0006`, which the series keeps unchanged. Its `__copy_from_user()` calls skip `access_ok()`, and its `procDriverCmdWrite()` copies 2999 bytes whatever the write size. The handlers go back to `copy_from_user()` with the driver's sizes, and the comparison of `7.2-ps4` `0172` fixes the GCC 16 build error that `0006` worked around. |
 
-The other `7.2-ps4` port fixes are not needed: this stack already has feeRnt's
-Baikal xHCI shutdown fix (`0800-usb-aeolia/0002`), and its own `gl_proc.c`
-change (`0500-network-mt7668/0006`) builds with GCC 16.
+Of the other `7.2-ps4` port fixes, `0173` is not needed because this stack
+already has feeRnt's Baikal xHCI shutdown fix (`0800-usb-aeolia/0002`), and
+`0174` fixes an Aeolia problem left for the Aeolia tests (see
+[Known issues carried from 6.18](#known-issues-carried-from-618)).
 
 The port branch is local. With it, the series regenerates byte-for-byte:
 
@@ -267,14 +273,13 @@ renames:
   them, as on 6.18, which had neither. The PS4 bridge is attached once and
   never removed.
 - **Preemption**, as above.
+- **mt76x8 proc writes.** The port fix above returns the proc write handlers
+  to `copy_from_user()`. `procDriverCmdWrite()` copies at most the bytes
+  written rather than always 2999, and a source address outside user space
+  fails with `-EFAULT`.
 
 ### Known issues carried from 6.18
 
-- `0500-network-mt7668/0006` makes the proc write handlers use
-  `__copy_from_user()`, which skips `access_ok()`, and makes
-  `procDriverCmdWrite()` copy 2999 bytes whatever the write size. The nodes
-  are root-only (`0664`). It stays unchanged for the first boot; `7.2-ps4`
-  port fix `0172` is the candidate replacement afterwards.
 - On Aeolia, `xhci_hcd_pci_shutdown()` passes the driver's
   `struct aeolia_xhci` to `usb_hcd_pci_shutdown()`, which expects a
   `struct usb_hcd`. `7.2-ps4` fixes it with `0174`. Baikal is not affected.

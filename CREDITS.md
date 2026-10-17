@@ -99,7 +99,7 @@ fix and credits it. MTS2 is the psX work credited below.
 The [`7.2-ps4-baikal` development target](docs/PORT-7.2.md) ports the
 6.18 series to Linux 7.2. Its patches keep their authors and are mapped to
 the 6.18 files in [its provenance](provenance/7.2-ps4-baikal.json). Three of
-its five port fixes are shared with `7.2-ps4`; all five are by Meerzulee.
+its six port fixes are shared with `7.2-ps4`; all six are by Meerzulee.
 
 ## Licensing
 
