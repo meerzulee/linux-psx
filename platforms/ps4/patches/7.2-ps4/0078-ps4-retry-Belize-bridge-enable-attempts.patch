@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Sun, 26 Apr 2026 12:48:37 +0200
+Subject: [PATCH] ps4: retry Belize bridge enable attempts
+
+Belize systems can still miss HDMI output on the first boot modeset even
+when DPCD, AUX DDC, and EDID work. Manual TTY switches or display-manager
+restarts can recover the display, which suggests that rerunning the
+MN864729 bridge enable sequence and DP retrain during a later modeset can
+fix the timing/order issue.
+
+Run the MN864729 video bridge enable sequence and post-enable DP retrain
+up to three times during bridge enable. The retry is bounded and only
+happens in the bridge enable path, so it does not add background polling
+or runtime overhead while the system is otherwise running.
+
+The CUH-11xx path, bridge register values, EDID/DDC handling, mode
+validation, and post-enable retrain mechanism are unchanged.
+
+Signed-off-by: rmuxnet <armandas.kvietkus@proton.me>
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 271 +++++++++++++-----------
+ 1 file changed, 153 insertions(+), 118 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 0e6fa91be32fe321a5938bb54eaaa338b095d948..8e34685f950cdf4dff98cdbb9da3cea81ae8de58 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -41,6 +41,7 @@
+ #include <drm/drm_encoder.h>
+ 
+ #include <linux/err.h>
++#include <linux/delay.h>
+ #include <linux/i2c.h>
+ #include <linux/i2c-algo-bit.h>
+ 
+@@ -132,6 +133,9 @@
+ #define PCI_DEVICE_ID_CUH_2XXX 0x9923
+ #define PCI_DEVICE_ID_CUH_7XXX 0x9924
+ 
++#define PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS 3
++#define PS4_BRIDGE_BELIZE_RETRY_DELAY_MS 120
++
+ struct edid *drm_get_edid(struct drm_connector *connector,
+  				 struct i2c_adapter *adapter);
+ 
+@@ -517,6 +521,137 @@ static void ps4_bridge_pre_enable(struct drm_bridge *bridge)
+ 	mutex_unlock(&mn_bridge->mutex);
+ }
+ 
++static int ps4_bridge_enable_mn864729_video(struct ps4_bridge *mn_bridge,
++					    struct pci_dev *pdev)
++{
++	int ret;
++
++	mutex_lock(&mn_bridge->mutex);
++	cq_init(&mn_bridge->cq, 4);
++	cq_mask(&mn_bridge->cq, 0x6005, 0x01, 0x01);
++	cq_writereg(&mn_bridge->cq, 0x6a03, 0x47);
++
++	/* Wait for DP lane status */
++	cq_wait_set(&mn_bridge->cq, 0x60f8, 0xff);
++	cq_wait_set(&mn_bridge->cq, 0x60f9, 0x01);
++	cq_writereg(&mn_bridge->cq, 0x6a01, 0x4d);
++	cq_wait_set(&mn_bridge->cq, 0x60f9, 0x1a);
++
++	cq_mask(&mn_bridge->cq, 0x1e00, 0x00, 0x21);
++	cq_mask(&mn_bridge->cq, 0x1e02, 0x00, 0x70);
++	// 03 08 01 01 00  2c 01 00
++	//rancido has no delay here vvv
++	//cq_delay(&mn_bridge->cq, 0x012c);
++	cq_writereg(&mn_bridge->cq, 0x6020, 0x00);
++
++	//rancido has no delay here vvv
++	//cq_delay(&mn_bridge->cq, 0x0032);
++	cq_writereg(&mn_bridge->cq, 0x7402, 0x1c);
++	cq_writereg(&mn_bridge->cq, 0x6020, 0x04);
++	cq_writereg(&mn_bridge->cq, TSYSCTRL, TSYSCTRL_HDMI);
++	cq_writereg(&mn_bridge->cq, 0x10c7, 0x38);
++	cq_writereg(&mn_bridge->cq, 0x1e02, 0x88);
++	cq_writereg(&mn_bridge->cq, 0x1e00, 0x66);
++	cq_writereg(&mn_bridge->cq, 0x100c, 0x01);
++	cq_writereg(&mn_bridge->cq, TSYSCTRL, TSYSCTRL_HDMI);
++
++	cq_writereg(&mn_bridge->cq, 0x7009, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x7040, 0x42);
++	cq_writereg(&mn_bridge->cq, 0x7225, 0x28);
++	cq_writereg(&mn_bridge->cq, 0x7227, mn_bridge->mode);
++	cq_writereg(&mn_bridge->cq, 0x7228, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x7070, mn_bridge->mode);
++	cq_writereg(&mn_bridge->cq, 0x7071, mn_bridge->mode | 0x80);
++	cq_writereg(&mn_bridge->cq, 0x7072, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x7073, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x7074, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x7075, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x70c4, 0x0a);
++	cq_writereg(&mn_bridge->cq, 0x70c5, 0x0a);
++	cq_writereg(&mn_bridge->cq, 0x70c2, 0x00);
++	cq_writereg(&mn_bridge->cq, 0x70fe, 0x12);
++	cq_writereg(&mn_bridge->cq, 0x70c3, 0x10);
++
++	if (pdev->device == PCI_DEVICE_ID_CUH_12XX) {
++		/* newer ps4 phats need here 0x03 idk why. */
++		cq_writereg(&mn_bridge->cq, 0x10c5, 0x03);
++	} else {
++		cq_writereg(&mn_bridge->cq, 0x10c5, 0x00);
++	}
++
++	cq_writereg(&mn_bridge->cq, 0x10f6, 0xff);
++	cq_writereg(&mn_bridge->cq, 0x7202, 0x20);
++	cq_writereg(&mn_bridge->cq, 0x7203, 0x60);
++	cq_writereg(&mn_bridge->cq, 0x7011, 0xd5);
++	//cq_writereg(&mn_bridge->cq, 0x7a00, 0x0e);
++
++	cq_wait_set(&mn_bridge->cq, 0x10f6, 0x80);
++	cq_mask(&mn_bridge->cq, 0x7226, 0x00, 0x80);
++	cq_mask(&mn_bridge->cq, 0x7228, 0x00, 0xFF);
++	// rancido has no delay here vvv
++	//cq_delay(&mn_bridge->cq, 0x012c);
++	cq_writereg(&mn_bridge->cq, 0x7204, 0x40);
++	cq_wait_clear(&mn_bridge->cq, 0x7204, 0x40);
++	cq_writereg(&mn_bridge->cq, 0x7a8b, 0x05);
++	cq_mask(&mn_bridge->cq, 0x1e02, 0x70, 0x70);
++	cq_mask(&mn_bridge->cq, 0x1034, 0x02, 0x02);
++	cq_mask(&mn_bridge->cq, 0x1e00, 0x01, 0x01);
++	cq_writereg(&mn_bridge->cq, VMUTECNT, VMUTECNT_LINEWIDTH_90);
++	cq_writereg(&mn_bridge->cq, HDCPEN, 0x00);
++	ret = cq_exec(&mn_bridge->cq);
++	if (ret < 0)
++		DRM_ERROR("Failed to configure ps4-bridge (MN864729) mode\n");
++
++	mutex_unlock(&mn_bridge->mutex);
++
++	return ret < 0 ? ret : 0;
++}
++
++static void ps4_bridge_enable_mn864729_audio(struct ps4_bridge *mn_bridge)
++{
++	mutex_lock(&mn_bridge->mutex);
++
++	// AUDIO preinit
++	cq_init(&mn_bridge->cq, 4);
++	cq_writereg(&mn_bridge->cq,0x70aa, 0x00);
++	cq_writereg(&mn_bridge->cq,0x70af, 0x07);
++	cq_writereg(&mn_bridge->cq,0x70a9, 0x5a);
++
++	cq_mask(&mn_bridge->cq,0x70af, 0x06, 0x06);
++	cq_mask(&mn_bridge->cq,0x70af, 0x02, 0x0f);
++	cq_mask(&mn_bridge->cq,0x70b3, 0x02, 0x0f);
++	cq_mask(&mn_bridge->cq,0x70ae, 0x80, 0xe0);
++	cq_mask(&mn_bridge->cq,0x70ae, 0x01, 0x07);
++	cq_mask(&mn_bridge->cq,0x70ac, 0x01, 0x21);
++	cq_mask(&mn_bridge->cq,0x70ab, 0x80, 0x88);
++	cq_mask(&mn_bridge->cq,0x70a9, 0x01, 0x01);
++	if (cq_exec(&mn_bridge->cq) < 0)
++		DRM_ERROR("failed to run enable hdmi audio seq. 0");
++
++	cq_init(&mn_bridge->cq, 4);
++	cq_writereg(&mn_bridge->cq,0x70b0, 0x01);
++	cq_mask(&mn_bridge->cq,0x70b0, 0x00, 0xff);
++	cq_mask(&mn_bridge->cq,0x70b1, 0x79, 0xff);
++	cq_mask(&mn_bridge->cq,0x70b2, 0x00, 0xff);
++	cq_mask(&mn_bridge->cq,0x70b3, 0x02, 0xff);
++	cq_mask(&mn_bridge->cq,0x70b4, 0x0b, 0x0f);
++	cq_mask(&mn_bridge->cq,0x70b5, 0x00, 0xff);
++	cq_mask(&mn_bridge->cq,0x70b6, 0x00, 0xff);
++	cq_writereg(&mn_bridge->cq,0x10f6, 0xff);
++	cq_writereg(&mn_bridge->cq,0x7011, 0xa2);
++	cq_wait_set(&mn_bridge->cq,0x10f6, 0xa2);
++	cq_mask(&mn_bridge->cq,0x7267, 0x00, 0xff);
++	cq_writereg(&mn_bridge->cq,0x7204, 0x10);
++	cq_wait_clear(&mn_bridge->cq,0x7204, 0x10);
++	cq_writereg(&mn_bridge->cq,0x10f6, 0xff);
++	cq_mask(&mn_bridge->cq,0x7203, 0x10, 0x10);
++	cq_writereg(&mn_bridge->cq,0x70a8, 0xc0);
++	if (cq_exec(&mn_bridge->cq) < 0)
++		DRM_ERROR("failed to run enable hdmi audio seq. 1");
++
++	mutex_unlock(&mn_bridge->mutex);
++}
++
+ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ {
+ 	struct ps4_bridge *mn_bridge = bridge_to_ps4_bridge(bridge);
+@@ -527,10 +662,11 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 	bool is_mn864729 = pdev->device != PCI_DEVICE_ID_CUH_11XX;
+ 	bool success = false;
+ 	int ret;
++	unsigned int attempt;
+ 
+ 	DRM_DEBUG("Enable PS4_BRIDGE_ENABLE\n");
+ 	mutex_lock(&mn_bridge->mutex);
+-	if (mn_bridge->enabled) {
++	if (mn_bridge->enabled && !is_mn864729) {
+ 		DRM_DEBUG_KMS("ps4_bridge_enable (already enabled, skip)\n");
+ 		mutex_unlock(&mn_bridge->mutex);
+ 		return;
+@@ -676,129 +812,28 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 	else
+ 	{
+ 		/* Panasonic MN864729 */
+-		mutex_lock(&mn_bridge->mutex);
+-		cq_init(&mn_bridge->cq, 4);
+-		cq_mask(&mn_bridge->cq, 0x6005, 0x01, 0x01);
+-		cq_writereg(&mn_bridge->cq, 0x6a03, 0x47);
+-
+-		/* Wait for DP lane status */
+-		cq_wait_set(&mn_bridge->cq, 0x60f8, 0xff);
+-		cq_wait_set(&mn_bridge->cq, 0x60f9, 0x01);
+-		cq_writereg(&mn_bridge->cq, 0x6a01, 0x4d);
+-		cq_wait_set(&mn_bridge->cq, 0x60f9, 0x1a);
+-
+-		cq_mask(&mn_bridge->cq, 0x1e00, 0x00, 0x21);
+-		cq_mask(&mn_bridge->cq, 0x1e02, 0x00, 0x70);
+-		// 03 08 01 01 00  2c 01 00
+-		//rancido has no delay here vvv
+-		//cq_delay(&mn_bridge->cq, 0x012c);
+-		cq_writereg(&mn_bridge->cq, 0x6020, 0x00);
+-
+-		//rancido has no delay here vvv
+-		//cq_delay(&mn_bridge->cq, 0x0032);
+-		cq_writereg(&mn_bridge->cq, 0x7402, 0x1c);
+-		cq_writereg(&mn_bridge->cq, 0x6020, 0x04);
+-		cq_writereg(&mn_bridge->cq, TSYSCTRL, TSYSCTRL_HDMI);
+-		cq_writereg(&mn_bridge->cq, 0x10c7, 0x38);
+-		cq_writereg(&mn_bridge->cq, 0x1e02, 0x88);
+-		cq_writereg(&mn_bridge->cq, 0x1e00, 0x66);
+-		cq_writereg(&mn_bridge->cq, 0x100c, 0x01);
+-		cq_writereg(&mn_bridge->cq, TSYSCTRL, TSYSCTRL_HDMI);
+-
+-		cq_writereg(&mn_bridge->cq, 0x7009, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x7040, 0x42);
+-		cq_writereg(&mn_bridge->cq, 0x7225, 0x28);
+-		cq_writereg(&mn_bridge->cq, 0x7227, mn_bridge->mode);
+-		cq_writereg(&mn_bridge->cq, 0x7228, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x7070, mn_bridge->mode);
+-		cq_writereg(&mn_bridge->cq, 0x7071, mn_bridge->mode | 0x80);
+-		cq_writereg(&mn_bridge->cq, 0x7072, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x7073, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x7074, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x7075, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x70c4, 0x0a);
+-		cq_writereg(&mn_bridge->cq, 0x70c5, 0x0a);
+-		cq_writereg(&mn_bridge->cq, 0x70c2, 0x00);
+-		cq_writereg(&mn_bridge->cq, 0x70fe, 0x12);
+-		cq_writereg(&mn_bridge->cq, 0x70c3, 0x10);
+-
+-		if(pdev->device == PCI_DEVICE_ID_CUH_12XX) {
+-			/* newer ps4 phats need here 0x03 idk why. */
+-			cq_writereg(&mn_bridge->cq, 0x10c5, 0x03);
+-		} else {
+-			cq_writereg(&mn_bridge->cq, 0x10c5, 0x00);
+-		}
++		for (attempt = 1; attempt <= PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS;
++		     attempt++) {
++			DRM_DEBUG_KMS("ps4_bridge_enable: Belize attempt %u/%u\n",
++				      attempt,
++				      PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS);
++
++			ret = ps4_bridge_enable_mn864729_video(mn_bridge, pdev);
++			if (ret) {
++				if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
++					msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
++				continue;
++			}
+ 
+-		cq_writereg(&mn_bridge->cq, 0x10f6, 0xff);
+-		cq_writereg(&mn_bridge->cq, 0x7202, 0x20);
+-		cq_writereg(&mn_bridge->cq, 0x7203, 0x60);
+-		cq_writereg(&mn_bridge->cq, 0x7011, 0xd5);
+-		//cq_writereg(&mn_bridge->cq, 0x7a00, 0x0e);
+-
+-		cq_wait_set(&mn_bridge->cq, 0x10f6, 0x80);
+-		cq_mask(&mn_bridge->cq, 0x7226, 0x00, 0x80);
+-		cq_mask(&mn_bridge->cq, 0x7228, 0x00, 0xFF);
+-		// rancido has no delay here vvv
+-		//cq_delay(&mn_bridge->cq, 0x012c);
+-		cq_writereg(&mn_bridge->cq, 0x7204, 0x40);
+-		cq_wait_clear(&mn_bridge->cq, 0x7204, 0x40);
+-		cq_writereg(&mn_bridge->cq, 0x7a8b, 0x05);
+-		cq_mask(&mn_bridge->cq, 0x1e02, 0x70, 0x70);
+-		cq_mask(&mn_bridge->cq, 0x1034, 0x02, 0x02);
+-		cq_mask(&mn_bridge->cq, 0x1e00, 0x01, 0x01);
+-		cq_writereg(&mn_bridge->cq, VMUTECNT, VMUTECNT_LINEWIDTH_90);
+-		cq_writereg(&mn_bridge->cq, HDCPEN, 0x00);
+-		ret = cq_exec(&mn_bridge->cq);
+-		if (ret < 0) {
+-			DRM_ERROR("Failed to configure ps4-bridge (MN864729) mode\n");
+-		} else {
+ 			success = true;
+-		}
+-		#if 1
+-		// AUDIO preinit
+-		cq_init(&mn_bridge->cq, 4);
+-		cq_writereg(&mn_bridge->cq,0x70aa, 0x00);
+-		cq_writereg(&mn_bridge->cq,0x70af, 0x07);
+-		cq_writereg(&mn_bridge->cq,0x70a9, 0x5a);
+-
+-		cq_mask(&mn_bridge->cq,0x70af, 0x06, 0x06);
+-		cq_mask(&mn_bridge->cq,0x70af, 0x02, 0x0f);
+-		cq_mask(&mn_bridge->cq,0x70b3, 0x02, 0x0f);
+-		cq_mask(&mn_bridge->cq,0x70ae, 0x80, 0xe0);
+-		cq_mask(&mn_bridge->cq,0x70ae, 0x01, 0x07);
+-		cq_mask(&mn_bridge->cq,0x70ac, 0x01, 0x21);
+-		cq_mask(&mn_bridge->cq,0x70ab, 0x80, 0x88);
+-		cq_mask(&mn_bridge->cq,0x70a9, 0x01, 0x01);
+-		if (cq_exec(&mn_bridge->cq) < 0) {
+-				DRM_ERROR("failed to run enable hdmi audio seq. 0");
+-		}
++			ps4_bridge_retrain_dp(mn_bridge);
+ 
+-		cq_init(&mn_bridge->cq, 4);
+-		cq_writereg(&mn_bridge->cq,0x70b0, 0x01);
+-		cq_mask(&mn_bridge->cq,0x70b0, 0x00, 0xff);
+-		cq_mask(&mn_bridge->cq,0x70b1, 0x79, 0xff);
+-		cq_mask(&mn_bridge->cq,0x70b2, 0x00, 0xff);
+-		cq_mask(&mn_bridge->cq,0x70b3, 0x02, 0xff);
+-		cq_mask(&mn_bridge->cq,0x70b4, 0x0b, 0x0f);
+-		cq_mask(&mn_bridge->cq,0x70b5, 0x00, 0xff);
+-		cq_mask(&mn_bridge->cq,0x70b6, 0x00, 0xff);
+-		cq_writereg(&mn_bridge->cq,0x10f6, 0xff);
+-		cq_writereg(&mn_bridge->cq,0x7011, 0xa2);
+-		cq_wait_set(&mn_bridge->cq,0x10f6, 0xa2);
+-		cq_mask(&mn_bridge->cq,0x7267, 0x00, 0xff);
+-		cq_writereg(&mn_bridge->cq,0x7204, 0x10);
+-		cq_wait_clear(&mn_bridge->cq,0x7204, 0x10);
+-		cq_writereg(&mn_bridge->cq,0x10f6, 0xff);
+-		cq_mask(&mn_bridge->cq,0x7203, 0x10, 0x10);
+-		cq_writereg(&mn_bridge->cq,0x70a8, 0xc0);
+-		if (cq_exec(&mn_bridge->cq) < 0) {
+-				DRM_ERROR("failed to run enable hdmi audio seq. 1");
++			if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
++				msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
+ 		}
+-		#endif
+-		mutex_unlock(&mn_bridge->mutex);
+ 
+ 		if (success)
+-			ps4_bridge_retrain_dp(mn_bridge);
++			ps4_bridge_enable_mn864729_audio(mn_bridge);
+ 	}
+ 
+ out:

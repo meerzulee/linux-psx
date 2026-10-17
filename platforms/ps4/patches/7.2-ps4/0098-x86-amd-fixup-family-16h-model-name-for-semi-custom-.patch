@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Fri, 15 May 2026 10:41:54 +0000
+Subject: [PATCH] x86/amd: fixup family 16h model name for semi-custom Jaguar
+ parts
+
+Semi-custom family 16h APUs report an OPN string via CPUID extended
+leaves instead of a readable model name.  Override x86_model_id when
+CONFIG_X86_PS4 is set so /proc/cpuinfo reports the microarchitecture.
+---
+ arch/x86/kernel/cpu/amd.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/amd.c b/arch/x86/kernel/cpu/amd.c
+index 89e3280475a9d9596e15b99cb1e7f95b4aff3a30..f860a90da278f99756db024fe5e22e884c1eacca 100644
+--- a/arch/x86/kernel/cpu/amd.c
++++ b/arch/x86/kernel/cpu/amd.c
+@@ -851,6 +851,11 @@ static void init_amd_jg(struct cpuinfo_x86 *c)
+ 	 * instruction support via CPUID.
+ 	 */
+ 	clear_rdrand_cpuid_bit(c);
++
++#ifdef CONFIG_X86_PS4
++	if (c->x86_model <= 0x30)
++		strscpy(c->x86_model_id, "AMD Jaguar");
++#endif
+ }
+ 
+ static void init_amd_bd(struct cpuinfo_x86 *c)

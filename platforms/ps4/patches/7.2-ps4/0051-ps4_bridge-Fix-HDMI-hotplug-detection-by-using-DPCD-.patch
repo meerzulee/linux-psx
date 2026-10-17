@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmxunet <armandas.kvietkus@proton.me>
+Date: Tue, 24 Mar 2026 18:39:30 +0100
+Subject: [PATCH] ps4_bridge: Fix HDMI hotplug detection by using DPCD AUX
+ status and enable polling
+
+The TMONREG_HPD bit from the MN86471A/MN864729 bridge chip latches high on first connection and is never cleared when unplugged, causing the driver to always report the connector as connected. This results in missed hotplug events and no modeset on reconnect.
+
+This patch updates both amdgpu and radeon ps4_bridge drivers to:
+- Use the result of the DPCD AUX transaction (via amdgpu_atombios_dp_get_dpcd or radeon_dp_getdpcd) as the authoritative connection status, since it fails immediately when the cable is unplugged.
+- Enable DRM connector polling, ensuring detect() is called periodically and modesets are triggered on cable replug.
+
+This restores correct hotplug behavior even without HPD interrupts from Aeolia.
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 18 ++++++++++--------
+ drivers/gpu/drm/radeon/ps4_bridge.c     | 13 +++++++++----
+ 2 files changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 6d2a86c0b3a0a7f00bf1027ec01028428ff2b0f7..2511f6c05fb3db8dcd913b635e9013a02ff51f39 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -32,6 +32,7 @@
+ #include <asm/ps4.h>
+ 
+ #include <drm/drm_crtc.h>
++#include <drm/drm_probe_helper.h>
+ #include <drm/drm_crtc_helper.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_edid.h>
+@@ -755,9 +756,10 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 
+ 	struct amdgpu_connector *amdgpu_connector = to_amdgpu_connector(connector);
+ 	struct amdgpu_connector_atom_dig *amdgpu_dig_connector = amdgpu_connector->con_priv;
++	int dpcd_ret;
+ 
+ 	amdgpu_dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
+-	amdgpu_atombios_dp_get_dpcd(amdgpu_connector);
++	dpcd_ret = amdgpu_atombios_dp_get_dpcd(amdgpu_connector);
+ 
+ 	mutex_lock(&mn_bridge->mutex);
+ 	cq_init(&mn_bridge->cq, 4);
+@@ -770,9 +772,9 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ 	reg = mn_bridge->cq.reply.databuf[3];
+ 	mutex_unlock(&mn_bridge->mutex);
+ 
+-	DRM_DEBUG_KMS("TMONREG=0x%02x\n", reg);
++	DRM_DEBUG_KMS("TMONREG=0x%02x dpcd_ret=%d\n", reg, dpcd_ret);
+ 
+-	if (reg & TMONREG_HPD)
++	if ((reg & TMONREG_HPD) && dpcd_ret == 0)
+ 		return connector_status_connected;
+ 	else
+ 		return connector_status_disconnected;
+@@ -824,17 +826,17 @@ int ps4_bridge_register(struct drm_connector *connector,
+ 	mn_bridge->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
+ 	mn_bridge->bridge.funcs = &ps4_bridge_funcs;
+ 
+-	// TODO (ps4patches): This seems to be the new way of adding bridges
+-	drm_bridge_add(&mn_bridge->bridge);
++	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
++			    DRM_CONNECTOR_POLL_DISCONNECT;
+ 
+-	//ret = drm_bridge_attach(mn_bridge->encoder, &mn_bridge->bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+-	
+-	// Allow the bridge to create its own connectors with last parameter = 0.
++	drm_bridge_add(&mn_bridge->bridge);
+ 	ret = drm_bridge_attach(mn_bridge->encoder, &mn_bridge->bridge, NULL, 0);
+ 	if (ret) {
+ 		DRM_ERROR("Failed to initialize bridge with drm\n");
+ 		return -EINVAL;
+ 	}
+ 
++	drm_kms_helper_poll_enable(connector->dev);
++
+ 	return 0;
+ }
+diff --git a/drivers/gpu/drm/radeon/ps4_bridge.c b/drivers/gpu/drm/radeon/ps4_bridge.c
+index 34bdc966d3903c7a1148c861b6a0c48240c3c440..e5d15dc5c209bcb7d1ad7115313f04f3e05f3667 100644
+--- a/drivers/gpu/drm/radeon/ps4_bridge.c
++++ b/drivers/gpu/drm/radeon/ps4_bridge.c
+@@ -21,6 +21,7 @@
+ #include <drm/drm_crtc_helper.h>
+ #include <drm/drm_atomic_helper.h>
+ #include <drm/drm_edid.h>
++#include <drm/drm_probe_helper.h>
+ 
+ #include <linux/pci.h>
+ #include <drm/drm_bridge.h>
+@@ -702,7 +703,7 @@ enum drm_connector_status radeon_ps4_bridge_detect(struct drm_connector *connect
+ 	struct radeon_connector_atom_dig *radeon_dig_connector = radeon_connector->con_priv;
+ 
+ 	radeon_dig_connector->dp_sink_type = CONNECTOR_OBJECT_ID_DISPLAYPORT;
+-	radeon_dp_getdpcd(radeon_connector);
++	int dpcd_ret = radeon_dp_getdpcd(radeon_connector);
+ 
+ 	mutex_lock(&mn_bridge->mutex);
+ 	cq_init(&mn_bridge->cq, 4);
+@@ -715,9 +716,9 @@ enum drm_connector_status radeon_ps4_bridge_detect(struct drm_connector *connect
+ 	reg = mn_bridge->cq.reply.databuf[3];
+ 	mutex_unlock(&mn_bridge->mutex);
+ 
+-	DRM_DEBUG_KMS("TMONREG=0x%02x\n", reg);
++	DRM_DEBUG_KMS("TMONREG=0x%02x dpcd_ret=%d\n", reg, dpcd_ret);
+ 
+-	if (reg & TMONREG_HPD)
++	if ((reg & TMONREG_HPD) && dpcd_ret == 0)
+ 		return connector_status_connected;
+ 	else
+ 		return connector_status_disconnected;
+@@ -765,7 +766,9 @@ int radeon_ps4_bridge_register(struct drm_connector *connector,
+ 	mn_bridge->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
+ 	mn_bridge->bridge.funcs = &radeon_ps4_bridge_funcs;
+ 
+-	// TODO (ps4patches): This seems to be the new way of adding bridges
++	connector->polled = DRM_CONNECTOR_POLL_CONNECT |
++			    DRM_CONNECTOR_POLL_DISCONNECT;
++
+ 	drm_bridge_add(&mn_bridge->bridge);
+ 
+ 	ret = drm_bridge_attach(mn_bridge->encoder, &mn_bridge->bridge, NULL, DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+@@ -774,5 +777,7 @@ int radeon_ps4_bridge_register(struct drm_connector *connector,
+ 		return -EINVAL;
+ 	}
+ 
++	drm_kms_helper_poll_enable(connector->dev);
++
+ 	return 0;
+ }

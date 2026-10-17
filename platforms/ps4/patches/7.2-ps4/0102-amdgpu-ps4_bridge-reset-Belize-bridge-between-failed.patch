@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 30 Jun 2026 22:29:42 +0200
+Subject: [PATCH] amdgpu: ps4_bridge: reset Belize bridge between failed enable
+ attempts
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index cd9d23ac6efca1e50a7a1b08bb23c5bd777b6fca..cb3abd47b2deb6b7eea7f112f1693313cb885c50 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -518,6 +518,19 @@ static void ps4_bridge_pre_enable(struct drm_bridge *bridge)
+ 	mutex_unlock(&mn_bridge->mutex);
+ }
+ 
++static void ps4_bridge_reset_mn864729(struct ps4_bridge *mn_bridge)
++{
++	mutex_lock(&mn_bridge->mutex);
++	cq_init(&mn_bridge->cq, 4);
++	cq_writereg(&mn_bridge->cq, TSRST,
++		   TSRST_AVCSRST | TSRST_ENCSRST | TSRST_FIFOSRST |
++		   TSRST_CCSRST | TSRST_HDCPSRST | TSRST_AUDSRST |
++		   TSRST_VIFSRST);
++	if (cq_exec(&mn_bridge->cq) < 0)
++		DRM_ERROR("Failed to reset bridge between Belize attempts\n");
++	mutex_unlock(&mn_bridge->mutex);
++}
++
+ static int ps4_bridge_enable_mn864729_video(struct ps4_bridge *mn_bridge,
+ 					    struct pci_dev *pdev)
+ {
+@@ -822,8 +835,10 @@ static void ps4_bridge_enable(struct drm_bridge *bridge)
+ 				break;
+ 			}
+ 
+-			if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS)
++			if (attempt < PS4_BRIDGE_BELIZE_ENABLE_ATTEMPTS) {
++				ps4_bridge_reset_mn864729(mn_bridge);
+ 				msleep(PS4_BRIDGE_BELIZE_RETRY_DELAY_MS);
++			}
+ 		}
+ 
+ 		if (success)

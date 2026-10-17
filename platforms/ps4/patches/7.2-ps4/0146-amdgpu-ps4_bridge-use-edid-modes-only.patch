@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Sun, 19 Jul 2026 22:31:07 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: use edid modes only
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c | 44 ++-----------------------
+ 1 file changed, 3 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index 939dac9a62bc395e62e0cff0f0f6fd3f32d3dbaa..ecbe23b307b18311a98c587a3479af433d4eb646 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -953,19 +953,8 @@ static void ps4_bridge_post_disable(struct drm_bridge *bridge)
+ 	mutex_unlock(&mn_bridge->mutex);
+ }
+ 
+-/* Hardcoded modes, since we don't really know how to do custom modes yet.
+- * Other CEA modes *should* work (and are allowed if externally added) */
+-
+-// TODO (ps4patches): Apparently the vrefresh option is calculated on the fly now
+-// Check if this actually works.
+-
+-/* 1 - 640x480@60Hz */
+-static const struct drm_display_mode mode_480p __maybe_unused = {
+-	DRM_MODE("640x480", DRM_MODE_TYPE_DRIVER, 25175, 640, 656,
+-		 752, 800, 0, 480, 490, 492, 525, 0,
+-		 DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC),
+-	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_4_3
+-};
++/* Fallback modes, only used when no EDID can be read at all. */
++
+ /* 4 - 1280x720@60Hz */
+ static const struct drm_display_mode mode_720p __maybe_unused = {
+ 	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER, 74250, 1280, 1390,
+@@ -980,20 +969,6 @@ static const struct drm_display_mode mode_1080p = {
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
+-/* Having a 120Hz modeline causes incorrect mode selection
+- * by GUI / Display Manager, causing a 60Hz monitor to try
+- * with a 120Hz mode - leading to a blackscreen.
+- * Only fix seems to be having a xorg.conf in /usr/share/X11/xorg.conf.d/
+- *
+- * Try setting a TYPE_PREFFERED mode
+- */
+-/* 63 - 1920x1080@120Hz */
+-static const struct drm_display_mode mode_1080p120 __maybe_unused = {
+-	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 297000, 1920, 2008,
+-			2052, 2200, 0, 1080, 1084, 1089, 1125, 0,
+-		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+-	  .picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+-};
+ 
+ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+@@ -1133,11 +1108,6 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		amdgpu_connector->edid = drm_edid_dup(drm_edid);
+ 		drm_edid_connector_update(connector, drm_edid);
+ 		count = drm_edid_connector_add_modes(connector);
+-		newmode = drm_mode_duplicate(dev, &mode_1080p);
+-		if (newmode) {
+-			drm_mode_probed_add(connector, newmode);
+-			count++;
+-		}
+ 		drm_info(dev, "ps4_bridge: EDID loaded from %s, %d modes, %u extension block(s)\n",
+ 			 edid_source ? edid_source : "unknown", count,
+ 			 raw_edid ? raw_edid->extensions : 0);
+@@ -1164,11 +1134,6 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		count++;
+ 	}
+ 
+-	//newmode = drm_mode_duplicate(dev, &mode_720p);
+-	//drm_mode_probed_add(connector, newmode);
+-	//newmode = drm_mode_duplicate(dev, &mode_480p);
+-	//drm_mode_probed_add(connector, newmode);
+-
+ 	return count;
+ }
+ 
+@@ -1213,11 +1178,8 @@ enum drm_connector_status ps4_bridge_detect(struct drm_connector *connector,
+ enum drm_mode_status ps4_bridge_mode_valid(struct drm_connector *connector,
+ 				  const struct drm_display_mode *mode)
+ {
+-	int vic = drm_match_cea_mode(mode);
+-
+-	if (!vic || (vic != 16 && vic != 4 && vic != 63)) {
++	if (!drm_match_cea_mode(mode))
+ 		return MODE_BAD;
+-	}
+ 	return MODE_OK;
+ }
+ 

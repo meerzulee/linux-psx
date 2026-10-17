@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmux <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 12:03:56 +0000
+Subject: [PATCH] ps4-hwinfo: log southbridge silicon stepping
+
+---
+ drivers/ps4/ps4-hwinfo.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ps4/ps4-hwinfo.c b/drivers/ps4/ps4-hwinfo.c
+index 63d7ad9350ee53033e4ebfa2150ff140f10ec041..b1a603ad2509cce4e808b468dd4fa186f4f9e82f 100644
+--- a/drivers/ps4/ps4-hwinfo.c
++++ b/drivers/ps4/ps4-hwinfo.c
+@@ -27,6 +27,13 @@ static const struct {
+ 	{ PCI_DEVICE_ID_SONY_BAIKAL_PCIE, "Baikal" },
+ };
+ 
++static void stepping_str(u8 rev, char *buf)
++{
++	buf[0] = 'A' + (rev >> 4);
++	buf[1] = '0' + (rev & 0xf);
++	buf[2] = '\0';
++}
++
+ void ps4_hwinfo_print(void)
+ {
+ 	struct pci_dev *gpu = NULL;
+@@ -34,6 +41,8 @@ void ps4_hwinfo_print(void)
+ 	const char *gpu_name = "unknown";
+ 	const char *sb_name  = "unknown";
+ 	u16 gpu_dev = 0, sb_dev = 0;
++	u8 sb_rev = 0;
++	char stepping[3];
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(ps4_gpu_ids); i++) {
+@@ -51,12 +60,14 @@ void ps4_hwinfo_print(void)
+ 		if (sb) {
+ 			sb_name = ps4_sb_ids[i].name;
+ 			sb_dev  = sb->device;
++			sb_rev  = sb->revision;
+ 			pci_dev_put(sb);
+ 			break;
+ 		}
+ 	}
+ 
+-	pr_info("GPU: %s [%04x:%04x]  southbridge: %s [%04x:%04x]\n",
++	stepping_str(sb_rev, stepping);
++	pr_info("GPU: %s [%04x:%04x]  southbridge: %s %s [%04x:%04x]\n",
+ 		gpu_name, AMD_VENDOR, gpu_dev,
+-		sb_name, PCI_VENDOR_ID_SONY, sb_dev);
++		sb_name, stepping, PCI_VENDOR_ID_SONY, sb_dev);
+ }

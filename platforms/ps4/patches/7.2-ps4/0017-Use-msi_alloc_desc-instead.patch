@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Sat, 21 Jun 2025 16:54:46 +0200
+Subject: [PATCH] Use msi_alloc_desc instead
+
+msi_alloc_desc is the rename of the older function we used to use called alloc_msi_entry.
+---
+ drivers/ps4/ps4-apcie.c | 9 ++-------
+ include/linux/msi.h     | 3 +++
+ kernel/irq/msi.c        | 2 +-
+ 3 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+index fc5582518c80b484b66cd2aac9e09f029502b47e..cd332c4db65553ac8576e48c94e2133227cbcd7a 100644
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -330,13 +330,6 @@ int apcie_assign_irqs(struct pci_dev *dev, int nvec)
+ 	struct msi_desc *desc;
+ 	struct device* bare_dev = &sc->pdev->dev;
+ 
+-	desc = kzalloc(sizeof(*desc), GFP_KERNEL);
+-	if (!desc)
+-    	return -ENOMEM;
+-
+-	desc->nvec_used = nvec;
+-	desc->dev = bare_dev;
+-
+ 	/* Our hwirq number is function << 8 plus subfunction.
+ 	 * Subfunction is usually 0 and implicitly increments per hwirq,
+ 	 * but can also be 0xff to indicate that this is a shared IRQ. */
+@@ -349,6 +342,8 @@ int apcie_assign_irqs(struct pci_dev *dev, int nvec)
+ 	}
+ #endif
+ 
++	desc = msi_alloc_desc(bare_dev, nvec, NULL);
++
+ 	info.desc = desc;
+ 	info.data = sc;
+ 
+diff --git a/include/linux/msi.h b/include/linux/msi.h
+index a4613de11960d41c418a223c3a8fcf143e9f60ee..c8ee78ebf71c2acfdda1d5f82eaf89d1e631b0c2 100644
+--- a/include/linux/msi.h
++++ b/include/linux/msi.h
+@@ -239,6 +239,9 @@ DEFINE_LOCK_GUARD_1(msi_descs_lock, struct device, __msi_lock_descs(_T->lock),
+ struct msi_desc *msi_domain_first_desc(struct device *dev, unsigned int domid,
+ 				       enum msi_desc_filter filter);
+ 
++struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
++				       const struct irq_affinity_desc *affinity);
++
+ /**
+  * msi_first_desc - Get the first MSI descriptor of the default irqdomain
+  * @dev:	Device to operate on
+diff --git a/kernel/irq/msi.c b/kernel/irq/msi.c
+index 903be7289c53ad7866ec046b7b372c47154d0ec9..fafdff6ea739d3cec1bd0c2c435063c25ddac08c 100644
+--- a/kernel/irq/msi.c
++++ b/kernel/irq/msi.c
+@@ -73,7 +73,7 @@ static int msi_domain_prepare_irqs(struct irq_domain *domain, struct device *dev
+  *
+  * Return: pointer to allocated &msi_desc on success or %NULL on failure
+  */
+-static struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
++struct msi_desc *msi_alloc_desc(struct device *dev, int nvec,
+ 				       const struct irq_affinity_desc *affinity)
+ {
+ 	struct msi_desc *desc = kzalloc_obj(*desc);

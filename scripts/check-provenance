@@ -19,6 +19,15 @@ def checked_file(name, expected):
         raise ValueError(f"provenance checksum mismatch: {name}")
 
 
+def read_env(name):
+    env = {}
+    for line in (ROOT / f"targets/{name}.env").read_text().splitlines():
+        if re.match(r"^[A-Z_]+=", line):
+            key, value = line.split("=", 1)
+            env[key] = shlex.split(value)[0]
+    return env
+
+
 def main():
     count = 0
     for line in (ROOT / "provenance/ps4-SHA256SUMS").read_text().splitlines():
@@ -42,11 +51,7 @@ def main():
     if ([item["sha256"] for item in target["patches"][:-1]] != [item["sha256"] for item in baseline]
             or len(entries) != target["active_patch_count"] or len(entries) != 55):
         raise ValueError("active series must preserve the 54-patch base plus MTS2")
-    env = {}
-    for line in (ROOT / f"targets/{target['target']}.env").read_text().splitlines():
-        if re.match(r"^[A-Z_]+=", line):
-            key, value = line.split("=", 1)
-            env[key] = shlex.split(value)[0]
+    env = read_env(target["target"])
     expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
                 "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
                 "BASE_REF": target["upstream"]["ref"], "BASE_COMMIT": target["upstream"]["commit"],
@@ -61,9 +66,11 @@ def main():
     if len(knowledge["files"]) != knowledge["scope"]["file_count"]:
         raise ValueError("historical knowledge coverage count differs")
     rmux_count = check_rmux_import()
+    port_count = check_port_target()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
     print(f"PASS: {rmux_count} rmux import checksums; series order and pins match")
+    print(f"PASS: 7.2-ps4 development series: {port_count} patches; rmux sources and pins match")
 
 
 def check_rmux_import():
@@ -92,6 +99,47 @@ def check_rmux_import():
         if "rmux-reference" in env.read_text():
             raise ValueError(f"target must not use rmux reference configs: {env.name}")
     return count
+
+
+def check_port_target():
+    """Verify the 7.2-ps4 development target against its structured provenance."""
+    target = json.loads((ROOT / "provenance/7.2-ps4.json").read_text())
+    items = target["patches"] + target["direct_references"]
+    for item in target["inputs"] + items:
+        checked_file(item["path"], item["sha256"])
+    series = ROOT / target["series_path"]
+    entries = [line.strip() for line in series.read_text().splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    if (sha(series) != target["series_sha256"] or entries != [item["entry"] for item in items]
+            or len(entries) != target["active_patch_count"]):
+        raise ValueError("7.2-ps4 series/order mismatch")
+    for entry, item in zip(entries, items):
+        if (series.parent / entry).resolve() != ROOT / item["path"]:
+            raise ValueError("7.2-ps4 patch resolution mismatch")
+    ordered = "".join(f"{item['sha256']}  {item['entry']}\n" for item in items)
+    if hashlib.sha256(ordered.encode()).hexdigest() != target["ordered_patchset_sha256"]:
+        raise ValueError("7.2-ps4 ordered patch-set mismatch")
+    imports = json.loads((ROOT / target["rmux_import"]["manifest"]).read_text())["imports"]
+    source = next(imp for imp in imports if imp["name"] == target["rmux_import"]["import"])
+    by_entry = {p["entry"]: p for p in source["patches"]}
+    for p in target["patches"]:
+        if p["origin"] == source["name"]:
+            src = by_entry.get(p["rmux_entry"])
+            if not src or src["commit"] != p["rmux_commit"] or src["sha256"] != p["rmux_sha256"]:
+                raise ValueError(f"7.2-ps4 patch does not match its rmux source: {p['entry']}")
+            if p["change"] == "adapted" and not p.get("note"):
+                raise ValueError(f"7.2-ps4 adaptation lacks a recorded resolution: {p['entry']}")
+        elif p["origin"] != "port-fix":
+            raise ValueError(f"7.2-ps4 patch has an unknown origin: {p['entry']}")
+    env = read_env(target["target"])
+    expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
+                "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
+                "BASE_REF": target["upstream"]["ref"], "BASE_COMMIT": target["upstream"]["commit"],
+                "SERIES_FILE": target["series_path"], "SOURCE_DATE_EPOCH": str(target["source_date_epoch"])}
+    if any(env.get(key) != value for key, value in expected.items()):
+        raise ValueError("7.2-ps4 target definition differs from structured provenance")
+    if 'CONFIG_EXTRA_FIRMWARE=""' not in (ROOT / env["CONFIG_FILE"]).read_text().splitlines():
+        raise ValueError("7.2-ps4 config must not embed device firmware")
+    return len(entries)
 
 
 if __name__ == "__main__":

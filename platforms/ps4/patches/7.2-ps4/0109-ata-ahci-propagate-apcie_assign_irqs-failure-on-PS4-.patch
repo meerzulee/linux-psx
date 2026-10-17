@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 00:23:59 +0200
+Subject: [PATCH] ata/ahci: propagate apcie_assign_irqs failure on PS4 instead
+ of ignoring it
+
+---
+ drivers/ata/ahci.c | 21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index 9d63ba814ca2d8e36838627eb2ca6f2d272af23a..d6ebf152031375fd7391bcbe9043a595b711c3dc 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -2733,21 +2733,23 @@ static int ahci_get_irq_vector(struct ata_host *host, int port)
+ 	return pci_irq_vector(to_pci_dev(host->dev), port);
+ }
+ 
+-static void ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
++static int ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 			struct ahci_host_priv *hpriv)
+ {
+ 	int nvec;
+ 
+ 	#ifdef CONFIG_X86_PS4
+ 	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		apcie_assign_irqs(pdev, n_ports);
+-		return;
++		nvec = apcie_assign_irqs(pdev, n_ports);
++		if (nvec < 0)
++			return nvec;
++		return 0;
+ 	}
+ 	#endif
+-	
++
+ 	if (hpriv->flags & AHCI_HFLAG_NO_MSI) {
+ 		pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_INTX);
+-		return;
++		return 0;
+ 	}
+ 
+ 	/*
+@@ -2762,7 +2764,7 @@ static void ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 			if (!(readl(hpriv->mmio + HOST_CTL) & HOST_MRSM)) {
+ 				hpriv->get_irq_vector = ahci_get_irq_vector;
+ 				hpriv->flags |= AHCI_HFLAG_MULTI_MSI;
+-				return;
++				return 0;
+ 			}
+ 
+ 			/*
+@@ -2782,8 +2784,9 @@ static void ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 	 */
+ 	nvec = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSI);
+ 	if (nvec == 1)
+-		return;
++		return 0;
+ 	pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSIX | PCI_IRQ_INTX);
++	return 0;
+ }
+ 
+ static void ahci_mark_external_port(struct ata_port *ap)
+@@ -3116,7 +3119,9 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 	host->private_data = hpriv;
+ 
+-	ahci_init_irq(pdev, n_ports, hpriv);
++	rc = ahci_init_irq(pdev, n_ports, hpriv);
++	if (rc < 0)
++		goto err_rm_sysfs_file;
+ 
+ 	hpriv->irq = pci_irq_vector(pdev, 0);
+ 

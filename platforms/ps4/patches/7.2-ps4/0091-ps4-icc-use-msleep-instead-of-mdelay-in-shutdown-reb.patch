@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 6 May 2026 12:59:42 +0200
+Subject: [PATCH] ps4: icc: use msleep instead of mdelay in shutdown/reboot
+
+---
+ drivers/ps4/ps4-apcie-icc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+index 45e9b47cdd7c62cd2925290d52446716b36b3857..d6f497b72bd1af51aba51a7e1c41d5854b5129a6 100644
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -425,7 +425,7 @@ static void icc_shutdown(void)
+ 	if (apcie_status() != 1)
+ 		return;
+ 	apcie_icc_cmd(4, 1, command, sizeof(command), NULL, 0);
+-	mdelay(3000);
++	msleep(3000);
+ 	WARN_ON(1);
+ }
+ 
+@@ -437,7 +437,7 @@ void icc_reboot(void)
+ 	if (apcie_status() != 1)
+ 		return;
+ 	apcie_icc_cmd(4, 1, command, sizeof(command), NULL, 0);
+-	mdelay(3000);
++	msleep(3000);
+ 	WARN_ON(1);
+ }
+ 

@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Armandas Kvietkus <armandas.kvietkus@proton.me>
+Date: Mon, 20 Jul 2026 11:56:35 +0000
+Subject: [PATCH] amdgpu/ps4_bridge: support multi-mode quirks, MSI 1080p100
+
+---
+ drivers/gpu/drm/amd/amdgpu/ps4_bridge.c       | 44 ++++++++++++++-----
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.c    | 15 ++++---
+ .../gpu/drm/amd/amdgpu/ps4_bridge_quirks.h    | 11 +++--
+ 3 files changed, 45 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+index d95ebcfe32f3b6278cd466cfa5510b62f66517df..64d701da85d909e98ebceac19117ea0ffd7b2bff 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge.c
+@@ -968,6 +968,12 @@ static const struct drm_display_mode mode_1080p = {
+ 		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+ 	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
+ };
++static const struct drm_display_mode mode_1080p100 = {
++	DRM_MODE("1920x1080", DRM_MODE_TYPE_DRIVER, 232750, 1920, 1968,
++		 2000, 2080, 0, 1080, 1083, 1088, 1119, 0,
++		 DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
++	.picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9
++};
+ 
+ int ps4_bridge_get_modes(struct drm_connector *connector)
+ {
+@@ -1106,21 +1112,35 @@ int ps4_bridge_get_modes(struct drm_connector *connector)
+ 		raw_edid = drm_edid_raw(drm_edid);
+ 
+ 		{
+-			enum ps4_bridge_forced_mode forced = ps4_bridge_quirk_forced_mode(raw_edid);
+-
+-			if (forced != PS4_BRIDGE_FORCED_MODE_NONE) {
+-				const struct drm_display_mode *quirk_mode =
+-					forced == PS4_BRIDGE_FORCED_MODE_720P ? &mode_720p : &mode_1080p;
++			unsigned int forced = ps4_bridge_quirk_forced_modes(raw_edid);
+ 
+-				drm_info(dev, "ps4_bridge: EDID from %s is known-bad, forcing %s only\n",
+-					 edid_source ? edid_source : "unknown",
+-					 forced == PS4_BRIDGE_FORCED_MODE_720P ? "720p" : "1080p");
++			if (forced) {
++				drm_info(dev, "ps4_bridge: EDID from %s is known-bad, forcing fixed mode set\n",
++					 edid_source ? edid_source : "unknown");
+ 				drm_edid_free(drm_edid);
+-				newmode = drm_mode_duplicate(dev, quirk_mode);
+-				if (newmode) {
+-					drm_mode_probed_add(connector, newmode);
+-					count++;
++
++				if (forced & PS4_BRIDGE_QUIRK_MODE_1080P60) {
++					newmode = drm_mode_duplicate(dev, &mode_1080p);
++					if (newmode) {
++						drm_mode_probed_add(connector, newmode);
++						count++;
++					}
++				}
++				if (forced & PS4_BRIDGE_QUIRK_MODE_1080P100) {
++					newmode = drm_mode_duplicate(dev, &mode_1080p100);
++					if (newmode) {
++						drm_mode_probed_add(connector, newmode);
++						count++;
++					}
+ 				}
++				if (forced & PS4_BRIDGE_QUIRK_MODE_720P) {
++					newmode = drm_mode_duplicate(dev, &mode_720p);
++					if (newmode) {
++						drm_mode_probed_add(connector, newmode);
++						count++;
++					}
++				}
++
+ 				return count;
+ 			}
+ 		}
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+index bfec8cbde789659aa50a8001822cb236f253cfda..bcb334e8d33de35a576668ce288924c78e924e86 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.c
+@@ -7,21 +7,22 @@
+ struct ps4_bridge_monitor_quirk {
+ 	u16 manufacturer_name;
+ 	u16 product_code;
+-	enum ps4_bridge_forced_mode forced_mode;
++	unsigned int forced_modes;
+ };
+ 
+ static const struct ps4_bridge_monitor_quirk ps4_bridge_monitor_quirks[] = {
+-	{ 0x4a8b, 0x1366, PS4_BRIDGE_FORCED_MODE_1080P },
+-	{ 0x5a63, 0x8a31, PS4_BRIDGE_FORCED_MODE_720P },
++	{ 0x4a8b, 0x1366, PS4_BRIDGE_QUIRK_MODE_1080P60 },
++	{ 0x5a63, 0x8a31, PS4_BRIDGE_QUIRK_MODE_720P },
++	{ 0x3669, 0x40b5, PS4_BRIDGE_QUIRK_MODE_1080P60 | PS4_BRIDGE_QUIRK_MODE_1080P100 },
+ };
+ 
+-enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid)
++unsigned int ps4_bridge_quirk_forced_modes(const struct edid *edid)
+ {
+ 	u16 mfg, prod;
+ 	size_t i;
+ 
+ 	if (!edid)
+-		return PS4_BRIDGE_FORCED_MODE_NONE;
++		return 0;
+ 
+ 	mfg = be16_to_cpu(edid->product_id.manufacturer_name);
+ 	prod = le16_to_cpu(edid->product_id.product_code);
+@@ -29,8 +30,8 @@ enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid
+ 	for (i = 0; i < ARRAY_SIZE(ps4_bridge_monitor_quirks); i++) {
+ 		if (ps4_bridge_monitor_quirks[i].manufacturer_name == mfg &&
+ 		    ps4_bridge_monitor_quirks[i].product_code == prod)
+-			return ps4_bridge_monitor_quirks[i].forced_mode;
++			return ps4_bridge_monitor_quirks[i].forced_modes;
+ 	}
+ 
+-	return PS4_BRIDGE_FORCED_MODE_NONE;
++	return 0;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+index 8227fb3a786ea9e589d122b8ab3bdfd4eeb946cd..0e23809ccb9e6b10cf84e98ce98f0c2e00fb6e5a 100644
+--- a/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
++++ b/drivers/gpu/drm/amd/amdgpu/ps4_bridge_quirks.h
+@@ -1,14 +1,13 @@
+ #ifndef __PS4_BRIDGE_QUIRKS_H__
+ #define __PS4_BRIDGE_QUIRKS_H__
+ 
++#include <linux/bits.h>
+ #include <drm/drm_edid.h>
+ 
+-enum ps4_bridge_forced_mode {
+-	PS4_BRIDGE_FORCED_MODE_NONE,
+-	PS4_BRIDGE_FORCED_MODE_1080P,
+-	PS4_BRIDGE_FORCED_MODE_720P,
+-};
++#define PS4_BRIDGE_QUIRK_MODE_1080P60	BIT(0)
++#define PS4_BRIDGE_QUIRK_MODE_1080P100	BIT(1)
++#define PS4_BRIDGE_QUIRK_MODE_720P	BIT(2)
+ 
+-enum ps4_bridge_forced_mode ps4_bridge_quirk_forced_mode(const struct edid *edid);
++unsigned int ps4_bridge_quirk_forced_modes(const struct edid *edid);
+ 
+ #endif

@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: crashniels <nielswest@live.de>
+Date: Tue, 11 Feb 2025 20:30:16 +0100
+Subject: [PATCH] Revert "genirq/irqdomain: Don't call ops->select for
+ DOMAIN_BUS_ANY tokens"
+
+This reverts commit 5aa3c0cf5bba6437c9e63a56f684f61de8b503d6.
+---
+ kernel/irq/irqdomain.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index f15c9f1223bb311b3d0532d880c2f54ca40da859..2cb693c8a82ea5a150411f68a94f12ffd8eb1dd7 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -541,7 +541,7 @@ struct irq_domain *irq_find_matching_fwspec(struct irq_fwspec *fwspec,
+ 	 */
+ 	mutex_lock(&irq_domain_mutex);
+ 	list_for_each_entry(h, &irq_domain_list, link) {
+-		if (h->ops->select && bus_token != DOMAIN_BUS_ANY)
++		if (h->ops->select)
+ 			rc = h->ops->select(h, fwspec, bus_token);
+ 		else if (h->ops->match)
+ 			rc = h->ops->match(h, to_of_node(fwnode), bus_token);

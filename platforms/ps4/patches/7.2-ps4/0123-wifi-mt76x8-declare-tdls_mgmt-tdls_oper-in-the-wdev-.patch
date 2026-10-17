@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Wed, 1 Jul 2026 21:15:52 +0200
+Subject: [PATCH] wifi: mt76x8: declare tdls_mgmt/tdls_oper in the wdev branch
+ too
+
+---
+ .../drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h   | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+index f0846b663c75528544312b30956f5dbdd1b6eee8..59c46c5b89e0dcbef338c73659ce41fbbe55dc91 100755
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/include/gl_cfg80211.h
+@@ -313,6 +313,14 @@ int mtk_cfg80211_add_station(struct wiphy *wiphy, struct wireless_dev *wdev,
+ 			     const u8 *mac, struct station_parameters *params);
+ 
+ int mtk_cfg80211_del_station(struct wiphy *wiphy, struct wireless_dev *wdev, struct station_del_parameters *params);
++
++int mtk_cfg80211_tdls_mgmt(struct wiphy *wiphy, struct net_device *dev,
++			   const u8 *peer, int link_id, u8 action_code,
++			   u8 dialog_token, u16 status_code, u32 peer_capability,
++			   bool initiator, const u8 *buf, size_t len);
++
++int mtk_cfg80211_tdls_oper(struct wiphy *wiphy, struct net_device *dev,
++			   const u8 *peer, enum nl80211_tdls_operation oper);
+ #elif KERNEL_VERSION(3, 16, 0) <= CFG80211_VERSION_CODE
+ int
+ mtk_cfg80211_change_station(struct wiphy *wiphy, struct net_device *ndev,

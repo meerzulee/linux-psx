@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: rmuxnet <armandas.kvietkus@proton.me>
+Date: Tue, 7 Jul 2026 00:19:05 +0200
+Subject: [PATCH] firmware: ps4-dmi: replace joke fallback strings with full
+ generic DMI table
+
+---
+ drivers/firmware/ps4-dmi.c | 43 +++++++++++++++++++-------------------
+ 1 file changed, 22 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/firmware/ps4-dmi.c b/drivers/firmware/ps4-dmi.c
+index 3ced6eec2c6a4710dc3264b667a536475aaabe29..f92e1b52aa449a2c6807e182b0d530fc7dd832f5 100644
+--- a/drivers/firmware/ps4-dmi.c
++++ b/drivers/firmware/ps4-dmi.c
+@@ -27,30 +27,31 @@ bool __init ps4_dmi_is_ps4(void)
+ }
+ 
+ static const char * const ps4_strings[DMI_STRING_MAX] = {
+-	[DMI_SYS_VENDOR]         = "Sony Interactive Entertainment",
+-	
+-	[DMI_PRODUCT_NAME]       = "NeverGonna 4",
+-	[DMI_PRODUCT_VERSION]    = "CUH-GIVEYOUUP",
+-	[DMI_PRODUCT_SERIAL]     = "MARCANANDDUDES",
+-	[DMI_PRODUCT_SKU]        = "sku1489666",
+-	[DMI_PRODUCT_FAMILY]     = "PlayStation",
++	[DMI_BIOS_VENDOR]           = "SIE",
++	[DMI_BIOS_VERSION]          = "1.00",
++	[DMI_BIOS_DATE]             = "11/15/2013",
++	[DMI_BIOS_RELEASE]          = "1.0",
++	[DMI_EC_FIRMWARE_RELEASE]   = "1.0",
+ 
+-	[DMI_BOARD_ASSET_TAG]    = "",
+-	[DMI_BOARD_VENDOR]       = "SCEI",
+-	[DMI_BOARD_NAME]         = "Belize",
+-	[DMI_BOARD_VERSION]      = "rev1",
+-	[DMI_BOARD_SERIAL]       = "PS4HAXSONYCRY0",
++	[DMI_SYS_VENDOR]            = "Sony Interactive Entertainment",
++	[DMI_PRODUCT_NAME]          = "PlayStation 4",
++	[DMI_PRODUCT_VERSION]       = "CUH-1000",
++	[DMI_PRODUCT_SERIAL]        = "0000000000000000",
++	[DMI_PRODUCT_UUID]          = "00000000-0000-0000-0000-000000000000",
++	[DMI_PRODUCT_SKU]           = "CUH-1000AB01",
++	[DMI_PRODUCT_FAMILY]        = "PlayStation",
+ 
+-	[DMI_BIOS_VENDOR]        = "SIE",
+-	[DMI_BIOS_VERSION]       = "PS4Homebrew",
+-	[DMI_BIOS_DATE]          = "21/04/2026",
+-	[DMI_BIOS_RELEASE]       = "69.0",
++	[DMI_BOARD_VENDOR]          = "SCEI",
++	[DMI_BOARD_NAME]            = "Belize",
++	[DMI_BOARD_VERSION]         = "rev1",
++	[DMI_BOARD_SERIAL]          = "0000000000000000",
++	[DMI_BOARD_ASSET_TAG]       = "",
+ 
+-	[DMI_CHASSIS_VENDOR]     = "Sony",
+-	[DMI_CHASSIS_TYPE]       = "3",
+-	[DMI_CHASSIS_ASSET_TAG]  = "",
+-	[DMI_CHASSIS_SERIAL]     = "",
+-	[DMI_CHASSIS_VERSION]    = ""
++	[DMI_CHASSIS_VENDOR]        = "Sony",
++	[DMI_CHASSIS_TYPE]          = "3",
++	[DMI_CHASSIS_VERSION]       = "",
++	[DMI_CHASSIS_SERIAL]        = "",
++	[DMI_CHASSIS_ASSET_TAG]     = "",
+ };
+ 
+ void __init ps4_dmi_populate(const char *ident[DMI_STRING_MAX])

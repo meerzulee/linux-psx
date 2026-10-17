@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Niels Westphal (crashniels)" <nielswest@live.de>
+Date: Fri, 4 Jul 2025 21:37:39 +0200
+Subject: [PATCH] ahci_init_irq now returns void
+
+---
+ drivers/ata/ahci.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/ata/ahci.c b/drivers/ata/ahci.c
+index 9883ea230c3bae2206c6928e7ef736ad0ba9bf45..4e1ce0c8b602afcf19f5d633ce668ec25cbf19a5 100644
+--- a/drivers/ata/ahci.c
++++ b/drivers/ata/ahci.c
+@@ -2746,7 +2746,8 @@ static void ahci_init_irq(struct pci_dev *pdev, unsigned int n_ports,
+ 
+ 	#ifdef CONFIG_X86_PS4
+ 	if (pdev->vendor == PCI_VENDOR_ID_SONY) {
+-		return apcie_assign_irqs(pdev, n_ports);
++		apcie_assign_irqs(pdev, n_ports);
++		return;
+ 	}
+ 	#endif
+ 	
