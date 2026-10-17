@@ -235,9 +235,10 @@ original header and message bytes:
 | `mt76x8: adapt key and station operations to Linux 7.1` | Linux 7.1 passes the key and station operations a `wireless_dev`. psX's mt76x8 already wraps these operations in adapters; they now pass on the `wireless_dev`'s `net_device` and refuse one without a `net_device`, which cfg80211 never passed before 7.1. rmux's newer mt76x8 handles this itself. |
 | `mt76x8: restore checked proc write copies` | Undoes `0500-network-mt7668/0006`, which the series keeps unchanged. Its `__copy_from_user()` calls skip `access_ok()`, and its `procDriverCmdWrite()` copies 2999 bytes whatever the write size. The handlers go back to `copy_from_user()` with the driver's sizes, and the comparison of `7.2-ps4` `0172` fixes the GCC 16 build error that `0006` worked around. |
 
-Of the other `7.2-ps4` port fixes, `0173` is not needed because this stack
-already has feeRnt's Baikal xHCI shutdown fix (`0800-usb-aeolia/0002`), and
-`0174` fixes an Aeolia problem left for the Aeolia tests (see
+`7.2-ps4` port fixes `0173` and `0174` are not taken. `0173` is not needed
+because this stack already has feeRnt's Baikal xHCI shutdown fix
+(`0800-usb-aeolia/0002`), and `0174` fixes an Aeolia problem left for the
+Aeolia tests (see
 [Known issues carried from 6.18](#known-issues-carried-from-618)).
 
 The port branch is local. With it, the series regenerates byte-for-byte:
@@ -374,7 +375,7 @@ and the AHCI and xHCI code is 6.18's.
 ## Known mt76x8 vendor issues
 
 A review of the port fixes found these older problems in the MT7668 vendor
-driver. All three targets carry the same code, and neither port changes it:
+driver. They are the same in all three targets, and neither port fixes them:
 
 - `procCfgWrite()` (the `cfg` proc node) subtracts the 8-byte `set_cfg `
   prefix from the copy size and writes the terminator at the wrong offset, so
