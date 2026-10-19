@@ -16,9 +16,9 @@
   },
   "prior_import_manifest": "provenance/ps4-import.json",
   "series_path": "platforms/ps4/patches/6.18-baikal-mts2/series",
-  "active_patch_count": 56,
-  "series_sha256": "9f4654ecb7208b70d24049b75ae8b141656f768f46b196b5ccdb7cd5e1b4a42a",
-  "ordered_patchset_sha256": "828a4f14b205283b43075a8eaa34531a97bfb78676daa02e33e654ead4e66dbe",
+  "active_patch_count": 57,
+  "series_sha256": "252317eb4e7cf8ed8e9bddab4c84baec8c6e5064df6e2a70860ba0452584032d",
+  "ordered_patchset_sha256": "b9abf0eb143d90bd42e06eb41670957a1895b6de8acd54e398f3a28c8362766f",
   "patches": [
     {
       "entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
@@ -299,6 +299,11 @@
       "entry": "0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
       "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
       "sha256": "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
+    },
+    {
+      "entry": "0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "sha256": "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c"
     }
   ],
   "inputs": [
@@ -312,7 +317,7 @@
     },
     {
       "path": "platforms/ps4/patches/6.18-baikal-mts2/series",
-      "sha256": "9f4654ecb7208b70d24049b75ae8b141656f768f46b196b5ccdb7cd5e1b4a42a"
+      "sha256": "252317eb4e7cf8ed8e9bddab4c84baec8c6e5064df6e2a70860ba0452584032d"
     },
     {
       "path": "platforms/ps4/config/fragments/mt7668.config",
@@ -390,6 +395,14 @@
       "author": "Linux psX contributors",
       "license": "GPL-2.0-only, as the MTS2 driver it changes",
       "note": "Exports the 104d:90d8 PCI ID so udev loads psx_mts_net, lets the first open publish without an allow_open write (autoarm, default 1) and registers psx0 from the module LIVE notifier. The one-retained-DMA-generation contract and the probe, fresh-baseline and first-open checks are unchanged."
+    },
+    {
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "sha256": "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c",
+      "subject": "amdgpu: ps4 bridge connector: honour underscan properties",
+      "author": "suds-mcduff",
+      "license": "GPL-2.0-only, as the amdgpu connector code it changes",
+      "note": "The PS4 bridge connector attaches the legacy underscan properties but its set_property hook was commented out, so writes were never applied. Forwards only underscan, underscan hborder and underscan vborder to amdgpu_connector_set_property, which re-runs the CRTC mode set (ATOM overscan/scaler setup). Tested on a second Baikal Slim (Orbis 9.60): 48/27 borders remove TV overscan cropping; the MN864729 link stays up across the mode sets."
     }
   ]
 }

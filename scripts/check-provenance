@@ -50,10 +50,14 @@ def main():
     baseline = json.loads((ROOT / "provenance/ps4-import.json").read_text())["series"][0]["patches"]
     additions = {item["path"]: item["sha256"] for item in target["psx_additions"]}
     if ([item["sha256"] for item in target["patches"][:54]] != [item["sha256"] for item in baseline]
-            or len(entries) != target["active_patch_count"] or len(entries) != 56
+            or len(entries) != target["active_patch_count"] or len(entries) < 56
             or target["patches"][54]["sha256"] != target["direct_imports"][0]["sha256"]
             or additions.get(target["patches"][55]["path"]) != target["patches"][55]["sha256"]):
         raise ValueError("active series must preserve the 54-patch base, MTS2 and native autoload")
+    # Later entries are Linux psX additions; each must be recorded with its exact hash.
+    for item in target["patches"][56:]:
+        if additions.get(item["path"]) != item["sha256"]:
+            raise ValueError(f"unrecorded Linux psX addition: {item['path']}")
     env = read_env(target["target"])
     expected = {"TARGET_NAME": target["target"], "PLATFORM": target["platform"],
                 "KERNEL_RELEASE": target["kernel_release"], "BASE_REPO": target["upstream"]["repository"],
