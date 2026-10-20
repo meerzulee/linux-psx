@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Linux psX</h1>
-  <p><strong>Linux 7.2.x for PlayStation 4 Baikal.</strong></p>
-  <p>Console kernel patches, native Ethernet and experimental Liverpool UVD.</p>
+  <p><strong>Linux kernel development for <a href="#playstation-4">PlayStation 4</a> and <a href="#playstation-5">PlayStation 5</a>.</strong></p>
+  <p>Console platform patches, drivers, configurations and build tools.</p>
   <p>
     <a href="https://github.com/meerzulee/linux-psx/wiki">Wiki</a>
     &middot;
@@ -11,26 +11,62 @@
   </p>
 </div>
 
-## PS4 Baikal on Linux 7.2
+Linux psX brings PS4 and PS5 kernel development into one source project with
+separate console targets. It owns the kernel patches, builds, matching modules
+and hardware evidence. Distribution and desktop integration live in
+[Omarchy psX](https://github.com/meerzulee/omarchy-psx).
+
+## PlayStation 4
 
 Current PS4 development focuses on **Linux 7.2.11 for Baikal consoles**.
-The repository contains the console platform patches, AMDGPU changes, native
-MTS Ethernet, kernel configurations, build tools and recorded hardware results.
+The project includes AMDGPU changes, native MTS Ethernet and an experimental
+Liverpool UVD decoder. Aeolia and Belize have reference source stacks; local
+hardware testing has been on one PS4 Slim with a **Baikal B1 southbridge**.
 
-The normal 7.2 Baikal build reached Linux and passed a short wired-network
-test on one console. A separate experimental Liverpool UVD build decoded
-H.264 through FFmpeg/VAAPI: all 900 frames of a native 1080p30 fractal matched
-the software reference. Its bounded playback test completed five loops with
-zero reported display/decoder drops and measured speed approximately 1.00×.
-The isolated PS4 Mesa candidate also displayed clean picture and text in the
-tested OpenGL path.
+### Compatibility by southbridge
 
-These results apply to the exact tested artifacts. Broader video profiles,
-seeking, long-duration playback and repeated cold boots remain open. See
-[the UVD guide](docs/UVD.md) for the source, proof and current limits, and
-[the Linux 7.2 port notes](docs/PORT-7.2.md) for the kernel variants.
+This table summarizes recorded project evidence, including separate experimental
+builds. Columns identify southbridges; GPU and wireless chipsets must be
+identified separately. Results apply to the exact tested artifacts, not every
+console or a fresh rebuild.
 
-## Build the Linux 7.2 Baikal kernel
+✅ Observed working · 🧪 Experimental or partial · ❌ Unavailable or failing ·
+⏳ Not yet tested or qualified
+
+| Feature | Baikal (tested B1) | Aeolia | Belize |
+| --- | --- | --- | --- |
+| Linux 7.2 kernel | ✅ 7.2.11 boot observed | ⏳ Reference source; unbooted | ⏳ Reference source; unbooted |
+| GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
+| Mesa version | 🧪 26.1.7 baseline; isolated 26.2.5 candidate | ⏳ Untested | ⏳ Untested |
+| Vulkan | 🧪 API 1.3.354 enumerated with Mesa 26.1.7 | ⏳ Untested | ⏳ Untested |
+| UVD / H.264 decode | 🧪 1080p30 VAAPI decode and playback passed | ⏳ Untested | ⏳ Untested |
+| VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
+| Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
+| Internal storage / SATA | ❌ Historical timeouts and read errors; unqualified | ⏳ Untested | ⏳ Untested |
+| External USB root | ✅ Read/write root booted on 7.2 | ⏳ Untested | ⏳ Untested |
+| Wi-Fi | ✅ MT7668; DHCP and verified HTTPS | ⏳ Untested | ⏳ Untested |
+| Bluetooth audio | ✅ One device paired; audible stereo playback | ⏳ Untested | ⏳ Untested |
+| HDMI audio | 🧪 Detected; audible output unverified | ⏳ Untested | ⏳ Untested |
+| Temperature monitoring | ✅ Historical `k10temp` readings on 6.18 | ⏳ Untested | ⏳ Untested |
+| Fan control | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
+| Shutdown / reboot / suspend | ⏳ Not qualified; UVD recovery restrictions apply | ⏳ Untested | ⏳ Untested |
+
+The [7.2 port notes](docs/PORT-7.2.md) record the core boot and the separate
+native Ethernet test. Wi-Fi and Bluetooth results used the retained external
+firmware/boot environment; cold firmware loading remains untested. The later
+[Bluetooth test](https://github.com/meerzulee/omarchy-psx/blob/master/platforms/ps4/experiments/SESSIONS.md#exp-20261018-002--bluetooth-panel-and-audio-on-linux-72)
+confirmed one audio-device connection and playback. Reconnect persistence is
+still untested. Storage and thermal observations are retained in the
+[historical capability record](platforms/ps4/docs/CAPABILITIES.md).
+
+The [UVD experiment](docs/UVD.md) matched all 900 frames of a native 1080p30
+H.264 fractal against a software reference. Five playback loops reported zero
+display/decoder drops at approximately 1.00× speed. The process-local Mesa
+26.2.5 candidate displayed clean picture and text in the tested OpenGL path;
+it is not a system-wide Mesa upgrade or a Vulkan qualification. Broader video
+profiles, seeking, sustained playback and repeated cold boots remain open.
+
+### Build the Linux 7.2 Baikal kernel
 
 Use `7.2-ps4-baikal-native-dev` for the Baikal port with native Ethernet.
 It produces `7.2.11-psx-ps4-baikal-native-dev1`. The UVD runtime is a separate
@@ -58,7 +94,7 @@ is not embedded or bundled by this repository. A compatible console loader,
 initramfs and Linux root filesystem are separate inputs; see the
 [boot guide](docs/BOOTING.md). New builds require their own hardware tests.
 
-## Ethernet and graphics
+### Ethernet and graphics
 
 The native Ethernet driver publishes `psx0`; the network manager's normal
 interface open brings it up. [Ethernet notes](docs/ETHERNET.md) describe the
@@ -70,16 +106,21 @@ no qualified 4K, 1080p60 or VCE path. Its retained-DMA recovery restrictions
 are documented in the UVD guide. The PS4 Mesa changes and playback tools live
 in [Omarchy psX](https://github.com/meerzulee/omarchy-psx/tree/master/platforms/ps4/experiments/mesa-uvd).
 
-## Linux 6.18 and other work
+### Linux 6.18 history
 
 The preserved Linux 6.18 Baikal build, its artifact layout and historical
 qualification are documented separately in [Linux 6.18](docs/LINUX-6.18.md).
 Select the 7.2 target explicitly when building the current development kernel.
 
-PS5 remains a separate development candidate with no local hardware acceptance;
-see [PS5 notes](docs/PS5.md). Existing research and imported patch records remain
-in the repository. [Credits and sources](CREDITS.md) retain the original
-contributors, licenses and provenance.
+Existing research and imported patch records remain in the repository.
+[Credits and sources](CREDITS.md) retain the original contributors, licenses
+and provenance.
+
+## PlayStation 5
+
+PS5 is a separate development candidate with no local hardware acceptance.
+This section will expand as PS5 work progresses; see [PS5 notes](docs/PS5.md)
+for the existing source and build record.
 
 ## Contributing and licensing
 
