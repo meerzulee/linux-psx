@@ -1,0 +1,60 @@
+From: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
+Subject: [PATCH] amdgpu: ps4 bridge connector: honour underscan properties
+
+The PS4 MN864729 bridge connector attaches the legacy underscan,
+underscan hborder and underscan vborder properties but its
+drm_connector_funcs has no set_property hook, so userspace writes
+(xrandr --set underscan on, KDE overscan) are accepted and never
+applied. TVs that overscan HDMI therefore crop the desktop.
+
+Forward just the three underscan properties to the common amdgpu
+handler. It updates the encoder and re-runs the CRTC mode set, where
+dce_v8_0_crtc_mode_set already calls the ATOM overscan and scaler
+setup. Other properties remain ignored, as before.
+
+Tested on a PS4 Slim (Baikal, Orbis 9.60) with v6.18.44-psx-ps4-baikal2 plus this
+patch: xrandr underscan on with hborder 48 / vborder 27 shrinks the picture with
+black borders and removes TV overscan cropping; each property change triggers one
+mode set and the MN864729 link stays up.
+
+Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
+---
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+index bbbbca4..c9ab890 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1600,11 +1600,33 @@ static const struct drm_connector_helper_funcs amdgpu_ps4_dp_connector_helper_fu
+ 	.best_encoder = amdgpu_connector_dvi_encoder,
+ };
+ 
++/*
++ * The PS4 bridge connector exposes the legacy underscan properties but had no
++ * set_property hook, so writes were never applied. Forward only the three
++ * underscan properties to the common handler: it updates the encoder and
++ * re-runs the CRTC mode set, whose overscan and scaler setup then honour the
++ * borders. Other connector properties stay ignored as before.
++ */
++static int amdgpu_ps4_dp_connector_set_property(struct drm_connector *connector,
++						struct drm_property *property,
++						uint64_t val)
++{
++	struct amdgpu_device *adev = drm_to_adev(connector->dev);
++
++	if (property != adev->mode_info.underscan_property &&
++	    property != adev->mode_info.underscan_hborder_property &&
++	    property != adev->mode_info.underscan_vborder_property)
++		return 0;
++
++	pr_info("ps4_bridge: underscan property %s=%llu\n", property->name, val);
++	return amdgpu_connector_set_property(connector, property, val);
++}
++
+ static const struct drm_connector_funcs amdgpu_ps4_dp_connector_funcs = {
+ 	.dpms = drm_helper_connector_dpms,
+ 	.detect = ps4_bridge_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+-	//.set_property = amdgpu_connector_set_property,
++	.set_property = amdgpu_ps4_dp_connector_set_property,
+ 	.destroy = amdgpu_connector_destroy,
+ 	.force = amdgpu_connector_dvi_force,
+ 	.late_register = amdgpu_connector_late_register,

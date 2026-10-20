@@ -59,3 +59,5 @@
 0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch
 # Linux psX: PCI alias autoload and self-arming first open.
 0700-network-mts/0002-net-ps4-mts-native-autoload.patch
+# Linux psX: let the PS4 bridge connector apply the underscan properties.
+0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch
