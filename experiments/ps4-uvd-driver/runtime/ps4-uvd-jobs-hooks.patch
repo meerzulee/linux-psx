@@ -1,0 +1,237 @@
+From: psX Linux contributors
+Subject: [PATCH] amdgpu: gate PS4 UVD job BO and SA lifetime
+
+Base files match native-frame-build-02/work/source; parent runtime owns the
+explicit gate bridge, hardware completion observation and no-reset timeout
+dispatch. This patch alone is not a working or qualified UVD driver.
+
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.h
+@@ -42,6 +42,7 @@
+ #define AMDGPU_JOB_GET_VMID(job) ((job) ? (job)->vmid : 0)
+ 
+ struct amdgpu_fence;
++struct amdgpu_ps4_uvd_lease;
+ enum amdgpu_ib_pool_type;
+ 
+ /* Internal kernel job ids. (decreasing values, starting from U64_MAX). */
+@@ -68,6 +69,7 @@
+ 	struct drm_sched_job    base;
+ 	struct amdgpu_vm	*vm;
+ 	struct amdgpu_sync	explicit_sync;
++	struct amdgpu_ps4_uvd_lease *ps4_uvd_lease;
+ 	struct amdgpu_fence	*hw_fence;
+ 	struct amdgpu_fence	*hw_vm_fence;
+ 	struct dma_fence	*gang_submit;
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_job.c
+@@ -28,6 +28,7 @@
+ #include <drm/drm_drv.h>
+ 
+ #include "amdgpu.h"
++#include "amdgpu_ps4_uvd_jobs.h"
+ #include "amdgpu_trace.h"
+ #include "amdgpu_reset.h"
+ #include "amdgpu_dev_coredump.h"
+@@ -286,6 +287,10 @@
+ 	struct dma_fence *f;
+ 	unsigned i;
+ 
++	/* PS4 leases own SA spans until positive hardware completion. */
++	if (amdgpu_ps4_uvd_jobs_defer_resources(job))
++		return;
++
+ 	/* Check if any fences were initialized */
+ 	if (job->base.s_fence &&
+ 	    dma_fence_was_initialized(&job->base.s_fence->finished))
+@@ -303,6 +308,9 @@
+ {
+ 	struct amdgpu_job *job = to_amdgpu_job(s_job);
+ 
++	if (!amdgpu_ps4_uvd_jobs_job_free(job, true))
++		return;
++
+ 	drm_sched_job_cleanup(s_job);
+ 
+ 	amdgpu_sync_free(&job->explicit_sync);
+@@ -337,6 +345,9 @@
+ 
+ void amdgpu_job_free(struct amdgpu_job *job)
+ {
++	if (!amdgpu_ps4_uvd_jobs_job_free(job, false))
++		return;
++
+ 	if (job->base.entity)
+ 		drm_sched_job_cleanup(&job->base);
+ 
+@@ -357,12 +368,33 @@
+ 	kfree(job);
+ }
+ 
++/* Re-enter the original free path after the lease has been detached. */
++void amdgpu_ps4_uvd_job_free_deferred(struct amdgpu_job *job,
++				  bool scheduler_free)
++{
++	if (scheduler_free)
++		amdgpu_job_free_cb(&job->base);
++	else
++		amdgpu_job_free(job);
++}
++
+ struct dma_fence *amdgpu_job_submit(struct amdgpu_job *job)
+ {
++	struct amdgpu_ps4_uvd_jobs *state;
+ 	struct dma_fence *f;
++	int admission = 0;
++
++	state = amdgpu_ps4_uvd_runtime_jobs(amdgpu_job_ring(job));
++	if (state && !job->ps4_uvd_lease)
++		admission = amdgpu_ps4_uvd_jobs_admit_kernel(state, job);
+ 
+ 	drm_sched_job_arm(&job->base);
+ 	f = dma_fence_get(&job->base.s_fence->finished);
++	/* Existing kernel callers expect a fence, not ERR_PTR. Consume the
++	 * rejected job through the scheduler with no hardware publication.
++	 */
++	if (admission)
++		dma_fence_set_error(f, admission);
+ 	amdgpu_job_free_resources(job);
+ 	drm_sched_entity_push_job(&job->base);
+ 
+@@ -372,10 +404,21 @@
+ int amdgpu_job_submit_direct(struct amdgpu_job *job, struct amdgpu_ring *ring,
+ 			     struct dma_fence **fence)
+ {
++	struct amdgpu_ps4_uvd_jobs *state;
+ 	int r;
+ 
+ 	job->base.sched = &ring->sched;
++	state = amdgpu_ps4_uvd_runtime_jobs(ring);
++	if (state && !job->ps4_uvd_lease) {
++		r = amdgpu_ps4_uvd_jobs_admit_kernel(state, job);
++		if (r)
++			return r;
++	}
++	r = amdgpu_ps4_uvd_jobs_enter(job);
++	if (r)
++		return r;
+ 	r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job, fence);
++	amdgpu_ps4_uvd_jobs_submitted(job, r ? NULL : *fence, r);
+ 
+ 	if (r)
+ 		return r;
+@@ -445,8 +488,14 @@
+ 		dev_dbg(adev->dev, "Skip scheduling IBs in ring(%s)",
+ 			ring->name);
+ 	} else {
+-		r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job,
+-				       &fence);
++		r = amdgpu_ps4_uvd_jobs_enter(job);
++		if (!r) {
++			r = amdgpu_ib_schedule(ring, job->num_ibs, job->ibs, job,
++					       &fence);
++			amdgpu_ps4_uvd_jobs_submitted(job, fence, r);
++		}
++		if (r)
++			dma_fence_set_error(finished, r);
+ 		if (r)
+ 			dev_err(adev->dev,
+ 				"Error scheduling IBs (%d) in ring(%s)", r,
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_cs.c
+@@ -36,6 +36,7 @@
+ 
+ #include "amdgpu_cs.h"
+ #include "amdgpu.h"
++#include "amdgpu_ps4_uvd_jobs.h"
+ #include "amdgpu_trace.h"
+ #include "amdgpu_gmc.h"
+ #include "amdgpu_gem.h"
+@@ -1439,6 +1440,7 @@
+ {
+ 	struct amdgpu_device *adev = drm_to_adev(dev);
+ 	struct amdgpu_cs_parser parser;
++	unsigned int i;
+ 	int r;
+ 
+ 	if (amdgpu_ras_intr_triggered())
+@@ -1470,6 +1472,19 @@
+ 		goto error_fini;
+ 	}
+ 
++	/* parser_bos succeeded: BO reservations and bo_list_mutex are held. */
++	for (i = 0; i < parser.gang_size; ++i) {
++		struct amdgpu_job *job = parser.jobs[i];
++		struct amdgpu_ps4_uvd_jobs *state;
++
++		state = amdgpu_ps4_uvd_runtime_jobs(amdgpu_job_ring(job));
++		if (!state)
++			continue;
++		r = amdgpu_ps4_uvd_jobs_admit(state, &parser, job);
++		if (r)
++			goto error_backoff;
++	}
++
+ 	r = amdgpu_cs_patch_jobs(&parser);
+ 	if (r)
+ 		goto error_backoff;
+@@ -1492,6 +1507,9 @@
+ 	return 0;
+ 
+ error_backoff:
++	for (i = 0; i < parser.gang_size; ++i)
++		if (parser.jobs[i])
++			amdgpu_ps4_uvd_jobs_abort_reserved(parser.jobs[i]);
+ 	mutex_unlock(&parser.bo_list->bo_list_mutex);
+ 
+ error_fini:
+@@ -1827,6 +1845,14 @@
+ 	if (dma_resv_locking_ctx((*bo)->tbo.base.resv) != drm_exec_ticket(&parser->exec))
+ 		return -EINVAL;
+ 
++	/* A leased PS4 UVD job may address only the BOs it actually holds.
++	 * An exec reservation alone can also cover implicit VM objects.
++	 */
++	for (i = 0; i < parser->gang_size; ++i)
++		if (parser->jobs[i] &&
++		    !amdgpu_ps4_uvd_jobs_owns_bo(parser->jobs[i], *bo))
++			return -EOPNOTSUPP;
++
+ 	/* Make sure VRAM is allocated contigiously */
+ 	(*bo)->flags |= AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS;
+ 	if ((*bo)->tbo.resource->mem_type == TTM_PL_VRAM &&
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_uvd.c
+@@ -35,6 +35,7 @@
+ #include <drm/drm_drv.h>
+ 
+ #include "amdgpu.h"
++#include "amdgpu_ps4_uvd_jobs.h"
+ #include "amdgpu_pm.h"
+ #include "amdgpu_uvd.h"
+ #include "amdgpu_cs.h"
+@@ -1107,6 +1108,7 @@
+ 			       bool direct, struct dma_fence **fence)
+ {
+ 	struct amdgpu_device *adev = ring->adev;
++	struct amdgpu_ps4_uvd_jobs *state;
+ 	struct dma_fence *f = NULL;
+ 	uint32_t offset, data[4];
+ 	struct amdgpu_job *job;
+@@ -1145,6 +1147,16 @@
+ 		ib->ptr[i+1] = 0;
+ 	}
+ 	ib->length_dw = 16;
++
++	/* Even file-close DESTROY owns a temporary message BO. Acquire its
++	 * extra pin/reference before the caller drops its kernel allocation.
++	 */
++	state = amdgpu_ps4_uvd_runtime_jobs(ring);
++	if (state) {
++		r = amdgpu_ps4_uvd_jobs_admit_kernel_message(state, job, bo);
++		if (r)
++			goto err_free;
++	}
+ 
+ 	if (direct) {
+ 		r = amdgpu_job_submit_direct(job, ring, &f);

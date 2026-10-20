@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Compile/run the actual planned-adapter header, without a kernel or device."""
+
+import argparse
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import tempfile
+
+
+def run(command):
+    subprocess.run(command, check=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cc", default=os.environ.get("CC", "cc"))
+    parser.add_argument("--require-sanitizers", action="store_true")
+    arguments = parser.parse_args()
+    compiler = shlex.split(arguments.cc)
+    if not compiler:
+        parser.error("--cc must name a compiler")
+    here = Path(__file__).resolve().parent
+    common = ["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic"]
+    sanitized = ["-O1", "-g", "-fno-omit-frame-pointer", "-fsanitize=address,undefined"]
+    fixture = str(here / "ring_plan_test.c")
+    with tempfile.TemporaryDirectory(prefix="ps4-uvd-ring-check-") as directory:
+        temporary = Path(directory)
+        executable = temporary / "ring-plan-test"
+        print("Checking the shared planner header with strict C11 warnings", flush=True)
+        run([*compiler, *common, "-O2", fixture, "-o", str(executable)])
+        run([str(executable)])
+
+        # Unsupported sanitizers are a reported limitation. Once this probe
+        # passes, any fixture compilation/runtime failure is a hard failure.
+        probe_source = temporary / "sanitizer-probe.c"
+        probe_source.write_text("int main(void) { return 0; }\n", encoding="utf-8")
+        probe = temporary / "sanitizer-probe"
+        supported = subprocess.run(
+            [*compiler, *common, *sanitized, str(probe_source), "-o", str(probe)],
+            capture_output=True, text=True,
+        )
+        if supported.returncode == 0:
+            supported = subprocess.run([str(probe)], capture_output=True, text=True)
+        if supported.returncode:
+            explanation = supported.stderr.strip() or "probe returned nonzero"
+            if arguments.require_sanitizers:
+                raise SystemExit(f"Sanitizers required but unavailable: {explanation}")
+            print(f"SKIP: ASan/UBSan not available: {explanation}")
+        else:
+            print("Checking with AddressSanitizer and UndefinedBehaviorSanitizer", flush=True)
+            run([*compiler, *common, *sanitized, fixture, "-o", str(executable)])
+            run([str(executable)])
+    print("Host-only checks complete; no kernel target or hardware was touched.")
+
+
+if __name__ == "__main__":
+    main()

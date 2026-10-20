@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the frozen PS4 import and the active distribution-independent target."""
+"""Verify frozen imports and console-specific development target identities."""
 import hashlib
 import json
 from pathlib import Path
@@ -71,12 +71,15 @@ def main():
     rmux_count = check_rmux_import()
     port_count = check_port_target()
     baikal_count, baikal_unchanged = check_baikal_port_target()
+    ps5_count = check_ps5_target()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
     print(f"PASS: {rmux_count} rmux import checksums; series order and pins match")
     print(f"PASS: 7.2-ps4 development series: {port_count} patches; rmux sources and pins match")
     print(f"PASS: 7.2-ps4-baikal development series: {baikal_count} patches, "
           f"{baikal_unchanged} unchanged 6.18 files; sources and pins match")
+    print(f"PASS: 7.2-ps5 development candidate: {ps5_count} unchanged community patch; "
+          "source pins and firmware-free config derivation match")
 
 
 def check_rmux_import():
@@ -178,6 +181,67 @@ def check_baikal_port_target():
     if len(ported) != count or any(p["origin"] != "port-fix" or not p.get("note") for p in fixes):
         raise ValueError("7.2-ps4-baikal must port the pinned 6.18 series, then recorded port fixes")
     return len(entries), sum(p["change"] == "unchanged" for p in ported)
+
+
+def check_ps5_target():
+    """Keep the separate PS5 candidate tied to its exact researched source."""
+    target, entries = check_dev_series("7.2-ps5")
+    source = target["community_source"]
+    if source["research_manifest"] != "provenance/ps5-research.json":
+        raise ValueError("PS5 candidate must retain the historical research reference")
+    research = json.loads((ROOT / source["research_manifest"]).read_text())
+    if (source["repository"] != research["repository"] or source["commit"] != research["commit"]
+            or not re.fullmatch(r"[0-9a-f]{40}", source["commit"])):
+        raise ValueError("PS5 community source differs from its recorded research pin")
+    base = research["linux_base"]
+    if target["upstream"] != {"repository": base["repository"], "ref": base["tag"], "commit": base["commit"]}:
+        raise ValueError("PS5 upstream base differs from its recorded research pin")
+    originals = {item["path"]: item for item in research["files"]}
+    imported = {item["source_path"]: item for item in target["imports"]}
+    if len(imported) != len(target["imports"]) or set(imported) != {".config", "linux.patch", "README.md"}:
+        raise ValueError("PS5 import must contain only the original config, patch and README")
+    for name, item in imported.items():
+        original = originals[name]
+        if (item["source_commit"] != source["commit"] or item["change"] != "unchanged"
+                or any(item[key] != original[key] for key in ("url", "size", "sha256"))):
+            raise ValueError(f"PS5 import differs from its original source: {name}")
+        checked_file(item["path"], original["sha256"])
+        if (ROOT / item["path"]).stat().st_size != original["size"]:
+            raise ValueError(f"PS5 import size differs: {name}")
+    if (entries != ["linux.patch"] or len(target["patches"]) != 1
+            or target.get("direct_references") or target["platform"] != "ps5"):
+        raise ValueError("PS5 candidate must use its separate one-patch series")
+    patch = target["patches"][0]
+    if (patch["path"] != imported["linux.patch"]["path"]
+            or patch["sha256"] != originals["linux.patch"]["sha256"]
+            or patch["source_path"] != "linux.patch" or patch["source_commit"] != source["commit"]
+            or patch["change"] != "unchanged" or patch["origin"] != "ps5-linux-patches"):
+        raise ValueError("PS5 active patch is not the unchanged community patch")
+    env = read_env(target["target"])
+    if (env.get("CONFIG_FRAGMENTS") != "" or env["CONFIG_FILE"] != target["config"]["path"]
+            or (ROOT / env["PATCHES_DIR"]).resolve() != (ROOT / target["series_path"]).parent
+            or env.get("COMPILER") != "gcc"):
+        raise ValueError("PS5 candidate must use its own config without extra fragments")
+    if target["config"]["derived_from"] != imported[".config"]["path"]:
+        raise ValueError("PS5 config must derive from the unchanged imported config")
+    changes = [
+        ('CONFIG_LOCALVERSION=""', f'CONFIG_LOCALVERSION="-{target["kernel_release"].split("-", 1)[1]}"'),
+        ('CONFIG_EXTRA_FIRMWARE="amdgpu/ps5_vcn.bin"', 'CONFIG_EXTRA_FIRMWARE=""'),
+        ('CONFIG_EXTRA_FIRMWARE_DIR="../ps5-linux-patches/firmware"', None),
+    ]
+    if target["config"]["changes"] != [{"from": before, "to": after} for before, after in changes]:
+        raise ValueError("PS5 config adaptation record differs from the permitted changes")
+    expected = (ROOT / target["config"]["derived_from"]).read_bytes()
+    for before, after in changes:
+        old = (before + "\n").encode()
+        if expected.count(old) != 1:
+            raise ValueError("PS5 source config setting is missing or ambiguous")
+        expected = expected.replace(old, (after + "\n").encode() if after is not None else b"", 1)
+    if expected != (ROOT / target["config"]["path"]).read_bytes():
+        raise ValueError("PS5 config contains changes beyond release identity and firmware embedding")
+    if target["firmware"]["embedded"] is not False or target["firmware"]["bundled"] is not False:
+        raise ValueError("PS5 candidate must not embed or bundle device firmware")
+    return len(entries)
 
 if __name__ == "__main__":
     main()

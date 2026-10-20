@@ -3,6 +3,8 @@
   <p><strong>Linux for PlayStation. Across generations.</strong></p>
   <p>PS4 &middot; PS5 &middot; Future PlayStation consoles</p>
   <p>
+    <a href="https://github.com/meerzulee/linux-psx/wiki">The wiki</a>
+    &middot;
     <a href="https://github.com/meerzulee/omarchy-psx">Omarchy psX</a>
     &middot;
     <a href="https://github.com/meerzulee/linux-psx/issues">Ideas &amp; contributions</a>
@@ -22,8 +24,8 @@ while sharing tools and knowledge across generations.
 
 | Console | Project status |
 | --- | --- |
-| **PlayStation 4** | Buildable Linux 6.18.44 Baikal target: 54 platform patches plus experimental MTS2 Ethernet. New psX artifacts require hardware qualification. |
-| **PlayStation 5** | Community sources researched and pinned; kernel integration is planned. |
+| **PlayStation 4** | Buildable Linux 6.18.44 Baikal target: 56 ordered patches, including MTS2 Ethernet and native autoload. New psX artifacts require hardware qualification. |
+| **PlayStation 5** | Separate `7.2-ps5` development target from pinned community sources; no local hardware acceptance. See [PS5 notes](docs/PS5.md). |
 | **Future PlayStation consoles** | Long-term exploration as hardware access and public research become available. |
 
 ## What we're building
@@ -94,6 +96,16 @@ managers need a configuration that names `psx0`. See [the Ethernet
 guide](docs/ETHERNET.md) for limits and the `psx_mts_net.autoarm=0` and
 `modprobe.blacklist=psx_mts_net` switches.
 
+## Experimental Liverpool video decoding
+
+A separate Linux 7.2.11 UVD backend passed exact H.264 decoding through
+FFmpeg/VAAPI and a bounded 1080p30 playback test on one Liverpool PS4. An
+isolated PS4 Mesa 26.2.5 candidate displayed clean picture and live decoder
+stats in the tested OpenGL path. This is a source checkpoint for review; the
+default target/CI build and supported release status are unchanged.
+See [the UVD guide](docs/UVD.md) for source, artifact identities, reproduction
+boundaries and remaining hardware gates.
+
 ## Current stage
 
 **PS4 development target.** The 54 base patches remain byte-for-byte preserved.
@@ -107,7 +119,8 @@ The active patch set, built locally as `6.18.44-psx-ps4-baikal-native-dev1`,
 passed two native Ethernet boots on one Baikal PS4, launched with and without
 the cable and including unplug and replug. The `6.18.44-psx-ps4-baikal2` CI
 build has **not** been boot-tested. Source migration and CI success do not
-qualify hardware. PS5 integration and future-console support remain planned.
+qualify hardware. The separate PS5 development candidate has no local
+hardware acceptance; future-console support remains planned.
 
 | Read next | Contents |
 | --- | --- |
@@ -116,7 +129,6 @@ qualify hardware. PS5 integration and future-console support remain planned.
 | [Ethernet](docs/ETHERNET.md) | Native autoload, retained DMA, hardware status and limits. |
 | [PS4 status](platforms/ps4/STATUS.md) | Historical evidence and remaining qualification. |
 | [PS4 development knowledge](platforms/ps4/docs/README.md) | Curated display/MSI, Ethernet, fan/storage/UART findings and historical evidence. |
-| [Knowledge migration](platforms/ps4/docs/KNOWLEDGE-MIGRATION.md) | Disposition of 117 legacy knowledge/tool sources, corrected hypotheses and deliberate exclusions. |
 | [Contributing](CONTRIBUTING.md) | Patch workflow, portable core tests and hardware report requirements. |
 | [Artifact contract](docs/ARTIFACTS.md) | Kernel/modules identities, metadata and corresponding source. |
 | [PS4 patch guide](docs/PS4-PATCHES.md) | Scope, ordering, base pin and checksum verification. |
@@ -126,6 +138,22 @@ qualify hardware. PS5 integration and future-console support remain planned.
 | [Linux 7.2 port](docs/PORT-7.2.md) | Development targets: the Baikal port, its separate `7.2-ps4-baikal-native-dev` native-Ethernet candidate, and rmux's all-southbridge stack. Local Baikal boots are scoped observations; CI binaries have no hardware acceptance. |
 | [Import manifest](provenance/ps4-import.json) | Per-file hashes, immutable source paths and ordered series. |
 | [Active target provenance](provenance/6.18-ps4-baikal.json) | MTS2 import, native autoload, config adaptations and the active 56-patch stack. |
+| [Wiki](https://github.com/meerzulee/linux-psx/wiki) | Guides, status, FAQ, troubleshooting and glossary. |
+
+## Legal
+
+Linux psX is an independent community project. It is not affiliated with,
+authorized, sponsored or endorsed by Sony Interactive Entertainment.
+"PlayStation", "PS4" and "PS5" are trademarks of Sony Interactive
+Entertainment Inc., used only to identify the hardware the kernel targets.
+
+The guides begin with an established console Linux boot environment and cover
+kernel builds, matching modules, hardware observations and recovery. Reviewed
+findings from private background work are described as private hardware
+research. Selected kernels embed no device firmware; the
+[artifact contract](docs/ARTIFACTS.md) defines corresponding-source packaging.
+Original authorship and per-file license notices are recorded in
+[CREDITS.md](CREDITS.md).
 
 ---
 

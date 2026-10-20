@@ -11,10 +11,12 @@ RUN apt-get update \
         cpio \
         dwarves \
         flex \
+        gawk \
         gcc \
         gcc-x86-64-linux-gnu \
         git \
         kmod \
+        libdw-dev \
         libelf-dev \
         libssl-dev \
         make \

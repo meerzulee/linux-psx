@@ -1519,8 +1519,17 @@
     },
     {
       "path": "platforms/ps4/docs/README.md",
-      "size": 1838,
-      "sha256": "49bf8d46c035117e59f68a5897f6ee717ff1006a27dbb90b57e64cd35c281151"
+      "size": 1988,
+      "sha256": "30b3964c92bde1b0f9976a52a572d26dc5afa5016eb64cb068bdab17656c3aa5",
+      "post_migration_adaptations": [
+        {
+          "date": "2026-10-19",
+          "previous_size": 1838,
+          "previous_sha256": "49bf8d46c035117e59f68a5897f6ee717ff1006a27dbb90b57e64cd35c281151",
+          "reason": "Add a link to the owner-requested dynamic RAM/VRAM research proposal; preserve the original migrated text and historical source identities.",
+          "new_document": "docs/PS4-DYNAMIC-MEMORY.md"
+        }
+      ]
     },
     {
       "path": "platforms/ps4/docs/UART-AND-DEBUGGING.md",

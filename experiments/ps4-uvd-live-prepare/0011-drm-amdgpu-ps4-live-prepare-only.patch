@@ -1,0 +1,791 @@
+From: Linux psX contributors
+Subject: [EXPERIMENTAL] drm/amdgpu: PS4 preparation-only live-development owner
+
+Adapt the frozen IB-DATA candidate, retaining all upstream notices.
+Reserve and prove the owned mapping before clients; return without
+calling UVD. Add cached status and one-way lifecycle invalidation.
+Cleanup applies only to completed SDMA preparation, never UVD.
+No active series, kernel build or hardware qualification is included.
+Baseline files are pinned individually in baseline-pins.json.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -62,6 +62,7 @@
+ #include "amdgpu_ih.h"
+ #include "amdgpu_irq.h"
+ #include "amdgpu_ps4_uvd_irq.h"
++#include "amdgpu_ps4_live_prepare.h"
+ #include "amdgpu_ucode.h"
+ #include "amdgpu_ttm.h"
+ #include "amdgpu_psp.h"
+@@ -825,6 +826,8 @@
+ 
+ struct amdgpu_device {
+ 	struct ps4_uvd_irq_observer ps4_uvd_irq;
++	struct amdgpu_ps4_live_prepare ps4_live_prepare;
++	bool ps4_canary_fences_initialized;
+ 	struct device			*dev;
+ 	struct pci_dev			*pdev;
+ 	/* The two ends of the physical PCIe link outside the device. */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_debugfs.c
+@@ -42,6 +42,78 @@
+ #include "amdgpu_userq.h"
+ 
+ #if defined(CONFIG_DEBUG_FS)
++#include <drm/drm_drv.h>
++#include <generated/utsrelease.h>
++
++/* LIVE_PREPARE_DEBUGFS_BEGIN */
++static int amdgpu_ps4_live_prepare_show(struct seq_file *m, void *unused)
++{
++	static const char * const stages[] = {
++		"DISABLED", "SELECTED", "RESERVED", "PREPARING", "PREPARED",
++		"INVALIDATED", "RELEASING", "RELEASED", "FAILED",
++	};
++	static const char * const events[] = {
++		"NONE", "GART_ENABLE", "GART_DISABLE", "RESET", "SUSPEND",
++		"HW_FINI", "VMID_FINI", "REINIT",
++	};
++	struct amdgpu_device *adev = m->private;
++	struct ps4_live_prepare_snapshot s;
++
++	amdgpu_ps4_live_prepare_snapshot(adev, &s);
++	seq_printf(m, "schema=1 build=%s interface=prepare-only arm=absent\n",
++		   UTS_RELEASE);
++	seq_printf(m, "stage=%s error=%d selected=%u attempted=%u retained=%u\n",
++		   stages[s.stage], s.error, s.selected, s.attempted, s.retained);
++	seq_printf(m, "vmid=4 reservation_seen=%u allocator_alive_cached=%u early_fence_init=%u\n",
++		   s.reservation_seen, s.allocator_alive,
++		   READ_ONCE(adev->ps4_canary_fences_initialized));
++	seq_printf(m, "observed_generation=%llu proof_generation=%llu last_event=%s\n",
++		   s.observed_generation, s.proof_generation, events[s.last_event]);
++	seq_printf(m, "historical_sdma_proof=%u proof_ns=%llu reset_counter_at_proof=%u copy_crc32=%08x\n",
++		   s.proof_passed, s.proof_ns, s.proof_reset_counter, s.copy_crc);
++	seq_printf(m, "pd_at_proof=0x%llx pd_bytes=0x%llx pt_bytes=0x%llx pages=%u\n",
++		   s.pd_addr, s.pd_bytes, s.pt_bytes, s.mapped_pages);
++	seq_printf(m, "r1_bytes=0x%llx rb_bytes=0x%llx ib_bytes=0x%llx\n",
++		   s.r1_bytes, s.rb_bytes, s.ib_bytes);
++	seq_puts(m, "observer=cached-only current_hardware_mapping=not-sampled UVD_setup=never\n");
++	return 0;
++}
++
++static int amdgpu_ps4_live_prepare_open(struct inode *inode, struct file *file)
++{
++	struct amdgpu_device *adev = inode->i_private;
++	int r;
++
++	/* Keep scalar cached state alive even if removal overlaps an open fd.
++	 * No reset-domain reference, runtime-PM get or hardware entry is needed.
++	 */
++	drm_dev_get(adev_to_drm(adev));
++	r = single_open(file, amdgpu_ps4_live_prepare_show, adev);
++	if (r)
++		drm_dev_put(adev_to_drm(adev));
++	return r;
++}
++
++static int amdgpu_ps4_live_prepare_release(struct inode *inode, struct file *file)
++{
++	struct seq_file *m = file->private_data;
++	struct amdgpu_device *adev = m->private;
++	int r;
++
++	r = single_release(inode, file);
++	drm_dev_put(adev_to_drm(adev));
++	return r;
++}
++
++static const struct file_operations amdgpu_ps4_live_prepare_fops = {
++	.owner = THIS_MODULE,
++	.open = amdgpu_ps4_live_prepare_open,
++	.read = seq_read,
++	.llseek = seq_lseek,
++	.release = amdgpu_ps4_live_prepare_release,
++};
++/* LIVE_PREPARE_DEBUGFS_END */
++
+ 
+ /* Encode milliwatts in the raw Q24.8 sensor report format used by UMR. */
+ #define AMDGPU_DEBUGFS_PWR_MW_TO_Q24_8(power_mw) \
+@@ -2149,6 +2221,10 @@
+ 	if (!debugfs_initialized())
+ 		return 0;
+ 
++	if (amdgpu_ps4_live_prepare_enabled(adev))
++		debugfs_create_file("amdgpu_ps4_live_prepare", 0400, root, adev,
++				    &amdgpu_ps4_live_prepare_fops);
++
+ 	debugfs_create_x32("amdgpu_smu_debug", 0600, root,
+ 			   &adev->pm.smu_debug_mask);
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_device.c
+@@ -2629,7 +2629,10 @@
+ 
+ 	/* Before TTM GPU entities, KFD and userspace can produce jobs. */
+ 	if (amdgpu_ps4_map_canary_enabled(adev)) {
+-		amdgpu_fence_driver_hw_init(adev);
++		if (!adev->ps4_canary_fences_initialized) {
++			amdgpu_fence_driver_hw_init(adev);
++			adev->ps4_canary_fences_initialized = true;
++		}
+ 		amdgpu_ps4_map_canary_run(adev);
+ 	}
+ 
+@@ -3888,6 +3891,8 @@
+ 	else
+ 		adev->asic_type = flags & AMD_ASIC_MASK;
+ 
++	amdgpu_ps4_live_prepare_init(adev);
++
+ 	adev->usec_timeout = AMDGPU_MAX_USEC_TIMEOUT;
+ 	if (amdgpu_emu_mode == 1)
+ 		adev->usec_timeout *= 10;
+@@ -4228,7 +4233,7 @@
+ 	}
+ 
+ 	/* The opted-in canary already initialized fence interrupts in ip_init. */
+-	if (!amdgpu_ps4_map_canary_completed(adev))
++	if (!adev->ps4_canary_fences_initialized)
+ 		amdgpu_fence_driver_hw_init(adev);
+ 
+ 	dev_info(adev->dev,
+@@ -4381,6 +4386,7 @@
+  */
+ void amdgpu_device_fini_hw(struct amdgpu_device *adev)
+ {
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_HW_FINI);
+ 	dev_info(adev->dev, "finishing device.\n");
+ 	flush_delayed_work(&adev->delayed_init_work);
+ 
+@@ -4428,6 +4434,9 @@
+ 
+ 	amdgpu_coredump_fini(adev);
+ 	amdgpu_device_ip_fini_early(adev);
++
++	/* Only completed SDMA preparation owners; no UVD was started. */
++	amdgpu_ps4_live_prepare_fini(adev);
+ 
+ 	amdgpu_irq_fini_hw(adev);
+ 
+@@ -4585,6 +4594,8 @@
+ 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+ 		return 0;
+ 
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_SUSPEND);
++
+ 	/* Evict the majority of BOs before starting suspend sequence */
+ 	r = amdgpu_device_evict_resources(adev);
+ 	if (r)
+@@ -4645,6 +4656,7 @@
+ 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+ 		return 0;
+ 
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_SUSPEND);
+ 	adev->in_suspend = true;
+ 
+ 	if (amdgpu_sriov_vf(adev)) {
+@@ -5293,6 +5305,8 @@
+ 	bool need_full_reset =
+ 		test_bit(AMDGPU_NEED_FULL_RESET, &reset_context->flags);
+ 	int i, r;
++
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_RESET);
+ 
+ 	if (reset_context->reset_req_dev == adev)
+ 		job = reset_context->job;
+@@ -6001,6 +6015,8 @@
+ 	bool need_emergency_restart = false;
+ 	/* save the pasid here as the job may be freed before the end of the reset */
+ 	int pasid = job ? job->pasid : -EINVAL;
++
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_RESET);
+ 
+ 	/*
+ 	 * If it reaches here because of hang/timeout and a RAS error is
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -2392,6 +2392,8 @@
+ 	unsigned long flags = ent->driver_data;
+ 	int ret, retry = 0, i;
+ 	bool supports_atomic = false;
++	bool ps4_prepare_loaded = false;
++	bool ps4_prepare_registered = false;
+ 
+ 	if ((pdev->class >> 8) == PCI_CLASS_DISPLAY_VGA ||
+ 	    (pdev->class >> 8) == PCI_CLASS_DISPLAY_OTHER) {
+@@ -2465,6 +2467,9 @@
+ 	ret = amdgpu_driver_load_kms(adev, flags);
+ 	if (ret)
+ 		goto err_pci;
++	/* LIVE_PREPARE_PROBE_LOADED_BEGIN */
++	ps4_prepare_loaded = true;
++	/* LIVE_PREPARE_PROBE_LOADED_END */
+ 
+ retry_init:
+ 	ret = drm_dev_register(ddev, flags);
+@@ -2476,6 +2481,9 @@
+ 	} else if (ret) {
+ 		goto err_pci;
+ 	}
++	/* LIVE_PREPARE_PROBE_REGISTERED_BEGIN */
++	ps4_prepare_registered = true;
++	/* LIVE_PREPARE_PROBE_REGISTERED_END */
+ 
+ 	ret = amdgpu_xcp_dev_register(adev, ent);
+ 	if (ret)
+@@ -2552,6 +2560,18 @@
+ 	return 0;
+ 
+ err_pci:
++	/* LIVE_PREPARE_PROBE_ERROR_BEGIN */
++	/* A failed load already unloads internally. Only terminal errors
++	 * after a successful load need this preparation-only cleanup.
++	 * Do not defer hw_fini to DRM final release: PCI/devres mappings
++	 * may disappear while open DRM references still exist.
++	 */
++	if (ps4_prepare_loaded && amdgpu_ps4_live_prepare_enabled(adev)) {
++		if (ps4_prepare_registered)
++			drm_dev_unplug(ddev);
++		amdgpu_driver_unload_kms(ddev);
++	}
++	/* LIVE_PREPARE_PROBE_ERROR_END */
+ 	pci_disable_device(pdev);
+ 	return ret;
+ }
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ids.c
+@@ -600,6 +600,7 @@
+ 			amdgpu_sync_create(&id_mgr->ids[j].active);
+ 			if (amdgpu_ps4_map_canary_reserve(adev, i, j)) {
+ 				INIT_LIST_HEAD(&id_mgr->ids[j].list);
++				amdgpu_ps4_live_prepare_reserved(adev);
+ 				continue;
+ 			}
+ 			list_add_tail(&id_mgr->ids[j].list, &id_mgr->ids_lru);
+@@ -618,6 +619,8 @@
+ {
+ 	unsigned i, j;
+ 
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_VMID_FINI);
++
+ 	for (i = 0; i < AMDGPU_MAX_VMHUBS; ++i) {
+ 		struct amdgpu_vmid_mgr *id_mgr =
+ 			&adev->vm_manager.id_mgr[i];
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_live_prepare.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_live_prepare.h
+new file mode 100644
+--- /dev/null
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_live_prepare.h
+@@ -0,0 +1,69 @@
++/* SPDX-License-Identifier: MIT */
++#ifndef AMDGPU_PS4_LIVE_PREPARE_H
++#define AMDGPU_PS4_LIVE_PREPARE_H
++
++#include <linux/spinlock.h>
++#include <linux/types.h>
++
++struct amdgpu_device;
++struct ps4_canary_state;
++
++enum ps4_live_prepare_stage {
++	PS4_LIVE_DISABLED,
++	PS4_LIVE_SELECTED,
++	PS4_LIVE_RESERVED,
++	PS4_LIVE_PREPARING,
++	PS4_LIVE_PREPARED,
++	PS4_LIVE_INVALIDATED,
++	PS4_LIVE_RELEASING,
++	PS4_LIVE_RELEASED,
++	PS4_LIVE_FAILED,
++};
++
++enum ps4_live_prepare_event {
++	PS4_LIVE_EVENT_NONE,
++	PS4_LIVE_EVENT_GART_ENABLE,
++	PS4_LIVE_EVENT_GART_DISABLE,
++	PS4_LIVE_EVENT_RESET,
++	PS4_LIVE_EVENT_SUSPEND,
++	PS4_LIVE_EVENT_HW_FINI,
++	PS4_LIVE_EVENT_VMID_FINI,
++	PS4_LIVE_EVENT_REINIT,
++};
++
++/* Scalar history only: no BO, device, firmware or MMIO pointer escapes. */
++struct ps4_live_prepare_snapshot {
++	enum ps4_live_prepare_stage stage;
++	enum ps4_live_prepare_event last_event;
++	u64 observed_generation, proof_generation, proof_ns;
++	u64 pd_addr, pd_bytes, pt_bytes, r1_bytes, rb_bytes, ib_bytes;
++	u32 mapped_pages, copy_crc, proof_reset_counter;
++	int error;
++	bool selected, attempted, reservation_seen, allocator_alive;
++	bool proof_passed, retained;
++};
++
++/* Lives with adev; only the finite pre-client path can attach an owner. */
++struct amdgpu_ps4_live_prepare {
++	spinlock_t lock;
++	bool initialized;
++	struct ps4_live_prepare_snapshot cached;
++	/* Failed boot preparation remains parked with this retained owner. */
++	struct ps4_canary_state *pending;
++	/* Assigned only after completed SDMA proof, never to a UVD boot probe. */
++	struct ps4_canary_state *owner;
++};
++
++bool amdgpu_ps4_live_prepare_enabled(struct amdgpu_device *adev);
++void amdgpu_ps4_live_prepare_init(struct amdgpu_device *adev);
++void amdgpu_ps4_live_prepare_reserved(struct amdgpu_device *adev);
++void amdgpu_ps4_live_prepare_invalidate(struct amdgpu_device *adev,
++				       enum ps4_live_prepare_event event);
++void amdgpu_ps4_live_prepare_snapshot(struct amdgpu_device *adev,
++				     struct ps4_live_prepare_snapshot *out);
++/* Preparation-only destruction, after IP hw_fini and before TTM DMA clear.
++ * This is NOT a released-UVD-engine cleanup or quiescence API.
++ */
++void amdgpu_ps4_live_prepare_fini(struct amdgpu_device *adev);
++
++#endif
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+@@ -9,11 +9,14 @@
+  * TTM/client submissions have not yet been enabled. IRQ/fence work can continue.
+  * An operator must power off and restore the known-good boot image.
+  *
+- * Even on success, the small pinned allocation and fence are retained until
+- * poweroff. There is deliberately no runtime trigger or teardown interface.
++ * Original boot probes retain their allocations and fences until poweroff.
++ * The separate preparation-only mode retains the full owned layout but
++ * returns without calling UVD. It has a cached read-only status and an
++ * ordinary preparation-owner destructor, never a UVD drain/rearm API.
+  */
+ #include <linux/atomic.h>
+ #include <linux/crc32.h>
++#include <linux/ktime.h>
+ #include <linux/moduleparam.h>
+ #include <linux/mm.h>
+ #include <linux/overflow.h>
+@@ -74,14 +77,245 @@
+ 	bool submitted;
+ 	bool passed;
+ 	bool ready_mode;
++	bool ready_layout;
++	bool prepare_only;
+ };
+ 
+-/* Retained ownership also makes timeout resources discoverable in a dump. */
++/* LIVE_PREPARE_STATE_BEGIN */
++static bool ps4_uvd_live_prepare;
++module_param_named(ps4_uvd_live_prepare, ps4_uvd_live_prepare, bool, 0444);
++MODULE_PARM_DESC(ps4_uvd_live_prepare,
++	"Prepare an owned PS4 VMID4 mapping before clients, then continue boot; no UVD arm (default 0)");
++
++/* A new adev after driver rebind is not permission to repeat this boot. */
++static atomic_t ps4_live_prepare_attempted = ATOMIC_INIT(0);
++
++bool amdgpu_ps4_live_prepare_enabled(struct amdgpu_device *adev)
++{
++	return ps4_uvd_live_prepare && IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
++		IS_ENABLED(CONFIG_X86_PS4) &&
++		(adev->asic_type == CHIP_LIVERPOOL ||
++		 adev->asic_type == CHIP_GLADIUS);
++}
++
++void amdgpu_ps4_live_prepare_init(struct amdgpu_device *adev)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++
++	/* Never turn a second initialization into permission to prepare again. */
++	if (p->initialized) {
++		amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_REINIT);
++		return;
++	}
++	spin_lock_init(&p->lock);
++	p->cached.selected = amdgpu_ps4_live_prepare_enabled(adev);
++	p->cached.stage = p->cached.selected ? PS4_LIVE_SELECTED :
++		PS4_LIVE_DISABLED;
++	p->initialized = true;
++}
++
++void amdgpu_ps4_live_prepare_reserved(struct amdgpu_device *adev)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++
++	if (!p->initialized || !p->cached.selected)
++		return;
++	spin_lock_irqsave(&p->lock, flags);
++	p->cached.reservation_seen = true;
++	p->cached.allocator_alive = true;
++	if (p->cached.stage == PS4_LIVE_SELECTED)
++		p->cached.stage = PS4_LIVE_RESERVED;
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++
++void amdgpu_ps4_live_prepare_invalidate(struct amdgpu_device *adev,
++				       enum ps4_live_prepare_event event)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++
++	if (!p->initialized || !p->cached.selected)
++		return;
++	spin_lock_irqsave(&p->lock, flags);
++	++p->cached.observed_generation;
++	p->cached.last_event = event;
++	if (event == PS4_LIVE_EVENT_VMID_FINI)
++		p->cached.allocator_alive = false;
++	/* Initial GART setup predates preparation. Every event after the
++	 * attempt is one-way invalidation, even if reset/suspend later aborts.
++	 */
++	if ((p->cached.attempted || event != PS4_LIVE_EVENT_GART_ENABLE) &&
++	    p->cached.stage != PS4_LIVE_RELEASING &&
++	    p->cached.stage != PS4_LIVE_RELEASED &&
++	    p->cached.stage != PS4_LIVE_FAILED) {
++		p->cached.stage = PS4_LIVE_INVALIDATED;
++		p->cached.error = -ESTALE;
++	}
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++
++void amdgpu_ps4_live_prepare_snapshot(struct amdgpu_device *adev,
++				     struct ps4_live_prepare_snapshot *out)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++
++	/* Pure cached-data query: no PM, reset lock, allocation, MMIO or work. */
++	if (!p->initialized) {
++		memset(out, 0, sizeof(*out));
++		return;
++	}
++	spin_lock_irqsave(&p->lock, flags);
++	*out = p->cached;
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++
++static int ps4_live_prepare_begin(struct amdgpu_device *adev)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++	int r = 0;
++
++	if (!p->initialized || !p->cached.selected)
++		return -EINVAL;
++	spin_lock_irqsave(&p->lock, flags);
++	if (p->cached.attempted)
++		r = -EALREADY;
++	else if (p->cached.stage != PS4_LIVE_RESERVED ||
++		 !p->cached.reservation_seen || !p->cached.allocator_alive)
++		r = -EINVAL;
++	else if (atomic_cmpxchg(&ps4_live_prepare_attempted, 0, 1))
++		r = -EALREADY;
++	else {
++		p->cached.attempted = true;
++		p->cached.stage = PS4_LIVE_PREPARING;
++		p->cached.proof_generation = p->cached.observed_generation;
++	}
++	spin_unlock_irqrestore(&p->lock, flags);
++	return r;
++}
++
++static void ps4_live_prepare_failure(struct amdgpu_device *adev, int error)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++
++	if (!p->initialized || !p->cached.selected)
++		return;
++	spin_lock_irqsave(&p->lock, flags);
++	p->cached.stage = PS4_LIVE_FAILED;
++	p->cached.error = error;
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++
++static void ps4_live_prepare_attach(struct amdgpu_device *adev,
++				    struct ps4_canary_state *s)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++
++	spin_lock_irqsave(&p->lock, flags);
++	p->pending = s;
++	p->cached.retained = true;
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++
++static int ps4_live_prepare_publish(struct amdgpu_device *adev,
++				     struct ps4_canary_state *s, u32 crc)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	unsigned long flags;
++	int r = 0;
++
++	if (!p->initialized || !p->cached.selected || !s)
++		return -EINVAL;
++	/* The caller has completed fence, exact pattern/guard and exclusivity
++	 * checks. No ready helper or firmware access precedes this branch.
++	 */
++	spin_lock_irqsave(&p->lock, flags);
++	if (p->pending != s || p->owner || !s->prepare_only ||
++	    !s->ready_layout || s->ready_mode || !s->passed ||
++	    !s->submitted || !s->fence || !s->pd.bo ||
++	    s->mapped_pages != PS4_READY_MAPPED_PAGES ||
++	    !adev->ps4_canary_fences_initialized ||
++	    p->cached.stage != PS4_LIVE_PREPARING ||
++	    p->cached.proof_generation != p->cached.observed_generation ||
++	    !p->cached.allocator_alive || atomic_read(&adev->gpu_reset_counter)) {
++		r = -ESTALE;
++	} else {
++		p->owner = s;
++		p->pending = NULL;
++		p->cached.pd_addr = amdgpu_gmc_pd_addr(s->pd.bo);
++		p->cached.pd_bytes = s->pd_size;
++		p->cached.pt_bytes = s->pt_size;
++		p->cached.r1_bytes = PS4_READY_R_BYTES;
++		p->cached.rb_bytes = PAGE_SIZE;
++		p->cached.ib_bytes = PS4_READY_IB_BYTES;
++		p->cached.mapped_pages = s->mapped_pages;
++		p->cached.copy_crc = crc;
++		p->cached.proof_reset_counter = 0;
++		p->cached.proof_ns = ktime_get_ns();
++		p->cached.proof_passed = true;
++		p->cached.error = 0;
++		p->cached.stage = PS4_LIVE_PREPARED;
++	}
++	spin_unlock_irqrestore(&p->lock, flags);
++	return r;
++}
++
++static void ps4_live_prepare_free_bo(struct ps4_canary_bo *bo)
++{
++	amdgpu_bo_free_kernel(&bo->bo, &bo->gpu, &bo->cpu);
++}
++
++void amdgpu_ps4_live_prepare_fini(struct amdgpu_device *adev)
++{
++	struct amdgpu_ps4_live_prepare *p = &adev->ps4_live_prepare;
++	struct ps4_canary_state *s;
++	unsigned long flags;
++
++	if (!p->initialized || !p->cached.selected)
++		return;
++	spin_lock_irqsave(&p->lock, flags);
++	s = p->owner;
++	if (!s) {
++		spin_unlock_irqrestore(&p->lock, flags);
++		return;
++	}
++	/* Only a successful preparation returns to device initialization.
++	 * Failed preparation parks before normal removal can begin. The sole
++	 * SDMA job completed; no UVD consumer has ever received these BOs.
++	 * IP hw_fini has run; TTM and its DMA mappings still exist at this seam.
++	 */
++	p->owner = NULL;
++	p->cached.stage = PS4_LIVE_RELEASING;
++	spin_unlock_irqrestore(&p->lock, flags);
++	dma_fence_put(s->fence);
++	ps4_live_prepare_free_bo(&s->uvd_ib);
++	ps4_live_prepare_free_bo(&s->uvd_rb);
++	ps4_live_prepare_free_bo(&s->r1);
++	ps4_live_prepare_free_bo(&s->ib);
++	ps4_live_prepare_free_bo(&s->dst);
++	ps4_live_prepare_free_bo(&s->src);
++	ps4_live_prepare_free_bo(&s->pt);
++	ps4_live_prepare_free_bo(&s->pd);
++	kfree(s->pages);
++	kfree(s);
++	spin_lock_irqsave(&p->lock, flags);
++	p->cached.stage = PS4_LIVE_RELEASED;
++	p->cached.retained = false;
++	spin_unlock_irqrestore(&p->lock, flags);
++}
++/* LIVE_PREPARE_STATE_END */
++
++/* Original parked boot probes keep their legacy retained owner. */
+ static struct ps4_canary_state *ps4_canary_retained;
+ 
+ bool amdgpu_ps4_map_canary_enabled(struct amdgpu_device *adev)
+ {
+-	return (ps4_map_canary || amdgpu_ps4_uvd_ready_enabled(adev)) &&
++	return (ps4_map_canary || amdgpu_ps4_uvd_ready_enabled(adev) ||
++		amdgpu_ps4_live_prepare_enabled(adev)) &&
+ 		IS_BUILTIN(CONFIG_DRM_AMDGPU) &&
+ 		IS_ENABLED(CONFIG_X86_PS4) &&
+ 		(adev->asic_type == CHIP_LIVERPOOL ||
+@@ -104,6 +338,7 @@
+ static __noreturn void ps4_canary_park(struct amdgpu_device *adev,
+ 				     const char *stage, int error)
+ {
++	ps4_live_prepare_failure(adev, error);
+ 	dev_err(adev->dev,
+ 		"PS4_MAP_CANARY FAIL stage=%s error=%d; PARKED no retry/reset/cleanup; power off and restore rollback\n",
+ 		stage, error);
+@@ -154,7 +389,7 @@
+ {
+ 	const u64 max_pfn = adev->vm_manager.max_pfn;
+ 	u64 leaf_entries, root_entries, root_bytes;
+-	u64 span = s->ready_mode ? SZ_4M : 3 * AMDGPU_GPU_PAGE_SIZE;
++	u64 span = s->ready_layout ? SZ_4M : 3 * AMDGPU_GPU_PAGE_SIZE;
+ 	u64 va_end, end_pfn;
+ 	u32 control, start, end;
+ 	struct amdgpu_vmid_mgr *mgr =
+@@ -457,8 +692,17 @@
+ 		return;
+ 	if (ps4_map_canary && amdgpu_ps4_uvd_ready_requested())
+ 		ps4_canary_park(adev, "conflicting-boot-gates", -EINVAL);
+-	if (atomic_cmpxchg(&ps4_canary_attempted, 0, 1))
++	if (amdgpu_ps4_live_prepare_enabled(adev)) {
++		if (ps4_map_canary || amdgpu_ps4_uvd_boot_probe_requested())
++			ps4_canary_park(adev, "live-prepare-conflicting-gates", -EINVAL);
++		if (IS_ENABLED(CONFIG_PM) || !IS_ENABLED(CONFIG_DEBUG_FS))
++			ps4_canary_park(adev, "live-prepare-config", -EINVAL);
++		r = ps4_live_prepare_begin(adev);
++		if (r)
++			ps4_canary_park(adev, "live-prepare-begin", r);
++	} else if (atomic_cmpxchg(&ps4_canary_attempted, 0, 1)) {
+ 		ps4_canary_park(adev, "second-init-refused", -EALREADY);
++	}
+ 	dev_info(adev->dev,
+ 		 "PS4_MAP_CANARY BEGIN vmid=4 va=0x%llx bytes=%u timeout_ms=1000 UVD=off\n",
+ 		 PS4_CANARY_VA, PS4_CANARY_BYTES);
+@@ -476,10 +720,15 @@
+ 	s = kzalloc_obj(*s);
+ 	if (!s)
+ 		ps4_canary_park(adev, "state-allocation", -ENOMEM);
+-	ps4_canary_retained = s;
+ 	s->adev = adev;
+ 	s->ready_mode = amdgpu_ps4_uvd_ready_enabled(adev);
+-	s->src_va = PS4_CANARY_VA + (s->ready_mode ?
++	s->prepare_only = amdgpu_ps4_live_prepare_enabled(adev);
++	s->ready_layout = s->ready_mode || s->prepare_only;
++	if (s->prepare_only)
++		ps4_live_prepare_attach(adev, s);
++	else
++		ps4_canary_retained = s;
++	s->src_va = PS4_CANARY_VA + (s->ready_layout ?
+ 		(u64)PS4_READY_SDMA_SLOT * AMDGPU_GPU_PAGE_SIZE : 0);
+ 	s->dst_va = s->src_va + AMDGPU_GPU_PAGE_SIZE;
+ 	s->ib_va = s->dst_va + AMDGPU_GPU_PAGE_SIZE;
+@@ -495,13 +744,13 @@
+ 		r = ps4_canary_alloc(adev, &s->dst, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
+ 	if (!r)
+ 		r = ps4_canary_alloc(adev, &s->ib, PAGE_SIZE, AMDGPU_GEM_DOMAIN_GTT);
+-	if (!r && s->ready_mode)
++	if (!r && s->ready_layout)
+ 		r = ps4_canary_alloc(adev, &s->r1, PS4_READY_R_BYTES,
+ 			AMDGPU_GEM_DOMAIN_GTT);
+-	if (!r && s->ready_mode)
++	if (!r && s->ready_layout)
+ 		r = ps4_canary_alloc(adev, &s->uvd_rb, PAGE_SIZE,
+ 			AMDGPU_GEM_DOMAIN_GTT);
+-	if (!r && s->ready_mode)
++	if (!r && s->ready_layout)
+ 		r = ps4_canary_alloc(adev, &s->uvd_ib, PS4_READY_IB_BYTES,
+ 			AMDGPU_GEM_DOMAIN_GTT);
+ 	if (r)
+@@ -510,7 +759,7 @@
+ 	/* Avoid calling GMC7's BUG_ON-based PDE helper with unchecked addresses. */
+ 	if ((s->pd.gpu | s->pt.gpu) & ~adev->gmc.pte_addr_mask)
+ 		ps4_canary_park(adev, "table-address-domain", -ERANGE);
+-	if (s->ready_mode) {
++	if (s->ready_layout) {
+ 		r = ps4_canary_ready_pages(adev, s, ptes);
+ 	} else {
+ 		r = ps4_canary_leaf_pte(adev, &s->src, &ptes[0]);
+@@ -533,7 +782,7 @@
+ 	if (!(pt_flags & AMDGPU_PTE_VALID) || (pt_flags & AMDGPU_PTE_SYSTEM))
+ 		ps4_canary_park(adev, "vram-pde", -EINVAL);
+ 	amdgpu_gmc_set_pte_pde(adev, s->pd.cpu, s->pd_index, pt_addr, pt_flags);
+-	if (s->ready_mode) {
++	if (s->ready_layout) {
+ 		for (i = 0; i < s->mapped_pages; ++i)
+ 			writeq(s->pages[i].pte, (void __iomem *)s->pt.cpu +
+ 			       s->pages[i].slot * sizeof(u64));
+@@ -608,6 +857,19 @@
+ 		if (dst[i] != PS4_CANARY_GUARD || src[i] != PS4_CANARY_GUARD)
+ 			ps4_canary_park(adev, "guard-readback", -EILSEQ);
+ 	crc = crc32_le(~0U, (u8 *)dst, PS4_CANARY_BYTES) ^ ~0U;
++	if (s->prepare_only) {
++		r = ps4_canary_exclusive_init(adev);
++		if (r)
++			ps4_canary_park(adev, "pre-prepare-exclusive-init", r);
++		s->passed = true;
++		r = ps4_live_prepare_publish(adev, s, crc);
++		if (r)
++			ps4_canary_park(adev, "live-prepare-publish", r);
++		dev_info(adev->dev,
++			 "PS4_LIVE_PREPARE PREPARED vmid=4 pages=%u copy_crc32=%08x historical_sdma_proof=1 retained=1 UVD_setup=never arm=absent; continuing normal initialization\n",
++			 s->mapped_pages, crc);
++		return;
++	}
+ 	if (s->ready_mode) {
+ 		struct amdgpu_ps4_uvd_ring token_ring = { 0 };
+ 		/* IB_DATA_BORROW_DECL_BEGIN */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.h
+@@ -10,7 +10,7 @@
+ bool amdgpu_ps4_map_canary_completed(struct amdgpu_device *adev);
+ bool amdgpu_ps4_map_canary_reserve(struct amdgpu_device *adev,
+ 				 unsigned int vmhub, unsigned int vmid);
+-/* Returns only for gate-off or the original copy-only mode's valid PASS.
++/* Returns for gate-off, original copy-only PASS or preparation-only PASS.
+  * The separate readiness mode retains the complete mapping and never returns.
+  */
+ void amdgpu_ps4_map_canary_run(struct amdgpu_device *adev);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -130,6 +130,14 @@
+ static const struct firmware *ps4_ready_firmware;
+ static void *ps4_ready_retained_cpu;
+ static u64 ps4_ready_retained_pd;
++
++/* A preparation-only boot rejects every legacy probe switch. */
++bool amdgpu_ps4_uvd_boot_probe_requested(void)
++{
++	return ps4_uvd_ready || ps4_uvd_poll_state || ps4_uvd_token ||
++		ps4_uvd_data_control || ps4_uvd_status_observation ||
++		ps4_uvd_ib_data;
++}
+ 
+ bool amdgpu_ps4_uvd_ready_requested(void)
+ {
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+@@ -17,6 +17,7 @@
+ bool amdgpu_ps4_uvd_ib_data_requested(void);
+ /* IB_DATA_REQUESTED_END */
+ bool amdgpu_ps4_uvd_token_requested(void);
++bool amdgpu_ps4_uvd_boot_probe_requested(void);
+ bool amdgpu_ps4_uvd_ready_requested(void);
+ bool amdgpu_ps4_uvd_ready_enabled(struct amdgpu_device *adev);
+ /* Caller retains every mapped BO and has completed the VMID4 SDMA precheck. */
+diff --git a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+--- a/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/gmc_v7_0.c
+@@ -619,6 +619,7 @@
+ 		dev_err(adev->dev, "No VRAM object for PCIE GART.\n");
+ 		return -EINVAL;
+ 	}
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_GART_ENABLE);
+ 	amdgpu_gtt_mgr_recover(&adev->mman.gtt_mgr);
+ 	table_addr = amdgpu_bo_gpu_offset(adev->gart.bo);
+ 
+@@ -752,6 +753,7 @@
+ {
+ 	u32 tmp;
+ 
++	amdgpu_ps4_live_prepare_invalidate(adev, PS4_LIVE_EVENT_GART_DISABLE);
+ 	/* Disable all tables */
+ 	WREG32(mmVM_CONTEXT0_CNTL, 0);
+ 	WREG32(mmVM_CONTEXT1_CNTL, 0);

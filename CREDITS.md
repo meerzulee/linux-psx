@@ -38,14 +38,23 @@ record and exact alternative locations are in
 [provenance/upstreams.json](provenance/upstreams.json). A comparison reference
 is not automatically a patch import; the inherited ledger explains each use.
 
-## PS5 research references
+## PS5 community import and research references
 
 The researched [ps5-linux patch project](https://github.com/ps5-linux/ps5-linux-patches/tree/753c7936dcb079bfeaaa0bb19dfc495744266500)
 is community work led in its recorded history by Andy Nguyen, with rmuxnet and
 other contributors. Its loader is a separate
 [ps5-linux project](https://github.com/ps5-linux/ps5-linux-loader/tree/64637c177eaed277fb6ccce394cbb29dd047b893).
-These are research references in this phase; their code has not been imported
-into the PS4 patch snapshot.
+The separate [`7.2-ps5` candidate](docs/PS5.md) imports that community snapshot's
+`linux.patch`, original config and README unchanged. Its patch retains original
+GPL notices and authorship, including Andy Nguyen and Armandas Kvietkus/rmuxnet.
+The [PS5 import record](provenance/7.2-ps5.json) pins every imported file and
+records the local config's release-name and firmware-embedding changes. Linux
+psX does not claim authorship of the imported platform or driver work.
+
+The original [PS5 research snapshot](provenance/ps5-research.json) remains
+historical. No PS5 code is merged into the PS4 patch snapshot. Loader code and
+device firmware are not imported or bundled, and the kernel candidate does not
+establish PS5 hardware acceptance or firmware 12.40 loader support.
 
 ## MTS2 Ethernet migration
 

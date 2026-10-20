@@ -13,6 +13,7 @@ or deliberately left in the historical repository.
 | [Ethernet investigation](ETHERNET-HISTORY.md) | RX before TX, PHY handoff, packet proof, MTS1/MTS2 and EXP016's degraded result |
 | [UART and debugging](UART-AND-DEBUGGING.md) | Capture ownership, early-console lessons and superseded procedures |
 | [Internal storage](INTERNAL-STORAGE.md) | Layered storage model and read-only research boundary |
+| [Dynamic RAM and VRAM proposal](../../../docs/PS4-DYNAMIC-MEMORY.md) | Owner's shared-memory idea, existing GTT foundations and staged validation |
 | [Knowledge migration](KNOWLEDGE-MIGRATION.md) | Coverage map and immutable original references |
 
 The current build, boot and artifact interfaces are the root

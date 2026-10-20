@@ -1,0 +1,143 @@
+From: Linux psX contributors
+Subject: [EXPERIMENT] drm/amdgpu/ps4: observe ready with the recorded VCPU state
+
+Add a separate default-off post-release observation policy admitting only
+raw MASTINT 0/2. Keep held/RBC guards, every MMIO write, firmware and mapping
+policy, the original two-second release deadline and permanent retention.
+The result reports a readiness convention, not firmware execution/decode or
+interrupt containment. Ring submission remains disabled.
+
+Original readiness helper retains its SPDX-License-Identifier: MIT notice.
+This adaptation is a hypothesis for a new bounded hardware experiment.
+
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -72,6 +72,15 @@
+ module_param_named(ps4_uvd_ready, ps4_uvd_ready, bool, 0444);
+ MODULE_PARM_DESC(ps4_uvd_ready,
+ 	"Private one-shot PS4 UVD VCPU readiness probe; always parks boot (default 0)");
++
++/* Separate default-off observation policy. It never enables ring fetch or
++ * interrupts. Only the post-release poll may observe raw MASTINT 0 or 2.
++ * Held and RBC-release checks retain the original strict predicate.
++ */
++static bool ps4_uvd_poll_state;
++module_param_named(ps4_uvd_poll_state, ps4_uvd_poll_state, bool, 0444);
++MODULE_PARM_DESC(ps4_uvd_poll_state,
++	"Observe PS4 ready convention with poll MASTINT 0/2; requires ps4_uvd_ready, always parks (default 0)");
+ 
+ static atomic_t ps4_ready_attempted = ATOMIC_INIT(0);
+ static DECLARE_WAIT_QUEUE_HEAD(ps4_ready_park_queue);
+@@ -257,6 +266,8 @@
+ 	PS4_GUARD_IB_NONZERO = 1U << 4,
+ 	PS4_GUARD_WP_NONZERO = 1U << 5,
+ 	PS4_GUARD_RP_NONZERO = 1U << 6,
++	PS4_GUARD_INT_UNKNOWN = 1U << 7,
++	PS4_GUARD_INT_REGRESSION = 1U << 8,
+ };
+ 
+ struct ps4_ready_guard_sample {
+@@ -265,7 +276,8 @@
+ };
+ 
+ static bool ps4_ready_fetch_guard_sample(struct amdgpu_device *adev,
+-					struct ps4_ready_guard_sample *sample)
++					struct ps4_ready_guard_sample *sample,
++					bool permit_observed_vcpu)
+ {
+ 	*sample = (struct ps4_ready_guard_sample) { 0 };
+ 	sample->rbc = RREG32(mmUVD_RBC_RB_CNTL);
+@@ -279,10 +291,18 @@
+ 
+ 	sample->mastint = RREG32(mmUVD_MASTINT_EN);
+ 	sample->sampled |= PS4_GUARD_INT;
+-	if (sample->mastint & UVD_MASTINT_EN__VCPU_EN_MASK)
++	if ((sample->mastint & UVD_MASTINT_EN__VCPU_EN_MASK) &&
++	    !permit_observed_vcpu)
+ 		sample->failed |= PS4_GUARD_VCPU;
+ 	if (sample->mastint & UVD_MASTINT_EN__SYS_EN_MASK)
+ 		sample->failed |= PS4_GUARD_SYS;
++	/* In the new poll policy, only exact raw 0/2 are admitted. This is
++	 * an observed-state hypothesis, not an interrupt-direction claim.
++	 */
++	if (permit_observed_vcpu &&
++	    (sample->mastint & ~(UVD_MASTINT_EN__VCPU_EN_MASK |
++				 UVD_MASTINT_EN__SYS_EN_MASK)))
++		sample->failed |= PS4_GUARD_INT_UNKNOWN;
+ 	if (sample->failed)
+ 		return false;
+ 
+@@ -527,6 +547,7 @@
+ 				      u64 pd_addr)
+ {
+ 	struct ps4_ready_guard_sample guard_sample = { 0 };
++	bool vcpu_seen = false;
+ 	u64 started, elapsed;
+ 	u32 crc, baseline_fault, fault, status;
+ 	u32 cache_vmid_original, cache_vmid_expected;
+@@ -573,8 +594,8 @@
+ 	amdgpu_device_flush_hdp(adev, NULL);
+ 
+ 	dev_info(adev->dev,
+-		"PS4_UVD_READY BEGIN hypothesis=public5/6 vmid=4 pd=%llx backing=%zx payload=%u crc=%08x clocks=10000/10000; SDMA precheck is not UVD evidence\n",
+-		pd_addr, backing_size, PS4_READY_PAYLOAD_BYTES, crc);
++		"PS4_UVD_READY BEGIN hypothesis=public5/6 vmid=4 pd=%llx backing=%zx payload=%u crc=%08x clocks=10000/10000 poll_state=%d; SDMA precheck is not UVD evidence\n",
++		pd_addr, backing_size, PS4_READY_PAYLOAD_BYTES, crc, ps4_uvd_poll_state);
+ 	/* GMC7 has no global monotonic fault counter for this PASID0/vm=NULL
+ 	 * probe: its cached fault_info is updated only for registered VMs. Reading
+ 	 * status cannot detect an IRQ-acknowledged transient. UART remains needed.
+@@ -597,7 +618,7 @@
+ 	}
+ 	ps4_ready_snapshot(adev, "held");
+ 	status = RREG32(mmUVD_STATUS);
+-	if (!ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard_sample(adev, &guard_sample) ||
++	if (!ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard_sample(adev, &guard_sample, false) ||
+ 	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
+ 	    atomic_read(&adev->gpu_reset_counter) != reset_count ||
+ 	    amdgpu_in_reset(adev) || (status & PS4_READY_BIT) ||
+@@ -629,7 +650,7 @@
+ 	guard_sample = (struct ps4_ready_guard_sample) { 0 };
+ 	if ((RREG32(mmUVD_SOFT_RESET) & PS4_READY_HOLD) != remaining_hold ||
+ 	    !(RREG32(mmUVD_LMI_CTRL2) & UVD_LMI_CTRL2__STALL_ARB_UMC_MASK) ||
+-	    !ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard_sample(adev, &guard_sample) ||
++	    !ps4_ready_programmed(adev, cache_vmid_expected) || !ps4_ready_fetch_guard_sample(adev, &guard_sample, false) ||
+ 	    (RREG32(mmUVD_STATUS) & PS4_READY_BIT) ||
+ 	    RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS) != baseline_fault ||
+ 	    atomic_read(&adev->gpu_reset_counter) != reset_count || amdgpu_in_reset(adev)) {
+@@ -658,10 +679,20 @@
+ 			ps4_ready_snapshot(adev, "cache_vmid_changed");
+ 			ps4_ready_park(adev, "VCPU_CACHE_VMID_CHANGED", -EIO);
+ 		}
+-		if (!ps4_ready_fetch_guard_sample(adev, &guard_sample)) {
++		if (!ps4_ready_fetch_guard_sample(adev, &guard_sample, ps4_uvd_poll_state)) {
+ 			ps4_ready_snapshot(adev, "fetch_guard_changed");
+ 			ps4_ready_guard_log(adev, "poll", &guard_sample);
+ 			ps4_ready_park(adev, "FETCH_GUARD_CHANGED", -EIO);
++		}
++		if (ps4_uvd_poll_state) {
++			/* A sampled 2->0 regression is outside this one hypothesis. */
++			if (vcpu_seen && !guard_sample.mastint) {
++				guard_sample.failed |= PS4_GUARD_INT_REGRESSION;
++				ps4_ready_snapshot(adev, "poll_state_regression");
++				ps4_ready_guard_log(adev, "poll", &guard_sample);
++				ps4_ready_park(adev, "POLL_STATE_REGRESSION", -EIO);
++			}
++			vcpu_seen |= guard_sample.mastint == UVD_MASTINT_EN__VCPU_EN_MASK;
+ 		}
+ 		status = RREG32(mmUVD_STATUS);
+ 		elapsed = ktime_get_ns() - started;
+@@ -670,6 +701,14 @@
+ 			ps4_ready_park(adev, "READY_TIMEOUT", -ETIMEDOUT);
+ 		}
+ 		if (status & PS4_READY_BIT) {
++			if (ps4_uvd_poll_state) {
++				/* Saved sequential samples, not an atomic state or decode proof. */
++				dev_info(adev->dev,
++					"PS4_UVD_READY CONVENTION_OBSERVED status=%08x mastint=%08x elapsed_us=%llu; fetch inhibited, IRQ semantics and execution unproved\n",
++					status, guard_sample.mastint, div_u64(elapsed, 1000));
++				ps4_ready_snapshot(adev, "ready_convention");
++				ps4_ready_park(adev, "READY_CONVENTION_OBSERVED", 0);
++			}
+ 			ps4_ready_snapshot(adev, "ready");
+ 			dev_info(adev->dev,
+ 				"PS4_UVD_READY OBSERVED fresh_ready=1 elapsed_us=%llu; firmware-fetch/decode not established, all resources retained\n",

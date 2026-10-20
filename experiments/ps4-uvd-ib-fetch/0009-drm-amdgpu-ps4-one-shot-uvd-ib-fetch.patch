@@ -1,0 +1,345 @@
+From: Linux psX contributors
+Subject: [PATCH 71] drm/amdgpu: add a default-off retained PS4 IB-fetch probe
+
+Apply after the frozen 70-patch writeback-dev1 source. Preserve all existing
+helpers and the six-argument borrowed-page ABI. The new exclusive gate
+publishes the public UVD5 IB address/length prefix once. A fresh CONTEXT_ID
+packet exists only in the owned IB, with no direct-ring result packet,
+fence, trap, GPCOM or codec command. IB_SIZE after submission is observed
+without inventing countdown semantics. Every terminal path retains and parks.
+Public Linux is protocol comparison; Liverpool IB execution remains a
+hypothesis. Existing MIT/GPL notices and the inherited planner are unchanged.
+No proprietary firmware, private capture or retail decompilation is included.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_map_canary.c
+@@ -618,13 +618,15 @@
+ 		if (amdgpu_ps4_uvd_token_requested() &&
+ 		    !ps4_canary_token_ring(s, &token_ring))
+ 			ps4_canary_park(adev, "token-owned-ring", -EINVAL);
+-		if (amdgpu_ps4_uvd_writeback_requested() &&
++		if ((amdgpu_ps4_uvd_writeback_requested() ||
++		     amdgpu_ps4_uvd_ib_fetch_requested()) &&
+ 		    !ps4_canary_writeback_page(s, &writeback))
+ 			ps4_canary_park(adev, "writeback-owned-page", -EINVAL);
+ 		amdgpu_ps4_uvd_ready_run(adev, s->r1.cpu,
+ 			(size_t)PS4_READY_R_BYTES, amdgpu_gmc_pd_addr(s->pd.bo),
+ 			amdgpu_ps4_uvd_token_requested() ? &token_ring : NULL,
+-			amdgpu_ps4_uvd_writeback_requested() ? &writeback : NULL);
++			(amdgpu_ps4_uvd_writeback_requested() ||
++			 amdgpu_ps4_uvd_ib_fetch_requested()) ? &writeback : NULL);
+ 		/* Defensive local terminal path also gives object-only objtool a
+ 		 * valid continuation for the external readiness helper call.
+ 		 */
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -98,6 +98,17 @@
+ module_param_named(ps4_uvd_writeback, ps4_uvd_writeback, bool, 0444);
+ MODULE_PARM_DESC(ps4_uvd_writeback,
+ 	"One PS4 UVD owned-page writeback hypothesis; requires ready+poll+token, always parks (default 0)");
++
++/* Separate immutable IB gate; never enables its prerequisites. */
++static bool ps4_uvd_ib_fetch;
++module_param_named(ps4_uvd_ib_fetch, ps4_uvd_ib_fetch, bool, 0444);
++MODULE_PARM_DESC(ps4_uvd_ib_fetch,
++	"One PS4 UVD owned-IB token hypothesis; requires ready+poll+token, rejects writeback, always parks (default 0)");
++
++bool amdgpu_ps4_uvd_ib_fetch_requested(void)
++{
++	return ps4_uvd_ib_fetch;
++}
+ 
+ bool amdgpu_ps4_uvd_writeback_requested(void)
+ {
+@@ -1028,6 +1039,248 @@
+ }
+ /* WRITEBACK_FLOW_END */
+ 
++/* IB_FETCH_FLOW_BEGIN: extracted verbatim by the host fixture. */
++#define PS4_IB_BASELINE 0x43505534U
++#define PS4_IB_VALUE 0x55564434U
++
++struct ps4_ib_seen {
++	bool observed, guard_valid;
++	u64 elapsed;
++	struct ps4_token_sample sample;
++};
++
++/* The borrowed descriptor keeps its historical writeback name. Both users
++ * share the same first-page ownership/bounds contract, and cannot run together.
++ * Only the IB image ever contains a CONTEXT_ID result packet: the main ring
++ * is initialized directly with NOPs and the public UVD5 IB-submit prefix.
++ */
++static enum ps4_uvd_plan_error
++ps4_ib_build_images(const struct amdgpu_ps4_uvd_ring *rb,
++	const struct amdgpu_ps4_uvd_writeback *ib, u32 context_before)
++{
++	struct ps4_uvd_ring_request request;
++	struct ps4_uvd_ring_plan plan;
++	enum ps4_uvd_plan_error error;
++	u8 *ring;
++	size_t offset;
++
++	if (!ps4_wb_descriptor_valid(rb, ib))
++		return PS4_UVD_PLAN_RANGE;
++	request = (struct ps4_uvd_ring_request) {
++		.gpu_base = ib->private_va, .baseline = PS4_IB_BASELINE,
++		.token = PS4_IB_VALUE, .context_before_baseline = context_before,
++		.initial_rptr_raw = 0, .initial_wptr_raw = 0,
++	};
++	error = ps4_uvd_build_ring(ib->cpu, ib->bytes, request, &plan);
++	if (error != PS4_UVD_PLAN_OK)
++		return error;
++	ring = rb->cpu;
++	for (offset = 0; offset < PS4_UVD_RING_BYTES; offset += 8U) {
++		ps4_uvd_store_le32(ring + offset, PS4_UVD_NOP_REGISTER);
++		ps4_uvd_store_le32(ring + offset + 4U, 0);
++	}
++	ps4_uvd_store_le32(ring, mmUVD_LMI_RBC_IB_64BIT_BAR_LOW);
++	ps4_uvd_store_le32(ring + 4, lower_32_bits(ib->private_va));
++	ps4_uvd_store_le32(ring + 8, mmUVD_LMI_RBC_IB_64BIT_BAR_HIGH);
++	ps4_uvd_store_le32(ring + 12, upper_32_bits(ib->private_va));
++	ps4_uvd_store_le32(ring + 16, mmUVD_RBC_IB_SIZE);
++	/* Public UVD5 writes length_dw directly, not the register-field shift. */
++	ps4_uvd_store_le32(ring + 20, PS4_UVD_SUBMIT_DWORDS);
++	return PS4_UVD_PLAN_OK;
++}
++
++static bool ps4_ib_sample(struct amdgpu_device *adev,
++			    struct ps4_token_sample *s, enum ps4_token_phase phase,
++			    u64 pd_addr, u32 cache_vmid, u32 fault_base, int reset_base)
++{
++	u32 value;
++
++	*s = (struct ps4_token_sample) { 0 };
++	/* Every field printed by CORE is sampled, even on an early rejection. */
++	s->status = RREG32(mmUVD_STATUS);
++	s->mastint = RREG32(mmUVD_MASTINT_EN);
++	s->rbc = RREG32(mmUVD_RBC_RB_CNTL);
++	s->ib_size = RREG32(mmUVD_RBC_IB_SIZE);
++	s->wptr = RREG32(mmUVD_RBC_RB_WPTR);
++	s->rptr = RREG32(mmUVD_RBC_RB_RPTR);
++	s->context = RREG32(mmUVD_CONTEXT_ID);
++	s->wptr_cntl = RREG32(mmUVD_RBC_RB_WPTR_CNTL);
++	s->rptr_addr = RREG32(mmUVD_RBC_RB_RPTR_ADDR);
++	s->fault = RREG32(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS);
++	s->reset_count = atomic_read(&adev->gpu_reset_counter);
++	s->in_reset = amdgpu_in_reset(adev);
++	s->pd = RREG32(mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + 4);
++#define TOKEN_SAVED(reg, got, want) \
++	if (!ps4_token_expect(s, 0, reg, got, ~0U, want)) return false
++	/* Public UVD5 names bit0 RBC_BUSY; tolerate only after fetch. This
++	 * comparison does not prove Liverpool busy semantics or DMA quiescence.
++	 */
++	if (!ps4_token_expect(s, 0, mmUVD_STATUS, s->status,
++		phase == PS4_TOKEN_HELD ? ~0U : ~(u32)UVD_STATUS__RBC_BUSY_MASK,
++		PS4_READY_BIT))
++		return false;
++	TOKEN_SAVED(mmUVD_MASTINT_EN, s->mastint, UVD_MASTINT_EN__VCPU_EN_MASK);
++	TOKEN_SAVED(mmUVD_RBC_RB_CNTL, s->rbc,
++		phase == PS4_TOKEN_HELD ? PS4_TOKEN_RBC_HELD : PS4_TOKEN_RBC_FETCH);
++	/* Public UVD5 submits length_dw, but does not document how this raw
++	 * register changes during execution. Only pre-submit zero is guarded.
++	 */
++	if (phase != PS4_TOKEN_SUBMITTED) {
++		TOKEN_SAVED(mmUVD_RBC_IB_SIZE, s->ib_size, 0);
++	}
++	TOKEN_SAVED(mmUVD_RBC_RB_WPTR_CNTL, s->wptr_cntl, 0);
++	TOKEN_SAVED(mmUVD_RBC_RB_RPTR_ADDR, s->rptr_addr, 0);
++	TOKEN_SAVED(mmUVD_RBC_RB_WPTR, s->wptr,
++		phase == PS4_TOKEN_SUBMITTED ? PS4_UVD_SUBMIT_DWORDS : 0);
++	if (phase != PS4_TOKEN_SUBMITTED) {
++		TOKEN_SAVED(mmUVD_RBC_RB_RPTR, s->rptr, 0);
++	} else if (s->rptr > PS4_UVD_SUBMIT_DWORDS) {
++		return ps4_token_expect(s, 3, mmUVD_RBC_RB_RPTR,
++					s->rptr, ~0U, PS4_UVD_SUBMIT_DWORDS);
++	}
++	TOKEN_SAVED(mmVM_CONTEXT1_PROTECTION_FAULT_STATUS, s->fault, fault_base);
++	TOKEN_SAVED(mmVM_CONTEXT0_PAGE_TABLE_BASE_ADDR + 4, s->pd, pd_addr >> 12);
++	if (!ps4_token_expect(s, 2, 1, s->reset_count, ~0U, reset_base) ||
++	    !ps4_token_expect(s, 2, 2, s->in_reset, ~0U, 0) ||
++	    !ps4_token_expect(s, 2, 3, adev->mman.buffer_funcs_enabled, ~0U, 0) ||
++	    !ps4_token_expect(s, 2, 4, adev->accel_working, ~0U, 0))
++		return false;
++#define TOKEN_REG(reg, mask, want) \
++	if (!ps4_token_expect(s, 0, reg, RREG32(reg), mask, want)) return false
++	TOKEN_REG(PS4_READY_UVD_VCPU_CACHE_VMID, ~0U, cache_vmid);
++	TOKEN_REG(mmUVD_LMI_RBC_RB_VMID, ~0U, 4);
++	TOKEN_REG(mmUVD_LMI_RBC_IB_VMID, ~0U, 4);
++	TOKEN_REG(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_LOW, ~0U, lower_32_bits(PS4_READY_VCPU_VA));
++	TOKEN_REG(mmUVD_LMI_VCPU_CACHE_64BIT_BAR_HIGH, ~0U, upper_32_bits(PS4_READY_VCPU_VA));
++	TOKEN_REG(mmUVD_LMI_RBC_RB_64BIT_BAR_LOW, ~0U, lower_32_bits(PS4_READY_RB_VA));
++	TOKEN_REG(mmUVD_LMI_RBC_RB_64BIT_BAR_HIGH, ~0U, upper_32_bits(PS4_READY_RB_VA));
++	TOKEN_REG(mmUVD_LMI_RBC_IB_64BIT_BAR_LOW, ~0U, lower_32_bits(PS4_READY_IB_VA));
++	TOKEN_REG(mmUVD_LMI_RBC_IB_64BIT_BAR_HIGH, ~0U, upper_32_bits(PS4_READY_IB_VA));
++	TOKEN_REG(mmUVD_VCPU_CACHE_OFFSET0, ~0U, 0);
++	TOKEN_REG(mmUVD_VCPU_CACHE_SIZE0, ~0U, 0x7d000);
++	TOKEN_REG(mmUVD_VCPU_CACHE_OFFSET1, ~0U, 0xfa00);
++	TOKEN_REG(mmUVD_VCPU_CACHE_SIZE1, ~0U, 0x40000);
++	TOKEN_REG(mmUVD_VCPU_CACHE_OFFSET2, ~0U, 0x17a00);
++	TOKEN_REG(mmUVD_VCPU_CACHE_SIZE2, ~0U, 0x120800);
++	TOKEN_REG(mmUVD_LMI_SWAP_CNTL, ~0U, 0);
++	TOKEN_REG(mmUVD_MP_SWAP_CNTL, ~0U, 0);
++	TOKEN_REG(mmUVD_LMI_ADDR_EXT, ~0U, 0);
++	TOKEN_REG(mmUVD_LMI_EXT40_ADDR, ~0U, 0);
++	TOKEN_REG(mmUVD_SOFT_RESET, PS4_READY_HOLD, 0);
++	TOKEN_REG(mmUVD_LMI_CTRL2, UVD_LMI_CTRL2__STALL_ARB_UMC_MASK, 0);
++#define TOKEN_CTX(index, mask, want) do { \
++	value = ps4_ready_ctx(adev, index, 0, 0, false); \
++	if (!ps4_token_expect(s, 1, index, value, mask, want)) return false; \
++} while (0)
++	TOKEN_CTX(ixUVD_LMI_VMID_INTERNAL, 0x00ffffff, 0x00444444);
++	TOKEN_CTX(ixUVD_LMI_VMID_INTERNAL2, ~0U, 0x44444444);
++	TOKEN_CTX(ixUVD_LMI_VMID_INTERNAL3, 0xffff, 0x4444);
++	TOKEN_CTX(ixUVD_LMI_CACHE_CTRL, UVD_LMI_CACHE_CTRL__VCPU_EN_MASK, 0);
++#undef TOKEN_CTX
++#undef TOKEN_REG
++#undef TOKEN_SAVED
++	return true;
++}
++
++static __noreturn void ps4_ib_stop(struct amdgpu_device *adev,
++	const char *result, int error, const struct ps4_token_sample *sample,
++	const struct ps4_ib_seen *seen, bool enabled, bool submitted, u64 elapsed)
++{
++	if (seen->observed)
++		dev_info(adev->dev,
++			"PS4_UVD_IB_FETCH FIRST_TOKEN context=%08x rptr=%08x wptr=%08x ib_size=%08x elapsed_ns=%llu guard_valid=%d; retained even if final outcome fails\n",
++			seen->sample.context, seen->sample.rptr, seen->sample.wptr,
++			seen->sample.ib_size, (unsigned long long)seen->elapsed, seen->guard_valid);
++	if (sample)
++		dev_info(adev->dev,
++			"PS4_UVD_IB_FETCH FINAL_SAMPLE context=%08x rptr=%08x wptr=%08x ib_size=%08x; submitted IB_SIZE is observational\n",
++			sample->context, sample->rptr, sample->wptr, sample->ib_size);
++	dev_info(adev->dev,
++		"PS4_UVD_IB_FETCH END result=%s enabled=%d submitted=%d elapsed_ns=%llu token_seen=%d sampled=%d; retained, no exact-length/quiescence/decode claim\n",
++		result, enabled, submitted, (unsigned long long)elapsed, seen->observed, !!sample);
++	ps4_token_stop(adev, result, error, sample, enabled, submitted, elapsed);
++}
++
++/* Fresh EXP004 identity, one attempt only. No trap, GPCOM, codec or memory
++ * writeback command is emitted by this path. All terminal states stay parked.
++ */
++static __noreturn void ps4_ib_run(struct amdgpu_device *adev,
++	const struct amdgpu_ps4_uvd_ring *rb, const struct amdgpu_ps4_uvd_writeback *ib,
++	u64 pd_addr, u32 cache_vmid, u32 fault_base, int reset_base)
++{
++	struct ps4_token_sample sample;
++	struct ps4_ib_seen seen = { 0 };
++	u64 started, elapsed;
++	u32 baseline_readback;
++	bool valid;
++
++	if (!ps4_uvd_ib_fetch || ps4_uvd_writeback || !ps4_uvd_token ||
++	    !ps4_uvd_ready || !ps4_uvd_poll_state || !ps4_wb_descriptor_valid(rb, ib) ||
++	    !pd_addr || (pd_addr & 0xfffU) || (pd_addr >> 12) > U32_MAX)
++		ps4_ib_stop(adev, "IB_FETCH_DESCRIPTOR_OR_GATES", -EINVAL, NULL, &seen, false, false, 0);
++	if (!ps4_ib_sample(adev, &sample, PS4_TOKEN_HELD, pd_addr, cache_vmid, fault_base, reset_base))
++		ps4_ib_stop(adev, "IB_FETCH_PRECONDITION", -EIO, &sample, &seen, false, false, 0);
++	if (ps4_ib_build_images(rb, ib, sample.context) != PS4_UVD_PLAN_OK)
++		ps4_ib_stop(adev, "IB_FETCH_PLAN_REJECTED", -EINVAL, &sample, &seen, false, false, 0);
++	dev_info(adev->dev,
++		"PS4_UVD_IB_FETCH PREPARED ring_bytes=4096 ib_bytes=4096 submit_dw=16 ib_dw=16 ib_va=%llx baseline=%08x result=%08x ring_crc=%08x ib_crc=%08x; public UVD5 format, IB token execution hypothesis\n",
++		ib->private_va, PS4_IB_BASELINE, PS4_IB_VALUE,
++		crc32_le(~0U, rb->cpu, rb->bytes) ^ ~0U,
++		crc32_le(~0U, ib->cpu, ib->bytes) ^ ~0U);
++	WREG32(mmUVD_CONTEXT_ID, PS4_IB_BASELINE);
++	baseline_readback = RREG32(mmUVD_CONTEXT_ID);
++	if (baseline_readback != PS4_IB_BASELINE) {
++		dev_err(adev->dev,
++			"PS4_UVD_IB_FETCH BASELINE_DIRECT value=%08x expected=%08x; no CORE resample\n",
++			baseline_readback, PS4_IB_BASELINE);
++		ps4_ib_stop(adev, "IB_FETCH_BASELINE_READBACK", -EIO, NULL, &seen, false, false, 0);
++	}
++	mb();
++	amdgpu_device_flush_hdp(adev, NULL);
++	valid = ps4_ib_sample(adev, &sample, PS4_TOKEN_HELD, pd_addr, cache_vmid, fault_base, reset_base);
++	if (!valid || !ps4_token_expect(&sample, 0, mmUVD_CONTEXT_ID, sample.context, ~0U, PS4_IB_BASELINE))
++		ps4_ib_stop(adev, "IB_FETCH_PUBLICATION_GUARD", -EIO, &sample, &seen, false, false, 0);
++	started = ktime_get_ns();
++	WREG32(mmUVD_RBC_RB_CNTL, PS4_TOKEN_RBC_FETCH);
++	valid = ps4_ib_sample(adev, &sample, PS4_TOKEN_EMPTY, pd_addr, cache_vmid, fault_base, reset_base);
++	elapsed = ktime_get_ns() - started;
++	if (elapsed >= PS4_TOKEN_LIMIT_NS)
++		ps4_ib_stop(adev, "IB_FETCH_ENABLE_TIMEOUT", -ETIMEDOUT, &sample, &seen, true, false, elapsed);
++	if (!valid || !ps4_token_expect(&sample, 0, mmUVD_CONTEXT_ID, sample.context, ~0U, PS4_IB_BASELINE))
++		ps4_ib_stop(adev, "IB_FETCH_ENABLE_GUARD", -EIO, &sample, &seen, true, false, elapsed);
++	mb();
++	elapsed = ktime_get_ns() - started;
++	if (elapsed >= PS4_TOKEN_LIMIT_NS)
++		ps4_ib_stop(adev, "IB_FETCH_BEFORE_SUBMIT_TIMEOUT", -ETIMEDOUT, &sample, &seen, true, false, elapsed);
++	WREG32(mmUVD_RBC_RB_WPTR, PS4_UVD_SUBMIT_DWORDS);
++	dev_info(adev->dev, "PS4_UVD_IB_FETCH SUBMITTED raw_wptr=16 once; token only in IB, no direct-ring context packet\n");
++	for (;;) {
++		valid = ps4_ib_sample(adev, &sample, PS4_TOKEN_SUBMITTED,
++			pd_addr, cache_vmid, fault_base, reset_base);
++		elapsed = ktime_get_ns() - started;
++		/* Preserve any submitted observation before classifying lateness or
++		 * guard failure. This is not an independent acceptance decision.
++		 */
++		if (sample.context == PS4_IB_VALUE && !seen.observed) {
++			seen.observed = true;
++			seen.guard_valid = valid;
++			seen.elapsed = elapsed;
++			seen.sample = sample;
++		}
++		if (elapsed >= PS4_TOKEN_LIMIT_NS)
++			ps4_ib_stop(adev, "IB_FETCH_TIMEOUT", -ETIMEDOUT, &sample, &seen, true, true, elapsed);
++		if (!valid)
++			ps4_ib_stop(adev, "IB_FETCH_SUBMITTED_GUARD", -EIO, &sample, &seen, true, true, elapsed);
++		if (sample.context != PS4_IB_BASELINE && sample.context != PS4_IB_VALUE)
++			ps4_ib_stop(adev, "IB_FETCH_UNEXPECTED_CONTEXT", -EIO, &sample, &seen, true, true, elapsed);
++		if (sample.context == PS4_IB_VALUE && sample.rptr == PS4_UVD_SUBMIT_DWORDS)
++			ps4_ib_stop(adev, "IB_FETCH_OBSERVED", 0, &sample, &seen, true, true, elapsed);
++		usleep_range(100, 200);
++	}
++}
++/* IB_FETCH_FLOW_END */
++
++
+ 
+ __noreturn void amdgpu_ps4_uvd_ready_run(struct amdgpu_device *adev,
+ 				      void *r1_cpu, size_t backing_size,
+@@ -1053,6 +1306,9 @@
+ 	if (ps4_uvd_writeback && (!ps4_uvd_token || !ps4_uvd_poll_state ||
+ 	    !ps4_wb_descriptor_valid(rb, wb)))
+ 		ps4_ready_park(adev, "WRITEBACK_DESCRIPTOR_OR_GATES", -EINVAL);
++	if (ps4_uvd_ib_fetch && (ps4_uvd_writeback || !ps4_uvd_token ||
++	    !ps4_uvd_poll_state || !ps4_wb_descriptor_valid(rb, wb)))
++		ps4_ready_park(adev, "IB_FETCH_DESCRIPTOR_OR_GATES", -EINVAL);
+ 	ps4_ready_retained_cpu = r1_cpu;
+ 	ps4_ready_retained_pd = pd_addr;
+ 	if (!r1_cpu || backing_size != PS4_READY_BACKING_BYTES ||
+@@ -1202,6 +1458,9 @@
+ 					"PS4_UVD_READY CONVENTION_OBSERVED status=%08x mastint=%08x elapsed_us=%llu; fetch inhibited, IRQ semantics and execution unproved\n",
+ 					status, guard_sample.mastint, div_u64(elapsed, 1000));
+ 				ps4_ready_snapshot(adev, "ready_convention");
++				if (ps4_uvd_ib_fetch)
++					ps4_ib_run(adev, rb, wb, pd_addr, cache_vmid_expected,
++						   baseline_fault, reset_count);
+ 				if (ps4_uvd_writeback)
+ 					ps4_wb_run(adev, rb, wb, pd_addr, cache_vmid_expected,
+ 						   baseline_fault, reset_count);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.h
+@@ -13,13 +13,16 @@
+ 	u64 private_va;
+ };
+ 
+-/* First page of the separately owned retained UVD IB BO; no IB is submitted. */
++/* Borrowed first page of the separately owned retained UVD IB BO. The
++ * historical writeback name is also used by the mutually exclusive IB probe.
++ */
+ struct amdgpu_ps4_uvd_writeback {
+ 	void *cpu;
+ 	size_t bytes;
+ 	u64 private_va;
+ };
+ 
++bool amdgpu_ps4_uvd_ib_fetch_requested(void);
+ bool amdgpu_ps4_uvd_writeback_requested(void);
+ bool amdgpu_ps4_uvd_token_requested(void);
+ bool amdgpu_ps4_uvd_ready_requested(void);

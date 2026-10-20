@@ -1,0 +1,326 @@
+From: Meerzulee and Linux psX contributors <noreply@psx.invalid>
+Date: Mon, 19 Oct 2026 20:00:00 +0600
+Subject: [PATCH] drm/amdgpu: add one-shot PS4 DATA0 readback control
+
+Add a separate default-off main-ring parameter readback control to the frozen
+successful token-dev2 baseline. Keep the token flow, ownership, mappings and
+readiness setup unchanged. DATA0 is a parameter operand, not documented
+scratch. No CMD (including zero), DATA1, IB, fence or trap is submitted.
+
+One 16-DWORD publication carries a fresh DATA0 value and a separate context
+trailer. Require two consecutive guarded sequential observations of both
+values and raw RPTR/WPTR16 before the fixed deadline. CPU MMIO writes only
+the baselines, fetch enable and one WPTR. Every outcome retains and parks.
+
+Public comparison: Linux a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea,
+uvd_5_0_d.h, amdgpu_uvd.c and uvd_v5_0.c. No claim of Liverpool scratch
+semantics, firmware side-effect containment, decoding or safe teardown.
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_ready.c
+@@ -90,6 +90,12 @@
+ module_param_named(ps4_uvd_token, ps4_uvd_token, bool, 0444);
+ MODULE_PARM_DESC(ps4_uvd_token,
+ 	"One PS4 UVD context-token hypothesis; requires ready+poll_state, always parks (default 0)");
++
++/* Separate default-off immutable main-ring DATA0 readback control. */
++static bool ps4_uvd_data_control;
++module_param_named(ps4_uvd_data_control, ps4_uvd_data_control, bool, 0444);
++MODULE_PARM_DESC(ps4_uvd_data_control,
++	"One PS4 UVD DATA0 readback control; requires token+ready+poll_state, always parks (default 0)");
+ 
+ bool amdgpu_ps4_uvd_token_requested(void)
+ {
+@@ -789,6 +795,268 @@
+ }
+ /* TOKEN_FLOW_END */
+ 
++/* DATA_CONTROL_FLOW_BEGIN: extracted verbatim by the host fixture. */
++#define PS4_DATA_BASELINE 0x43504435U
++#define PS4_DATA_VALUE 0x55564435U
++#define PS4_DATA_CONTEXT_BASELINE 0x43504335U
++#define PS4_DATA_CONTEXT_VALUE 0x43545835U
++#define PS4_DATA_LIMIT_NS (250ULL * NSEC_PER_MSEC)
++
++struct ps4_data_sample {
++	struct ps4_token_sample core;
++	u32 data;
++};
++
++struct ps4_data_progress {
++	u32 samples, consecutive, joint_samples, last_rptr;
++	bool data_seen, context_seen, transport_seen;
++	u64 first_data_ns, first_context_ns, first_joint_ns, first_transport_ns;
++};
++
++static bool ps4_data_control_inputs_valid(const struct amdgpu_ps4_uvd_ring *rb,
++					  u64 pd_addr)
++{
++	return ps4_uvd_data_control && ps4_uvd_token && ps4_uvd_ready &&
++		ps4_uvd_poll_state && ps4_token_descriptor_valid(rb) && pd_addr &&
++		!(pd_addr & 0xfff) && (pd_addr >> 12) <= U32_MAX;
++}
++
++/* The unchanged complete CORE read sequence, then DATA0. This is neither an
++ * atomic snapshot nor a general readback/persistence contract for DATA0.
++ */
++static bool ps4_data_sample(struct amdgpu_device *adev,
++	struct ps4_data_sample *sample, enum ps4_token_phase phase,
++	u64 pd_addr, u32 cache_vmid, u32 fault_base, int reset_base)
++{
++	bool valid = ps4_token_sample(adev, &sample->core, phase, pd_addr,
++				      cache_vmid, fault_base, reset_base);
++
++	sample->data = RREG32(mmUVD_GPCOM_VCPU_DATA0);
++	return valid;
++}
++
++static bool ps4_data_baselines(struct ps4_data_sample *sample)
++{
++	return ps4_token_expect(&sample->core, 0, mmUVD_GPCOM_VCPU_DATA0,
++			       sample->data, ~0U, PS4_DATA_BASELINE) &&
++		ps4_token_expect(&sample->core, 0, mmUVD_CONTEXT_ID,
++				 sample->core.context, ~0U, PS4_DATA_CONTEXT_BASELINE);
++}
++
++static __noreturn void ps4_data_stop(struct amdgpu_device *adev,
++	const char *result, int error, const struct ps4_data_sample *sample,
++	const struct ps4_data_progress *progress, bool enabled, bool submitted,
++	u64 elapsed)
++{
++	if (sample) {
++		const struct ps4_token_sample *s = &sample->core;
++
++		dev_err(adev->dev,
++			"PS4_UVD_DATA CORE sampled=all_then_data0 status=%08x int=%08x rbc=%08x ib=%08x wp=%08x rp=%08x ctx=%08x data=%08x wpc=%08x rpa=%08x fault=%08x reset=%u in_reset=%u pd=%08x\n",
++			s->status, s->mastint, s->rbc, s->ib_size, s->wptr, s->rptr,
++			s->context, sample->data, s->wptr_cntl, s->rptr_addr, s->fault,
++			s->reset_count, s->in_reset, s->pd);
++		if (s->failed)
++			dev_err(adev->dev,
++				"PS4_UVD_DATA GUARD kind=%u reg=%08x value=%08x mask=%08x expected=%08x; saved deciding read\n",
++				s->bad_kind, s->bad_reg, s->bad_value, s->bad_mask, s->bad_expected);
++	}
++	dev_info(adev->dev,
++		"PS4_UVD_DATA END result=%s enabled=%d submitted=%d elapsed_ns=%llu samples=%u consecutive=%u joint_samples=%u data_seen=%d context_seen=%d transport_seen=%d last_rptr=%u first_data_ns=%llu first_context_ns=%llu first_joint_ns=%llu first_transport_ns=%llu; times include software/logging, sequential observations, retained, no decode/containment/quiescence claim\n",
++		result, enabled, submitted, (unsigned long long)elapsed,
++		progress->samples, progress->consecutive, progress->joint_samples,
++		progress->data_seen, progress->context_seen, progress->transport_seen, progress->last_rptr,
++		(unsigned long long)progress->first_data_ns,
++		(unsigned long long)progress->first_context_ns,
++		(unsigned long long)progress->first_joint_ns,
++		(unsigned long long)progress->first_transport_ns);
++	ps4_ready_park(adev, result, error);
++}
++
++/* DATA0 is a public parameter/low-address operand, not documented scratch.
++ * Only the parameter and a context trailer are submitted: no CMD write, even
++ * zero, and no DATA1/IB/fence/trap/ENGINE command. Omitting CMD is not a proof
++ * that Liverpool firmware has no side effects. Existing mappings, lifetime,
++ * setup and all old token helpers remain unchanged. Every outcome parks.
++ */
++static __noreturn void ps4_data_control_run(struct amdgpu_device *adev,
++	const struct amdgpu_ps4_uvd_ring *rb, u64 pd_addr, u32 cache_vmid,
++	u32 fault_base, int reset_base)
++{
++	struct ps4_uvd_ring_plan plan;
++	struct ps4_uvd_ring_request request;
++	struct ps4_data_sample sample;
++	struct ps4_data_progress progress = { 0 };
++	u64 started, elapsed;
++	u32 readback;
++	bool valid;
++
++	if (!ps4_data_control_inputs_valid(rb, pd_addr))
++		ps4_data_stop(adev, "DATA_DESCRIPTOR_OR_GATES", -EINVAL,
++			NULL, &progress, false, false, 0);
++	if (!ps4_data_sample(adev, &sample, PS4_TOKEN_HELD, pd_addr,
++			     cache_vmid, fault_base, reset_base))
++		ps4_data_stop(adev, "DATA_PRECONDITION", -EIO,
++			&sample, &progress, false, false, 0);
++	if (sample.data == PS4_DATA_VALUE ||
++	    sample.core.context == PS4_DATA_CONTEXT_VALUE)
++		ps4_data_stop(adev, "DATA_STALE_RESULT", -EBUSY,
++			&sample, &progress, false, false, 0);
++	request = (struct ps4_uvd_ring_request) {
++		.gpu_base = rb->private_va, .baseline = PS4_DATA_CONTEXT_BASELINE,
++		.token = PS4_DATA_CONTEXT_VALUE,
++		.context_before_baseline = sample.core.context,
++		.initial_rptr_raw = sample.core.rptr,
++		.initial_wptr_raw = sample.core.wptr,
++	};
++	if (ps4_uvd_build_ring(rb->cpu, rb->bytes, request, &plan) != PS4_UVD_PLAN_OK)
++		ps4_data_stop(adev, "DATA_PLAN_REJECTED", -EINVAL,
++			&sample, &progress, false, false, 0);
++	/* The planner initializes all 4096 bytes with count=0 pairs. Replace
++	 * only the first two pairs before any fetch; all other pairs remain NOP.
++	 */
++	ps4_uvd_store_le32(rb->cpu, mmUVD_GPCOM_VCPU_DATA0);
++	ps4_uvd_store_le32((u8 *)rb->cpu + 4, PS4_DATA_VALUE);
++	ps4_uvd_store_le32((u8 *)rb->cpu + 8, mmUVD_CONTEXT_ID);
++	ps4_uvd_store_le32((u8 *)rb->cpu + 12, PS4_DATA_CONTEXT_VALUE);
++	dev_info(adev->dev,
++		"PS4_UVD_DATA PREPARED bytes=4096 submit_dw=16 va=%llx data_baseline=%08x data_value=%08x context_baseline=%08x context_value=%08x crc=%08x; DATA0 readback and BLKSZ8/DWORD units are hypotheses\n",
++		rb->private_va, PS4_DATA_BASELINE, PS4_DATA_VALUE,
++		PS4_DATA_CONTEXT_BASELINE, PS4_DATA_CONTEXT_VALUE,
++		crc32_le(~0U, rb->cpu, rb->bytes) ^ ~0U);
++	WREG32(mmUVD_GPCOM_VCPU_DATA0, PS4_DATA_BASELINE);
++	readback = RREG32(mmUVD_GPCOM_VCPU_DATA0);
++	if (readback != PS4_DATA_BASELINE) {
++		dev_err(adev->dev,
++			"PS4_UVD_DATA BASELINE_DIRECT reg=%08x value=%08x expected=%08x; no CORE resample\n",
++			mmUVD_GPCOM_VCPU_DATA0, readback, PS4_DATA_BASELINE);
++		ps4_data_stop(adev, "DATA_BASELINE_READBACK", -EIO,
++			NULL, &progress, false, false, 0);
++	}
++	WREG32(mmUVD_CONTEXT_ID, PS4_DATA_CONTEXT_BASELINE);
++	readback = RREG32(mmUVD_CONTEXT_ID);
++	if (readback != PS4_DATA_CONTEXT_BASELINE) {
++		dev_err(adev->dev,
++			"PS4_UVD_DATA BASELINE_DIRECT reg=%08x value=%08x expected=%08x; no CORE resample\n",
++			mmUVD_CONTEXT_ID, readback, PS4_DATA_CONTEXT_BASELINE);
++		ps4_data_stop(adev, "DATA_CONTEXT_BASELINE_READBACK", -EIO,
++			NULL, &progress, false, false, 0);
++	}
++	dev_info(adev->dev,
++		"PS4_UVD_DATA CPU_BASELINES observed data=%08x context=%08x; fetch remains inhibited\n",
++		PS4_DATA_BASELINE, readback);
++	mb();
++	amdgpu_device_flush_hdp(adev, NULL);
++	if (!ps4_data_sample(adev, &sample, PS4_TOKEN_HELD, pd_addr,
++			     cache_vmid, fault_base, reset_base) ||
++	    !ps4_data_baselines(&sample))
++		ps4_data_stop(adev, "DATA_BASELINE_OR_PUBLICATION_GUARD", -EIO,
++			&sample, &progress, false, false, 0);
++	dev_info(adev->dev,
++		"PS4_UVD_DATA ENABLE_BEGIN held_baselines=data:%08x/context:%08x; empty ring only, next write clears NO_FETCH\n",
++		sample.data, sample.core.context);
++	started = ktime_get_ns();
++	WREG32(mmUVD_RBC_RB_CNTL, PS4_TOKEN_RBC_FETCH);
++	valid = ps4_data_sample(adev, &sample, PS4_TOKEN_EMPTY, pd_addr,
++				cache_vmid, fault_base, reset_base);
++	elapsed = ktime_get_ns() - started;
++	if (elapsed >= PS4_DATA_LIMIT_NS)
++		ps4_data_stop(adev, "DATA_ENABLE_TIMEOUT", -ETIMEDOUT,
++			&sample, &progress, true, false, elapsed);
++	if (!valid || !ps4_data_baselines(&sample))
++		ps4_data_stop(adev, "DATA_ENABLE_GUARD", -EIO,
++			&sample, &progress, true, false, elapsed);
++	dev_info(adev->dev,
++		"PS4_UVD_DATA PUBLICATION_BEGIN empty_baselines=data:%08x/context:%08x elapsed_ns=%llu; next write sole WPTR16 after deadline check\n",
++		sample.data, sample.core.context, (unsigned long long)elapsed);
++	mb();
++	elapsed = ktime_get_ns() - started;
++	if (elapsed >= PS4_DATA_LIMIT_NS)
++		ps4_data_stop(adev, "DATA_BEFORE_SUBMIT_TIMEOUT", -ETIMEDOUT,
++			&sample, &progress, true, false, elapsed);
++	WREG32(mmUVD_RBC_RB_WPTR, plan.publish_wptr_raw);
++	dev_info(adev->dev,
++		"PS4_UVD_DATA SUBMITTED raw_wptr=16 once; DATA0, CONTEXT_ID, NOP only, no CMD/DATA1/IB/fence/trap\n");
++	for (;;) {
++		valid = ps4_data_sample(adev, &sample, PS4_TOKEN_SUBMITTED,
++			pd_addr, cache_vmid, fault_base, reset_base);
++		++progress.samples;
++		elapsed = ktime_get_ns() - started;
++		/* Deadline wins over an apparently successful deciding sample. */
++		if (elapsed >= PS4_DATA_LIMIT_NS) {
++			const char *result = "DATA_TIMEOUT";
++
++			if (valid && progress.transport_seen && !progress.data_seen &&
++			    sample.data == PS4_DATA_BASELINE &&
++			    sample.core.context == PS4_DATA_CONTEXT_VALUE &&
++			    sample.core.rptr == PS4_UVD_SUBMIT_DWORDS &&
++			    sample.core.wptr == PS4_UVD_SUBMIT_DWORDS)
++				result = "DATA_NOT_OBSERVED_WITH_TRANSPORT";
++			ps4_data_stop(adev, result, -ETIMEDOUT,
++				&sample, &progress, true, true, elapsed);
++		}
++		if (!valid)
++			ps4_data_stop(adev, "DATA_SUBMITTED_GUARD", -EIO,
++				&sample, &progress, true, true, elapsed);
++		if (sample.data != PS4_DATA_BASELINE && sample.data != PS4_DATA_VALUE) {
++			ps4_token_expect(&sample.core, 0, mmUVD_GPCOM_VCPU_DATA0,
++					 sample.data, ~0U, PS4_DATA_VALUE);
++			ps4_data_stop(adev, "DATA_UNEXPECTED_VALUE", -EIO,
++				&sample, &progress, true, true, elapsed);
++		}
++		if (sample.core.context != PS4_DATA_CONTEXT_BASELINE &&
++		    sample.core.context != PS4_DATA_CONTEXT_VALUE) {
++			ps4_token_expect(&sample.core, 0, mmUVD_CONTEXT_ID,
++					 sample.core.context, ~0U, PS4_DATA_CONTEXT_VALUE);
++			ps4_data_stop(adev, "DATA_UNEXPECTED_CONTEXT", -EIO,
++				&sample, &progress, true, true, elapsed);
++		}
++		if (progress.data_seen && sample.data == PS4_DATA_BASELINE)
++			ps4_data_stop(adev, "DATA_OBSERVATION_REGRESSION", -EIO,
++				&sample, &progress, true, true, elapsed);
++		if (progress.context_seen && sample.core.context == PS4_DATA_CONTEXT_BASELINE)
++			ps4_data_stop(adev, "DATA_CONTEXT_REGRESSION", -EIO,
++				&sample, &progress, true, true, elapsed);
++		if (sample.core.rptr < progress.last_rptr)
++			ps4_data_stop(adev, "DATA_POINTER_REGRESSION", -EIO,
++				&sample, &progress, true, true, elapsed);
++		progress.last_rptr = sample.core.rptr;
++		if (!progress.transport_seen &&
++		    sample.core.context == PS4_DATA_CONTEXT_VALUE &&
++		    sample.core.rptr == PS4_UVD_SUBMIT_DWORDS &&
++		    sample.core.wptr == PS4_UVD_SUBMIT_DWORDS) {
++			progress.transport_seen = true;
++			progress.first_transport_ns = elapsed;
++		}
++		if (!progress.data_seen && sample.data == PS4_DATA_VALUE) {
++			progress.data_seen = true;
++			progress.first_data_ns = elapsed;
++		}
++		if (!progress.context_seen && sample.core.context == PS4_DATA_CONTEXT_VALUE) {
++			progress.context_seen = true;
++			progress.first_context_ns = elapsed;
++		}
++		if (sample.data == PS4_DATA_VALUE &&
++		    sample.core.context == PS4_DATA_CONTEXT_VALUE &&
++		    sample.core.rptr == PS4_UVD_SUBMIT_DWORDS &&
++		    sample.core.wptr == PS4_UVD_SUBMIT_DWORDS) {
++			if (!progress.joint_samples)
++				progress.first_joint_ns = elapsed;
++			++progress.joint_samples;
++			if (++progress.consecutive == 2)
++				ps4_data_stop(adev, "DATA_READBACK_CONTROL_OBSERVED", 0,
++					&sample, &progress, true, true, elapsed);
++		} else {
++			progress.consecutive = 0;
++		}
++		/* Baseline plus a fresh trailer can straddle sequential reads.
++		 * Keep polling unless a previously observed fresh value regressed.
++		 */
++		usleep_range(100, 200);
++	}
++}
++/* DATA_CONTROL_FLOW_END */
++
+ __noreturn void amdgpu_ps4_uvd_ready_run(struct amdgpu_device *adev,
+ 				      void *r1_cpu, size_t backing_size,
+ 				      u64 pd_addr,
+@@ -806,6 +1074,10 @@
+ 	if (!amdgpu_ps4_uvd_ready_enabled(adev) ||
+ 	    atomic_xchg(&ps4_ready_attempted, 1))
+ 		ps4_ready_park(adev, "GATE_OR_REENTRY", -EPERM);
++	/* DATA_CONTROL_EARLY_BEGIN: before firmware and all readiness setup. */
++	if (ps4_uvd_data_control && !ps4_data_control_inputs_valid(rb, pd_addr))
++		ps4_ready_park(adev, "DATA_DESCRIPTOR_OR_GATES", -EINVAL);
++	/* DATA_CONTROL_EARLY_END */
+ 	/* Receiver validation precedes all readiness setup and firmware access. */
+ 	if (ps4_uvd_token && (!ps4_uvd_poll_state || !ps4_token_descriptor_valid(rb)))
+ 		ps4_ready_park(adev, "TOKEN_DESCRIPTOR_OR_GATES", -EINVAL);
+@@ -958,6 +1230,11 @@
+ 					"PS4_UVD_READY CONVENTION_OBSERVED status=%08x mastint=%08x elapsed_us=%llu; fetch inhibited, IRQ semantics and execution unproved\n",
+ 					status, guard_sample.mastint, div_u64(elapsed, 1000));
+ 				ps4_ready_snapshot(adev, "ready_convention");
++				/* DATA_CONTROL_DISPATCH_BEGIN */
++				if (ps4_uvd_data_control)
++					ps4_data_control_run(adev, rb, pd_addr, cache_vmid_expected,
++							     baseline_fault, reset_count);
++				/* DATA_CONTROL_DISPATCH_END */
+ 				if (ps4_uvd_token)
+ 					ps4_token_run(adev, rb, pd_addr, cache_vmid_expected,
+ 						      baseline_fault, reset_count);

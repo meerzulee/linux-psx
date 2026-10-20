@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Run the original host completion fixture at O2 and with ASan/UBSan."""
+
+import argparse
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import tempfile
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--cc", default=os.environ.get("CC", "cc"))
+    arguments = parser.parse_args()
+    compiler = shlex.split(arguments.cc)
+    if not compiler:
+        parser.error("--cc must name a compiler")
+    source = Path(__file__).resolve().with_name("completion_test.c")
+    common = ["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-O2"]
+    modes = [
+        ("O2", []),
+        ("O2 + ASan/UBSan", ["-g", "-fno-omit-frame-pointer", "-fsanitize=address,undefined"]),
+    ]
+    with tempfile.TemporaryDirectory(prefix="ps4-uvd-completion-") as directory:
+        executable = str(Path(directory) / "completion-test")
+        for label, extra in modes:
+            print(f"Checking {label}", flush=True)
+            subprocess.run([*compiler, *common, *extra, str(source), "-o", executable], check=True)
+            subprocess.run([executable], check=True)
+    print("Host completion checks passed; sanitizer runs are required.")
+
+
+if __name__ == "__main__":
+    main()

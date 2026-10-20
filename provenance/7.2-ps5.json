@@ -1,0 +1,202 @@
+{
+  "schema": 1,
+  "created_on": "2026-10-18",
+  "target": "7.2-ps5",
+  "platform": "ps5",
+  "status": "development candidate; local OrbStack compilation and artifact verification passed; no hardware acceptance",
+  "kernel_release": "7.2.3-psx-ps5-dev1",
+  "source_date_epoch": 1792281600,
+  "upstream": {
+    "repository": "https://github.com/gregkh/linux.git",
+    "ref": "v7.2.3",
+    "commit": "58e7295cfecaddec94629160386412e0f2b1e8fe"
+  },
+  "community_source": {
+    "repository": "https://github.com/ps5-linux/ps5-linux-patches.git",
+    "commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+    "research_manifest": "provenance/ps5-research.json"
+  },
+  "imports": [
+    {
+      "source_path": ".config",
+      "path": "platforms/ps5/config/upstream-7.2.3.config",
+      "source_commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/.config",
+      "size": 162596,
+      "sha256": "fdbadbdc952695ea34c7e1ead8cda1e8b375277ef7615fddcfc61d9eff29a1cb",
+      "change": "unchanged"
+    },
+    {
+      "source_path": "linux.patch",
+      "path": "platforms/ps5/patches/7.2/linux.patch",
+      "source_commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/linux.patch",
+      "size": 393716,
+      "sha256": "ee566a03963be6400474b778ef594c0bdfd4124b4aa8038a0cf57546ff808714",
+      "change": "unchanged"
+    },
+    {
+      "source_path": "README.md",
+      "path": "platforms/ps5/upstream/README.md",
+      "source_commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "url": "https://github.com/ps5-linux/ps5-linux-patches/blob/753c7936dcb079bfeaaa0bb19dfc495744266500/README.md",
+      "size": 863,
+      "sha256": "20043065ba650631bbd2a690eb2ba5579cb2b275a367d86c8e1c76cb141f16bd",
+      "change": "unchanged"
+    }
+  ],
+  "series_path": "platforms/ps5/patches/7.2/series",
+  "series_sha256": "03c39f0e619166c153bf0c1931bfc8137c1534f7748beb6798b9f575522f66ee",
+  "active_patch_count": 1,
+  "ordered_patchset_sha256": "5cdd7fec73192e685020298c0d247bf0d117ebc3dae45132d0767914a13afd89",
+  "patches": [
+    {
+      "entry": "linux.patch",
+      "path": "platforms/ps5/patches/7.2/linux.patch",
+      "sha256": "ee566a03963be6400474b778ef594c0bdfd4124b4aa8038a0cf57546ff808714",
+      "origin": "ps5-linux-patches",
+      "source_commit": "753c7936dcb079bfeaaa0bb19dfc495744266500",
+      "source_path": "linux.patch",
+      "change": "unchanged"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "targets/7.2-ps5.env",
+      "sha256": "dba224be77f61ee0e7e5798f35aad995b7d8345ef453be1f6ad7254d52233c94"
+    },
+    {
+      "path": "platforms/ps5/config/upstream-7.2.3.config",
+      "sha256": "fdbadbdc952695ea34c7e1ead8cda1e8b375277ef7615fddcfc61d9eff29a1cb"
+    },
+    {
+      "path": "platforms/ps5/config/7.2-psx-ps5.config",
+      "sha256": "3b506570cf535744e5ca71963413209afbac7f7e3262561ddb312026d91bdfde"
+    },
+    {
+      "path": "platforms/ps5/upstream/README.md",
+      "sha256": "20043065ba650631bbd2a690eb2ba5579cb2b275a367d86c8e1c76cb141f16bd"
+    }
+  ],
+  "config": {
+    "path": "platforms/ps5/config/7.2-psx-ps5.config",
+    "derived_from": "platforms/ps5/config/upstream-7.2.3.config",
+    "method": "Exact source config with only the three recorded line substitutions; the existing builder resolves olddefconfig for its recorded compiler.",
+    "changes": [
+      {
+        "from": "CONFIG_LOCALVERSION=\"\"",
+        "to": "CONFIG_LOCALVERSION=\"-psx-ps5-dev1\""
+      },
+      {
+        "from": "CONFIG_EXTRA_FIRMWARE=\"amdgpu/ps5_vcn.bin\"",
+        "to": "CONFIG_EXTRA_FIRMWARE=\"\""
+      },
+      {
+        "from": "CONFIG_EXTRA_FIRMWARE_DIR=\"../ps5-linux-patches/firmware\"",
+        "to": null
+      }
+    ]
+  },
+  "firmware": {
+    "embedded": false,
+    "bundled": false,
+    "upstream_embedded": [
+      "amdgpu/ps5_vcn.bin"
+    ],
+    "runtime_requirement": "The selected kernel/module/initramfs/rootfs combination must provide required device firmware externally; this candidate neither acquires nor validates it."
+  },
+  "hardware_evidence": {
+    "this_target": "none; the kernel has not been booted",
+    "firmware_12_40": "no compatible Linux handoff or local acceptance established"
+  },
+  "packaging": {
+    "status": "pending",
+    "reason": "The existing release packager still requires PS4 MTS config, source and module identity; use local builder outputs only until target-aware packaging is implemented."
+  },
+  "local_build_validation": {
+    "validated_on": "2026-10-18",
+    "completed_at_utc": "2026-10-17T18:45:19.437095+00:00",
+    "scope": "Local macOS ARM64 / OrbStack cross-build and file validation; no console execution, hardware acceptance or release packaging.",
+    "source_head": "61e2ad8437c6ea00634d1fefc7f7c4fe5ca887b0",
+    "build_inputs_include_uncommitted_changes": true,
+    "build_inputs": [
+      {
+        "path": "build.sh",
+        "sha256": "4ae1039078b4d7b1778a66b3622d426c5334d94d26fb01b5a360e0ff4bebdfb5"
+      },
+      {
+        "path": "scripts/build-kernel-orbstack",
+        "sha256": "87fb773ba7d40d14f8d270d0f3595b383ded3031901f095ffff4802764a3f4a6"
+      },
+      {
+        "path": "containers/kernel-builder/Containerfile",
+        "sha256": "5bdb265a171a4ab1331e18b777ab014fafad2f0845f20f2a56db841974e9960e"
+      },
+      {
+        "path": "targets/7.2-ps5.env",
+        "sha256": "dba224be77f61ee0e7e5798f35aad995b7d8345ef453be1f6ad7254d52233c94"
+      },
+      {
+        "path": "platforms/ps5/config/7.2-psx-ps5.config",
+        "sha256": "3b506570cf535744e5ca71963413209afbac7f7e3262561ddb312026d91bdfde"
+      },
+      {
+        "path": "platforms/ps5/patches/7.2/series",
+        "sha256": "03c39f0e619166c153bf0c1931bfc8137c1534f7748beb6798b9f575522f66ee"
+      },
+      {
+        "path": "platforms/ps5/patches/7.2/linux.patch",
+        "sha256": "ee566a03963be6400474b778ef594c0bdfd4124b4aa8038a0cf57546ff808714"
+      }
+    ],
+    "build_manifest": {
+      "target": "7.2-ps5",
+      "platform": "ps5",
+      "kernel_release": "7.2.3-psx-ps5-dev1",
+      "base_repo": "https://github.com/gregkh/linux.git",
+      "base_ref": "v7.2.3",
+      "base_commit": "58e7295cfecaddec94629160386412e0f2b1e8fe",
+      "series_sha256": "03c39f0e619166c153bf0c1931bfc8137c1534f7748beb6798b9f575522f66ee",
+      "patchset_sha256": "5cdd7fec73192e685020298c0d247bf0d117ebc3dae45132d0767914a13afd89",
+      "config_sha256": "4bb2a108cdc36fe943866fb8c1471ca54856c7d0d73fc0736a21edd6c52efd88",
+      "active_patch_count": "1",
+      "compiler": "x86_64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0",
+      "builder_image": "linux-psx-kernel-builder:trixie-20260810",
+      "builder_image_id": "sha256:7e6e17dbf6ba6a50ebb3dbb4e8ea7b0e0b55212cc08abc856510a4fdd74caaeb",
+      "source_date_epoch": "1792281600",
+      "kbuild_identity": "linux-psx@builder",
+      "kbuild_version": "1",
+      "embedded_firmware": "false"
+    },
+    "outputs": {
+      "bzImage": {
+        "bytes": 12776448,
+        "sha256": "64162b82cf3f7ac37cdb8b4fe8638b10a1d53907e1bfb1be48383b2c9726c822"
+      },
+      "config": {
+        "bytes": 162243,
+        "sha256": "4bb2a108cdc36fe943866fb8c1471ca54856c7d0d73fc0736a21edd6c52efd88"
+      },
+      "System.map": {
+        "bytes": 6080945,
+        "sha256": "d73e2c8f32aadd75b1f1776d6d03174169d8ad238152bed350eb41f1695d1582"
+      },
+      "modules-7.2.3-psx-ps5-dev1.tar.zst": {
+        "bytes": 34457016,
+        "sha256": "fd81f93546f1c70f053dada1124742df2f2350e1dc310359b3a82595551e4f37"
+      },
+      "manifest.txt": {
+        "bytes": 741,
+        "sha256": "76dba3dbbc6538ddb0cc2db59205f8408aad2d3b5d4bce3298ca06c67969e5c0"
+      },
+      "version.txt": {
+        "bytes": 19,
+        "sha256": "438338e09b60aac0b57049d42a43bf3dfbc72e861c808fbdb2c934f1492830b2"
+      }
+    },
+    "module_count": 519,
+    "host_checks": "make check passed: provenance, 22 tests and shell syntax.",
+    "resolved_config_note": "olddefconfig adjusted compiler/tool capability and version settings for Debian GCC 14.2; no PS5 hardware-setting changes were observed.",
+    "hardware_acceptance": "none"
+  }
+}

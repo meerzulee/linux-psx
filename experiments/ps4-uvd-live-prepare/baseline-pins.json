@@ -1,0 +1,22 @@
+{
+  "source_host": "build-host",
+  "source_root": "/home/developer/Work/psx/lab/uvd-2026-10-20/ib-data/build-preparation/native-01/project/src/7.2-ps4-baikal-uvd-ib-data-dev1",
+  "scope": "read-only copied baseline inputs; no native writes",
+  "files": {
+    "amdgpu_ps4_map_canary.c": "e7283b838eb1f96cbc0bd865716320dd87538a768bc38b215e98b7f6a29abab8",
+    "amdgpu_ps4_map_canary.h": "d60274ba58c8a5075e22a20123e0b4bc7f8bb0eb08a11eb144fe20399c0df0de",
+    "amdgpu_ps4_uvd_ready.h": "59a8941710bd4d18dbb1ad877d4f83baf17b6371a287b9ceb5e2ef5f2cf1d7de",
+    "amdgpu_ps4_uvd_ready.c": "cf2482e51798a21a2c3b6cbe0ac7ecb270ae0d20cd109c3d29583cbcb4f2201e",
+    "amdgpu_ids.c": "fc2a6ddf3c78c8054560d3d75cf050980c541d831fb5319dba20621ab39f7ce8",
+    "amdgpu_device.c": "598fb5f86989c28207dd2da9a0223240e1ba3baa1678876643c40b64b0fd75ca",
+    "amdgpu_debugfs.c": "637799042fdbffb71525dd45f13950a212ccabb94af626d988e0e959ae54f0c6",
+    "amdgpu_drv.c": "de81866ce1554dd5b0d0bbe2ce0b26fb8db704946bc31b13832696de19b0886a",
+    "amdgpu.h": "e311b1c75020e39f86027030769db77a8ce6e3e8f4ee67f6ae7dfc52f08c7982",
+    "gmc_v7_0.c": "77c124010fc52b85e937078d29d2ca765b7b04325a7208e362b9bac435890b23",
+    "amdgpu_vm.c": "ca1bdf662cfab2735cfd2ad8c2d362bee12bd5b0ced27b6061c94af465a216b7",
+    "amdgpu_fence.c": "6827a25f5fac3a8bde5a5c96c9b40fc09480eda784dc353a6908c73e0a398727",
+    "amdgpu_object.c": "ff98c136a7c1dfa54d9847cdcdb2f6046291c307f47f0451fe9491df17fdf7b2",
+    "amdgpu_kms.c": "ac674e70a4203543b3f7ee8727ede7899a7215acf464172ae0f938c78d9be61c",
+    "amdgpu_reset.c": "9b6892c6b052d75719b2215595126e52ce5f4515346d8986270e4d9c35a6105d"
+  }
+}
