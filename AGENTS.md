@@ -37,6 +37,11 @@
 - Pin source commits and record current working locations when old links fail.
   Distinguish direct imports, adaptations and comparison-only references.
 
+- `userspace/mesa/` owns optional distribution-independent PS4 Mesa patches,
+  pinned native builder and validation/demo tools. Preserve their per-file
+  licenses and `provenance/mesa-import.json`; Omarchy package policy and
+  desktop activation remain in `omarchy-psx`. Mesa is not a kernel dependency.
+
 ## Verification and hardware
 
 - Run `make check` for frozen import checksums, active series/target integrity

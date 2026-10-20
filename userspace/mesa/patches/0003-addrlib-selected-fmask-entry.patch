@@ -1,0 +1,51 @@
+From: Omarchy psX contributors
+Subject: [PATCH] addrlib: validate only the selected CI FMASK tile entry
+
+Liverpool supplies a valid 2D FMASK entry at index14 and leaves index15
+empty. HwlComputeFmaskInfo asserts both entries unconditionally, aborting
+Firefox and Chromium when they allocate a2D multisample renderbuffer with
+assertions enabled. The observed input was2D,128x16,eight samples.
+
+Validate the selected entry at runtime before installing the temporary
+output tile-info pointer. Missing or incompatible selected entries return
+ADDR_INVALIDPARAMS; the2D layout algorithm and all other assertions remain
+unchanged. An unused3D entry is no longer required for a2D request.
+
+CPU-only public-API replay uses the captured Liverpool register tables.
+No hardware acceptance is implied by this source change.
+
+License: MIT; existing per-file notices remain unchanged.
+
+---
+--- a/src/amd/addrlib/src/r800/ciaddrlib.cpp
++++ b/src/amd/addrlib/src/r800/ciaddrlib.cpp
+@@ -772,6 +772,17 @@
+ 
+     AddrTileMode tileMode = pIn->tileMode;
+ 
++    // Liverpool leaves the unused 3D FMASK entry empty. Validate only the
++    // entry selected by this request, before borrowing the local tile info.
++    INT_32 tileIndex = tileMode == ADDR_TM_2D_TILED_THIN1 ? 14 : 15;
++    AddrTileMode fmaskMode = tileIndex == 14 ? ADDR_TM_2D_TILED_THIN1 :
++                                             ADDR_TM_3D_TILED_THIN1;
++    if ((static_cast<UINT_32>(tileIndex) >= m_noOfEntries) ||
++        (m_tileTable[tileIndex].mode != fmaskMode))
++    {
++        return ADDR_INVALIDPARAMS;
++    }
++
+     // Use internal tile info if pOut does not have a valid pTileInfo
+     if (pOut->pTileInfo == NULL)
+     {
+@@ -784,11 +795,6 @@
+                 tileMode == ADDR_TM_PRT_2D_TILED_THIN1 ||
+                 tileMode == ADDR_TM_PRT_3D_TILED_THIN1);
+ 
+-    ADDR_ASSERT(m_tileTable[14].mode == ADDR_TM_2D_TILED_THIN1);
+-    ADDR_ASSERT(m_tileTable[15].mode == ADDR_TM_3D_TILED_THIN1);
+-
+-    // The only valid tile modes for fmask are 2D_THIN1 and 3D_THIN1 plus non-displayable
+-    INT_32 tileIndex = tileMode == ADDR_TM_2D_TILED_THIN1 ? 14 : 15;
+     ADDR_SURFACE_FLAGS flags = {{0}};
+     flags.fmask = 1;
+ 

@@ -1,0 +1,207 @@
+{
+  "schema": 1,
+  "source_repository": "https://github.com/meerzulee/omarchy-psx",
+  "source_commit": "9852a8ee21477ad8e5cfc0ded46c657f09fa3bee",
+  "scope": "Distribution-independent Mesa source/build/probe/fixture/demo tools; no binaries, firmware or raw logs. Hardware scope stays in the curated ledger.",
+  "files": [
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/README.md",
+      "source_sha256": "da6af068addff13d03122fb234681d3d464dca3000ea537b64ef748ea0df5f0f",
+      "destination": "userspace/mesa/README.md",
+      "destination_sha256": "3fa10ad0649689260ddf338b946f97bda2b9794296dd5cc60eaeda3e81a5782b",
+      "mode": "0o644",
+      "adaptations": [
+        "Update source ownership, relative command examples and hardware-ledger link; no driver/build logic change.",
+        "Link the current feature matrix and record withdrawn EXP022 system adoption; preserve original source hash and earlier isolated verdicts."
+      ]
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/build-candidate.py",
+      "source_sha256": "22a5c57c9c299a3b3e5a6c7f1ff115737e959b9b060ccc5128ff241b160eea81",
+      "destination": "userspace/mesa/build-candidate.py",
+      "destination_sha256": "22a5c57c9c299a3b3e5a6c7f1ff115737e959b9b060ccc5128ff241b160eea81",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/caps_fixture.c",
+      "source_sha256": "8c117992bc2734937b8d8f4edabac0db2a0b90509a600ad4f4fc7c9c087126aa",
+      "destination": "userspace/mesa/checks/caps_fixture.c",
+      "destination_sha256": "8c117992bc2734937b8d8f4edabac0db2a0b90509a600ad4f4fc7c9c087126aa",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/demo_check.py",
+      "source_sha256": "7a3bf998b1eef6148523360a770a2a01dabe9135e7672bdbce29942d8b2bf5ed",
+      "destination": "userspace/mesa/checks/demo_check.py",
+      "destination_sha256": "7a3bf998b1eef6148523360a770a2a01dabe9135e7672bdbce29942d8b2bf5ed",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/fmask-repro.cpp",
+      "source_sha256": "fb5679d047a2479f6c3abe1f3e72d8435643fb48bc5c91ba2c4af68f8873704b",
+      "destination": "userspace/mesa/checks/fmask-repro.cpp",
+      "destination_sha256": "fb5679d047a2479f6c3abe1f3e72d8435643fb48bc5c91ba2c4af68f8873704b",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/fmask_check.py",
+      "source_sha256": "7b3d8c86f2d84d52f520ee1bc2598d62a3885e7378703ec3ee08eee777865e96",
+      "destination": "userspace/mesa/checks/fmask_check.py",
+      "destination_sha256": "7b3d8c86f2d84d52f520ee1bc2598d62a3885e7378703ec3ee08eee777865e96",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/graphics_check.py",
+      "source_sha256": "b63150d48c98ae646a5785bbea81d6f4376891ea911a61b113c99ad1d2798443",
+      "destination": "userspace/mesa/checks/graphics_check.py",
+      "destination_sha256": "b63150d48c98ae646a5785bbea81d6f4376891ea911a61b113c99ad1d2798443",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/graphics_fixture.c",
+      "source_sha256": "146874528daaa592772237825ef3baf05c17f0a67885d0bd260fc763dd20e6ef",
+      "destination": "userspace/mesa/checks/graphics_fixture.c",
+      "destination_sha256": "146874528daaa592772237825ef3baf05c17f0a67885d0bd260fc763dd20e6ef",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/checks/video_caps.py",
+      "source_sha256": "0c1dc91aa7e2acc5d088446be29733081fc604aa8a735fbac6015d82fb304952",
+      "destination": "userspace/mesa/checks/video_caps.py",
+      "destination_sha256": "0c1dc91aa7e2acc5d088446be29733081fc604aa8a735fbac6015d82fb304952",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/decode-fractal.py",
+      "source_sha256": "a1b3c0a860dd56894859a57f962b4672c3dec475417423f39c6625f849e7bdaf",
+      "destination": "userspace/mesa/decode-fractal.py",
+      "destination_sha256": "a1b3c0a860dd56894859a57f962b4672c3dec475417423f39c6625f849e7bdaf",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/demo.py",
+      "source_sha256": "3551bf84885548f4053397ecaee6091fa16c9d7e93e2a04126b3b9e490c10cc2",
+      "destination": "userspace/mesa/demo.py",
+      "destination_sha256": "3551bf84885548f4053397ecaee6091fa16c9d7e93e2a04126b3b9e490c10cc2",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/fractal/README.md",
+      "source_sha256": "04e0f7b92d704f890596c6e9b3205f63fb8202ed159a4cc49d48f669d6a912de",
+      "destination": "userspace/mesa/fractal/README.md",
+      "destination_sha256": "63d88668b35e4a0527f9228729f162c0b3c49fac2f3cb752190d5a594f66e220",
+      "mode": "0o644",
+      "adaptations": [
+        "Update source ownership, relative command examples and hardware-ledger link; no driver/build logic change."
+      ]
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/fractal/check.py",
+      "source_sha256": "fa859146c62b0ee4ce2232bd117a1cd70c44079d9ccbce7b59c3e79dffe2bbde",
+      "destination": "userspace/mesa/fractal/check.py",
+      "destination_sha256": "fa859146c62b0ee4ce2232bd117a1cd70c44079d9ccbce7b59c3e79dffe2bbde",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/fractal/generate.py",
+      "source_sha256": "0af9b6e9e916d61a38e7edcced1f5336fc19a67636890f6284af811a39e93011",
+      "destination": "userspace/mesa/fractal/generate.py",
+      "destination_sha256": "0af9b6e9e916d61a38e7edcced1f5336fc19a67636890f6284af811a39e93011",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/fractal/render.c",
+      "source_sha256": "d003e92b677a3cd6198552a5890009a62d3c0afc089d8608107b2f9673fe2b5e",
+      "destination": "userspace/mesa/fractal/render.c",
+      "destination_sha256": "d003e92b677a3cd6198552a5890009a62d3c0afc089d8608107b2f9673fe2b5e",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/0001-ps4-graphics-families.patch",
+      "source_sha256": "b3cf0f24fd00f156bbba12be0c270189ad30c274646b5e86298890e4cb4829cc",
+      "destination": "userspace/mesa/patches/0001-ps4-graphics-families.patch",
+      "destination_sha256": "b3cf0f24fd00f156bbba12be0c270189ad30c274646b5e86298890e4cb4829cc",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/0002-ps4-uvd-avc-capabilities.patch",
+      "source_sha256": "ea9d72c9335872b1cf41611ba225e4b645b5ecd81feff8323f4302e038196ac0",
+      "destination": "userspace/mesa/patches/0002-ps4-uvd-avc-capabilities.patch",
+      "destination_sha256": "ea9d72c9335872b1cf41611ba225e4b645b5ecd81feff8323f4302e038196ac0",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/0003-addrlib-selected-fmask-entry.patch",
+      "source_sha256": "10f6369f300bd884290cc812254ee3f66694b3d0fdaeee37451b1f93561ba07c",
+      "destination": "userspace/mesa/patches/0003-addrlib-selected-fmask-entry.patch",
+      "destination_sha256": "10f6369f300bd884290cc812254ee3f66694b3d0fdaeee37451b1f93561ba07c",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/LICENSE.ps4-mesa",
+      "source_sha256": "7fdc119cf53c8ca65396ea73f6d10af641ba41ea1dd2bd44a824726e01c8b3f2",
+      "destination": "userspace/mesa/patches/LICENSE.ps4-mesa",
+      "destination_sha256": "7fdc119cf53c8ca65396ea73f6d10af641ba41ea1dd2bd44a824726e01c8b3f2",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/README.md",
+      "source_sha256": "e58e9e6f91d32e17d16603388d3b5c2dac1d0cdcc42d432a6908e5b0e2feb32a",
+      "destination": "userspace/mesa/patches/README.md",
+      "destination_sha256": "e58e9e6f91d32e17d16603388d3b5c2dac1d0cdcc42d432a6908e5b0e2feb32a",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/patches/ps4-graphics-provenance.json",
+      "source_sha256": "53e841425ce8396ece92d1f5a4e16b522e0beab26f29defce462f78eda963654",
+      "destination": "userspace/mesa/patches/ps4-graphics-provenance.json",
+      "destination_sha256": "53e841425ce8396ece92d1f5a4e16b522e0beab26f29defce462f78eda963654",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/probe-video.c",
+      "source_sha256": "3628c4f46e11c4cb711f3cfa76beea043115e77824eec4665ed37fbf9036b7b7",
+      "destination": "userspace/mesa/probe-video.c",
+      "destination_sha256": "3628c4f46e11c4cb711f3cfa76beea043115e77824eec4665ed37fbf9036b7b7",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/sources.json",
+      "source_sha256": "301dca9457eecb6f07f896455d0268a560b15c91ff7c0c76d0607f58a494f087",
+      "destination": "userspace/mesa/sources.json",
+      "destination_sha256": "301dca9457eecb6f07f896455d0268a560b15c91ff7c0c76d0607f58a494f087",
+      "mode": "0o644",
+      "adaptations": []
+    },
+    {
+      "source": "platforms/ps4/experiments/mesa-uvd/with-mesa.py",
+      "source_sha256": "d29670bd5add135097ae9428219998fd539bf3e26a33ea0b20b6407b1af667b6",
+      "destination": "userspace/mesa/with-mesa.py",
+      "destination_sha256": "d29670bd5add135097ae9428219998fd539bf3e26a33ea0b20b6407b1af667b6",
+      "mode": "0o644",
+      "adaptations": []
+    }
+  ],
+  "license": "Original per-file licenses preserved, including Mesa/AMD MIT notices.",
+  "source_pins_unchanged": true
+}

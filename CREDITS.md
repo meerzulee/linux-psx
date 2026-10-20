@@ -119,3 +119,12 @@ The GPLv2 license text is copied from the source repository into [LICENSE](LICEN
 Existing per-file licenses and notices, including vendor dual-license notices,
 remain unchanged. Firmware binaries and boot-loader code are outside this
 import. No new authorship or license is asserted for upstream work.
+
+## PS4 Mesa userspace
+
+`userspace/mesa` preserves Mesa/AMD notices and the attributed PS4 graphics
+port from DionKill/ps4-video-archlinux, pinned in its source/provenance files.
+The local AVC capability and selected-entry FMASK fixes are independent
+adaptations. Original source ownership and byte identities from Omarchy psX
+are recorded in `provenance/mesa-import.json`; no kernel GPL license is
+imposed on imported MIT-licensed Mesa files.

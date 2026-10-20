@@ -4,3 +4,4 @@ platforms/ps4/config/** -text -whitespace
 platforms/ps4/targets/** -text -whitespace
 provenance/linux-ps4-ledger.md -text
 LICENSE -text
+userspace/mesa/patches/*.patch -text -whitespace

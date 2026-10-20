@@ -44,12 +44,12 @@ release `7.2.11-psx-ps4-baikal-uvd-runtime-dev1`. Always keep its whole matching
 
 ## Mesa and the visible test
 
-The distribution repository owns an isolated Mesa 26.2.5 candidate with
+Linux psX owns the pinned Mesa 26.2.5 candidate in `userspace/mesa`, with
 attributed Liverpool/Gladius family setup, the PS4 raster configuration and
-AVC-only capabilities. It also owns the deterministic fractal generator, exact
+AVC-only capabilities. It also includes the deterministic fractal generator, exact
 900-frame decode tool and monitored player:
 
-https://github.com/meerzulee/omarchy-psx/tree/master/platforms/ps4/experiments/mesa-uvd
+https://github.com/meerzulee/linux-psx/tree/master/userspace/mesa
 
 Saved NV12 pixels reproduced the old OpenGL stripes without a new UVD decode.
 The new process-local Mesa candidate displayed clean captured picture/text;
@@ -66,6 +66,13 @@ Live stats show actual decoder, dimensions, source FPS, measured playback
 speed, drop counters and UVD fence completions.
 
 ## Current boundary
+
+A later Mesa 26.2.5 system trial (EXP022) stalled during Vulkan rendering,
+then recorded a terminal UVD timeout and frozen desktop. No AVC workload was
+requested by that test; the cause remains unisolated. Both system packages
+were rolled back to signed 26.1.7, and EXP023 recovered a responsive desktop
+on a fresh boot. Hyprsunset was never launched. See the
+[Mesa qualification matrix](MESA-TESTING.md) before further GPU testing.
 
 The port exposes only 8-bit NV12 AVC, one active handle and an implementation
 bound of 1920×1088/level 4.1. Liverpool UVD 4.2 has no HEVC hardware decoder.

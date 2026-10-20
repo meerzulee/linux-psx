@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Linux psX</h1>
   <p><strong>Linux kernel development for <a href="#playstation-4">PlayStation 4</a> and <a href="#playstation-5">PlayStation 5</a>.</strong></p>
-  <p>Console platform patches, drivers, configurations and build tools.</p>
+  <p>Console kernels, graphics drivers, configurations and build tools.</p>
   <p>
     <a href="https://github.com/meerzulee/linux-psx/wiki">Wiki</a>
     &middot;
@@ -12,7 +12,7 @@
 </div>
 
 Linux psX brings PS4 and PS5 kernel development into one source project with
-separate console targets. It owns the kernel patches, builds, matching modules
+separate console targets. It owns the kernel patches, builds, matching modules, PS4 Mesa source
 and hardware evidence. Distribution and desktop integration live in
 [Omarchy psX](https://github.com/meerzulee/omarchy-psx).
 
@@ -37,8 +37,8 @@ console or a fresh rebuild.
 | --- | --- | --- | --- |
 | Linux 7.2 kernel | ✅ 7.2.11 boot observed | ⏳ Reference source; unbooted | ⏳ Reference source; unbooted |
 | GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
-| Mesa version | 🧪 26.1.7 baseline; isolated 26.2.5 candidate | ⏳ Untested | ⏳ Untested |
-| Vulkan | 🧪 API 1.3.354 enumerated with Mesa 26.1.7 | ⏳ Untested | ⏳ Untested |
+| Mesa version | 🧪 26.1.7 restored; fixed 26.2.5 isolated GL tests passed; system trial rolled back | ⏳ Untested | ⏳ Untested |
+| Vulkan | ❌ 26.2.5 render test stalled; API 1.3.354 enumeration is only partial evidence | ⏳ Untested | ⏳ Untested |
 | UVD / H.264 decode | 🧪 1080p30 VAAPI decode and playback passed | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
@@ -65,6 +65,11 @@ display/decoder drops at approximately 1.00× speed. The process-local Mesa
 26.2.5 candidate displayed clean picture and text in the tested OpenGL path;
 it is not a system-wide Mesa upgrade or a Vulkan qualification. Broader video
 profiles, seeking, sustained playback and repeated cold boots remain open.
+
+A later 26.2.5 system trial rendered clean OpenGL/WebGL, but its Vulkan test
+stalled and the experimental UVD runtime timed out. The system upgrade was
+rolled back. The [Mesa feature matrix](docs/MESA-TESTING.md) records observed
+passes, failures and untested cases; full desktop adoption remains open.
 
 ### Build the Linux 7.2 Baikal kernel
 
@@ -103,8 +108,9 @@ autoload switches, observations and remaining limits.
 The experimental UVD backend is Liverpool-only and off by default. It exposes
 8-bit NV12 AVC with one active handle. It has no HEVC hardware decoder and
 no qualified 4K, 1080p60 or VCE path. Its retained-DMA recovery restrictions
-are documented in the UVD guide. The PS4 Mesa changes and playback tools live
-in [Omarchy psX](https://github.com/meerzulee/omarchy-psx/tree/master/platforms/ps4/experiments/mesa-uvd).
+are documented in the UVD guide. The PS4 Mesa changes, native builder and playback tools live
+in [userspace/mesa](userspace/mesa/README.md). Omarchy owns system packaging
+and desktop integration.
 
 ### Linux 6.18 history
 
