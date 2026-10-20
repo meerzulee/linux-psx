@@ -18,7 +18,8 @@ for item in pins['patches']:
     path = HERE / item['path']
     assert hashlib.sha256(path.read_bytes()).hexdigest() == item['sha256'], path
 assert pins['upstream']['version'] == '26.2.5'
-assert len(pins['patches']) == 3
+assert len(pins['patches']) == 4
 assert pins['hardware_acceptance'] is False
 subprocess.run([sys.executable, '-B', str(HERE / 'checks/demo_check.py')], check=True)
-print(f'PASS: {len(record["files"])} migrated source identities, three pinned Mesa patches, portable player checks; no hardware access')
+subprocess.run([sys.executable, '-B', str(HERE / 'checks/bounded_log_check.py')], check=True)
+print(f'PASS: {len(record["files"])} migrated source identities, {len(pins["patches"])} pinned Mesa patches, portable player/log checks; no hardware access')

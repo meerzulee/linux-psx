@@ -1,0 +1,37 @@
+From: Linux psX contributors
+Subject: [PATCH] radv: disable HTILE on Liverpool pending metadata qualification
+
+On the tested Liverpool/Baikal B1 stack, a 64x64 D16 depth test completes
+with RADV_DEBUG=nohiz and verifies all 4096 expected pixels. The identical
+test with HTILE enabled allocates depth metadata, submits successfully,
+then times out. Graphics fences remain outstanding; no UVD commands were
+submitted. EXP-20261021-001/002 isolate the HTILE-enabled path as a trigger,
+but do not establish the underlying metadata addressing or clear defect.
+
+Disable HiZ/HTILE policy for Liverpool. Ordinary depth testing remains
+available, at the cost of depth compression/HiZ optimization. Set the policy
+before feature/property initialization so image allocation and advertised
+compression properties agree. Preserve the existing debug override and
+all other families, including Gladius.
+
+This is a conservative workaround motivated by one tested console, not a
+claim of full Vulkan conformance or hardware acceptance for other devices.
+
+License: MIT; existing per-file notices remain unchanged.
+
+---
+--- a/src/amd/vulkan/radv_physical_device.c
++++ b/src/amd/vulkan/radv_physical_device.c
+@@ -2698,7 +2698,11 @@
+ 
+    pdev->force_64_byte_sampled_image = !pdev->use_fmask && instance->drirc.debug.force_64_byte_sampled_image;
+ 
+-   pdev->use_hiz = !(instance->debug_flags & RADV_DEBUG_NO_HIZ);
++   /* Liverpool depth draws can hang with HTILE enabled. Keep ordinary depth
++    * testing available while the metadata path is unqualified.
++    */
++   pdev->use_hiz = pdev->info.family != CHIP_LIVERPOOL &&
++                   !(instance->debug_flags & RADV_DEBUG_NO_HIZ);
+ 
+    if (pdev->info.gfx_level == GFX12) {
+       const char *gfx12_hiz_wa_str = instance->drirc.performance.gfx12_hiz_wa;

@@ -6,14 +6,15 @@ loader VRAM allocation, session type and actual mapped libraries for each run.
 GPU generation and southbridge are separate identifiers. Other consoles need
 their own results.
 
-## Current checkpoint — 2026-10-20
+## Current checkpoint — 2026-10-21
 
 **System adoption is withdrawn.** The exact Mesa 26.2.5 candidate rendered
 OpenGL/WebGL and a fresh compositor, but the Vulkan rendering check stalled.
 UART recorded `PS4_UVD_RUNTIME CLOSED error=-110` at 17:01:57.165841 UTC;
 the owner subsequently observed a frozen desktop/mouse. This establishes a
-failure of the combined tested stack, not the root cause or proof that either
-RADV or UVD alone caused it. Hyprsunset was never launched.
+failure of the combined tested stack. Subsequent controlled tests below
+isolate an HTILE-enabled graphics trigger; the precise underlying defect
+remains unknown. Hyprsunset was never launched.
 
 Both system packages were restored to the signed original 26.1.7 packages,
 and previous rendering settings restored. EXP023 then observed a fresh Linux
@@ -24,12 +25,93 @@ blocked, and no repositories were enabled. This is one recovery observation,
 not repeated-boot or graphics qualification. The kernel, modules, boot files
 and firmware were not replaced in these experiments.
 
-Candidate identity: `ps4-mesa-26.2.5-avc-dev2`, manifest SHA256
+Failed system-adoption candidate: `ps4-mesa-26.2.5-avc-dev2`, manifest SHA256
 `3902e67bd5d5170cd0b2e26304b9dac261ea2fa3245a61a00dbd11e10a225ee6`.
 Earlier UVD playback results include an earlier Mesa candidate; reproduce
 them against a final frozen stack rather than transferring their verdict.
 The [curated experiment ledger](https://github.com/meerzulee/omarchy-psx/blob/master/platforms/ps4/experiments/SESSIONS.md)
-keeps the exact scope of EXP006–023. Raw evidence remains private.
+keeps the exact scope of each experiment. Raw evidence remains private.
+
+EXP025/026 passed the same headless Vulkan clear/readback with the original
+26.1.7 driver and isolated dev2 respectively. EXP027 passed a no-depth draw.
+EXP028's traced cube hung; its original outer runner discarded partial logs
+on timeout, so the last Vulkan call cannot be inferred from that missing log.
+Post-fault GFX fences were outstanding while UVD fences remained0/0. EXP029
+then observed a fresh baseline boot and owner-confirmed desktop recovery.
+
+On that same fresh boot, EXP-20261021-001/002 used one frozen64×64 D16 probe
+binary. With `RADV_DEBUG=img,nohiz`, near green occluded far red and all4096
+pixels matched. Changing only to `RADV_DEBUG=img` allocated HTILE at offset8192,
+size16384, alignment2048; the submission succeeded but its fence returned
+`VK_TIMEOUT`. GFX fences stalled while UVD remained0/0, then the kernel's
+generic job-timeout guard closed UVD protectively. No decode was requested.
+The owner confirmed a frozen desktop. Both sessions have completed UART
+continuity. EXP001 closure overran its90-second bookkeeping deadline by9.216s;
+actual GPU work ended after2.94s, and no further GPU work ran during the delay.
+
+Dev3 adds a Liverpool-only HTILE policy workaround, preserving ordinary depth
+tests and other families. Its patch/build pins are in
+[`sources.json`](../userspace/mesa/sources.json). It is a new experimental
+candidate, not an accepted driver. EXP-20261021-003 completed full-power-off
+baseline recovery. EXP004 stopped at a missing copied selector manifest before
+GPU submission; this is a staging error, not a driver result. EXP005 passed
+the same draw/depth oracle with dev3 and `RADV_DEBUG=img` only: all4096 green
+pixels matched and no HTILE allocation appeared.
+
+EXP006 nevertheless hung after the first cube presentation. The retained
+trace reaches successful acquire, render submission and present, then stops
+at `vkDeviceWaitIdle`. Requested128×128 became1920×1080 after compositor
+configuration; the actual FP16 swapchain has20480B CMASK and the D16 image
+has no HTILE. GFX fences remain outstanding and UVD remains0/0. The120-frame
+case and all UVD regressions were skipped after the terminal fault. The owner
+confirmed a frozen desktop. Disabling HTILE is insufficient for adoption.
+
+Source audit finds both metadata fills above the4096B compute-fill threshold.
+Passed image readback also uses compute, so generic compute is not untested:
+the new hypothesis is specifically raw/global-address fill or its ordering
+before metadata consumption. Allocation sizes/alignment and1D non-TC-compatible
+depth are coherent with the existing AddrLib rules; no bad register or compiler
+instruction has yet been proved. Next isolate a plain buffer fill around the
+4092/4096B threshold and inspect emitted code offline. No more GPU work may run
+on the faulted EXP006 boot. A userspace timeout is not GPU recovery.
+
+After fresh baseline recovery and owner desktop/mouse confirmation, EXP009
+uses dev4 to verify4092/4096B fills plus every guard byte in16KiB host-visible
+VRAM. Actual Liverpool shader output is MUBUF `buffer_store_dwordx4`; both
+fences complete. EXP010 changes the former cube only to dev4:1 then120present
+calls and process teardown succeed, all GFX work completes, UVD remains0/0,
+and the owner confirms desktop/mouse normal. UART continuity completed for
+both. This isolates a useful effect of the fill-bounds patch on these workloads;
+it does not yet identify the underlying FLAT hardware/kernel failure.
+
+Current source dev5 keeps bounded-fill0005 and omits historical HTILE-disable0004.
+EXP011 passes the exact frozen D16 near/far oracle:4096green pixels, HTILE at
+offset8192,size16384,alignment2048. EXP012 then passes1/120cube presentations,
+normal GPU completion/teardown, with196608B HTILE and20KiB CMASK. The owner
+confirms desktop/mouse normal. These have completed UART continuity.
+
+EXP013 forced-VAAPI decoding matches all120canonical and900native1080p30
+software-reference NV12 frames, with122/902UVD completions and no terminal
+marker. Its additional process-map collector assumed a /proc children
+interface absent from this kernel and silently ignored FileNotFoundError.
+The controller's original FAILED_STOP receipt is preserved as an observation
+failure; both decoder comparison receipts pass. CPU-only diagnosis proves PPid
+status and maps remain readable. EXP014 changes only that collector, verifies
+it with a CPU child, and repeats the small clip:120exact frames,122completions,
+actual dev5 Gallium mapped. The900-frame test is not repeated. Owner desktop
+and mouse remain normal after the final check. Source/driver/FFmpeg pins and
+all per-frame/whole-stream hashes are retained privately.
+
+Dev5 archive SHA256 `5c397d86a769ed55dd35798c32bfcedea5c4e3ce6eee5147dd282a04c9385fe9`,
+manifest `687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964`;
+all44 Mesa build tests and repository source checks pass. This is a demonstrated
+remedy for the tested workloads, not identification of every lower-level cause.
+The original FLAT-only fill was not itself measured failing on Liverpool;
+instruction selection also changes scheduling/register allocation, and earlier
+failures used different fresh boots. Original signed system packages/compositor
+remain26.1.7. Broader API/MSAA/depth-format/compute coverage, seeking, sustained
+load and three fresh boots remain outstanding before full-stack promotion.
+
 
 Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical;
 ⏳ not run or not qualified. A reported API version is an enumeration result.
@@ -42,18 +124,18 @@ Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical
 | EGL / GLX / GBM | 🧪 Wayland/GBM EGL contexts passed; broad eglinfo returned 1 because a platform/device probe failed | Test each intended platform separately, including a controlled Xwayland GLX context; identify failures without hiding exit status. |
 | PNG/RGB textures and browser WebGL | ✅ isolated Firefox/Chromium passed; installed-system Chromium displayed matching PNG/WebGL with AA | Verify pixel/oracle output and `glError=0`; WebGL 1 and 2 separately; normal and antialiased contexts. Repeat on the final stack. |
 | Framebuffers / MSAA / FMASK | 🧪 original selected-entry assertion fixed and 15 CPU cases pass; browser AA smoke passed | Actual GPU FBO resolve/readback at supported 2×/4×/8× samples, small/odd dimensions, depth/stencil attachments; compare reference pixels. |
-| Shaders / blending / depth / stencil | ⏳ no general coverage | Focused Piglit/GL-CTS shader and render cases, then required API-version cases. Record individual names and outputs. |
+| Shaders / blending / depth / stencil | 🧪 dev5 exact D16 near/far oracle passes with HTILE enabled; no general coverage | Add focused depth formats/stencil, shader and blend oracles on the frozen candidate. |
 | Texture formats / tiling / transfers | 🧪 saved RGB/NV12 fixtures clean in tested GL path | RGB/RGBA, supported sRGB/float/integer formats, mipmaps, subimages, PBO transfers and readback; exercise pitch/alignment boundaries. |
 | Wayland presentation | 🧪 short browser/player and compositor observations | Resize, fullscreen/windowed, overlays, text, repeat frame presentation; verify display and reference captures without stripes or checkerboards. |
 | DMA-BUF / explicit synchronization | ⏳ not isolated | Small export/import and fence-order tests across producer/compositor; compare pixels, ensure bounded completion and clean close. |
 | Vulkan enumeration | ✅ RADV 26.2.5 enumerated Liverpool, API 1.3.354 | Record advertised features/queues/formats/extensions without treating them as working rendering. |
-| Vulkan rendering / Wayland WSI | ❌ `vkcube --wsi wayland --c 120` stalled in DRM sync-object wait; screenshot timed out | Resolve the regression before another cube or broad suite. Separate device/queue creation, one clear/readback, then a bounded present test with validation. |
-| Vulkan compute / barriers / descriptors | ⏳ not qualified | After the basic Vulkan gate passes: small readback oracles for descriptors, memory types, copies and barriers; only then bounded compute cases. |
+| Vulkan rendering / Wayland WSI | 🧪 dev5 passes1/120cube presentations with HTILE enabled; former depth/cube failures recorded | Broaden focused formats/MSAA/WSI oracles and repeated boots before adoption; no conformance claim. |
+| Vulkan compute / barriers / descriptors | 🧪 typed readback and4092/4096B fill/guard oracles pass; no general compute qualification | Small descriptor, memory-type, copy and barrier oracles, then bounded compute/shader-address cases. |
 | VAAPI capability reporting | 🧪 AVC/NV12 gate was source-tested and exercised earlier; post-install vainfo was not reached | Confirm only kernel-supported profiles/entrypoints and explicit unsupported results; capability listing alone is not decode proof. |
-| UVD H.264 correctness | 🧪 earlier 120-frame and 900-frame 1080p30 streams matched software references | Forced VAAPI decode, fixed NV12 download, per-frame and whole-stream hashes; prove actual UVD fence activity and no software fallback. |
+| UVD H.264 correctness | ✅ dev5 repeats120canonical and900native1080p30 exact software-reference frames;122/902completions | Forced VAAPI decode, fixed NV12 download, per-frame and whole-stream hashes; prove actual UVD fence activity and no software fallback. |
 | UVD playback / frame pacing | 🧪 earlier five 1080p30 loops completed without reported drops | Reproduce on final artifacts with one hardware decode thread; record source FPS, PTS/wall rate and decoder/display drops. |
 | UVD seeking / EOF / reopen | ❌ earlier interactive seek error; lifecycle not qualified | Separate bounded seek, drain/EOF and sequential reopen cases. No concurrent handles beyond the implementation's declared single-handle limit. |
-| Graphics with experimental UVD runtime enabled | ❌ EXP022 combined stack hit a terminal UVD timeout | No AVC workload was requested by the cube. Audit synchronization/ownership first; compare graphics-only, decode-only and combined cases on fresh healthy boots. |
+| Graphics with experimental UVD runtime enabled | 🧪 dev5 HTILE/cube then exact UVD decoding pass sequentially on one healthy boot; earlier graphics timeouts retained | Preserve the generic guard. Qualify combined simultaneous cases, sustained load and repeated boots separately. |
 | Browser video acceleration | ⏳ rendering tests disabled browser video decode | Record actual stream codec, decoder, mapped driver and dropped frames. Test single supported AVC stream before seeking or multiple tabs. |
 | Hyprsunset / CTM / gamma | ⏳ blocked; not tested in EXP022 | Separate display-control experiment after recovery; short mild tint, timed identity restore, independent recovery and operator observation. This also depends on Hyprland/kernel display support. |
 | VCE encoding | ⏳ not implemented/qualified | Keep unavailable until separate kernel/backend work and encode correctness tests exist; do not infer support from Mesa enumeration. |

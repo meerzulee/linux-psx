@@ -8,11 +8,15 @@
       "source": "platforms/ps4/experiments/mesa-uvd/README.md",
       "source_sha256": "da6af068addff13d03122fb234681d3d464dca3000ea537b64ef748ea0df5f0f",
       "destination": "userspace/mesa/README.md",
-      "destination_sha256": "3fa10ad0649689260ddf338b946f97bda2b9794296dd5cc60eaeda3e81a5782b",
+      "destination_sha256": "42bf11d7f8f5a8588687cfd9673c46adf5d22b4d8ac330fffa738e8f8d568aa0",
       "mode": "0o644",
       "adaptations": [
         "Update source ownership, relative command examples and hardware-ledger link; no driver/build logic change.",
-        "Link the current feature matrix and record withdrawn EXP022 system adoption; preserve original source hash and earlier isolated verdicts."
+        "Link the current feature matrix and record withdrawn EXP022 system adoption; preserve original source hash and earlier isolated verdicts.",
+        "Record dev3 Liverpool HTILE workaround, controlled depth evidence and new focused Vulkan build/capture tools; distinguish original three patch identities from the new adaptation.",
+        "Record EXP005 bounded depth pass and EXP006 cube failure with HTILE disabled; the workaround is insufficient for adoption and underlying fault remains open.",
+        "2026-10-21: record bounded compute-fill patch0005 and dev4 fill/cube hardware passes; dev5 omits historical HTILE-disable0004 to test restored HTILE. Original imported source/patch hashes remain unchanged; full acceptance remains false.",
+        "2026-10-21: record dev5 HTILE-enabled depth/cube passes and exact120/900frame UVD checks; preserve original FAILED_STOP collection receipt and corrected PPid-based mapping follow-up. Scope remains experimental; original imported hashes unchanged."
       ]
     },
     {
@@ -165,9 +169,14 @@
       "source": "platforms/ps4/experiments/mesa-uvd/patches/README.md",
       "source_sha256": "e58e9e6f91d32e17d16603388d3b5c2dac1d0cdcc42d432a6908e5b0e2feb32a",
       "destination": "userspace/mesa/patches/README.md",
-      "destination_sha256": "e58e9e6f91d32e17d16603388d3b5c2dac1d0cdcc42d432a6908e5b0e2feb32a",
+      "destination_sha256": "b0491dc2ddcc8f0cda0bfaadcc33499f2753285881b8def2496d44b773b9ef55",
       "mode": "0o644",
-      "adaptations": []
+      "adaptations": [
+        "Document the new Liverpool-only HTILE policy adaptation separately from the original graphics import.",
+        "Record EXP005 bounded depth pass and EXP006 cube failure with HTILE disabled; the workaround is insufficient for adoption and underlying fault remains open.",
+        "2026-10-21: record bounded compute-fill patch0005 and dev4 fill/cube hardware passes; dev5 omits historical HTILE-disable0004 to test restored HTILE. Original imported source/patch hashes remain unchanged; full acceptance remains false.",
+        "2026-10-21: record dev5 HTILE-enabled depth/cube passes and exact120/900frame UVD checks; preserve original FAILED_STOP collection receipt and corrected PPid-based mapping follow-up. Scope remains experimental; original imported hashes unchanged."
+      ]
     },
     {
       "source": "platforms/ps4/experiments/mesa-uvd/patches/ps4-graphics-provenance.json",
@@ -189,9 +198,14 @@
       "source": "platforms/ps4/experiments/mesa-uvd/sources.json",
       "source_sha256": "301dca9457eecb6f07f896455d0268a560b15c91ff7c0c76d0607f58a494f087",
       "destination": "userspace/mesa/sources.json",
-      "destination_sha256": "301dca9457eecb6f07f896455d0268a560b15c91ff7c0c76d0607f58a494f087",
+      "destination_sha256": "3851fb52831541f60d0de442c54c27b10280476bfdf415478ed91d2bcc92dcbf",
       "mode": "0o644",
-      "adaptations": []
+      "adaptations": [
+        "Create dev3 by appending the Liverpool-only HTILE policy workaround from controlled EXP-20261021-001/002; preserve upstream and original three patch identities.",
+        "Create experimental dev4 by appending a semantics-preserving fill offset bound for CPU compiler comparison; no hardware fix or acceptance claimed.",
+        "2026-10-21: record bounded compute-fill patch0005 and dev4 fill/cube hardware passes; dev5 omits historical HTILE-disable0004 to test restored HTILE. Original imported source/patch hashes remain unchanged; full acceptance remains false.",
+        "2026-10-21: record dev5 HTILE-enabled depth/cube passes and exact120/900frame UVD checks; preserve original FAILED_STOP collection receipt and corrected PPid-based mapping follow-up. Scope remains experimental; original imported hashes unchanged."
+      ]
     },
     {
       "source": "platforms/ps4/experiments/mesa-uvd/with-mesa.py",

@@ -13,6 +13,44 @@ plan. EXP022 system adoption was rolled back after a Vulkan stall and terminal
 UVD timeout. Earlier isolated OpenGL passes remain bounded evidence; this is
 not a qualified system driver bundle. Hyprsunset was not tested.
 
+The current source candidate is `ps4-mesa-26.2.5-fill-bounds-htile-dev5`. Controlled
+EXP-20261021-001/002 isolated an HTILE-enabled D16 depth draw as a graphics
+hang trigger: the same test passes with `RADV_DEBUG=nohiz`. Patch0004 disables
+HTILE for Liverpool while preserving ordinary depth rendering and all other
+families in the historical dev3/dev4 candidates. It is retained for reference
+and is inactive in dev5. The underlying defect is still under investigation.
+
+EXP005 subsequently passed the identical depth oracle under dev3's default
+policy, with no `nohiz` override. EXP006 still stalled after the cube's first
+presentation with HTILE absent. Disabling HTILE is therefore insufficient for
+Vulkan adoption. The trace retains a CMASK allocation and a GPU-completion
+stall; metadata fill/global-address stores and presentation remain separate
+diagnostic branches. UVD decode was not run on the faulted boot.
+
+Patch0005 exposes the existing compute-fill offset bound to NIR while retaining
+ACO's overflow checks. CPU-only GFX7 comparison changes the final lowered ACO
+IR from FLAT to MUBUF. EXP009 then verifies actual Liverpool4092/4096-byte
+fills and all16KiB pattern/guard bytes, with `buffer_store_dwordx4` in the actual
+Liverpool shader output. EXP010 passes the same traced cube at1 and120frames,
+with HTILE still disabled; the owner confirms responsive desktop/mouse.
+Both have completed UART continuity and no terminal marker. Dev5 removes only
+patch0004, retaining the bounded-fill change. EXP011 passes the exact frozen
+D16 oracle with actual16KiB HTILE allocated and all4096pixels matching. EXP012
+passes1/120cube presentations and teardown with196608B HTILE and20KiB CMASK.
+The owner confirms responsive desktop/mouse. HTILE is enabled in this candidate.
+
+EXP013 decodes both120canonical frames and900native1080p30 frames exactly
+against software NV12 references, with122/902UVD completions and no terminal
+fault. Its controller preserves FAILED_STOP because an additional live-mapping
+observer relied on a /proc children interface absent from this kernel. That
+collection error does not change the passing decode receipts. EXP014 fixes
+child discovery through PPid status, passes a CPU-only observer check, then
+repeats only the small clip: exact120frames,122completions and the actual dev5
+Gallium library mapped. The owner confirms desktop/mouse normal after decoding.
+These are bounded results, not full-stack adoption or proof that all FLAT
+instructions or hardware address translation are defective.
+
+
 ## Why this candidate exists
 
 EXP-20261020-006 downloaded 120 H264 frames through VAAPI, byte-exact against
@@ -207,7 +245,27 @@ This directory publishes experimental source only. Binary releases, firmware red
 
 Migrated from Omarchy psX at the immutable source commit recorded in
 `../../provenance/mesa-import.json` (from the repository root: `provenance/mesa-import.json`).
-The source pins and patch bytes used for the tested candidate are unchanged.
+The original upstream pin and three imported patches remain unchanged;
+patch0005 is a separately recorded Linux psX adaptation; historical patch0004
+is retained but inactive in the dev5 series.
 This optional userspace build does not add Mesa or a package manager as a
 kernel build dependency. Original Mesa/AMD notices and imported MIT license
 remain in force; the kernel repository license does not replace them.
+
+## Focused Vulkan investigation tools
+
+`checks/build-vulkan-probe.py` builds a small headless Vulkan probe on native
+Linux x86-64. It freezes its C/GLSL/build inputs, generated SPIR-V and binary
+hashes in a new output directory. Building never opens a GPU. Explicit
+`--run device|clear|draw|depth|fill-cp|fill-cs` on the resulting binary operates the console;
+the depth case checks near green against far red with a D16 attachment and
+verifies all4096 output pixels. Fill modes bracket the4096B compute threshold
+in a16KiB host-visible VRAM allocation and verify both fill and guard bytes.
+`--compile-only` is a separate submission-free DRM-shim comparison mode; run it
+only inside a device-hidden sandbox. These cases are smoke tests, not conformance.
+
+`checks/build-cube-trace.py` builds an instrumented, pinned upstream cube.
+`checks/bounded_command.py` preserves stdout/stderr directly to durable files
+even on timeout. Its CPU regression check is part of `check-source.py`.
+A timeout can stop an owned process without cancelling submitted GPU work;
+stop after the first terminal fault and use full-power-off recovery.

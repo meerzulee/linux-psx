@@ -38,7 +38,7 @@ console or a fresh rebuild.
 | Linux 7.2 kernel | ✅ 7.2.11 boot observed | ⏳ Reference source; unbooted | ⏳ Reference source; unbooted |
 | GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
 | Mesa version | 🧪 26.1.7 restored; fixed 26.2.5 isolated GL tests passed; system trial rolled back | ⏳ Untested | ⏳ Untested |
-| Vulkan | ❌ 26.2.5 render test stalled; API 1.3.354 enumeration is only partial evidence | ⏳ Untested | ⏳ Untested |
+| Vulkan | 🧪 26.2.5 dev5: HTILE depth oracle and 120 cube presentations passed | ⏳ Untested | ⏳ Untested |
 | UVD / H.264 decode | 🧪 1080p30 VAAPI decode and playback passed | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
@@ -70,6 +70,11 @@ A later 26.2.5 system trial rendered clean OpenGL/WebGL, but its Vulkan test
 stalled and the experimental UVD runtime timed out. The system upgrade was
 rolled back. The [Mesa feature matrix](docs/MESA-TESTING.md) records observed
 passes, failures and untested cases; full desktop adoption remains open.
+
+The newer isolated dev5 candidate bounds the compute-fill shader and restores
+HTILE. It passes the formerly failing depth/cube cases and repeats exact
+120-frame and 900-frame UVD decoding. These results apply to the recorded
+artifacts on one console; the system remains on the original Mesa packages.
 
 ### Build the Linux 7.2 Baikal kernel
 

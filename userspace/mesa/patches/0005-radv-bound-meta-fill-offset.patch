@@ -1,0 +1,36 @@
+From: Linux psX contributors
+Subject: [PATCH] radv: expose the existing metadata fill offset bound to NIR
+
+radv_compute_fill_memory asserts size <= UINT32_MAX and passes max_offset
+as size minus bytes_per_invocation. Preserve that invariant in the shader.
+The clamp is a no-op for every valid caller input, including short fills.
+
+Without an explicit bound, ACO conservatively permits offset+store_width
+to overflow 32 bits. On GFX7/8 it then combines the uniform address and
+divergent offset into a VGPR address, selecting FLAT instead of the existing
+MUBUF path. Do not weaken ACO's overflow check; expose the caller's range.
+
+A device-hidden, submission-free Bonaire comparator compiled the original
+meta_fill_memory_16B to flat_store_dwordx4. Verify the new lowered output
+separately. This is a candidate for the shared metadata-fill failure path;
+it does not prove defective FLAT execution on Liverpool or a hardware fix.
+The failed cube also showed that the HTILE-disable workaround is insufficient.
+
+License: MIT; existing per-file notices remain unchanged.
+
+---
+--- a/src/amd/vulkan/nir/radv_meta_nir.c
++++ b/src/amd/vulkan/nir/radv_meta_nir.c
+@@ -146,6 +146,12 @@
+    nir_def *pconst = nir_load_push_constant(&b, 4, 32, nir_imm_int(&b, 0), .range = 16);
+    nir_def *buffer_addr = nir_pack_64_2x32(&b, nir_channels(&b, pconst, 0b0011));
+    nir_def *max_offset = nir_channel(&b, pconst, 2);
++   /* The caller bounds size to UINT32_MAX and subtracts the store width.
++    * Preserve that range in NIR so GFX7/8 can use a MUBUF descriptor
++    * without a possible 32-bit offset overflow forcing FLAT.
++    */
++   max_offset = nir_umin(&b, max_offset,
++                         nir_imm_int(&b, UINT32_MAX - bytes_per_invocation));
+    nir_def *data = nir_swizzle(&b, nir_channel(&b, pconst, 3), (unsigned[]){0, 0, 0, 0}, bytes_per_invocation / 4);
+ 
+    nir_def *global_id =

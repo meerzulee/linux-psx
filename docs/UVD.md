@@ -69,10 +69,21 @@ speed, drop counters and UVD fence completions.
 
 A later Mesa 26.2.5 system trial (EXP022) stalled during Vulkan rendering,
 then recorded a terminal UVD timeout and frozen desktop. No AVC workload was
-requested by that test; the cause remains unisolated. Both system packages
+requested by that test. Both system packages
 were rolled back to signed 26.1.7, and EXP023 recovered a responsive desktop
 on a fresh boot. Hyprsunset was never launched. See the
 [Mesa qualification matrix](MESA-TESTING.md) before further GPU testing.
+
+The subsequent dev5 Mesa candidate exposes an existing compute-fill offset
+bound to the shader compiler, retaining buffer stores in the tested fill.
+The previously failing D16 oracle and cube now pass with HTILE enabled.
+Sequential UVD checks match120canonical frames and900native1080p30 frames,
+with122/902UVD completions and no terminal marker. An additional live-library
+observer failed because a /proc children interface is absent; that collection
+error is preserved separately. A corrected PPid-based observer then captures
+the actual dev5 driver during a repeated exact120-frame check. The owner
+confirms desktop/mouse normal. These are focused passes, not unrestricted
+Vulkan qualification, a proved lower-level FLAT defect or system adoption.
 
 The port exposes only 8-bit NV12 AVC, one active handle and an implementation
 bound of 1920×1088/level 4.1. Liverpool UVD 4.2 has no HEVC hardware decoder.

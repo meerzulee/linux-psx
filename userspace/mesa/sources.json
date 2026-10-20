@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "candidate": "ps4-mesa-26.2.5-avc-dev2",
+  "candidate": "ps4-mesa-26.2.5-fill-bounds-htile-dev5",
   "hardware_acceptance": false,
   "upstream": {
     "project": "Mesa",
@@ -27,6 +27,10 @@
     {
       "path": "patches/0003-addrlib-selected-fmask-entry.patch",
       "sha256": "10f6369f300bd884290cc812254ee3f66694b3d0fdaeee37451b1f93561ba07c"
+    },
+    {
+      "path": "patches/0005-radv-bound-meta-fill-offset.patch",
+      "sha256": "92256289369f880d6c8a85c7bec8341c29da6b7d13706bc4120795e99788ae25"
     }
   ]
 }
