@@ -88,10 +88,11 @@ shasum -a 256 -c SHA256SUMS
 
 ## Authorized prerelease workflow
 
-Manual dispatch selects `target` (`6.18-ps4-baikal` by default, or
-`7.2-ps4-baikal-native-dev`) and `publish_release`. Push/PR runs retain the
-6.18 default and publish expiring CI artifacts only. Authorized manual
-publication checks both downloads, selected target/release, source commit and
+Choose the separate **PS4 - Linux 6.x** or **PS4 - Linux 7.x** workflow.
+Each builds its fixed target and has its own manual `publish_release` switch,
+defaulting to false. Push/PR runs build both lanes independently and publish
+expiring CI artifacts only. PS5 will have a separate workflow and artifact
+contract when that port is ready. Authorized manual publication checks both downloads, selected target/release, source commit and
 firmware policy before creating a prerelease; it never marks it latest.
 
 The 7.2 target preserves the exact 62-patch native-Ethernet source/config

@@ -26,9 +26,9 @@ Run `make check` for the repository's source contracts. The runtime directory
 also contains `transport_check.py`, `jobs_check.py` and `session_check.py`;
 read their input requirements before running them. These are CPU/source checks.
 
-The ordinary `make TARGET=6.18-ps4-baikal` and push CI build the default target;
-they do **not** build this experimental UVD kernel. The exact tested package
-keeps a complete already-patched Linux source archive, `.config`, notices,
+The ordinary `make TARGET=6.18-ps4-baikal` and the separate PS4 Linux 6.x/7.x
+CI workflows build registered targets; they do **not** build this experimental
+UVD kernel. The exact tested package keeps a complete already-patched Linux source archive, `.config`, notices,
 build inputs and `PSX-REBUILD.md` for reconstruction. Its filename is
 `source-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst`, SHA256
 `36fa0d0119281503b456e3532080afabe2ea7b5c7bc7b05af08685d295f7a3a4`.

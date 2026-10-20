@@ -135,7 +135,17 @@ needs a separately recorded config and its own qualification. Inherited
 
 ## CI and packaging
 
-GitHub Actions runs `make check`, compiles on native Ubuntu x86-64, then runs
+PS4 has two independent GitHub Actions workflows:
+
+| Workflow | Fixed build target | Runs |
+| --- | --- | --- |
+| [PS4 - Linux 6.x](../.github/workflows/ps4-linux-6.yml) | `6.18-ps4-baikal` | Pushes and pull requests to `master`, plus manual dispatch |
+| [PS4 - Linux 7.x](../.github/workflows/ps4-linux-7.yml) | `7.2-ps4-baikal-native-dev` | Pushes and pull requests to `master`, plus manual dispatch |
+| PS5 (planned) | Separate PS5 target | Dedicated CI and packaging will be added with the PS5 port |
+
+Each PS4 workflow has its own build status and concurrency group. A new run
+only cancels an older run of the same kernel lane and Git ref. Each workflow
+runs `make check`, compiles its fixed target on native Ubuntu x86-64, then runs
 `scripts/ci/package-release`. The packager produces `dist/` with generic
 `artifacts.json`, checksums, kernel/module/config outputs, kernel guidance and
 complete corresponding GPL source. See [ARTIFACTS.md](ARTIFACTS.md).
@@ -153,9 +163,9 @@ source changes before packaging. A local OrbStack cross-build does not package
 directly on macOS: packaging needs Linux GNU tar, objcopy, modinfo and zstd
 and access to the same generated source. CI is the supported packaging path.
 
-Push/PR builds publish expiring CI artifacts only. The manual workflow defaults
-`publish_release` to false. Explicitly enabling it after authorized review
-publishes an experimental prerelease, never an automatic stable/latest release.
+Push/PR builds publish expiring CI artifacts only. Each workflow has its own
+manual `publish_release` switch, defaulting to false. Explicitly enabling it
+after authorized review publishes an experimental prerelease, never an automatic stable/latest release.
 Release assembly verifies both artifacts belong to the expected source commit
 and publishes `kernel-<release>.zip` separately from `source-<release>.tar.zst`.
 Neither compilation nor packaging constitutes a hardware test.

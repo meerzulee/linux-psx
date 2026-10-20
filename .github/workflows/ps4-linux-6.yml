@@ -1,4 +1,4 @@
-name: Kernel build and experimental artifacts
+name: PS4 - Linux 6.x
 
 on:
   push:
@@ -7,13 +7,6 @@ on:
     branches: [master]
   workflow_dispatch:
     inputs:
-      target:
-        description: PS4 Baikal target to build and optionally publish
-        type: choice
-        options:
-          - 6.18-ps4-baikal
-          - 7.2-ps4-baikal-native-dev
-        default: 6.18-ps4-baikal
       publish_release:
         description: Publish an experimental prerelease after build checks pass
         type: boolean
@@ -23,14 +16,15 @@ permissions:
   contents: read
 
 env:
-  BUILD_TARGET: ${{ inputs.target || '6.18-ps4-baikal' }}
+  BUILD_TARGET: 6.18-ps4-baikal
 
 concurrency:
-  group: kernel-${{ github.ref }}
+  group: ps4-linux-6-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
+    name: PS4 Linux 6.x build
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -44,7 +38,7 @@ jobs:
       - name: Check provenance and host contracts
         run: |
           case "$BUILD_TARGET" in
-            6.18-ps4-baikal|7.2-ps4-baikal-native-dev) ;;
+            6.18-ps4-baikal) ;;
             *) echo 'Unsupported release target' >&2; exit 1 ;;
           esac
           make check
@@ -72,6 +66,7 @@ jobs:
           retention-days: 30
 
   release:
+    name: PS4 Linux 6.x prerelease
     needs: build
     if: github.event_name == 'workflow_dispatch' && inputs.publish_release && github.ref == 'refs/heads/master' && github.repository == 'meerzulee/linux-psx'
     runs-on: ubuntu-24.04

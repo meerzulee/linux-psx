@@ -23,9 +23,10 @@ make TARGET=6.18-ps4-baikal
 ./scripts/build-kernel-orbstack -t 6.18-ps4-baikal
 ```
 
-The generic build/CI default remains this target; the main README selects
-`7.2-ps4-baikal-native-dev` explicitly for current PS4 development. This
-documentation change does not silently alter the target registry or CI policy.
+The generic `make` default remains this target. CI has independent
+[Linux 6.x and Linux 7.x workflows](BUILDING.md#ci-and-packaging); the main
+README selects `7.2-ps4-baikal-native-dev` explicitly for current PS4
+development.
 
 ## Outputs and corresponding source
 
