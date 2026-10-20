@@ -112,6 +112,47 @@ failures used different fresh boots. Original signed system packages/compositor
 remain26.1.7. Broader API/MSAA/depth-format/compute coverage, seeking, sustained
 load and three fresh boots remain outstanding before full-stack promotion.
 
+### GFXBench follow-up — advanced rendering fault
+
+GFXBench 5.1.5 was built from upstream commit
+`89aa956f43836798d1eaaab8ec32d3dc8b02eead` and run with the same isolated
+Mesa26.2.5 dev5 candidate and unchanged kernel. Its developer CLI needed
+benchmark-only build/window compatibility changes and the complete upstream
+GL shader assets. These are separate from Mesa and kernel changes. The
+original failed setup receipts remain recorded in the curated ledger.
+
+| Case | Observed result at actual1920×1080 |
+| --- | --- |
+| T-Rex, standard56seconds | ✅ 3348frames,59.78FPS; requested repeat3350frames,59.80FPS; owner confirms smooth movement. |
+| Manhattan, standard62seconds | ✅ 3703frames,59.71FPS; result statusOK. |
+| Manhattan3.1, standard62seconds | ✅ 3624frames,58.44FPS; result statusOK. |
+| CarChase (`gl_4`, GL4.3 core) | ❌ Graphics VM faults after initialization and entering the run; controller kills its owned benchmark and stops the suite. |
+| Remaining37GL and five Vulkan configurations | ⏳ Not run after the terminal fault. |
+
+The passes save actual candidate Gallium maps, result JSON and caught-up cached
+fences; UVD stayed unused. Scores are workload observations with vsync and
+monitoring overhead, not independent pixel correctness or competitive results.
+Requested1280×720 was configured by Hyprland as1920×1080.
+
+In EXP-20261021-022 the first graphics VM faults are at21:20:45UTC on October20,
+including a read at page`0x00FF0010` and a write at page`0x000018C8`, followed
+by interrupt-ring overflow and additional faults. The generic guard records
+`PS4_UVD_RUNTIME CLOSED error=-5` at21:20:47 despite no decoding request.
+Later cached queues being caught up does not reverse that terminal closure.
+No GPU reset/rearm or further GPU workload was attempted; full power-off and
+a healthy Linux boot are required before more hardware testing.
+
+The failing instruction, buffer and ownership layer are not yet identified.
+CarChase adds particle SSBO, tessellation and other rendering paths;
+Manhattan3.1 already exercises compute. Its warmup simulation shader lacks an
+explicit range check, but the actual256particle count is divisible by every
+tested workgroup size, so that fact does not demonstrate an OOB here. An
+upstream `glGetString(GL_EXTENSIONS)` error in a core context also does not
+establish the cause of a GPU memory fault. Preserve the first fault and partial
+logs, then reduce one dispatch or draw after stage attribution rather than
+retrying the entire failing scene. This candidate remains unsuitable for system
+adoption. The benchmark and reviewed results are saved privately on the console.
+
 
 Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical;
 ⏳ not run or not qualified. A reported API version is an enumeration result.
@@ -120,7 +161,7 @@ Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical
 | --- | --- | --- |
 | Source and CPU tests | ✅ 44 Mesa build tests; 15 FMASK replay cases; 62 player fixture checks | Repeat pinned build/patch verification and relevant source checks for each new artifact. These do not qualify a GPU. |
 | Driver selection | ✅ 39 staged identities verified after package install; compositor and Chromium mapped 26.2.5 | Verify package/version, hashes and live process maps; reject software fallback or an older DSO. |
-| Desktop OpenGL / GLES | 🧪 GL 4.6 and GLES 3.2 contexts created; narrow rendered fixtures passed | Small clear/triangle/readback under GL core/compatibility and GLES 2/3; expected pixels and clean process exit. |
+| Desktop OpenGL / GLES | 🧪 dev5 T-Rex/Manhattan passes; ❌ CarChase graphics VM fault; GL4.6/GLES3.2 contexts enumerated | Small clear/triangle/readback under GL core/compatibility and GLES 2/3, then reduce the advanced rendering failure; expected pixels and clean process exit. |
 | EGL / GLX / GBM | 🧪 Wayland/GBM EGL contexts passed; broad eglinfo returned 1 because a platform/device probe failed | Test each intended platform separately, including a controlled Xwayland GLX context; identify failures without hiding exit status. |
 | PNG/RGB textures and browser WebGL | ✅ isolated Firefox/Chromium passed; installed-system Chromium displayed matching PNG/WebGL with AA | Verify pixel/oracle output and `glError=0`; WebGL 1 and 2 separately; normal and antialiased contexts. Repeat on the final stack. |
 | Framebuffers / MSAA / FMASK | 🧪 original selected-entry assertion fixed and 15 CPU cases pass; browser AA smoke passed | Actual GPU FBO resolve/readback at supported 2×/4×/8× samples, small/odd dimensions, depth/stencil attachments; compare reference pixels. |
@@ -135,7 +176,7 @@ Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical
 | UVD H.264 correctness | ✅ dev5 repeats120canonical and900native1080p30 exact software-reference frames;122/902completions | Forced VAAPI decode, fixed NV12 download, per-frame and whole-stream hashes; prove actual UVD fence activity and no software fallback. |
 | UVD playback / frame pacing | 🧪 earlier five 1080p30 loops completed without reported drops | Reproduce on final artifacts with one hardware decode thread; record source FPS, PTS/wall rate and decoder/display drops. |
 | UVD seeking / EOF / reopen | ❌ earlier interactive seek error; lifecycle not qualified | Separate bounded seek, drain/EOF and sequential reopen cases. No concurrent handles beyond the implementation's declared single-handle limit. |
-| Graphics with experimental UVD runtime enabled | 🧪 dev5 HTILE/cube then exact UVD decoding pass sequentially on one healthy boot; earlier graphics timeouts retained | Preserve the generic guard. Qualify combined simultaneous cases, sustained load and repeated boots separately. |
+| Graphics with experimental UVD runtime enabled | ❌ CarChase VM faults close the protective guard without decode; earlier dev5 cube/UVD checks passed sequentially | Preserve the generic guard. Qualify combined simultaneous cases, sustained load and repeated boots separately. |
 | Browser video acceleration | ⏳ rendering tests disabled browser video decode | Record actual stream codec, decoder, mapped driver and dropped frames. Test single supported AVC stream before seeking or multiple tabs. |
 | Hyprsunset / CTM / gamma | ⏳ blocked; not tested in EXP022 | Separate display-control experiment after recovery; short mild tint, timed identity restore, independent recovery and operator observation. This also depends on Hyprland/kernel display support. |
 | VCE encoding | ⏳ not implemented/qualified | Keep unavailable until separate kernel/backend work and encode correctness tests exist; do not infer support from Mesa enumeration. |
