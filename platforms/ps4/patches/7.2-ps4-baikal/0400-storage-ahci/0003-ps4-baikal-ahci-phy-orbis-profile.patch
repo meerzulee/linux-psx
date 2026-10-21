@@ -1,0 +1,119 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 03:15:00 +0600
+Subject: [PATCH] ps4: add Orbis-style AHCI PHY profile for Baikal internal HDD
+
+The Orbis internal SATA controller uses the trace 6..8 branch, AHCI
+EFUSE tune 0x28:0x10:0x0f and glue pulse/hold 108/44.  The shared xHCI
+path currently selects trace 3..5, the shared EFUSE set and glue
+112/48.
+
+Add a disabled-by-default profile selected with
+ps4_bpcie.ps4_sata_phy_orbit=1.  The existing shared path remains the
+default and the rollback path.
+
+Hardware EXP-20261022-005 applied this profile: the internal HDD
+attached as sdb and set_mode succeeded, but the first data read still
+timed out.  The profile is a PHY/EFUSE match, not a complete support
+fix.
+---
+ drivers/ps4/ps4-bpcie.c | 63 ++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 47 insertions(+), 16 deletions(-)
+
+--- a/drivers/ps4/ps4-bpcie.c
++++ b/drivers/ps4/ps4-bpcie.c
+@@ -20,6 +20,17 @@
+ #include "baikal.h"
+ 
+ /* #define QEMU_HACK_NO_IOMMU */
++/*
++ * PS4 Baikal SATA PHY test profile.
++ * 0 = existing shared/xHCI path and trace 3..5 sequence.
++ * 1 = Orbis AHCI path: 108/44 glue, AHCI EFUSE set, trace 6..8 values.
++ * Disabled by default so the previous behaviour remains the rollback/AB path.
++ */
++static bool ps4_sata_phy_orbit;
++module_param_named(ps4_sata_phy_orbit, ps4_sata_phy_orbit, bool, 0444);
++MODULE_PARM_DESC(ps4_sata_phy_orbit,
++		 "Use the Orbis Baikal AHCI SATA PHY profile (default: 0)");
++
+ 
+ #define APCIE_REG_CHIPID_0		0x1104
+ #define APCIE_REG_CHIPID_1		0x1108
+@@ -1003,8 +1014,12 @@
+ 	}
+ 
+ 	dev_info(&pdev->dev, "Baikal SATA PHY init\n");
+-
+-	shared_path = pdev->device == PCI_DEVICE_ID_SONY_BAIKAL_XHCI;
++	dev_info(&pdev->dev, "Baikal SATA PHY profile: %s\n",
++		 ps4_sata_phy_orbit ? "Orbis AHCI trace 6-8, glue 108/44" :
++		 "existing shared trace 3-5, glue 112/48");
++
++	shared_path = !ps4_sata_phy_orbit &&
++		pdev->device == PCI_DEVICE_ID_SONY_BAIKAL_XHCI;
+ 	if (shared_path) {
+ 		pulse_offset = 112;
+ 		hold_offset = 48;
+@@ -1024,12 +1039,12 @@
+ 		if (efuse1 & BIT(26)) {
+ 			tune0 = (efuse0 >> 16) & 0x3f;
+ 			tune1 = (efuse0 >> 22) & 0x1f;
+-			tune2 = efuse0 >> 27;
++			tune2 = (efuse0 >> 27) & 0x1f;
+ 		}
+ 	} else if (efuse1 & BIT(18)) {
+ 		tune0 = efuse0 & 0x3f;
+ 		tune1 = (efuse0 >> 6) & 0x1f;
+-		tune2 = efuse0 >> 11;
++		tune2 = (efuse0 >> 11) & 0x1f;
+ 	}
+ 
+ 	dev_info(&pdev->dev, "Baikal SATA EFUSE VALUE: 0x%02x:0x%02x:0x%02x\n",
+@@ -1040,18 +1055,34 @@
+ 	bpcie_ahci_rmw(ahci_mmio, 0x2054, 0xFFFFF07F, tune1 << 7);
+ 	iowrite32(ioread32(ahci_mmio + 0x201C) | 0x4, ahci_mmio + 0x201C);
+ 	bpcie_ahci_rmw(ahci_mmio, 0x2078, 0xFFFFFE0F, tune2 << 4);
+-	bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFC0FFFF, 0x1E0000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xC0FFFFFF, 0);
+-	bpcie_ahci_rmw(ahci_mmio, 0x2054, 0xFFFF9FFF, 0x2000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFFF03F, 0x840);
+-	bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFC0FFF, 0x2000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x205C, 0xCFFFFFFF, 0x10000000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFFF03F, 0x8C0);
+-	bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFC0FFF, 0x7000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x205C, 0x3FFFFFFF, 0x40000000);
+-	bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFFFFFF0, 0x3);
+-	bpcie_ahci_rmw(ahci_mmio, 0x206C, 0xFFFFF0FF, 0x100);
+-	bpcie_ahci_rmw(ahci_mmio, 0x2084, 0xFFFFFF00, 0x43);
++	if (ps4_sata_phy_orbit) {
++		/* Orbis trace 6..8 branch; HDD trace 6, optical drive trace 8. */
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFC0FFFF, 0x200000);
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xC0FFFFFF, 0x1000000);
++		bpcie_ahci_rmw(ahci_mmio, 0x2054, 0xFFFF9FFF, 0x2000);
++		bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFFF03F, 0x880);
++		bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFC0FFF, 0x6000);
++		bpcie_ahci_rmw(ahci_mmio, 0x205C, 0xCFFFFFFF, 0x10000000);
++		bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFFF03F, 0x900);
++		bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFC0FFF, 0xF000);
++		bpcie_ahci_rmw(ahci_mmio, 0x205C, 0x3FFFFFFF, 0x40000000);
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFFFFFF0, 0x5);
++		bpcie_ahci_rmw(ahci_mmio, 0x206C, 0xFFFFF0FF, 0x200);
++		bpcie_ahci_rmw(ahci_mmio, 0x2084, 0xFFFFFF00, 0x55);
++	} else {
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFC0FFFF, 0x1E0000);
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xC0FFFFFF, 0);
++		bpcie_ahci_rmw(ahci_mmio, 0x2054, 0xFFFF9FFF, 0x2000);
++		bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFFF03F, 0x840);
++		bpcie_ahci_rmw(ahci_mmio, 0x207C, 0xFFFC0FFF, 0x2000);
++		bpcie_ahci_rmw(ahci_mmio, 0x205C, 0xCFFFFFFF, 0x10000000);
++		bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFFF03F, 0x8C0);
++		bpcie_ahci_rmw(ahci_mmio, 0x2080, 0xFFFC0FFF, 0x7000);
++		bpcie_ahci_rmw(ahci_mmio, 0x205C, 0x3FFFFFFF, 0x40000000);
++		bpcie_ahci_rmw(ahci_mmio, 0x204C, 0xFFFFFFF0, 0x3);
++		bpcie_ahci_rmw(ahci_mmio, 0x206C, 0xFFFFF0FF, 0x100);
++		bpcie_ahci_rmw(ahci_mmio, 0x2084, 0xFFFFFF00, 0x43);
++	}
+ 	bpcie_ahci_rmw(ahci_mmio, 0x2040, 0xFFFFFFE0, 0x12);
+ 	bpcie_ahci_rmw(ahci_mmio, 0x2040, 0xFFFFC0FF, 0x3100);
+ 	bpcie_ahci_rmw(ahci_mmio, 0x2040, 0xFFE0FFFF, 0xE0000);

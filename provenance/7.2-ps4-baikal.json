@@ -52,13 +52,13 @@
     "ordered_patchset_sha256": "4fbc45bea17a78ceec00214220ee865896ea91841bedaefc2f481e8ea194ee0a"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4-baikal/series",
-  "series_sha256": "4ac75f4e898e8a096637b21ba5fc45f2f77a91ba310b9a589fc13debdd8a4a00",
-  "active_patch_count": 61,
-  "ordered_patchset_sha256": "99eb341e71a6acf213faa05710ea720f79c60c321f5821c5b6303d3894c08024",
+  "series_sha256": "152e0c6da340e30eee3cc7dd96f3e7af4c8be7dd02b89d29e4877524f8b4a786",
+  "active_patch_count": 63,
+  "ordered_patchset_sha256": "3e21b9e9bbda7a6913bca446d8418888a525e5558190c28b85b96c48aa268d92",
   "change_counts": {
     "adapted": 2,
     "context": 6,
-    "port-fix": 6,
+    "port-fix": 8,
     "unchanged": 47
   },
   "patches": [
@@ -728,6 +728,24 @@
       "origin": "port-fix",
       "change": "port-fix",
       "note": "Undoes 0500-network-mt7668/0006: its __copy_from_user() calls skip access_ok() and procDriverCmdWrite() copied 2999 bytes whatever the write size. Uses copy_from_user() with the driver's sizes and the comparison of 7.2-ps4 0172."
+    },
+    {
+      "entry": "0400-storage-ahci/0003-ps4-baikal-ahci-phy-orbis-profile.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0003-ps4-baikal-ahci-phy-orbis-profile.patch",
+      "sha256": "cea3f3a7b71a2d4da768ff81c70a0e3a4e4dbb1916ace8f3c6eed300480b53e3",
+      "subject": "ps4: add Orbis-style AHCI PHY profile for Baikal internal HDD",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "New disabled-by-default test profile; EXP-20261022-005 applied it and attached sdb, but the first read still timed out. PHY/EFUSE match only, not a complete support fix."
+    },
+    {
+      "entry": "0400-storage-ahci/0004-ata-ahci-ps4-completion-poll.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0004-ata-ahci-ps4-completion-poll.patch",
+      "sha256": "22023de44542013e4c81d4a6f45907eaf5772f98fb20e21a813755c902c74e30",
+      "subject": "ata: ahci: add optional PS4 completion poll fallback",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "New disabled-by-default per-port poll fallback; EXP-20261022-011 read the internal HDD partition table read-only with it. One boot, not hardware acceptance; repeat boots and a proper IRQ fix remain required."
     }
   ],
   "inputs": [

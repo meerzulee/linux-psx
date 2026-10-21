@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Meerzulee <17146298+meerzulee@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 03:16:00 +0600
+Subject: [PATCH] ata: ahci: add optional PS4 completion poll fallback
+
+The Baikal embedded AHCI can complete a command in hardware while its
+completion FIS is not handed to libata: PxCI and PxSACT are clear,
+PxTFD is ready, PxSERR is zero, but PxIS still has a pending D2H, SDB
+or PIO Setup FIS and only a few interrupts were delivered.
+
+Add a disabled-by-default per-port poll timer, enabled with
+libahci.ps4_ahci_poll_ms=5.  It calls ahci_port_intr() when
+PORT_IRQ_STAT is non-zero, then re-arms.  This is a bring-up
+workaround, not a replacement for the missing interrupt path.
+
+Hardware EXP-20261022-011 read the internal HDD partition table
+read-only with this fallback.  This is one boot, not hardware
+acceptance; repeat boots and a proper IRQ fix remain required.
+---
+ drivers/ata/ahci.h    |  2 ++
+ drivers/ata/libahci.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 41 insertions(+)
+
+--- a/drivers/ata/ahci.h
++++ b/drivers/ata/ahci.h
+@@ -325,6 +325,8 @@
+ 	/* enclosure management info per PM slot */
+ 	struct ahci_em_priv	em_priv[EM_MAX_SLOTS];
+ 	char			*irq_desc;	/* desc in /proc/interrupts */
++	struct ata_port		*ap;		/* owning port for PS4 poll */
++	struct timer_list	ps4_poll_timer;	/* PS4 completion poll */
+ };
+ 
+ struct ahci_host_priv {
+--- a/drivers/ata/libahci.c
++++ b/drivers/ata/libahci.c
+@@ -30,12 +30,18 @@
+ #include <scsi/scsi_cmnd.h>
+ #include <linux/libata.h>
+ #include <linux/pci.h>
++#include <linux/timer.h>
+ #include "ahci.h"
+ #include "libata.h"
+ 
+ static int ahci_skip_host_reset;
+ int ahci_ignore_sss;
+ EXPORT_SYMBOL_GPL(ahci_ignore_sss);
++
++static unsigned int ps4_ahci_poll_ms;
++module_param_named(ps4_ahci_poll_ms, ps4_ahci_poll_ms, uint, 0644);
++MODULE_PARM_DESC(ps4_ahci_poll_ms,
++		 "PS4 AHCI completion poll interval in ms (0=off)");
+ 
+ module_param_named(skip_host_reset, ahci_skip_host_reset, int, 0444);
+ MODULE_PARM_DESC(skip_host_reset, "skip global host reset (0=don't skip, 1=skip)");
+@@ -1974,6 +1980,30 @@
+ 	ahci_handle_port_interrupt(ap, port_mmio, status);
+ }
+ 
++static void ps4_ahci_poll_timer(struct timer_list *t)
++{
++	struct ahci_port_priv *pp = timer_container_of(pp, t, ps4_poll_timer);
++	struct ata_port *ap = pp->ap;
++	unsigned long flags;
++	u32 status;
++
++	if (!ps4_ahci_poll_ms || !ap)
++		return;
++
++	if (!ata_port_is_frozen(ap)) {
++		status = readl(ahci_port_base(ap) + PORT_IRQ_STAT);
++		if (status) {
++			spin_lock_irqsave(ap->lock, flags);
++			if (!ata_port_is_frozen(ap))
++				ahci_port_intr(ap);
++			spin_unlock_irqrestore(ap->lock, flags);
++		}
++	}
++
++	mod_timer(&pp->ps4_poll_timer,
++		  jiffies + msecs_to_jiffies(ps4_ahci_poll_ms));
++}
++
+ static irqreturn_t ahci_multi_irqs_intr_hard(int irq, void *dev_instance)
+ {
+ 	struct ata_port *ap = dev_instance;
+@@ -2580,6 +2610,11 @@
+ 	}
+ 
+ 	ap->private_data = pp;
++	pp->ap = ap;
++	timer_setup(&pp->ps4_poll_timer, ps4_ahci_poll_timer, 0);
++	if (ps4_ahci_poll_ms)
++		mod_timer(&pp->ps4_poll_timer,
++			  jiffies + msecs_to_jiffies(ps4_ahci_poll_ms));
+ 
+ 	/* engage engines, captain */
+ 	return ahci_port_resume(ap);
+@@ -2590,7 +2625,11 @@
+ 	const char *emsg = NULL;
+ 	struct ahci_host_priv *hpriv = ap->host->private_data;
+ 	void __iomem *host_mmio = hpriv->mmio;
++	struct ahci_port_priv *pp = ap->private_data;
+ 	int rc;
++
++	if (pp)
++		timer_delete_sync(&pp->ps4_poll_timer);
+ 
+ 	/* de-initialize port */
+ 	rc = ahci_deinit_port(ap, &emsg);

@@ -66,3 +66,8 @@
 9000-port-7.2/0004-ps4-bpcie-replace-pci_msi_create_irq_domain-removed-.patch
 9000-port-7.2/0005-mt76x8-adapt-key-and-station-operations-to-Linux-7.1.patch
 9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch
+
+# Baikal internal SATA bring-up: Orbis PHY profile and completion poll fallback.
+# Hardware EXP-20261022-005/-011; read-only, one boot, not acceptance.
+0400-storage-ahci/0003-ps4-baikal-ahci-phy-orbis-profile.patch
+0400-storage-ahci/0004-ata-ahci-ps4-completion-poll.patch
