@@ -42,7 +42,7 @@ console or a fresh rebuild.
 | UVD / H.264 decode | 🧪 1080p30 VAAPI decode and playback passed | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
-| Internal storage / SATA | ❌ Historical timeouts and read errors; unqualified | ⏳ Untested | ⏳ Untested |
+| Internal storage / SATA | 🧪 One read-only partition scan (EXP-20261022-011) with experimental PHY/poll patches; writes, Sony encryption/UFS and installation unqualified | ⏳ Untested | ⏳ Untested |
 | External USB root | ✅ Read/write root booted on 7.2 | ⏳ Untested | ⏳ Untested |
 | Wi-Fi | ✅ MT7668; DHCP and verified HTTPS | ⏳ Untested | ⏳ Untested |
 | Bluetooth audio | ✅ One device paired; audible stereo playback | ⏳ Untested | ⏳ Untested |
@@ -50,6 +50,33 @@ console or a fresh rebuild.
 | Temperature monitoring | ✅ Historical `k10temp` readings on 6.18 | ⏳ Untested | ⏳ Untested |
 | Fan control | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Shutdown / reboot / suspend | ⏳ Not qualified; UVD recovery restrictions apply | ⏳ Untested | ⏳ Untested |
+
+The internal-SATA read-only result is one boot on the tested Slim, not
+hardware acceptance. It used the local `7.2-ps4-baikal` candidate with
+`ps4_bpcie.ps4_sata_phy_orbit=1` and `libahci.ps4_ahci_poll_ms=5`; both
+patches are disabled by default. Writes, the Sony encrypted/UFS stack,
+installation and a proper completion path remain unqualified.
+
+### Remaining hardware work
+
+- **Internal SATA:** repeat read-only boots; fix the pending completion/IRQ
+  path instead of relying on the poll workaround; validate the Sony
+  encrypted/UFS layers; only then consider writes or an installer.
+- **Thermal/fan:** read-only fan RPM/PWM discovery and sustained-load cooling;
+  the current `k10temp` readings are not fan-control qualification.
+- **Power lifecycle:** exact-artifact shutdown, reboot and suspend/resume
+  acceptance. UVD recovery restrictions still apply.
+- **Video:** VCE encoding, broader UVD profiles/sustained playback and a
+  system-wide Mesa/Vulkan adoption path. Current UVD and Mesa results are
+  experimental and artifact-scoped.
+- **Audio:** audible HDMI output and the native 48 kHz path; ALSA/PipeWire
+  enumeration alone is not acceptance.
+- **Wireless:** cold firmware loading, reconnect persistence and broader
+  Wi-Fi/Bluetooth device coverage without the retained external boot stack.
+- **Ethernet:** IRQ mode, offloads, cable recovery, reset and suspend; the
+  current native path is experimental and has no safe unload/reset claim.
+- **CPU/RAM:** cpufreq policy, bounded memory allocation and a measured
+  RAM/VRAM split. See [PS4 dynamic memory](docs/PS4-DYNAMIC-MEMORY.md).
 
 The [7.2 port notes](docs/PORT-7.2.md) record the core boot and the separate
 native Ethernet test. Wi-Fi and Bluetooth results used the retained external

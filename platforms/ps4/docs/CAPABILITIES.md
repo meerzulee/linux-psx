@@ -14,7 +14,7 @@ replacement merely because it carries the patches.
 | Display | 1080p XFCE and repeated staged bridge completion | Other modes, monitors, console revisions and repeated cold boots |
 | GPU | Direct radeonsi OpenGL 4.6; roughly 59 FPS for an eight-second `glxgears` smoke; eight-second RADV Vulkan 1.3 `vkcube` | Short rendering tests do not qualify sustained load, reset, suspend or video codecs |
 | External USB | Root disk, keyboard and mouse operated | Device-specific recovery and power-loss behavior remain separate |
-| Internal SATA | Controller/disk enumeration, followed by timeouts/read failures | Degraded; no Sony filesystem writes or installation accepted |
+| Internal SATA | Controller/disk enumeration, then one read-only partition scan (EXP-20261022-011) with the experimental PHY/poll patches | Repeat boots, a proper completion path, Sony encryption/UFS, writes and installation unqualified |
 | MT7668 Wi-Fi | Association, DHCP, SSH, DNS and verified HTTPS on the old firmware-bearing stack | The new kernel embeds no firmware; supply appropriate external firmware through the distro/boot arrangement and retest |
 | Ethernet | EXP014/015 transport and EXP016 continuous MTS2 traffic | Experimental; see the separate [evidence ladder](ETHERNET-HISTORY.md) |
 | HDMI audio | HDA/ALSA/PipeWire enumeration and accepted PCM samples | No audible sound in the recorded test; playback remains partial |

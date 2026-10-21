@@ -13,6 +13,23 @@ Baikal AHCI/SATA
   -> Linux root
 ```
 
+## Latest read-only result (2026-10-22)
+
+`EXP-20261022-011` attached the internal Toshiba HDD as `/dev/sdb` and read
+its partition table (`sdb1`, `sdb3`, `sdb5` through `sdb31`) under the local
+7.2 Baikal candidate. This used two disabled-by-default test patches:
+
+- Orbis AHCI PHY profile: `ps4_bpcie.ps4_sata_phy_orbit=1`
+- AHCI completion poll fallback: `libahci.ps4_ahci_poll_ms=5`
+
+The first 4 KiB read and partition scan completed read-only. This is one
+boot; it is not hardware acceptance, and the poll fallback is a workaround
+for a pending completion FIS, not a proven interrupt fix. Repeat boots,
+write stability, the Sony encrypted/UFS layers and an installer remain
+unqualified. Do not treat the partition numbers as a portable layout.
+
+## Historical encrypted-storage path
+
 The old kernel project inspected this approach in
 `danyboy666/ps4-retrobox` at
 `6c79062adbe1691707ac3c1ed7baa1f3118734f8`. It is a research reference,

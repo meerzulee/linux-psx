@@ -18,6 +18,53 @@ Linux headroom is a memory-budget policy; it need not be another permanently
 partitioned pool. The same physical page must never be independently allocated
 to unrelated CPU and GPU owners.
 
+## DDR3 and the actual PS4 memory pools
+
+The tested PS4 Slim with Baikal B1 has **8 GiB of GDDR5 as one unified pool**;
+it does not have a separate DDR3 pool. The base PS4 and Slim use the same
+GDDR5 for CPU and GPU. The PS4 Pro adds a separate **1 GiB DDR3** pool for
+background/system tasks alongside its 8 GiB GDDR5; that DDR3 is not a general
+game-memory pool and its Linux exposure has not been tested here.
+
+`vram.txt = 1024` is therefore not a second physical memory type. It is a
+**boot-time carve-out from the single GDDR5 pool**: the loader excludes it
+from Linux's E820 map and gives it to the GPU framebuffer/VRAM path. Linux
+sees roughly 6.8 GiB of the remaining pool. The carve-out is why changing only
+`amdgpu.vramlimit` cannot return memory to Linux.
+
+## Practical dynamic-memory strategy
+
+There are three different goals that are easy to conflate:
+
+1. **Return unused fixed VRAM to Linux.** This needs the loader's E820
+   reservation, GPU framebuffer window, MTRRs and driver assumptions to agree
+   on a smaller reservation. It is a boot-time change, not a runtime resize.
+2. **Let GPU buffers come from system pages on demand.** AMDGPU already maps
+   GTT/GPUVM buffers backed by system memory and TTM can evict buffers under
+   pressure. This can make GPU allocations more flexible without moving the
+   physical VRAM boundary.
+3. **True runtime resizing of the physical pool.** There is no production
+   mechanism for this today. It would require a custom loader/driver contract
+   and careful handling of display scanout, page tables, rings, firmware and
+   pinned buffers. HMM/SVM or a custom carveout driver may be research paths,
+   not a configuration switch.
+
+The lowest-risk progression is:
+
+1. Measure the current 1 GiB carve-out, AMDGPU VRAM/GTT heaps, display
+   framebuffer, UVD and page-table residency.
+2. Try a smaller fixed carve-out (512 MiB first, then 256 MiB only if needed)
+   as one boot variable, with the 1 GiB set as rollback.
+3. Keep only display/scanout and required resident structures in VRAM; use
+   GTT/GPUVM for ordinary GPU buffers. Verify display, OpenGL, Vulkan, UVD and
+   memory pressure before increasing the shared pool.
+4. Only then consider a custom dynamic carveout or HMM/SVM design. Keep Linux
+   headroom as a policy/budget, not a second permanent partition.
+
+This is about Linux applications and Linux games. Native Orbis games are not
+Linux binaries and do not become loadable through a RAM/VRAM policy change;
+any PS4-game path would be a separate compatibility/emulation project.
+
 ## What the current code provides
 
 - The current test boot set uses `vram.txt = 1024`, a 1 GiB fixed reservation.
