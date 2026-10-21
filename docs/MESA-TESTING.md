@@ -8,7 +8,16 @@ their own results.
 
 ## Current checkpoint — 2026-10-21
 
-**System adoption is withdrawn.** The exact Mesa 26.2.5 candidate rendered
+**Stable adoption remains withdrawn.** At the owner's explicit request,
+EXP-20261021-023 installed exact dev5 as the experimental default on disk:
+matched Mesa/RADV packages`1:26.2.5-5.1`, all40 stage identities verified,
+clean package/database checks and signed original rollback packages retained.
+Rendering settings, update blocks and package holds remain unchanged. This
+CPU-only installation neither restarted the desktop nor repaired the existing
+CarChase-faulted boot; activation needs full power-off and a separate boot
+observation. It does not qualify a stable image or automatic driver updates.
+
+The earlier dev2 Mesa 26.2.5 candidate rendered
 OpenGL/WebGL and a fresh compositor, but the Vulkan rendering check stalled.
 UART recorded `PS4_UVD_RUNTIME CLOSED error=-110` at 17:01:57.165841 UTC;
 the owner subsequently observed a frozen desktop/mouse. This establishes a
@@ -108,8 +117,9 @@ all44 Mesa build tests and repository source checks pass. This is a demonstrated
 remedy for the tested workloads, not identification of every lower-level cause.
 The original FLAT-only fill was not itself measured failing on Liverpool;
 instruction selection also changes scheduling/register allocation, and earlier
-failures used different fresh boots. Original signed system packages/compositor
-remain26.1.7. Broader API/MSAA/depth-format/compute coverage, seeking, sustained
+failures used different fresh boots. Those tests used the original26.1.7 system
+packages/compositor; the later on-disk default change is recorded above.
+Broader API/MSAA/depth-format/compute coverage, seeking, sustained
 load and three fresh boots remain outstanding before full-stack promotion.
 
 ### GFXBench follow-up — advanced rendering fault
@@ -134,9 +144,10 @@ fences; UVD stayed unused. Scores are workload observations with vsync and
 monitoring overhead, not independent pixel correctness or competitive results.
 Requested1280×720 was configured by Hyprland as1920×1080.
 
-In EXP-20261021-022 the first graphics VM faults are at21:20:45UTC on October20,
-including a read at page`0x00FF0010` and a write at page`0x000018C8`, followed
-by interrupt-ring overflow and additional faults. The generic guard records
+In EXP-20261021-022 the first retained graphics VM fault header is at21:20:45UTC
+on October20. Two interrupt-ring overflows interleave that header and the first
+retained tuple: a read at page`0x00FF0010`; a write at page`0x000018C8` follows.
+Earlier hardware events may have been lost. The generic guard records
 `PS4_UVD_RUNTIME CLOSED error=-5` at21:20:47 despite no decoding request.
 Later cached queues being caught up does not reverse that terminal closure.
 No GPU reset/rearm or further GPU workload was attempted; full power-off and
@@ -146,12 +157,14 @@ The failing instruction, buffer and ownership layer are not yet identified.
 CarChase adds particle SSBO, tessellation and other rendering paths;
 Manhattan3.1 already exercises compute. Its warmup simulation shader lacks an
 explicit range check, but the actual256particle count is divisible by every
-tested workgroup size, so that fact does not demonstrate an OOB here. An
+tested workgroup size, so that fact does not demonstrate an OOB here. Warmup's
+timer-result wait or`glFinish()` also synchronizes completed GPU work. An
 upstream `glGetString(GL_EXTENSIONS)` error in a core context also does not
 establish the cause of a GPU memory fault. Preserve the first fault and partial
 logs, then reduce one dispatch or draw after stage attribution rather than
-retrying the entire failing scene. This candidate remains unsuitable for system
-adoption. The benchmark and reviewed results are saved privately on the console.
+retrying the entire failing scene. This candidate remains unqualified for stable
+system adoption despite the owner's experimental default. The benchmark and
+reviewed results are saved privately on the console.
 
 
 Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical;
