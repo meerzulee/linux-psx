@@ -79,7 +79,8 @@ artifacts on one console; the system remains on the original Mesa packages.
 ### Build the Linux 7.2 Baikal kernel
 
 Use `7.2-ps4-baikal-native-dev` for the Baikal port with native Ethernet.
-It produces `7.2.11-psx-ps4-baikal-native-dev1`. The UVD runtime is a separate
+It produces `7.2.11-psx-ps4-baikal-native-dev2`, adding the HDMI underscan fix to
+the unchanged native-Ethernet stack. This new kernel revision is not boot-tested. The UVD runtime is a separate
 experimental source/build path described in the UVD guide.
 
 ```sh

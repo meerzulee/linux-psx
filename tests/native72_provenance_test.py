@@ -1,4 +1,4 @@
-"""Keep the published native candidate tied to the exact locally tested source."""
+"""Preserve the tested native base and the exact contributor underscan patch."""
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -40,7 +40,7 @@ class Native72ProvenanceTests(unittest.TestCase):
                 item["sha256"] = hashlib.sha256((self.root / name).read_bytes()).hexdigest()
 
     def test_exact_tested_native_inputs_are_accepted(self):
-        self.assertEqual(APP.check_target(self.root), 62)
+        self.assertEqual(APP.check_target(self.root), 63)
 
     def test_rehashed_hardware_config_change_is_rejected(self):
         name = self.record["config"]["path"]
@@ -65,6 +65,15 @@ class Native72ProvenanceTests(unittest.TestCase):
         name = self.record["native_autoload"]["path"]
         path = self.root / name
         path.write_bytes(path.read_bytes() + b"\n# unreviewed change\n")
+        self.rehash(name)
+        self.save()
+        with self.assertRaisesRegex(ValueError, "tested patchset"):
+            APP.check_target(self.root)
+
+    def test_rehashed_contributor_underscan_change_is_rejected(self):
+        name = self.record["psx_additions"][0]["path"]
+        path = self.root / name
+        path.write_bytes(path.read_bytes() + b"\n# changed contributor bytes\n")
         self.rehash(name)
         self.save()
         with self.assertRaisesRegex(ValueError, "tested patchset"):

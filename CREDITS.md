@@ -56,6 +56,13 @@ historical. No PS5 code is merged into the PS4 patch snapshot. Loader code and
 device firmware are not imported or bundled, and the kernel candidate does not
 establish PS5 hardware acceptance or firmware 12.40 loader support.
 
+## PS4 HDMI underscan
+
+**suds-mcduff** contributed and tested the PS4 bridge underscan-property hook in
+[PR #3](https://github.com/meerzulee/linux-psx/pull/3). The Linux7.2 native
+candidate references the exact6.18 patch bytes, retaining its author and sign-off.
+Its reported6.18 X11 test does not establish7.2 or Wayland acceptance.
+
 ## MTS2 Ethernet migration
 
 The original `GPL-2.0-only` Baikal MTS2 implementation by Meerzulee and Linux

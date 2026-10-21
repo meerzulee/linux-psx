@@ -34,7 +34,7 @@ class ReleaseContractTests(unittest.TestCase):
     def test_release_notes_keep_hardware_evidence_specific_to_target_and_build(self):
         for target, release, included, excluded in [
             ("6.18-ps4-baikal", RELEASE, "two Ethernet boots", "passed one cable-connected"),
-            ("7.2-ps4-baikal-native-dev", "7.2.11-psx-ps4-baikal-native-dev1", "EXP-20261018-004", "two Ethernet boots"),
+            ("7.2-ps4-baikal-native-dev", "7.2.11-psx-ps4-baikal-native-dev2", "EXP-20261018-004", "two Ethernet boots"),
         ]:
             text = package.release_notes({"target": target, "kernel_release": release}, "c" * 40, "https://example.com/run")
             self.assertIn(release, text)

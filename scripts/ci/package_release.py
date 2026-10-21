@@ -85,14 +85,16 @@ def release_notes(target, commit, run_url):
         )
     elif target["target"] == "7.2-ps4-baikal-native-dev":
         evidence = (
-            "Pinned Linux 7.2.11 with the 61-patch Baikal port and the unchanged native MTS "
-            "autoload patch (62 patches). The local OrbStack build passed one cable-connected "
-            "boot on one PS4 Slim / Baikal B1: USB root, desktop, native Ethernet DHCP/default "
-            "route, gateway ping, HTTPS and hash-checked 4 MiB transfers both ways "
-            "(EXP-20261018-004). This separately compiled CI build has not been boot-tested. "
-            "RX drops in the local test remain unclassified; long-duration operation, cable/admin "
-            "cycles and cold firmware loading are untested. No hardware acceptance or promotion "
-            "is claimed for this development target, other PS4 revisions or PS5."
+            "Pinned Linux 7.2.11 with the 61-patch Baikal port, unchanged native MTS autoload "
+            "and PR #3 HDMI underscan fix (63 patches). This dev2 build has not been boot-tested. "
+            "The historical dev1 local OrbStack build passed one cable-connected boot on one "
+            "PS4 Slim / Baikal B1: USB root, desktop, native Ethernet DHCP/default route, gateway "
+            "ping, HTTPS and hash-checked 4 MiB transfers both ways (EXP-20261018-004). "
+            "That dev1 result does not qualify the new HDMI addition or this rebuilt image. "
+            "Ethernet patch bytes and network configuration remain unchanged. RX drops in the "
+            "historical local test remain unclassified; long-duration operation, cable/admin "
+            "cycles and cold firmware loading remain unqualified. No hardware acceptance or "
+            "promotion is claimed for this development target, other PS4 revisions or PS5."
         )
     else:
         raise ValueError("release notes require an explicitly supported PS4 Baikal target")

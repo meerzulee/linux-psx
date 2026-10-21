@@ -348,7 +348,40 @@ local clone of the pinned v7.2.11 commit. The artifacts stay local. The
 OrbStack candidate identified above passed EXP-20261018-001; the native build
 has not been booted.
 
-## The native Ethernet Baikal candidate
+## Current native Baikal dev2 — HDMI underscan
+
+`7.2-ps4-baikal-native-dev` now produces
+`7.2.11-psx-ps4-baikal-native-dev2`. It keeps the exact preceding61-patch
+Baikal port and native-autoload patch, then references the unchanged contributor
+[PR #3 underscan fix](https://github.com/meerzulee/linux-psx/pull/3):63 patches.
+Only the three underscan properties reach the existing AMDGPU handler; their
+mode set already invokes the ATOM overscan/scaler setup. Patch authorship,
+sign-off and GPL notices remain intact. Ethernet patch bytes, fragments and
+network settings are unchanged; the config delta remains LOCALVERSION only.
+
+Current series SHA256:
+`f93cdfd62503eec5edd85a975d29fcd1eaf007c1a5d2d3b801e51fab7ed8d679`;
+ordered patchset:
+`60da4386cdffdb0f94c624f2a90a991f77d557246f4c1a1389b1b98247963707`.
+The new release identity prevents substituting dev2 modules for dev1. Build
+and source checks do not qualify HDMI behavior; dev2 has no boot/underscan
+hardware result. The original dev1 measurements below remain historical.
+The experimental UVD runtime kernel is a separate source/build path and has
+not been replaced by this ordinary native target.
+
+The second-console [7.x report](https://github.com/meerzulee/linux-psx/issues/2#issuecomment-6306410011)
+identifies dev1 CI artifacts and reports a working desktop and single-NIC
+Ethernet. The reporter says the earlier loss disappeared after removing the
+second NIC on the same subnet. Those are contributor observations on their
+exact artifacts, not dev2 acceptance. Their optional policy-routing config
+proposal remains a separate untested follow-up; it is not enabled here.
+
+Host checks pass:30 unit tests and existing source/provenance checks. Applying
+the connector-related patches in series order to the exact upstream7.2.11
+file succeeds; PR #3 applies unchanged at offset−9 and its reverse check passes.
+Full kernel compilation and a dev2 hardware boot remain pending.
+
+## Historical native Ethernet dev1 candidate
 
 `7.2-ps4-baikal-native-dev` preserves the original 61-patch target and appends
 the existing `0700-network-mts/0002-net-ps4-mts-native-autoload.patch` without

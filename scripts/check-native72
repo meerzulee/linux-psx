@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the native 7.2 Baikal candidate against its tested source identity."""
+"""Verify the frozen native 7.2 base plus the reviewed HDMI-only addition."""
 import hashlib
 import json
 from pathlib import Path
@@ -7,10 +7,11 @@ import shlex
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = "7.2-ps4-baikal-native-dev"
-RELEASE = "7.2.11-psx-ps4-baikal-native-dev1"
-SERIES = "f94de556e26eee2db36c07480cb4ba301f3b032d500adb13cf6a4675426ff4be"
-PATCHSET = "ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91"
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev2"
+SERIES = "f93cdfd62503eec5edd85a975d29fcd1eaf007c1a5d2d3b801e51fab7ed8d679"
+PATCHSET = "60da4386cdffdb0f94c624f2a90a991f77d557246f4c1a1389b1b98247963707"
 NATIVE = "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
+UNDERSCAN = "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c"
 
 
 def require(condition, message):
@@ -54,8 +55,8 @@ def check_target(root=ROOT):
                     "series_sha256": base["series_sha256"], "active_patch_count": 61,
                     "ordered_patchset_sha256": base["ordered_patchset_sha256"]}, "native 7.2 base target pin differs")
     patches = record["patches"]
-    require(len(patches) == record["active_patch_count"] == 62 and len(base["patches"]) == 61,
-            "native 7.2 requires exactly 61 base patches and one native patch")
+    require(len(patches) == record["active_patch_count"] == 63 and len(base["patches"]) == 61,
+            "native 7.2 requires exactly 61 base patches, native autoload and underscan")
     require(all({k: item[k] for k in ("entry", "path", "sha256")} == prefix
                 for item, prefix in zip(base["patches"], patches[:61])), "native 7.2 canonical prefix differs")
     require(digest(root / base["series_path"]) == base["series_sha256"], "native 7.2 base series differs")
@@ -74,20 +75,30 @@ def check_target(root=ROOT):
             "native 7.2 tested patchset differs")
     native = record["native_autoload"]
     source = json.loads((root / "provenance/6.18-ps4-baikal.json").read_text())
-    require(patches[-1]["path"] == native["path"] == "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch"
-            and patches[-1]["sha256"] == native["sha256"] == NATIVE
+    require(patches[61]["path"] == native["path"] == "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch"
+            and patches[61]["sha256"] == native["sha256"] == NATIVE
             and any(p["path"] == native["path"] and p["sha256"] == NATIVE for p in source["patches"]),
             "native 7.2 autoload patch must remain the unchanged 6.18 addition")
+    additions = record["psx_additions"]
+    require(len(additions) == 1
+            and patches[62]["path"] == additions[0]["path"] ==
+                "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch"
+            and patches[62]["sha256"] == additions[0]["sha256"] == UNDERSCAN
+            and additions[0]["source_merge_commit"] == "377f1107332199a21ceca1fd8f1fe7a2b01c263f"
+            and any(p["path"] == patches[62]["path"] and p["sha256"] == UNDERSCAN
+                    for p in source["patches"]),
+            "native 7.2 underscan must remain the exact reviewed PR #3 patch")
     original = (root / base_env["CONFIG_FILE"]).read_bytes()
     expected_config = original.replace(b'CONFIG_LOCALVERSION="-psx-ps4-baikal-dev1"',
-                                       b'CONFIG_LOCALVERSION="-psx-ps4-baikal-native-dev1"')
+                                       b'CONFIG_LOCALVERSION="-psx-ps4-baikal-native-dev2"')
     require(original != expected_config and (root / env["CONFIG_FILE"]).read_bytes() == expected_config,
             "native 7.2 config changes beyond LOCALVERSION")
     require(record["firmware"] == {"embedded": False, "bundled": False}
             and b'CONFIG_EXTRA_FIRMWARE=""\n' in expected_config, "native 7.2 must remain firmware-free")
     require(record["hardware_evidence"]["experiment"] == "EXP-20261018-004"
+            and record["hardware_evidence"]["kernel_release"] == "7.2.11-psx-ps4-baikal-native-dev1"
             and record["hardware_evidence"]["uart_continuity"] == "completed",
-            "native 7.2 evidence must retain the completed experiment scope")
+            "native 7.2 must keep completed dev1 evidence separate from dev2")
     return len(patches)
 
 

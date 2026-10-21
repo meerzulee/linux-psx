@@ -3,8 +3,8 @@
   "created_on": "2026-10-18",
   "target": "7.2-ps4-baikal-native-dev",
   "platform": "ps4-baikal",
-  "status": "experimental development target; one local native Ethernet boot passed, no acceptance or promotion",
-  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev1",
+  "status": "experimental HDMI underscan candidate; unchanged native Ethernet; dev2 has no hardware acceptance",
+  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev2",
   "source_date_epoch": 1792195200,
   "upstream": {
     "repository": "https://github.com/gregkh/linux.git",
@@ -22,9 +22,9 @@
   },
   "series_path": "platforms/ps4/patches/7.2-ps4-baikal-native-dev/series",
   "patches_dir": "platforms/ps4/patches/7.2-ps4-baikal",
-  "series_sha256": "f94de556e26eee2db36c07480cb4ba301f3b032d500adb13cf6a4675426ff4be",
-  "active_patch_count": 62,
-  "ordered_patchset_sha256": "ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91",
+  "series_sha256": "f93cdfd62503eec5edd85a975d29fcd1eaf007c1a5d2d3b801e51fab7ed8d679",
+  "active_patch_count": 63,
+  "ordered_patchset_sha256": "60da4386cdffdb0f94c624f2a90a991f77d557246f4c1a1389b1b98247963707",
   "patches": [
     {
       "entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
@@ -335,6 +335,11 @@
       "entry": "../6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
       "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
       "sha256": "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
+    },
+    {
+      "entry": "../6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "sha256": "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c"
     }
   ],
   "native_autoload": {
@@ -348,11 +353,11 @@
   "inputs": [
     {
       "path": "targets/7.2-ps4-baikal-native-dev.env",
-      "sha256": "cfe74f5906963dce4316cbecaefe6e732363323077b7bcf5321e19a64df84f5d"
+      "sha256": "2286b27e0a03183efa68b9561850379e7bf3911ffe931e0329ba0006005e6391"
     },
     {
       "path": "platforms/ps4/config/7.2-psx-baikal-native-dev.config",
-      "sha256": "6cb068d48a02dddc308eee3fafedadfd9d1487de7c4310b20ea883d0c2efeaef"
+      "sha256": "03834a0e813c232be154def9386fe4cf00e4566da80e5a2cb2c928342fe918d8"
     },
     {
       "path": "platforms/ps4/config/fragments/mt7668.config",
@@ -368,7 +373,7 @@
     "derived_from": "platforms/ps4/config/7.2-psx-baikal.config",
     "method": "copy the canonical 7.2 Baikal config; replace only CONFIG_LOCALVERSION; use the same fragments and olddefconfig",
     "changes": [
-      "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-native-dev1\""
+      "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-native-dev2\""
     ],
     "resolved_delta_from_first_boot": [
       "CONFIG_LOCALVERSION only"
@@ -398,10 +403,11 @@
       "all 41 module vermagic and x86-64 architecture",
       "MTS PCI alias, autoarm parameter, module notifier/netdevice symbols and depmod alias"
     ],
-    "scope": "measured local build only; future rebuilt artifacts need their own hardware evidence"
+    "scope": "measured local build only; future rebuilt artifacts need their own hardware evidence",
+    "kernel_release": "7.2.11-psx-ps4-baikal-native-dev1"
   },
   "hardware_evidence": {
-    "this_target": "No hardware acceptance or promotion. The exact local OrbStack candidate recorded below passed one native Ethernet boot with DHCP and short wired traffic in completed EXP-20261018-004 on one PS4 Slim / Baikal B1 / Orbis 12.02. CI and other rebuilt binaries have not been boot-tested; the shared release string does not transfer this evidence.",
+    "this_target": "Historical dev1 local-build evidence only. The dev2 candidate adds PR #3 underscan and has not been boot-tested; no current hardware acceptance or promotion.",
     "experiment": "EXP-20261018-004",
     "date": "2026-10-18",
     "console": "PS4 Slim / Baikal B1 / Orbis 12.02",
@@ -424,6 +430,42 @@
       "future CI/rebuilt binaries"
     ],
     "curated_record": "Omarchy psX platforms/ps4/experiments/SESSIONS.md, EXP-20261018-004",
-    "raw_evidence": "retained privately"
+    "raw_evidence": "retained privately",
+    "kernel_release": "7.2.11-psx-ps4-baikal-native-dev1"
+  },
+  "previous_candidate": {
+    "kernel_release": "7.2.11-psx-ps4-baikal-native-dev1",
+    "source_commit": "377f1107332199a21ceca1fd8f1fe7a2b01c263f",
+    "active_patch_count": 62,
+    "series_sha256": "f94de556e26eee2db36c07480cb4ba301f3b032d500adb13cf6a4675426ff4be",
+    "ordered_patchset_sha256": "ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91",
+    "scope": "Historical dev1 source/artifacts; the dev2 HDMI addition does not inherit its hardware evidence."
+  },
+  "updated_on": "2026-10-21",
+  "psx_additions": [
+    {
+      "path": "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
+      "sha256": "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c",
+      "source_pull_request": "https://github.com/meerzulee/linux-psx/pull/3",
+      "source_merge_commit": "377f1107332199a21ceca1fd8f1fe7a2b01c263f",
+      "author": "suds-mcduff",
+      "license": "GPL-2.0-only, as the amdgpu connector code it changes",
+      "adaptation": "none; reference the exact 6.18 contributor patch bytes, preserving author and sign-off; Linux 7.2 application and compilation require separate checks",
+      "scope": "Forward only underscan, underscan hborder and underscan vborder. Network driver/config inputs are unchanged; dev2 has no hardware result."
+    }
+  ],
+  "validation": {
+    "scope": "host/source only; not a kernel build or hardware qualification",
+    "make_check": "PASS: 30 unit tests plus all existing provenance and Mesa source checks",
+    "connector_application": {
+      "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
+      "upstream_file_sha256": "e2948df8d0c7ea3c0ead294c7a83ee50f4bac3d2038651b9fd1023863ae2116f",
+      "target_file_sha256": "8fb56c73d58d2becd30853608df809d75faa342d49da19c05c458868c23fafd0",
+      "patch_sha256": "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c",
+      "hunk_offset_lines": -9,
+      "reverse_check": true
+    },
+    "full_kernel_compilation": false,
+    "hardware_boot": false
   }
 }

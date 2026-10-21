@@ -69,3 +69,6 @@
 
 # Unchanged native PCI autoload/first-open patch, experimental on 7.2.
 ../6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch
+
+# Unchanged contributor PR #3 HDMI underscan fix; Ethernet stays unchanged.
+../6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch
