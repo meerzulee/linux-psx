@@ -16,320 +16,700 @@
     "provenance": "provenance/7.2-ps4-baikal.json",
     "kernel_release": "7.2.11-psx-ps4-baikal-dev1",
     "series_path": "platforms/ps4/patches/7.2-ps4-baikal/series",
-    "series_sha256": "4ac75f4e898e8a096637b21ba5fc45f2f77a91ba310b9a589fc13debdd8a4a00",
-    "active_patch_count": 61,
-    "ordered_patchset_sha256": "99eb341e71a6acf213faa05710ea720f79c60c321f5821c5b6303d3894c08024"
+    "series_sha256": "152e0c6da340e30eee3cc7dd96f3e7af4c8be7dd02b89d29e4877524f8b4a786",
+    "active_patch_count": 63,
+    "ordered_patchset_sha256": "3e21b9e9bbda7a6913bca446d8418888a525e5558190c28b85b96c48aa268d92"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4-baikal-native-dev/series",
   "patches_dir": "platforms/ps4/patches/7.2-ps4-baikal",
-  "series_sha256": "f93cdfd62503eec5edd85a975d29fcd1eaf007c1a5d2d3b801e51fab7ed8d679",
-  "active_patch_count": 63,
-  "ordered_patchset_sha256": "60da4386cdffdb0f94c624f2a90a991f77d557246f4c1a1389b1b98247963707",
+  "series_sha256": "947aaef44af1139cf397c48150b22162fed32afa721f289e8c5b7784df5e1788",
+  "active_patch_count": 65,
+  "ordered_patchset_sha256": "19cfa85153d930828a5ce1a5e067dc2fb05430efa44209907edb6cb8ba158a1c",
   "patches": [
     {
+      "subject": "x86: add PS4 platform support (Linux 6.15)",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
+      "source_sha256": "97158dece1f1b8d074c7eb56672fc104db0881f49a3079ad1e1924b3da82450e",
       "entry": "../6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0001-x86-add-ps4-platform-support.patch",
-      "sha256": "97158dece1f1b8d074c7eb56672fc104db0881f49a3079ad1e1924b3da82450e"
+      "sha256": "97158dece1f1b8d074c7eb56672fc104db0881f49a3079ad1e1924b3da82450e",
+      "change": "unchanged"
     },
     {
+      "subject": "x86/ps4: pre-allocate IRQ 9 desc for ACPI SCI handler",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
+      "source_sha256": "3a91ae61778dc7bc9a3e0f6cec89b603fd36c7d16aa82abf40ca815351d6ad2d",
       "entry": "../6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0100-x86-platform/0002-x86-ps4-allocate-irq9-desc-for-acpi-sci.patch",
-      "sha256": "3a91ae61778dc7bc9a3e0f6cec89b603fd36c7d16aa82abf40ca815351d6ad2d"
+      "sha256": "3a91ae61778dc7bc9a3e0f6cec89b603fd36c7d16aa82abf40ca815351d6ad2d",
+      "change": "unchanged"
     },
     {
+      "subject": "acpi/osl: PS4 - revert SCI install to non-threaded request_irq",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
+      "source_sha256": "3e0095e5e02f893e90189d5866fd75c0a834ec3ae6b6fa2553f9eb5bfdc6baa7",
       "entry": "../6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0150-acpi/0001-acpi-osl-ps4-revert-sci-to-request-irq.patch",
-      "sha256": "3e0095e5e02f893e90189d5866fd75c0a834ec3ae6b6fa2553f9eb5bfdc6baa7"
+      "sha256": "3e0095e5e02f893e90189d5866fd75c0a834ec3ae6b6fa2553f9eb5bfdc6baa7",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: add Aeolia/Belize/Baikal southbridge drivers",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
+      "source_sha256": "5768b531f018c3eb5fee285060450a17fac2424554ee9a16c914e45ca85fb9d8",
       "entry": "../6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0001-drivers-ps4-add-aeolia-belize-baikal.patch",
-      "sha256": "5768b531f018c3eb5fee285060450a17fac2424554ee9a16c914e45ca85fb9d8"
+      "sha256": "5768b531f018c3eb5fee285060450a17fac2424554ee9a16c914e45ca85fb9d8",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: fix bpcie-icc ioread/iowrite pointer types",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
+      "source_sha256": "1dee36269a666104dbd8e0f80c2215e5e644c8a91e551f9aaa78ed7c8f8bd5b8",
       "entry": "../6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0002-ps4-bpcie-icc-fix-ioread-iowrite-pointer-types.patch",
-      "sha256": "1dee36269a666104dbd8e0f80c2215e5e644c8a91e551f9aaa78ed7c8f8bd5b8"
+      "sha256": "1dee36269a666104dbd8e0f80c2215e5e644c8a91e551f9aaa78ed7c8f8bd5b8",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: make bpcie_uart_init failure non-fatal in probe",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
+      "source_sha256": "b30c11fe19d04077a662d9b1cd5ac18a14ddc89eafd602ad250f34be058a77d6",
       "entry": "../6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0004-ps4-bpcie-make-uart-failure-non-fatal.patch",
-      "sha256": "b30c11fe19d04077a662d9b1cd5ac18a14ddc89eafd602ad250f34be058a77d6"
+      "sha256": "b30c11fe19d04077a662d9b1cd5ac18a14ddc89eafd602ad250f34be058a77d6",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: Option E v9 - MSI parent routing + Baikal-magic compose_msg",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
+      "source_sha256": "33795ef2967c219d572a04ac9dfc3387874adb8729e1742f2c32095aed28e69a",
       "entry": "../6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0007-ps4-bpcie-option-e-routing-plus-baikal-composer.patch",
-      "sha256": "33795ef2967c219d572a04ac9dfc3387874adb8729e1742f2c32095aed28e69a"
+      "sha256": "33795ef2967c219d572a04ac9dfc3387874adb8729e1742f2c32095aed28e69a",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: Option F v11 - bpcie southbridge MSI config (func extract fix)",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
+      "source_sha256": "5c4504550088873201a15a004cf943b75cb87320d4a3f484f4f033345f3fdac2",
       "entry": "../6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0008-ps4-bpcie-southbridge-msi-config.patch",
-      "sha256": "5c4504550088873201a15a004cf943b75cb87320d4a3f484f4f033345f3fdac2"
+      "sha256": "5c4504550088873201a15a004cf943b75cb87320d4a3f484f4f033345f3fdac2",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: v12 - revert bpcie compose_msg to kernel default",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
+      "source_sha256": "9e00b650c0606ddbdf6aa6ddc37354060f8a6294195b2339e71887b899ebdee1",
       "entry": "../6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0009-ps4-bpcie-revert-composer-default.patch",
-      "sha256": "9e00b650c0606ddbdf6aa6ddc37354060f8a6294195b2339e71887b899ebdee1"
+      "sha256": "9e00b650c0606ddbdf6aa6ddc37354060f8a6294195b2339e71887b899ebdee1",
+      "change": "unchanged"
     },
     {
+      "subject": "drivers/ps4: v19 - ICC polling fallback",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
+      "source_sha256": "376736c0930f2aecb7de9c5da2f976aa4d1128599e909b1b7394e7fbf1c7e51d",
       "entry": "../6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0200-ps4-drivers/0012-ps4-bpcie-icc-poll-fallback.patch",
-      "sha256": "376736c0930f2aecb7de9c5da2f976aa4d1128599e909b1b7394e7fbf1c7e51d"
+      "sha256": "376736c0930f2aecb7de9c5da2f976aa4d1128599e909b1b7394e7fbf1c7e51d",
+      "change": "unchanged"
     },
     {
+      "subject": "drm/amdgpu: add PS4 Liverpool bridge and CIK quirks",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
+      "source_sha256": "4700020be20d4e77df5e4df4db6e3ff2920b1d92ce3e6dd58bd3152e7174108d",
       "entry": "0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/0300-gpu-liverpool/0001-amdgpu-add-ps4-liverpool-bridge.patch",
-      "sha256": "3f03aaba03be8bdbd5d0b9caccc9f23b18d992c916c99cea829069967ea6e301"
+      "sha256": "3f03aaba03be8bdbd5d0b9caccc9f23b18d992c916c99cea829069967ea6e301",
+      "change": "adapted",
+      "note": "Linux 7.2 makes Display Core the default on CIK and dropped the non-DC CIK case this patch extended. Liverpool and Gladius get their own case that keeps DC opt-in (amdgpu_dc > 0), as in 6.18. The GART size is set with the new amdgpu_gmc_set_gart_size(), SZ_512M for Liverpool and Gladius."
     },
     {
+      "subject": "drm/radeon: add PS4 Liverpool support to legacy radeon driver",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
+      "source_sha256": "338ac11ba71ae15bb8d510d0cebb257b4a642ebaa94c872e6e7cea564b6114af",
       "entry": "0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/0300-gpu-liverpool/0002-radeon-add-liverpool-cik-support.patch",
-      "sha256": "a2cc08815a48308ef2e42af84b83cc0e4f1c40a7987398b5e9089870232c4a5d"
+      "sha256": "a2cc08815a48308ef2e42af84b83cc0e4f1c40a7987398b5e9089870232c4a5d",
+      "change": "context",
+      "note": "radeon_pci_probe() now passes dev rather than &pdev->dev to devm_drm_dev_alloc()."
     },
     {
+      "subject": "drm/amdkfd: PS4 CIK / Liverpool quirks",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
+      "source_sha256": "12b329bd4d4fe06ad04fa898e6279faf77782afb5339fb1cba3abb5bd80021fb",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0003-amdkfd-cik-ps4-quirks.patch",
-      "sha256": "12b329bd4d4fe06ad04fa898e6279faf77782afb5339fb1cba3abb5bd80021fb"
+      "sha256": "12b329bd4d4fe06ad04fa898e6279faf77782afb5339fb1cba3abb5bd80021fb",
+      "change": "unchanged"
     },
     {
+      "subject": "drm: bridge/pciids updates for PS4",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
+      "source_sha256": "e1b0a8943d887901af75778aaff233e9fc1c756a938c34bc38498d6b6341f404",
       "entry": "0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/0300-gpu-liverpool/0004-drm-bridge-and-pciids.patch",
-      "sha256": "5639bba98f9092a044d94be8f4d456dd24e40e58f580ac3305f651d3f608fc9f"
+      "sha256": "5639bba98f9092a044d94be8f4d456dd24e40e58f580ac3305f651d3f608fc9f",
+      "change": "context",
+      "note": "Linux 7.2 renamed the bridge chain helpers' first argument to first_bridge, and its drm_for_each_bridge_in_chain*() now hold encoder->bridge_chain_mutex and bridge references. The legacy helpers this patch restores still walk encoder->bridge_chain without them, as in 6.18, which had neither."
     },
     {
+      "subject": "amdgpu: v15 - require MSI/MSI-X for PS4 Liverpool IRQs",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
+      "source_sha256": "ca97c4a5697bd9e75dc11a1c68b9d69cebceb77a27ec8ad3e53e2f5e232a68e6",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0005-amdgpu-require-msi-for-liverpool.patch",
-      "sha256": "ca97c4a5697bd9e75dc11a1c68b9d69cebceb77a27ec8ad3e53e2f5e232a68e6"
+      "sha256": "ca97c4a5697bd9e75dc11a1c68b9d69cebceb77a27ec8ad3e53e2f5e232a68e6",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v20 - skip DP link training for Liverpool/Gladius",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
+      "source_sha256": "ff558c9124754605c8dc88c2efbf585d6e8418e723b169779b88297b4280a904",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0006-amdgpu-skip-dp-link-train-liverpool.patch",
-      "sha256": "ff558c9124754605c8dc88c2efbf585d6e8418e723b169779b88297b4280a904"
+      "sha256": "ff558c9124754605c8dc88c2efbf585d6e8418e723b169779b88297b4280a904",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v21 - force ps4_bridge init at attach time",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
+      "source_sha256": "b157fb34511d0b43b7abc63049467abf7731b0c544d0037cb99725b3ba572bb6",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0007-amdgpu-force-ps4-bridge-init-at-attach.patch",
-      "sha256": "b157fb34511d0b43b7abc63049467abf7731b0c544d0037cb99725b3ba572bb6"
+      "sha256": "b157fb34511d0b43b7abc63049467abf7731b0c544d0037cb99725b3ba572bb6",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v22 - ps4_bridge default to VIC 16 + permissive mode_valid",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
+      "source_sha256": "80726b99d2301dcc9bf7bf8c7b6700b165734ec86707499b1eba3b192a02bac8",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0008-amdgpu-ps4-bridge-default-vic-16.patch",
-      "sha256": "80726b99d2301dcc9bf7bf8c7b6700b165734ec86707499b1eba3b192a02bac8"
+      "sha256": "80726b99d2301dcc9bf7bf8c7b6700b165734ec86707499b1eba3b192a02bac8",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v24 - ps4_bridge mode_fixup forces 1080p60",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
+      "source_sha256": "c35d745d9eef55e5ae3ea28f7378a7f67c35412b83d479d76aa4feab00f47383",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0010-amdgpu-ps4-bridge-force-1080p-mode-fixup.patch",
-      "sha256": "c35d745d9eef55e5ae3ea28f7378a7f67c35412b83d479d76aa4feab00f47383"
+      "sha256": "c35d745d9eef55e5ae3ea28f7378a7f67c35412b83d479d76aa4feab00f47383",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v25 - remove 1080p120 mode, mark 1080p60 preferred",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
+      "source_sha256": "c2761889ebb2ab1c0cbc63ad884d2e29f0b427c258220bef97875359665a0c56",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0011-amdgpu-ps4-bridge-remove-1080p120-mode.patch",
-      "sha256": "c2761889ebb2ab1c0cbc63ad884d2e29f0b427c258220bef97875359665a0c56"
+      "sha256": "c2761889ebb2ab1c0cbc63ad884d2e29f0b427c258220bef97875359665a0c56",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v28 - dce_v8_0 fallback adjusted_clock to mode->clock",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
+      "source_sha256": "e42229b3ee7ea382d3bcbcc91588935b0ede94d216d85e176e0d1c7193ab9efa",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0013-amdgpu-dce-v8-fallback-adjusted-clock.patch",
-      "sha256": "e42229b3ee7ea382d3bcbcc91588935b0ede94d216d85e176e0d1c7193ab9efa"
+      "sha256": "e42229b3ee7ea382d3bcbcc91588935b0ede94d216d85e176e0d1c7193ab9efa",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v31 - remove bridge_disable to keep HDMI signal",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
+      "source_sha256": "6796210e6ddcab737d1285260615295b09ac6c34b951e6802a8900cd39f92420",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0014-amdgpu-ps4-bridge-no-disable.patch",
-      "sha256": "6796210e6ddcab737d1285260615295b09ac6c34b951e6802a8900cd39f92420"
+      "sha256": "6796210e6ddcab737d1285260615295b09ac6c34b951e6802a8900cd39f92420",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v32 - msleep(500) at bridge_enable for DP TX settle",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
+      "source_sha256": "9cead5c9fbbb88b12a96f29cb456d6290cbc4bebcb03dc6916b029cfc55bb4c3",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0015-amdgpu-ps4-bridge-msleep-settle.patch",
-      "sha256": "9cead5c9fbbb88b12a96f29cb456d6290cbc4bebcb03dc6916b029cfc55bb4c3"
+      "sha256": "9cead5c9fbbb88b12a96f29cb456d6290cbc4bebcb03dc6916b029cfc55bb4c3",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: rename ProcessI2cChannelTransaction -> ReadEDIDFromHWAssistedI2C",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
+      "source_sha256": "d5759c699439b407c54218d6b2d921ff3ddd448d302a6de2a2a57d98197e33d5",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0018-amdgpu-atombios-i2c-rename-to-readedid.patch",
-      "sha256": "d5759c699439b407c54218d6b2d921ff3ddd448d302a6de2a2a57d98197e33d5"
+      "sha256": "d5759c699439b407c54218d6b2d921ff3ddd448d302a6de2a2a57d98197e33d5",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v47 - floor dp_clock=270000 on Liverpool/Gladius in adjust_pll",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
+      "source_sha256": "3e7e2aeaea78bc4bc5e4bac43cbf5a987b2f5a6b4d5af98b5c77ba3892580610",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0022-amdgpu-ps4-floor-dp-clock-on-liverpool.patch",
-      "sha256": "3e7e2aeaea78bc4bc5e4bac43cbf5a987b2f5a6b4d5af98b5c77ba3892580610"
+      "sha256": "3e7e2aeaea78bc4bc5e4bac43cbf5a987b2f5a6b4d5af98b5c77ba3892580610",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v49 - clobber dp_extclk on Liverpool so picker selects a real PPLL",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
+      "source_sha256": "ccf421e56e90e663ca1b85cfb96d87aa84b3008575d91cb517a9e3971eb034fe",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0023-amdgpu-ps4-clobber-dp-extclk-pick-real-ppll.patch",
-      "sha256": "ccf421e56e90e663ca1b85cfb96d87aa84b3008575d91cb517a9e3971eb034fe"
+      "sha256": "ccf421e56e90e663ca1b85cfb96d87aa84b3008575d91cb517a9e3971eb034fe",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v52 - floor dig_connector dp_clock + dp_lane_count for Liverpool",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
+      "source_sha256": "61e62ebb134639709c66a0d6292930906378014f9926adb39ae64a8255f6c777",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0026-amdgpu-ps4-floor-dig-connector-dp-link-config.patch",
-      "sha256": "61e62ebb134639709c66a0d6292930906378014f9926adb39ae64a8255f6c777"
+      "sha256": "61e62ebb134639709c66a0d6292930906378014f9926adb39ae64a8255f6c777",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v59 - skip TX DISABLE on Liverpool DP to preserve firmware-trained link",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
+      "source_sha256": "86099fcd9dbfe7ace7e7cea27eb5005ab62bd990ba4b2b545fb31488c0ea09e6",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0031-amdgpu-ps4-skip-tx-disable-preserve-firmware-dp-lock.patch",
-      "sha256": "86099fcd9dbfe7ace7e7cea27eb5005ab62bd990ba4b2b545fb31488c0ea09e6"
+      "sha256": "86099fcd9dbfe7ace7e7cea27eb5005ab62bd990ba4b2b545fb31488c0ea09e6",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: v60 - also skip TX ENABLE on Liverpool DP",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
+      "source_sha256": "b51dc130c3e6d76e0a44931d99c6e0aba8aa84d210f6c3e6ee6621a5bc506d8c",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0032-amdgpu-ps4-skip-tx-enable-too.patch",
-      "sha256": "b51dc130c3e6d76e0a44931d99c6e0aba8aa84d210f6c3e6ee6621a5bc506d8c"
+      "sha256": "b51dc130c3e6d76e0a44931d99c6e0aba8aa84d210f6c3e6ee6621a5bc506d8c",
+      "change": "unchanged"
     },
     {
+      "subject": "drm/ps4: adapt bridge attach callback to Linux 6.18",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
+      "source_sha256": "1de3bb749b917d9caa9354df67f6d2bba1ca9f70495c2f6877d789c951d23c12",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0033-drm-bridge-6.18-attach-encoder-argument.patch",
-      "sha256": "1de3bb749b917d9caa9354df67f6d2bba1ca9f70495c2f6877d789c951d23c12"
+      "sha256": "1de3bb749b917d9caa9354df67f6d2bba1ca9f70495c2f6877d789c951d23c12",
+      "change": "unchanged"
     },
     {
+      "subject": "drm/amdgpu/ps4: use the 6.18 managed bridge lifetime",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
+      "source_sha256": "f7486f25b6877e68c0201d87c9cacf8f5d6d43eb549bc3b9887502d76a335f94",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0034-amdgpu-ps4-bridge-devm-lifetime.patch",
-      "sha256": "f7486f25b6877e68c0201d87c9cacf8f5d6d43eb549bc3b9887502d76a335f94"
+      "sha256": "f7486f25b6877e68c0201d87c9cacf8f5d6d43eb549bc3b9887502d76a335f94",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: add pointer-safe bridge CQ and lane diagnostics",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
+      "source_sha256": "4cf66abc2ec5295677f5161151f8a0617e30b99d3867f60d691f39432bede3f1",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0035-amdgpu-ps4-bridge-cq-lane-diagnostics.patch",
-      "sha256": "4cf66abc2ec5295677f5161151f8a0617e30b99d3867f60d691f39432bede3f1"
+      "sha256": "4cf66abc2ec5295677f5161151f8a0617e30b99d3867f60d691f39432bede3f1",
+      "change": "unchanged"
     },
     {
+      "subject": "amdgpu: restore proven MN864729 command-stage boundaries",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
+      "source_sha256": "f0fd06a7951f3d5707b83ed88d9cdc19a3360436f69906b74d849be62acce2a2",
       "entry": "../6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0300-gpu-liverpool/0036-amdgpu-ps4-restore-proven-mn864729-stage-boundaries.patch",
-      "sha256": "f0fd06a7951f3d5707b83ed88d9cdc19a3360436f69906b74d849be62acce2a2"
+      "sha256": "f0fd06a7951f3d5707b83ed88d9cdc19a3360436f69906b74d849be62acce2a2",
+      "change": "unchanged"
     },
     {
+      "subject": "ata/ahci: PS4 internal HDD quirks (Linux 6.15)",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
+      "source_sha256": "382269323af85d301ae6562200ca39a0bf937eeb0bffebb677dbfb3499cb9fdc",
       "entry": "0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0001-ahci-ps4-internal-hdd-quirks.patch",
-      "sha256": "b0c8e479deb8b4e2848a9f0b84cc50a989f0f240bf45b6cf47a1b737fc202d42"
+      "sha256": "b0c8e479deb8b4e2848a9f0b84cc50a989f0f240bf45b6cf47a1b737fc202d42",
+      "change": "adapted",
+      "note": "Linux 7.2 rewrote ahci_pci_tbl with designated initializers; the three Sony entries use that style and stay between Enmotus and Loongson."
     },
     {
+      "subject": "ata/ahci: port the current rmux Baikal storage path",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
+      "source_sha256": "c8601fe17318f5f5f054f78911b27466182db49c3bed907eb9e05e24d0fd760b",
       "entry": "0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0002-ahci-baikal-current-rmux-storage-path.patch",
-      "sha256": "c632648d490ea49b1b88e1d75e137edf82ec36a12f30eafe31a5dbd8bda1e7d8"
+      "sha256": "c632648d490ea49b1b88e1d75e137edf82ec36a12f30eafe31a5dbd8bda1e7d8",
+      "change": "context",
+      "note": "ahci_baikal_shared_phy_seeded() follows the new ahci_validate_bar_size(). Linux 7.2 calls that check after pcim_iomap(), before the Baikal SATA PHY setup, so this probe reads HOST_CAP and can fail with -ENODEV earlier than in 6.18."
     },
     {
+      "subject": "mmc: sdhci-pci: PS4 host controller quirks",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
+      "source_sha256": "7e6877374a9d10c6ff48b10e2300434fc1ae0da170d320de658da300e42eda23",
       "entry": "../6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0001-sdhci-pci-ps4-quirks.patch",
-      "sha256": "7e6877374a9d10c6ff48b10e2300434fc1ae0da170d320de658da300e42eda23"
+      "sha256": "7e6877374a9d10c6ff48b10e2300434fc1ae0da170d320de658da300e42eda23",
+      "change": "unchanged"
     },
     {
+      "subject": "mmc: sdhci-pci: route Baikal IRQs through bpcie",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
+      "source_sha256": "e15d0db7ebcd18c822605c7ffbf8a26bd81c0593a596d6e7953d18b0991fdca2",
       "entry": "../6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-storage-sdio/0002-sdhci-baikal-route-irqs-through-bpcie.patch",
-      "sha256": "e15d0db7ebcd18c822605c7ffbf8a26bd81c0593a596d6e7953d18b0991fdca2"
+      "sha256": "e15d0db7ebcd18c822605c7ffbf8a26bd81c0593a596d6e7953d18b0991fdca2",
+      "change": "unchanged"
     },
     {
+      "subject": "mt76x8: import MediaTek MT7668 vendor driver from 5.4-baikal",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
+      "source_sha256": "a986b5dd8fcaf5fd51301a9b0be4ac377db358214f6965f3b4d3d2f4136922ee",
       "entry": "../6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0001-mt76x8-vendor-tree-import.patch",
-      "sha256": "a986b5dd8fcaf5fd51301a9b0be4ac377db358214f6965f3b4d3d2f4136922ee"
+      "sha256": "a986b5dd8fcaf5fd51301a9b0be4ac377db358214f6965f3b4d3d2f4136922ee",
+      "change": "unchanged"
     },
     {
+      "subject": "net: wireless: mt76x8/MT6632: fix dev_addr API and pointer type errors for 6.15+",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
+      "source_sha256": "24ed7fd83c59bd0c018dc93d30ccc6e14af955abad8f32f1b182725436a21ae2",
       "entry": "../6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0002-mt76x8-feeRnt-dev-addr-api-fix-6.15+.patch",
-      "sha256": "24ed7fd83c59bd0c018dc93d30ccc6e14af955abad8f32f1b182725436a21ae2"
+      "sha256": "24ed7fd83c59bd0c018dc93d30ccc6e14af955abad8f32f1b182725436a21ae2",
+      "change": "unchanged"
     },
     {
+      "subject": "net: wireless: mt76x8: fix build for Linux 6.15+",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
+      "source_sha256": "ff7c46181b4a16a4b91e86e200bd11338627c7ded95afaa999e866e9ae7f54b4",
       "entry": "../6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0003-mt76x8-rmuxnet-fix-build-6.15+.patch",
-      "sha256": "ff7c46181b4a16a4b91e86e200bd11338627c7ded95afaa999e866e9ae7f54b4"
+      "sha256": "ff7c46181b4a16a4b91e86e200bd11338627c7ded95afaa999e866e9ae7f54b4",
+      "change": "unchanged"
     },
     {
+      "subject": "ps4: disable MediaTek WiFi power save",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
+      "source_sha256": "43b88f707ba6f3601efbd155be148e7fb7ef69381da03033a04dd80a04924db9",
       "entry": "../6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0005-mt76x8-rmuxnet-disable-mediatek-wifi-power-save.patch",
-      "sha256": "43b88f707ba6f3601efbd155be148e7fb7ef69381da03033a04dd80a04924db9"
+      "sha256": "43b88f707ba6f3601efbd155be148e7fb7ef69381da03033a04dd80a04924db9",
+      "change": "unchanged"
     },
     {
+      "subject": "net/wireless/mt76x8: fix fortified copy_from_user build error",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
+      "source_sha256": "dbd6e7ea1ec60820fb39a351fddc200cc515b53e31f5d0138c818327a00f8f8b",
       "entry": "../6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0006-mt76x8-rmuxnet-fix-fortified-copy-from-user.patch",
-      "sha256": "dbd6e7ea1ec60820fb39a351fddc200cc515b53e31f5d0138c818327a00f8f8b"
+      "sha256": "dbd6e7ea1ec60820fb39a351fddc200cc515b53e31f5d0138c818327a00f8f8b",
+      "change": "unchanged"
     },
     {
+      "subject": "mt76x8: port to cfg80211 / fs API in Linux 6.15+",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
+      "source_sha256": "f43bab4256c82924e94b0a3eebfc81e93e209c0bf70c5ba579902ee5a96acdec",
       "entry": "../6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0007-mt76x8-cfg80211-6.15-api-port.patch",
-      "sha256": "f43bab4256c82924e94b0a3eebfc81e93e209c0bf70c5ba579902ee5a96acdec"
+      "sha256": "f43bab4256c82924e94b0a3eebfc81e93e209c0bf70c5ba579902ee5a96acdec",
+      "change": "unchanged"
     },
     {
+      "subject": "mt76x8: adapt cfg80211 callbacks to Linux 6.18 radio_idx",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
+      "source_sha256": "22daab4f9a486c80018ca17d87fdb2edb8789f21b4c58a710bfdea086c0d5661",
       "entry": "../6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0500-network-mt7668/0008-mt76x8-cfg80211-6.18-radio-index.patch",
-      "sha256": "22daab4f9a486c80018ca17d87fdb2edb8789f21b4c58a710bfdea086c0d5661"
+      "sha256": "22daab4f9a486c80018ca17d87fdb2edb8789f21b4c58a710bfdea086c0d5661",
+      "change": "unchanged"
     },
     {
+      "subject": "usb/xhci: add Aeolia/Baikal xHCI controller",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
+      "source_sha256": "80bf640a2c31833b335855cea984a300db59bbbdfd5446a3fe07a8815ca41908",
       "entry": "../6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0001-xhci-aeolia-controller.patch",
-      "sha256": "80bf640a2c31833b335855cea984a300db59bbbdfd5446a3fe07a8815ca41908"
+      "sha256": "80bf640a2c31833b335855cea984a300db59bbbdfd5446a3fe07a8815ca41908",
+      "change": "unchanged"
     },
     {
+      "subject": "usb/xhci-aeolia: use Baikal-correct shutdown path",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
+      "source_sha256": "d7b859f45ca5d86e614e26987078f7b5028f34b01b0484128adcb3e3c3ae521a",
       "entry": "../6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0002-xhci-aeolia-baikal-shutdown.patch",
-      "sha256": "d7b859f45ca5d86e614e26987078f7b5028f34b01b0484128adcb3e3c3ae521a"
+      "sha256": "d7b859f45ca5d86e614e26987078f7b5028f34b01b0484128adcb3e3c3ae521a",
+      "change": "unchanged"
     },
     {
+      "subject": "usb: xhci-aeolia: add Baikal settle delays before USB bring-up",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
+      "source_sha256": "341f6a2d68d3f39c2bafe6dfb382a27551384f5f7325d0538fd11355f7285950",
       "entry": "../6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0005-xhci-aeolia-baikal-settle-timing.patch",
-      "sha256": "341f6a2d68d3f39c2bafe6dfb382a27551384f5f7325d0538fd11355f7285950"
+      "sha256": "341f6a2d68d3f39c2bafe6dfb382a27551384f5f7325d0538fd11355f7285950",
+      "change": "unchanged"
     },
     {
+      "subject": "usb: xhci-aeolia: route Baikal IRQ through apcie_assign_irqs",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
+      "source_sha256": "5f9f3f07007d4c4d100b164adf7a126b97dab6120245df1ec0b1a0840d0b6604",
       "entry": "../6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0006-xhci-aeolia-baikal-irq-via-apcie-assign.patch",
-      "sha256": "5f9f3f07007d4c4d100b164adf7a126b97dab6120245df1ec0b1a0840d0b6604"
+      "sha256": "5f9f3f07007d4c4d100b164adf7a126b97dab6120245df1ec0b1a0840d0b6604",
+      "change": "unchanged"
     },
     {
+      "subject": "usb: xhci-aeolia: replace printk timing hack with usleep",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
+      "source_sha256": "c7f51664cf6904551884639bdcf094386017bbcaf80a434f26ec1f0e4095c646",
       "entry": "../6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0800-usb-aeolia/0008-xhci-replace-printk-delay-with-usleep.patch",
-      "sha256": "c7f51664cf6904551884639bdcf094386017bbcaf80a434f26ec1f0e4095c646"
+      "sha256": "c7f51664cf6904551884639bdcf094386017bbcaf80a434f26ec1f0e4095c646",
+      "change": "unchanged"
     },
     {
+      "subject": "hwmon: fam15h_power/k10temp: recognise PS4 APU",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
+      "source_sha256": "3daeec64933f6f5536b44a8e49f9dc78262a9aad3a32de2d68a23d76c4e43c21",
       "entry": "../6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
       "path": "platforms/ps4/patches/6.18-baikal/0900-hwmon/0001-hwmon-fam15h-k10temp-ps4.patch",
-      "sha256": "3daeec64933f6f5536b44a8e49f9dc78262a9aad3a32de2d68a23d76c4e43c21"
+      "sha256": "3daeec64933f6f5536b44a8e49f9dc78262a9aad3a32de2d68a23d76c4e43c21",
+      "change": "unchanged"
     },
     {
+      "subject": "iommu/amd: PS4 init quirks (Linux 6.15)",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
+      "source_sha256": "7b1cc810fc5d12d4723ba895e435d1ee165c19dcadf21ca0eb33e86caee061b8",
       "entry": "../6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
       "path": "platforms/ps4/patches/6.18-baikal/1000-iommu/0001-amd-iommu-ps4-init.patch",
-      "sha256": "7b1cc810fc5d12d4723ba895e435d1ee165c19dcadf21ca0eb33e86caee061b8"
+      "sha256": "7b1cc810fc5d12d4723ba895e435d1ee165c19dcadf21ca0eb33e86caee061b8",
+      "change": "unchanged"
     },
     {
+      "subject": "iommu/amd: fix PS4 Baikal coherent DMA",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
+      "source_sha256": "d3e809049e6bbe1d5b8e4d87fdf3e41155a4a31079a80036f01556d52b953592",
       "entry": "1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/1000-iommu/0003-iommu-amd-ps4-baikal-coherent-dma.patch",
-      "sha256": "856c330e97bcddcdc87934343ee374abb05aca5029226d106d8158e6239026c0"
+      "sha256": "856c330e97bcddcdc87934343ee374abb05aca5029226d106d8158e6239026c0",
+      "change": "context",
+      "note": "Linux 7.2 moved amd_iommu_flush_iotlb_all() and amd_iommu_iotlb_sync(), which followed the new helper in 6.18."
     },
     {
+      "subject": "pci/msi/irqdomain: PS4 vendor quirks (Linux 6.15)",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
+      "source_sha256": "a7225c33c1af05e4a4ccfc6e454803e884edecbd4b1af703f642d60c08fee80b",
       "entry": "1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/1100-pci-msi/0001-pci-msi-irqdomain-ps4-quirks.patch",
-      "sha256": "5fb36e17f9700c42d9066012d61d2c1719bcc2644b88993a04dd914b4803a8bd"
+      "sha256": "5fb36e17f9700c42d9066012d61d2c1719bcc2644b88993a04dd914b4803a8bd",
+      "change": "context",
+      "note": "Linux 7.2 removed pci_msi_create_irq_domain() and its helpers from this hunk's context; ps4-bpcie uses its own copy, see the bpcie port fix."
     },
     {
+      "subject": "pci: gate phantom Sony-device filtering to PS4",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "../6.18-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
+      "source_sha256": "9422bb59526fce0a12de221f516c51bc5dbce606a523fad5f6e957fa4481179c",
       "entry": "1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/1100-pci-msi/0002-pci-ps4-gate-phantom-sony-filter.patch",
-      "sha256": "e9524031c7d3cfeb7460b65207413185ac35e9ab7cec05b88a2682f0c9120d77"
+      "sha256": "e9524031c7d3cfeb7460b65207413185ac35e9ab7cec05b88a2682f0c9120d77",
+      "change": "context",
+      "note": "The new includes follow <trace/events/pci.h>, added in Linux 7.2."
     },
     {
+      "subject": "net: add continuous polled Baikal MTS module",
+      "origin": "6.18-ps4-baikal",
+      "source_entry": "0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
+      "source_path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
+      "source_sha256": "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed",
       "entry": "../6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
       "path": "platforms/ps4/patches/6.18-baikal-mts2/0700-network-mts/0001-net-ps4-add-continuous-polled-baikal-mts.patch",
-      "sha256": "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed"
+      "sha256": "51b0550c9de4a4424f7965623ecc806c441a84d26b4638215241bb9a103482ed",
+      "change": "unchanged"
     },
     {
       "entry": "9000-port-7.2/0001-ps4-icc-use-strscpy_pad-for-the-adapter-name.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0001-ps4-icc-use-strscpy_pad-for-the-adapter-name.patch",
-      "sha256": "f598067a1e3d69a9b303d663d821cf112cd81609de9391969cec02adc88d7629"
+      "sha256": "f598067a1e3d69a9b303d663d821cf112cd81609de9391969cec02adc88d7629",
+      "subject": "ps4: icc: use strscpy_pad() for the adapter name",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Linux 7.2 removed strncpy(). Same change as 7.2-ps4 0169."
     },
     {
       "entry": "9000-port-7.2/0002-mt76x8-replace-strncpy-removed-in-Linux-7.2.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0002-mt76x8-replace-strncpy-removed-in-Linux-7.2.patch",
-      "sha256": "2d404ac352f26586d37310384b4b7255c2d26a0f2a051037aabb9a45b463b371"
+      "sha256": "2d404ac352f26586d37310384b4b7255c2d26a0f2a051037aabb9a45b463b371",
+      "subject": "mt76x8: replace strncpy() removed in Linux 7.2",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "kalStrnCpy() keeps strncpy() semantics; some callers fill length-delimited firmware fields. Same change as 7.2-ps4 0170."
     },
     {
       "entry": "9000-port-7.2/0003-mt76x8-adapt-remain_on_channel-to-Linux-7.2.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0003-mt76x8-adapt-remain_on_channel-to-Linux-7.2.patch",
-      "sha256": "d4ec1dbcf6f1ae0f9153f8c47607dafdba4d4f1379c06214fe87fb133044cd0e"
+      "sha256": "d4ec1dbcf6f1ae0f9153f8c47607dafdba4d4f1379c06214fe87fb133044cd0e",
+      "subject": "mt76x8: adapt remain_on_channel to Linux 7.2",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Upstream 4dbd1829045e added rx_addr; the driver does not set NL80211_EXT_FEATURE_ROC_ADDR_FILTER. Same change as 7.2-ps4 0171."
     },
     {
       "entry": "9000-port-7.2/0004-ps4-bpcie-replace-pci_msi_create_irq_domain-removed-.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0004-ps4-bpcie-replace-pci_msi_create_irq_domain-removed-.patch",
-      "sha256": "58b493f33bb1f9b8252e8fffa07f5cb922c94d6b5e96eedc7836116bf23907ad"
+      "sha256": "58b493f33bb1f9b8252e8fffa07f5cb922c94d6b5e96eedc7836116bf23907ad",
+      "subject": "ps4: bpcie: replace pci_msi_create_irq_domain() removed in Linux 7.2",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Applies the flags, chip flag and bus token the 6.18 helper set before msi_create_irq_domain(); the 7.2 MSI core functions it relies on are unchanged from 6.18."
     },
     {
       "entry": "9000-port-7.2/0005-mt76x8-adapt-key-and-station-operations-to-Linux-7.1.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0005-mt76x8-adapt-key-and-station-operations-to-Linux-7.1.patch",
-      "sha256": "28ea4fef6b495ddfa3f47c58efc2425cc5d6214b9f7cb2e7caf68095ab7ad8a7"
+      "sha256": "28ea4fef6b495ddfa3f47c58efc2425cc5d6214b9f7cb2e7caf68095ab7ad8a7",
+      "subject": "mt76x8: adapt key and station operations to Linux 7.1",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Linux 7.1 passes key and station operations a wireless_dev. The adapters pass on its net_device and refuse a wireless_dev without one, which cfg80211 never passed before."
     },
     {
       "entry": "9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch",
       "path": "platforms/ps4/patches/7.2-ps4-baikal/9000-port-7.2/0006-mt76x8-restore-checked-proc-write-copies.patch",
-      "sha256": "bfdf844201106093b169a1af636b200b960f405b8f949d8e1827700e96b38cb7"
+      "sha256": "bfdf844201106093b169a1af636b200b960f405b8f949d8e1827700e96b38cb7",
+      "subject": "mt76x8: restore checked proc write copies",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "Undoes 0500-network-mt7668/0006: its __copy_from_user() calls skip access_ok() and procDriverCmdWrite() copied 2999 bytes whatever the write size. Uses copy_from_user() with the driver's sizes and the comparison of 7.2-ps4 0172."
+    },
+    {
+      "entry": "0400-storage-ahci/0003-ps4-baikal-ahci-phy-orbis-profile.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0003-ps4-baikal-ahci-phy-orbis-profile.patch",
+      "sha256": "cea3f3a7b71a2d4da768ff81c70a0e3a4e4dbb1916ace8f3c6eed300480b53e3",
+      "subject": "ps4: add Orbis-style AHCI PHY profile for Baikal internal HDD",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "New disabled-by-default test profile; EXP-20261022-005 applied it and attached sdb, but the first read still timed out. PHY/EFUSE match only, not a complete support fix."
+    },
+    {
+      "entry": "0400-storage-ahci/0004-ata-ahci-ps4-completion-poll.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0400-storage-ahci/0004-ata-ahci-ps4-completion-poll.patch",
+      "sha256": "22023de44542013e4c81d4a6f45907eaf5772f98fb20e21a813755c902c74e30",
+      "subject": "ata: ahci: add optional PS4 completion poll fallback",
+      "origin": "port-fix",
+      "change": "port-fix",
+      "note": "New disabled-by-default per-port poll fallback; EXP-20261022-011 read the internal HDD partition table read-only with it. One boot, not hardware acceptance; repeat boots and a proper IRQ fix remain required."
     },
     {
       "entry": "../6.18-baikal-mts2/0700-network-mts/0002-net-ps4-mts-native-autoload.patch",
