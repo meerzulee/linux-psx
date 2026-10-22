@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: psX workspace <psx@localhost>
+Date: Wed, 21 Oct 2026 22:00:00 +0600
+Subject: [PATCH] drm/amdgpu: program PS4 audio DTO during modeset
+
+The Liverpool/Gladius DP-to-HDMI path does not run
+dce_v8_0_afmt_setmode(), so dce_v8_0_audio_set_dto() never programs
+DCCG_AUDIO_DTO0.  The HDA controller uses DTO0 as its 24 MHz reference;
+the reset value leaves it at ~14.78 MHz and makes all audio run at
+~0.61575x speed.
+
+Program DTO0 from the active adjusted pixel clock in the PS4 modeset
+path.  Hardware probe EXP-20261021-048 showed WALLCLK 14.778 MHz ->
+23.942 MHz and a 10 s 48 kHz fixture 16.27 s -> 10.03 s with these
+values.  Boot-tested in EXP-20261021-049 with the 7.2.11 kernel from
+USB: DTO0 phase=24000, module=148500, WALLCLK 23.966476 MHz, and the
+10 s fixture 10.0828 s (pre-fix 16.2586 s).  One boot; acoustic
+validation pending.
+---
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2551,6 +2551,7 @@ static int dce_v8_0_crtc_mode_set(struct drm_crtc *crtc,
+ 				  int x, int y, struct drm_framebuffer *old_fb)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	struct amdgpu_device *adev = drm_to_adev(crtc->dev);
+ 
+ 	if (!amdgpu_crtc->adjusted_clock) {
+ 		/* v28: PS4 ATOM BIOS sometimes returns 0 from
+@@ -2568,6 +2569,20 @@ static int dce_v8_0_crtc_mode_set(struct drm_crtc *crtc,
+ 	}
+ 
+ 	amdgpu_atombios_crtc_set_pll(crtc, adjusted_mode);
++
++	/* PS4: the DP->HDMI bridge path does not run afmt_setmode(), so the
++	 * audio DTO is never programmed.  The HDA controller uses DTO0 as its
++	 * 24 MHz reference; the reset value makes audio run at ~0.615x speed.
++	 * Program DTO0 from the active adjusted pixel clock here.
++	 */
++	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) {
++		WREG32(mmDCCG_AUDIO_DTO_SOURCE,
++		       (amdgpu_crtc->crtc_id <<
++			DCCG_AUDIO_DTO_SOURCE__DCCG_AUDIO_DTO0_SOURCE_SEL__SHIFT));
++		WREG32(mmDCCG_AUDIO_DTO0_PHASE, 24 * 1000);
++		WREG32(mmDCCG_AUDIO_DTO0_MODULE, adjusted_mode->clock);
++	}
++
+ 	amdgpu_atombios_crtc_set_dtd_timing(crtc, adjusted_mode);
+ 	dce_v8_0_crtc_do_set_base(crtc, old_fb, x, y);
+ 	amdgpu_atombios_crtc_overscan_setup(crtc, mode, adjusted_mode);
+-- 
+2.43.0

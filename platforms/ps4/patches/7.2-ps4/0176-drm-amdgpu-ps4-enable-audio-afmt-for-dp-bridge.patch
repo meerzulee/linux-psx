@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: psX workspace <psx@localhost>
+Date: Wed, 21 Oct 2026 23:40:00 +0600
+Subject: [PATCH] drm/amdgpu: enable PS4 DP-bridge audio AFMT setup
+
+The Liverpool/Gladius DP-to-HDMI bridge path reports a DP encoder, so
+dce_v8_0_encoder_mode_set() never calls dce_v8_0_afmt_enable() or
+dce_v8_0_afmt_setmode().  The DTO patch restored the audio reference
+clock, but the AFMT/ACR/60958/audio-endpoint setup is still skipped.
+Native 48 kHz playback is robotic while 44.1 kHz is clean
+(EXP-20261021-055).
+
+Assign and enable the AFMT for the PS4 DP encoder and run the existing
+audio setup for that path.  Keep the DTO programming in
+dce_v8_0_crtc_mode_set().  The PS4 encoder reports INTERNAL_UNIPHY with
+enc_mode=DP, so the DP condition must not depend on a named DP-bridge
+encoder ID.  The DRM_INFO markers are diagnostic for the test boot.
+
+This is a test patch. It was applied in EXP-20261021-056/057: the AFMT
+setup runs on the PS4 DP encoder but native 48 kHz remains robotic. It is
+retained as negative evidence and is not applied in the default series.
+---
+ drivers/gpu/drm/amd/amdgpu/dce_v8_0.c | 19 ++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -3318,6 +3318,7 @@ dce_v8_0_encoder_mode_set(struct drm_encoder *encoder,
+ 			  struct drm_display_mode *mode,
+ 			  struct drm_display_mode *adjusted_mode)
+ {
++	struct amdgpu_device *adev = drm_to_adev(encoder->dev);
+ 	struct amdgpu_encoder *amdgpu_encoder = to_amdgpu_encoder(encoder);
+ 
+ 	amdgpu_encoder->pixel_clock = adjusted_mode->clock;
+@@ -3328,7 +3329,21 @@ dce_v8_0_encoder_mode_set(struct drm_encoder *encoder,
+ 	/* set scaler clears this on some chips */
+ 	dce_v8_0_set_interleave(encoder->crtc, mode);
+ 
+-	if (amdgpu_atombios_encoder_get_encoder_mode(encoder) == ATOM_ENCODER_MODE_HDMI) {
++	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS)
++		DRM_INFO("PS4 audio: mode_set asic=%d enc_mode=%d bridge=%d\n",
++			 adev->asic_type,
++			 amdgpu_atombios_encoder_get_encoder_mode(encoder),
++			 amdgpu_encoder_get_dp_bridge_encoder_id(encoder));
++
++	if (amdgpu_atombios_encoder_get_encoder_mode(encoder) == ATOM_ENCODER_MODE_HDMI ||
++	    ((adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) &&
++	     amdgpu_atombios_encoder_get_encoder_mode(encoder) == ATOM_ENCODER_MODE_DP)) {
++		struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
++
++		DRM_INFO("PS4 audio: setup enc_mode=%d dig=%d afmt=%d enabled=%d\n",
++			 amdgpu_atombios_encoder_get_encoder_mode(encoder),
++			 dig ? dig->dig_encoder : -1, dig && dig->afmt,
++			 dig && dig->afmt && dig->afmt->enabled);
+ 		dce_v8_0_afmt_enable(encoder, true);
+ 		dce_v8_0_afmt_setmode(encoder, adjusted_mode);
+ 	}
+@@ -3347,7 +3362,9 @@ static void dce_v8_0_encoder_prepare(struct drm_encoder *encoder)
+ 		struct amdgpu_encoder_atom_dig *dig = amdgpu_encoder->enc_priv;
+ 		if (dig) {
+ 			dig->dig_encoder = dce_v8_0_pick_dig_encoder(encoder);
+-			if (amdgpu_encoder->active_device & ATOM_DEVICE_DFP_SUPPORT)
++			if ((amdgpu_encoder->active_device & ATOM_DEVICE_DFP_SUPPORT) ||
++			    ((adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) &&
++			     amdgpu_encoder_get_dp_bridge_encoder_id(encoder) != ENCODER_OBJECT_ID_NONE))
+ 				dig->afmt = adev->mode_info.afmt[dig->dig_encoder];
+ 		}
+ 	}
+-- 
+2.43.0

@@ -50,9 +50,9 @@
     "ordered_patchset_sha256": "f9783c181d17f4e749943f69895f579ea8df4a6e03dd2ff6a76a771c016af3a4"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4/series",
-  "series_sha256": "9104f43c31bb2cf7a77f89f4fcc9858aa8ca956a8cb376cd7a6b10d6b489efd9",
-  "active_patch_count": 175,
-  "ordered_patchset_sha256": "b44b2c367384b0522e81dafb31bb9cb09a701759247709a7cc6fa968ad02ed39",
+  "series_sha256": "e7346bb652efdd54521bb4c31c82f44c40c8a16319722ad35e43765ed0420020",
+  "active_patch_count": 176,
+  "ordered_patchset_sha256": "fa9316b5fea9639c9d871e4309d3465716a722f455800e7c3775e81f4dca7d55",
   "change_counts": {
     "adapted": 5,
     "context": 3,
@@ -2489,6 +2489,18 @@
       "origin": "port-fix",
       "change": "port-fix",
       "note": "Same type confusion on Aeolia; untested on an Aeolia console."
+    },
+    {
+      "entry": "0175-drm-amdgpu-ps4-program-audio-dto.patch",
+      "path": "platforms/ps4/patches/7.2-ps4/0175-drm-amdgpu-ps4-program-audio-dto.patch",
+      "sha256": "4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352",
+      "size": 2465,
+      "author": "psX workspace <psx@localhost>",
+      "date": "Wed, 21 Oct 2026 22:00:00 +0600",
+      "subject": "drm/amdgpu: program PS4 audio DTO during modeset",
+      "origin": "port-fix",
+      "change": "audio-dto",
+      "note": "Programs DCCG_AUDIO_DTO0 from the active adjusted pixel clock on Liverpool/Gladius. One boot; acoustic validation pending."
     }
   ],
   "direct_references": [
