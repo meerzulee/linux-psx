@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/WizGery/ps5-mediatek-fixes",
+  "commit": "b84c899348a6b71aa62cc1c73dfc5e7c03860b4c",
+  "status": "Requested follow-up; not included in current baseline kernel/image",
+  "applies_to": {
+    "wifi_pci": "14c3:7961",
+    "bluetooth_usb": "0e8d:3603"
+  },
+  "recorded_upstream_test_scope": "Linux7.1.7 / Ubuntu26.04, per repository README",
+  "planned_integration": [
+    "Compare patches0001/0002 with existing community PS5 Bluetooth hunks; do not apply duplicate hunks",
+    "Port patches0003/0004 to pinned7.2.3 as a distinct MediaTek development target; retain author/license notices and exact hashes",
+    "Enable CONFIG_MT7921E=m and regenerate the whole matching module set, source and initramfs",
+    "Put USB/interface/autosuspend udev/modprobe settings in the PS5 distribution profile, not kernel source",
+    "Treat DualSense cable-pairing helpers as a separate optional user flow since they rewrite controller pairing",
+    "Qualify Wi-Fi, Bluetooth and DualSense on the actual MediaTek console before promoting"
+  ],
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 19,
+      "sha256": "d60f352d0db1404c70afb4bb8b2ca3fd1c610572aa40720e8a0b7baa7885418c"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3438,
+      "sha256": "1afadbee8a1d46e4e50190f400023b04f5ec67795b4303c95410af0e8b5de91f"
+    },
+    {
+      "path": "build.sh",
+      "bytes": 3105,
+      "sha256": "31b8143b4e0217caa2a061876d5543cf006a3569b2403997a4fa19fb9c346322"
+    },
+    {
+      "path": "dualsense/99-dualsense-vincular.rules",
+      "bytes": 254,
+      "sha256": "afeb2b2f844137d404b5717e447067af15ff4c78fc67b4c0271ada2289abb010"
+    },
+    {
+      "path": "dualsense/dualsense-vincular",
+      "bytes": 493,
+      "sha256": "129aae231a8a85aa0c4ecdeab4f88b9b50bee2454c41dfe933b56cceae8a2f31"
+    },
+    {
+      "path": "dualsense/dualsense-vincular@.service",
+      "bytes": 177,
+      "sha256": "6ca60e92c353e2e5c95a7b2620da63ba40e28bb50ab27f17bee21cbdc119b5bc"
+    },
+    {
+      "path": "dualsense/leer.py",
+      "bytes": 443,
+      "sha256": "478c735a663e184bf244aa75562eeffe58c59eb6a8ebe60fc584655907838350"
+    },
+    {
+      "path": "dualsense/vincular.py",
+      "bytes": 1297,
+      "sha256": "127d94dee73352a44ccdee2b04ffbcb4017279543bfda7955a120eaa649b8512"
+    },
+    {
+      "path": "patches/0001-ps5-linux-btusb.patch",
+      "bytes": 2646,
+      "sha256": "560345789a545a355aaa8609465980b5d4533d8192327956558f5a5201951d7c"
+    },
+    {
+      "path": "patches/0002-ps5-linux-hci_sync.patch",
+      "bytes": 585,
+      "sha256": "90003e40f886889e804d44ea62f1d884c7d8783d4a6c2a8c85c1e4598b20514f"
+    },
+    {
+      "path": "patches/0003-btusb-ps5-mediatek-bulk-out-0x02.patch",
+      "bytes": 1619,
+      "sha256": "60f2e22781f949f3afe35ec443df1232074cf823df3f41f2be642ef6bb8eabf7"
+    },
+    {
+      "path": "patches/0004-l2cap-defer-security-when-encryption-pending.patch",
+      "bytes": 1128,
+      "sha256": "69f1c17747dfd2f7b1ec5532e259d2d937d9ad0f1940e239caf863db28ddb6c2"
+    },
+    {
+      "path": "system/99-ps5-bt-fantasma.rules",
+      "bytes": 808,
+      "sha256": "68e6a20d6aa0ae1114092da7485845e6a1838a736508d17b44889e37e4d6b261"
+    },
+    {
+      "path": "system/btusb-ps5.conf",
+      "bytes": 35,
+      "sha256": "66a355b76038b3638875aae9fe510f80966ed5b79decf3a475f417850090a493"
+    }
+  ],
+  "license_note": "No top-level LICENSE file observed in this snapshot; review file-level/upstream license notices before redistributing helpers."
+}

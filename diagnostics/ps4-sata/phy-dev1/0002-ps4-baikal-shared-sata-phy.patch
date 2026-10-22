@@ -1,0 +1,141 @@
+From: Meerzulee / Linux psX maintainers
+Subject: [PATCH 2/2] usb: xhci-aeolia: select the existing Baikal HDD PHY helper
+
+Adapt the Baikal-only shared-HDD caller from rmuxnet's GPLv2 source at
+858d97a4519d4e0110e4b5114b3206ecf05f28d6 (drivers/usb/host/xhci-aeolia.c).
+The existing legacy PHY branch stays active for non-Baikal devices. Keep the
+existing helper implementation, DMA, IRQ, link, NCQ and delay policy intact.
+
+The helper can defer or fail before an ATA host exists. Propagate only Baikal
+pre-host AHCI initialization errors through IRQ/device cleanup before any HCD
+is created. This path bypasses remove_hcds, whose idx is uninitialized there.
+Preserve post-host error behavior: inherited libata devres callbacks read
+drvdata, which this custom driver has restored to axhci rather than ata_host.
+Do not newly enter driver-core unwind for that separate lifetime limitation.
+Other southbridges retain their existing AHCI-error behavior.
+
+Retain opt-in diagnostics and give the Baikal call distinct begin/end markers
+including its return code. A zero return is not proof of PHY readiness: the
+existing helper does not propagate its final poll result. This is an
+experimental Linux 7.2.11 candidate, with no hardware acceptance.
+
+Original source notices and GPLv2 terms remain unchanged. See BASELINE.json
+for immutable source identity and adaptation provenance.
+
+---
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -232,46 +232,55 @@
+ 		goto release_mem_region;
+ 	}
+ 
+-	r_mem = kzalloc(sizeof(*r_mem), GFP_KERNEL);
+-	if (r_mem) {
+-		r_mem->r_bustag = 1;//mem
+-		r_mem->r_bushandle = hpriv->mmio;
+-
+-		ctlr = kzalloc(sizeof(*ctlr), GFP_KERNEL);
+-		if (ctlr) {
+-			ctlr->r_mem = r_mem;
+-			ctlr->dev_id = 0;
+-			ctlr->trace_len = 6;
+-
+-			// ctlr->dev_id |= PCI_VENDOR_ID_SONY << 16
+-			// ctlr->dev_id |= aeolia, belize or baikal pci id
+-			// will be in this format: 0x90ca104d 
+-			// with 0x90ca being belize ahci and 0x104d being sony vendor id
+-
+-			// ctlr->dev_id = 0;
+-			// ctrl->dev_id |= PCI_VENDOR_ID_SONY << 16;
+-			// switch (pdev->device) {
+-			// 	case PCI_DEVICE_ID_SONY_AEOLIA_XHCI:
+-			// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_AEOLIA_AHCI;
+-			// 		break;
+-			// 	case PCI_DEVICE_ID_SONY_BELIZE_XHCI:
+-			// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_BELIZE_AHCI;
+-			//		belize_sata_phy_init(&pdev->dev, ctlr);
+-			// 		break;
+-			// 	case PCI_DEVICE_ID_SONY_BAIKAL_XHCI:
+-			// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_BAIKAL_AHCI;
+-			//		baikal_sata_phy_init(&pdev->dev, ctlr);
+-			// 		break;
+-			// 	default:
+-			// 		ctrl->dev_id = 0;
+-			// }
+-
+-			ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.begin\n");
+-			bpcie_sata_phy_init(&pdev->dev, ctlr);
+-			ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.end\n");
+-			kfree(ctlr);
++	/* Shared-HDD Baikal path: rmuxnet 858d97a4519d, adapted for this probe. */
++	if (pdev->device == PCI_DEVICE_ID_SONY_BAIKAL_XHCI) {
++		ps4_sata_diag(&pdev->dev, "embedded_ahci.baikal_phy.begin\n");
++		rc = bpcie_baikal_sata_phy_init(pdev, hpriv->mmio);
++		ps4_sata_diag(&pdev->dev, "embedded_ahci.baikal_phy.end rc=%d\n", rc);
++		if (rc)
++			goto unmap_registers;
++	} else {
++		r_mem = kzalloc(sizeof(*r_mem), GFP_KERNEL);
++		if (r_mem) {
++			r_mem->r_bustag = 1;//mem
++			r_mem->r_bushandle = hpriv->mmio;
++
++			ctlr = kzalloc(sizeof(*ctlr), GFP_KERNEL);
++			if (ctlr) {
++				ctlr->r_mem = r_mem;
++				ctlr->dev_id = 0;
++				ctlr->trace_len = 6;
++
++				// ctlr->dev_id |= PCI_VENDOR_ID_SONY << 16
++				// ctlr->dev_id |= aeolia, belize or baikal pci id
++				// will be in this format: 0x90ca104d 
++				// with 0x90ca being belize ahci and 0x104d being sony vendor id
++
++				// ctlr->dev_id = 0;
++				// ctrl->dev_id |= PCI_VENDOR_ID_SONY << 16;
++				// switch (pdev->device) {
++				// 	case PCI_DEVICE_ID_SONY_AEOLIA_XHCI:
++				// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_AEOLIA_AHCI;
++				// 		break;
++				// 	case PCI_DEVICE_ID_SONY_BELIZE_XHCI:
++				// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_BELIZE_AHCI;
++				//		belize_sata_phy_init(&pdev->dev, ctlr);
++				// 		break;
++				// 	case PCI_DEVICE_ID_SONY_BAIKAL_XHCI:
++				// 		ctrl->dev_id |= PCI_DEVICE_ID_SONY_BAIKAL_AHCI;
++				//		baikal_sata_phy_init(&pdev->dev, ctlr);
++				// 		break;
++				// 	default:
++				// 		ctrl->dev_id = 0;
++				// }
++
++				ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.begin\n");
++				bpcie_sata_phy_init(&pdev->dev, ctlr);
++				ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.end\n");
++				kfree(ctlr);
++			}
++			kfree(r_mem);
+ 		}
+-		kfree(r_mem);
+ 	}
+ 	device_wakeup_enable(&pdev->dev);
+ 
+@@ -466,6 +475,9 @@
+ 	if(dev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI) {
+ 		retval = ahci_init_one(dev);
+ 		dev_dbg(&dev->dev, "ahci_init_one returned %d", retval);
++		/* Only pre-host errors are safe for this outer probe to unwind. */
++		if (retval && xhci_aeolia_is_baikal(&dev->dev) && !axhci->host)
++			goto free_irqs;
+ 		if (!bus_master) {
+ 			pci_set_master(dev);
+ 			bus_master = true;
+@@ -502,6 +514,7 @@
+ remove_hcds:
+ 	while (idx--)
+ 		xhci_aeolia_remove_one(dev, idx);
++free_irqs:
+ 	apcie_free_irqs(dev->irq, axhci->nr_irqs);
+ free_axhci:
+ 	devm_kfree(&dev->dev, axhci);

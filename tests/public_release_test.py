@@ -16,6 +16,16 @@ RELEASE = "6.18.44-psx-ps4-baikal2"
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_ps5_uses_its_gpu_contract_without_ps4_mts_requirement(self):
+        release = "7.2.3-psx-ps5-dev1"
+        config = (ROOT / "platforms/ps5/config/7.2-psx-ps5.config").read_text()
+        package.check_config(config, release, "ps5")
+        with self.assertRaisesRegex(ValueError, "missing target"):
+            package.check_config(config.replace("CONFIG_DRM_AMDGPU=m", "# CONFIG_DRM_AMDGPU is not set"), release, "ps5")
+        notes = package.release_notes({"target": "7.2-ps5", "kernel_release": release}, "c" * 40, "local")
+        self.assertIn("has not been boot-tested", notes)
+        self.assertIn("PS4 MTS instructions do not apply", notes)
+
     def test_native_series_uses_recorded_shared_patch_paths_and_refuses_tampering(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)

@@ -24,16 +24,17 @@ def digest(path):
     return result.hexdigest()
 
 
-def check_config(text, release):
+def check_config(text, release, platform="ps4"):
     lines = text.splitlines()
     if 'CONFIG_EXTRA_FIRMWARE=""' not in lines:
         raise ValueError("kernel must not embed device firmware")
-    for required in [f'CONFIG_LOCALVERSION="-{release.split("-", 1)[1]}"', "CONFIG_PS4_MTS=m"]:
+    driver = "CONFIG_DRM_AMDGPU=m" if platform == "ps5" else "CONFIG_PS4_MTS=m"
+    for required in [f'CONFIG_LOCALVERSION="-{release.split("-", 1)[1]}"', driver]:
         if required not in lines:
             raise ValueError(f"missing target setting: {required}")
 
 
-def source_files(source, patched_paths=()):
+def source_files(source, patched_paths=(), platform="ps4"):
     raw = subprocess.check_output(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=source)
     names = {os.fsdecode(name) for name in raw.split(b"\0") if name}
     names.update(patched_paths)
@@ -47,7 +48,9 @@ def source_files(source, patched_paths=()):
             raise ValueError("unexpected staged firmware in source tree")
         if (source / path).exists() or (source / path).is_symlink():
             result.append(name)
-    for required in ["COPYING", ".config", "drivers/net/ethernet/psx_mts_net.c", "drivers/net/ethernet/mts_net_core.h"]:
+    drivers = (["drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c"] if platform == "ps5" else
+               ["drivers/net/ethernet/psx_mts_net.c", "drivers/net/ethernet/mts_net_core.h"])
+    for required in ["COPYING", ".config", *drivers]:
         if required not in result:
             raise ValueError(f"incomplete corresponding source: {required}")
     if not any(name.startswith("LICENSES/") for name in result):
@@ -76,6 +79,20 @@ def patched_source_paths(repo, target):
 
 def release_notes(target, commit, run_url):
     release = target["kernel_release"]
+    if target["target"] == "7.2-ps5" and release == "7.2.3-psx-ps5-dev1":
+        return (
+            f"# Experimental PS5 — {release}\n\n"
+            "Pinned Linux 7.2.3 with the ps5-linux community patch/config snapshot. "
+            "This build has not been boot-tested. No hardware acceptance is claimed.\n\n"
+            "Use bzImage with the whole matching modules archive and a compatible PS5 "
+            "loader, initramfs and external root filesystem. PS4 MTS instructions do not "
+            "apply. Device firmware is neither embedded nor bundled; the image owns its "
+            "external firmware integration. Preserve an existing working boot set.\n\n"
+            f"Complete corresponding source: source-{release}.tar.zst, including resolved "
+            "config, Linux notices, PSX build inputs and the exact packaging script. "
+            "Verify SHA256SUMS before using artifacts.\n\n"
+            f"Source checkpoint: {commit}\n\nBuild: {run_url}\n"
+        )
     if target["target"] == "6.18-ps4-baikal":
         evidence = (
             "Pinned Linux 6.18.44 with 54 PS4 platform patches, the MTS2 Ethernet patch and its "
@@ -311,8 +328,8 @@ def main():
         parser.error("assembly paths/commit require --assemble-release")
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]*", args.target):
         parser.error("invalid target name")
-    if args.target not in ("6.18-ps4-baikal", "7.2-ps4-baikal-native-dev"):
-        parser.error("unsupported PS4 Baikal release target")
+    if args.target not in ("6.18-ps4-baikal", "7.2-ps4-baikal-native-dev", "7.2-ps5"):
+        parser.error("unsupported release target")
     repo = Path(__file__).resolve().parents[2]
     target = json.loads((repo / f"provenance/{args.target}.json").read_text())
     release = target["kernel_release"]
@@ -322,13 +339,14 @@ def main():
         raise ValueError("unexpected built release")
     if subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source).decode().strip() != target["upstream"]["commit"]:
         raise ValueError("unexpected upstream source commit")
-    check_config((output / "config").read_text(), release)
-    check_config((source / ".config").read_text(), release)
+    platform = "ps5" if args.target == "7.2-ps5" else "ps4"
+    check_config((output / "config").read_text(), release, platform)
+    check_config((source / ".config").read_text(), release, platform)
     if (source / ".config").read_bytes() != (output / "config").read_bytes():
         raise ValueError("source and built configurations differ")
     subprocess.run(["sha256sum", "-c", "SHA256SUMS"], cwd=output, check=True)
     patched = patched_source_paths(repo, target)
-    names = source_files(source, patched)
+    names = source_files(source, patched, platform)
     destination = repo / "dist"
     destination.mkdir(exist_ok=False)
     archive = f"modules-{release}.tar.zst"
@@ -341,10 +359,12 @@ def main():
         temporary = Path(directory)
         validate_module_archive(output / archive, release)
         subprocess.run(["tar", "--zstd", "-xf", str(output / archive), "-C", str(temporary)], check=True)
-        module_path = f"lib/modules/{release}/kernel/drivers/net/ethernet/psx_mts_net.ko"
+        module_name = "amdgpu" if platform == "ps5" else "psx_mts_net"
+        relative_module = "drivers/gpu/drm/amd/amdgpu/amdgpu.ko" if platform == "ps5" else "drivers/net/ethernet/psx_mts_net.ko"
+        module_path = f"lib/modules/{release}/kernel/{relative_module}"
         module = temporary / module_path
         if module.is_symlink() or not module.is_file():
-            raise ValueError("missing matching MTS module")
+            raise ValueError(f"missing matching {module_name} module")
         if subprocess.check_output(["modinfo", "-F", "vermagic", str(module)]).decode().split()[0] != release:
             raise ValueError("module release mismatch")
         note = temporary / "module-note.bin"
@@ -360,11 +380,12 @@ def main():
             "kernel_release": release, "kernel_config_sha256": digest(output / "config"),
             "kernel_sha256": digest(output / "bzImage"), "embedded_firmware": False,
             "modules_archive": {"path": archive, "sha256": digest(output / archive)},
-            "module": {"name": "psx_mts_net", "path": module_path, "sha256": module_digest,
+            "module": {"name": module_name, "path": module_path, "sha256": module_digest,
                        "build_note_hex": note.read_bytes().hex()},
             "source_commit": commit, "upstream": target["upstream"],
             "workflow_run": run_url,
             "hardware_acceptance": target["hardware_evidence"]["this_target"],
+            "packager_sha256": digest(Path(__file__)),
         }
         (destination / "artifacts.json").write_text(json.dumps(metadata, indent=2) + "\n")
         inputs = temporary / "PSX-BUILD-INPUTS.tar.gz"
@@ -375,6 +396,7 @@ def main():
                 if member.isfile() and member.name.removeprefix("linux-psx-build-inputs/").split("/", 1)[0] in ("firmware", "src", "output", "dist", "checkpoint"):
                     raise ValueError(f"unexpected asset in build inputs: {member.name}")
         shutil.copy2(output / "manifest.txt", temporary / "PSX-BUILD-MANIFEST.txt")
+        shutil.copy2(Path(__file__), temporary / "PSX-PACKAGE-RELEASE.py")
         (temporary / "PSX-REBUILD.md").write_text(
             f"Complete patched Linux source and resolved .config for {release}.\n"
             "PSX-BUILD-INPUTS.tar.gz contains this project's source, patches, target and tools.\n"
@@ -382,6 +404,9 @@ def main():
             "or scripts/build-kernel-orbstack on macOS ARM64. Native compiler and identity\n"
             "are recorded in PSX-BUILD-MANIFEST.txt; see the target and docs/BUILDING.md.\n"
             "Firmware is neither embedded nor bundled. No distribution is required.\n"
+            "PSX-PACKAGE-RELEASE.py is the exact packaging script, including any changes\n"
+            "after the Git checkpoint. Copy it to scripts/ci/package_release.py in the\n"
+            "extracted build-input repository before packaging this target.\n"
         )
         files = temporary / "source-files.list"
         files.write_bytes(b"\0".join(os.fsencode(name) for name in names) + b"\0")
@@ -390,7 +415,7 @@ def main():
             "--owner=0", "--group=0", "--numeric-owner", f"--transform=flags=r;s,^,linux-{release}/,",
             "-cf", str(destination / f"source-{release}.tar.zst"), "-C", str(source),
             "--null", "-T", str(files), "-C", str(temporary), "--no-null",
-            "PSX-BUILD-INPUTS.tar.gz", "PSX-BUILD-MANIFEST.txt", "PSX-REBUILD.md",
+            "PSX-BUILD-INPUTS.tar.gz", "PSX-BUILD-MANIFEST.txt", "PSX-REBUILD.md", "PSX-PACKAGE-RELEASE.py",
         ], check=True, env={**os.environ, "ZSTD_CLEVEL": "8", "ZSTD_NBTHREADS": "2"})
     source_archive = destination / f"source-{release}.tar.zst"
     metadata["source_archive"] = {"path": source_archive.name, "sha256": digest(source_archive)}

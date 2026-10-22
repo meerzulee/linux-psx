@@ -29,8 +29,11 @@ See [PORT-7.2.md](PORT-7.2.md).
 
 The PS5 candidate produces `7.2.3-psx-ps5-dev1` using
 `make TARGET=7.2-ps5` or `./scripts/build-kernel-orbstack -t 7.2-ps5`.
-Its local build outputs are distinct from the PS4 targets; PS5 release packaging
-is pending.
+Its local build outputs are distinct from the PS4 targets. Package a fresh
+local build with `python3 scripts/ci/package_release.py --target 7.2-ps5`; the
+packager includes the complete corresponding source and whole matching module
+set, without PS4 MTS requirements. CI publication and PS5 hardware acceptance
+remain separate.
 
 ## Linux x86-64
 

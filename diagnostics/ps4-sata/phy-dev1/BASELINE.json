@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "created_on": "2026-10-21",
+  "baseline_kernel_release": "7.2.11-psx-ps4-baikal-sata-diag-dev1",
+  "candidate_kernel_release": "7.2.11-psx-ps4-baikal-sata-phy-dev1",
+  "status": "experimental Baikal shared-HDD PHY caller; no hardware acceptance",
+  "baseline_source_archive": {
+    "name": "source-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst",
+    "sha256": "36fa0d0119281503b456e3532080afabe2ea7b5c7bc7b05af08685d295f7a3a4"
+  },
+  "prerequisite_patch": {
+    "path": "../0001-ps4-sata-uart-observability.patch",
+    "sha256": "d3ecab423c814fa75237086593a01a674cf679ea24768342435a75d2ba96e2fb"
+  },
+  "patch": "0002-ps4-baikal-shared-sata-phy.patch",
+  "patch_sha256": "e65cb754963eae55cb71dfcf5893f0274282d5ae243cd93f6639f56c29b42339",
+  "files": [
+    {
+      "path": "drivers/usb/host/xhci-aeolia.c",
+      "before_sha256": "5d44dfedb8c927b5d963888d1f420cda13663ca44bc458c8c26468d892c6c687",
+      "after_sha256": "ba69eb5807f2105af463f0fb421368bcde71264fa56ca489027adedd13bcd7dc"
+    }
+  ],
+  "unchanged_helper": {
+    "path": "drivers/ps4/ps4-bpcie.c",
+    "sha256": "55ab17cd424f4f61fcce0c401305c88de5acc058971f6ec9dc1637a531a76c85",
+    "symbol": "bpcie_baikal_sata_phy_init",
+    "limitation": "Existing readl_poll_timeout_atomic return remains ignored; rc=0 does not establish final PHY readiness."
+  },
+  "adapted_from": {
+    "schema": 1,
+    "verified_via": "gh api",
+    "repository": "https://github.com/vnkgdshrr/linux-rmuxnet.git",
+    "commit": "858d97a4519d4e0110e4b5114b3206ecf05f28d6",
+    "source_url": "https://github.com/vnkgdshrr/linux-rmuxnet/blob/858d97a4519d4e0110e4b5114b3206ecf05f28d6/drivers/usb/host/xhci-aeolia.c",
+    "source_sha256": "bf8872fcaf91e15b933a11e8423e877c7d84083bcd3a2453b86340c58196f75e",
+    "git_blob": "5e9eaae104f480ef1bfcde39f6269bd16579200f",
+    "saved_file": "rmux-858d97a4519d4e0110e4b5114b3206ecf05f28d6-xhci-aeolia.c",
+    "call_line": 227,
+    "context": "223:\t\tgoto release_mem_region;\n224:\t}\n225:\n226:\tif (pdev->device == PCI_DEVICE_ID_SONY_BAIKAL_XHCI) {\n227:\t\trc = bpcie_baikal_sata_phy_init(pdev, hpriv->mmio);\n228:\t\tif (rc)\n229:\t\t\tgoto unmap_registers;\n230:\t} else {\n231:\t\tr_mem = kzalloc(sizeof(*r_mem), GFP_KERNEL);",
+    "interpretation": "The recorded rmux source snapshot calls the Baikal PHY helper from the XHCI embedded-HDD path. This does not establish this console will work with that branch."
+  },
+  "existing_import_provenance": {
+    "manifest": "provenance/7.2-ps4.json",
+    "manifest_sha256": "46d3eefe2cba376b1f6e695a576ee228a8394bd657bb34c03b05cf81fc4d5346",
+    "entry": {
+      "entry": "0163-ps4-add-Baikal-southbridge-support.patch",
+      "path": "platforms/ps4/patches/7.2-ps4/0163-ps4-add-Baikal-southbridge-support.patch",
+      "sha256": "879c03a4a5dab8bdfe1c2d421026fade4898666266480bd684077a53135f0f9d",
+      "size": 65058,
+      "author": "rmuxnet <armandas.kvietkus@proton.me>",
+      "date": "Sat, 8 Aug 2026 14:20:54 +0200",
+      "subject": "ps4: add Baikal southbridge support",
+      "origin": "rmux-7.1.7",
+      "rmux_entry": "0165-ps4-add-Baikal-southbridge-support.patch",
+      "rmux_commit": "858d97a4519d4e0110e4b5114b3206ecf05f28d6",
+      "rmux_sha256": "d4894cff450192a0bf817a0d53657a9a151af716093084595c45c670a96764be",
+      "change": "context",
+      "note": "The Baikal SATA PHY setup stays immediately after pcim_iomap(); the new v7.2 ahci_validate_bar_size() call follows it."
+    }
+  },
+  "attribution": {
+    "original_branch_author": "rmuxnet",
+    "adaptation": "Meerzulee / Linux psX maintainers: Linux 7.2.11 instrumented shared-HDD probe selection, marker and Baikal-only error-path integration",
+    "license": "GPL-2.0-only as declared in the preserved source header; original notices remain intact"
+  },
+  "hardware_acceptance": false,
+  "policy_changes": [
+    "Baikal XHCI shared-HDD PHY caller selects the already-present Baikal helper instead of the legacy helper.",
+    "Baikal-only AHCI initialization failure/defer propagates through pre-HCD IRQ/device cleanup only while axhci->host remains NULL (before ATA host allocation)."
+  ],
+  "unchanged_policy": [
+    "No helper internals, register sequences, DMA masks, IRQ allocation, NCQ, speed, timeout, retries or delays changed.",
+    "Non-Baikal PHY selection and AHCI-error handling remain unchanged.",
+    "Post-host AHCI errors retain inherited behavior; this candidate does not repair the custom-driver/libata devres lifetime mismatch.",
+    "No loader, FPKG, initramfs or boot arguments changed by this patch."
+  ],
+  "revision": 2,
+  "supersedes": {
+    "patch_sha256": "a5f64ce585f216f2dfb5e91e0b7a809720f38f910f14545bb9a6076f8caf8a4a",
+    "reason": "Primary review found inherited post-host libata devres lifetime handling makes broad AHCI-error propagation unsafe. Revision 2 limits the new outer unwind to Baikal errors before ATA host allocation."
+  },
+  "lifecycle_limitations": [
+    "ata_host_alloc registers ata_devres_release and ata_host_start may register ata_host_stop; both expect driver data to identify ata_host, while this custom shared driver restores axhci.",
+    "The inherited AHCI error tail can unmap/free hpriv after ATA host allocation/start. This candidate deliberately does not newly propagate those post-host errors to driver-core unwind or refactor that separate lifetime problem."
+  ]
+}

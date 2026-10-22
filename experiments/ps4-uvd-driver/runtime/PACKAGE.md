@@ -82,3 +82,28 @@ are checked for preservation. Failures retain their new output and a
 SSH, installation, USB/media changes, module load, console operation or
 publication. Actual packaging must wait for the parent to declare the final
 link ready and authorize the private packaging run.
+
+## Private PR3 underscan derivative
+
+`build_underscan.py` builds a distinct native x86-64 derivative from the exact
+preserved runtime-dev1 source archive, config and kernel identities. It applies
+the unchanged suds-mcduff PR3 patch (SHA256
+`e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c`)
+to `amdgpu_connectors.c` and changes only `CONFIG_LOCALVERSION` to produce
+`7.2.11-psx-ps4-baikal-uvd-runtime-underscan-dev1`. It does not substitute the
+ordinary native-dev2 target, which lacks this experimental UVD runtime lineage.
+
+Supply `--base-package`, `--patch` and a new `--output` directory; `--jobs`
+defaults to16. It requires at least12GiB free, checks the complete base source
+archive against its inventory, preserves original source metadata as explicitly
+labeled lineage, includes its own patch/tool/rebuild inputs, and reads back
+every byte of the new source and module archives. The clean build uses the
+resolved base config; `olddefconfig` may not change any other settings. All41
+module names must match the base with the new release substituted, and every
+module must report that new vermagic. Existing outputs and the base package
+are never reused or overwritten.
+
+This helper performs no console, media, driver-loading, installation or public
+publication action. Hardware acceptance remains false. The PR3 contributor's
+6.18/X11 TV-underscan result is not7.2/Wayland acceptance or an audio-speed fix.
+Synthetic guards: `python3 -B underscan_build_check.py` from this directory.

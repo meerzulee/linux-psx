@@ -1499,8 +1499,8 @@
     },
     {
       "path": "platforms/ps4/docs/CAPABILITIES.md",
-      "size": 5174,
-      "sha256": "83828f2574bf1a68b33aecd414f598da4c7146bddb5a5875a6907867c1311f9f"
+      "size": 5267,
+      "sha256": "1907c85cce00ff975896fb8d70ce261be840a92f9f9bdf92c0d91a0edb40a191"
     },
     {
       "path": "platforms/ps4/docs/ETHERNET-HISTORY.md",
@@ -1509,8 +1509,8 @@
     },
     {
       "path": "platforms/ps4/docs/INTERNAL-STORAGE.md",
-      "size": 2183,
-      "sha256": "e0ee93b315907b6af8abbfbf4cb2abadc7483e868704d7467081fd8ffcdfc94e"
+      "size": 2970,
+      "sha256": "e555fdfd4038b3152f709aef0138f03ada1920fce619ee9b893327b4a719f852"
     },
     {
       "path": "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md",

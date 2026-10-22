@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "revision": 2,
+  "status": "PASS",
+  "scope": "CPU-only actual patched PHY selection/error tail plus full outer probe; hardware calls stubbed",
+  "patch_sha256": "e65cb754963eae55cb71dfcf5893f0274282d5ae243cd93f6639f56c29b42339",
+  "before_sha256": "5d44dfedb8c927b5d963888d1f420cda13663ca44bc458c8c26468d892c6c687",
+  "after_sha256": "ba69eb5807f2105af463f0fb421368bcde71264fa56ca489027adedd13bcd7dc",
+  "compiler": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+  "compiler_flags": [
+    "-std=gnu11",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-label",
+    "-Wno-unused-parameter"
+  ],
+  "harness_sha256": "059ebe141727c599c85e2ee911993f1ba3ec5ad4cd3334001b644bd529676ecb",
+  "case_count": 23,
+  "cases": [
+    "baikal_phy_success",
+    "baikal_phy_cleanup_rc_-517",
+    "baikal_phy_cleanup_rc_-19",
+    "baikal_phy_cleanup_rc_-5",
+    "non_baikal_phy_unchanged_90cf_allocfail_0",
+    "non_baikal_phy_unchanged_90a4_allocfail_0",
+    "non_baikal_phy_unchanged_90cf_allocfail_1",
+    "non_baikal_phy_unchanged_90a4_allocfail_1",
+    "non_baikal_phy_unchanged_90cf_allocfail_2",
+    "non_baikal_phy_unchanged_90a4_allocfail_2",
+    "probe_success_90a4",
+    "probe_success_90cf",
+    "probe_success_90de",
+    "baikal_probe_pre_hcd_cleanup_rc_-517",
+    "baikal_probe_pre_hcd_cleanup_rc_-19",
+    "baikal_probe_pre_hcd_cleanup_rc_-5",
+    "probe_ahci_error_policy_90de",
+    "probe_ahci_error_policy_90cf",
+    "inherited_post_host_error_preserved_90de_rc_-5",
+    "inherited_post_host_error_preserved_90de_rc_-19",
+    "inherited_post_host_error_preserved_90cf_rc_-5",
+    "existing_child_cleanup_index_0",
+    "existing_child_cleanup_index_2"
+  ],
+  "patch_application_warnings": [
+    "/Users/meerzulee/Work/ps4/linux-psx/diagnostics/ps4-sata/phy-dev1/0002-ps4-baikal-shared-sata-phy.patch:92: trailing whitespace.",
+    "\t\t\t\t// will be in this format: 0x90ca104d ",
+    "warning: 1 line adds whitespace errors."
+  ],
+  "warning_explanation": "The legacy branch keeps an inherited comment's trailing space when it is reindented; source bytes other than indentation are preserved.",
+  "source_checks": [
+    "git apply --check and actual application in temporary tree",
+    "exact before/after and patch SHA-256",
+    "GPL header preserved",
+    "legacy branch identical after indentation removal",
+    "original AHCI error tail identical"
+  ],
+  "hardware_acceptance": false,
+  "limitations": [
+    "Does not execute MMIO, actual PHY helper internals, full ahci_init_one, real IRQ or DMA.",
+    "Post-host tests inject an allocated-host marker and late child error; they verify preserved outer control flow, not repair of inherited libata devres lifetime handling.",
+    "Checks control flow with stubs; native kernel compilation and completed UART hardware evidence remain separate."
+  ]
+}

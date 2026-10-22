@@ -3,7 +3,7 @@
   "created_on": "2026-10-18",
   "target": "7.2-ps5",
   "platform": "ps5",
-  "status": "development candidate; local OrbStack compilation and artifact verification passed; no hardware acceptance",
+  "status": "development candidate; OrbStack cross-build and native Linux build/packaging verified; no hardware acceptance",
   "kernel_release": "7.2.3-psx-ps5-dev1",
   "source_date_epoch": 1792281600,
   "upstream": {
@@ -110,8 +110,9 @@
     "firmware_12_40": "no compatible Linux handoff or local acceptance established"
   },
   "packaging": {
-    "status": "pending",
-    "reason": "The existing release packager still requires PS4 MTS config, source and module identity; use local builder outputs only until target-aware packaging is implemented."
+    "status": "implemented for local development builds",
+    "tool": "scripts/ci/package_release.py --target 7.2-ps5",
+    "contract": "Whole matching module set with amdgpu identity, firmware-free resolved config, complete corresponding Linux source and exact packager bytes. PS4 MTS requirements are target-specific. CI publication and hardware acceptance remain separate."
   },
   "local_build_validation": {
     "validated_on": "2026-10-18",
@@ -198,5 +199,67 @@
     "host_checks": "make check passed: provenance, 22 tests and shell syntax.",
     "resolved_config_note": "olddefconfig adjusted compiler/tool capability and version settings for Debian GCC 14.2; no PS5 hardware-setting changes were observed.",
     "hardware_acceptance": "none"
+  },
+  "native_build_validation": {
+    "validated_on": "2026-10-21",
+    "host": "omarchynator",
+    "scope": "Native Linux x86-64 build, complete matching module packaging and GPL source archive; file verification only, no console execution.",
+    "source_head": "f064643ddeb663db4e87fe077f04a0e4bef44f58",
+    "uncommitted_packager_included": true,
+    "packager_sha256": "0e7bc570841a6210118142811f99ba841791f571fa646143bb62752db3fa0764",
+    "build_manifest": {
+      "target": "7.2-ps5",
+      "platform": "ps5",
+      "kernel_release": "7.2.3-psx-ps5-dev1",
+      "base_repo": "https://github.com/gregkh/linux.git",
+      "base_ref": "v7.2.3",
+      "base_commit": "58e7295cfecaddec94629160386412e0f2b1e8fe",
+      "series_sha256": "03c39f0e619166c153bf0c1931bfc8137c1534f7748beb6798b9f575522f66ee",
+      "patchset_sha256": "5cdd7fec73192e685020298c0d247bf0d117ebc3dae45132d0767914a13afd89",
+      "config_sha256": "b6251b841f44cb8944ab678dc5805c39ffc0b241f1553c9265b001c3415497c2",
+      "active_patch_count": "1",
+      "compiler": "gcc (GCC) 16.2.1 20260810",
+      "builder_image": "native-linux",
+      "builder_image_id": "unspecified",
+      "source_date_epoch": "1792281600",
+      "kbuild_identity": "linux-psx@builder",
+      "kbuild_version": "1",
+      "embedded_firmware": "false"
+    },
+    "outputs": {
+      "runtime/bzImage": {
+        "bytes": 13124608,
+        "sha256": "90da3c755085fb6f332a5376947fed06d0a29aa22d11de3025e8f60ae9770d69"
+      },
+      "runtime/config": {
+        "bytes": 162587,
+        "sha256": "b6251b841f44cb8944ab678dc5805c39ffc0b241f1553c9265b001c3415497c2"
+      },
+      "runtime/System.map": {
+        "bytes": 6082504,
+        "sha256": "00635fb1fc0899f140571983bb84c9d0ca99d24ce7eeed655a094f4cff25f642"
+      },
+      "runtime/manifest.txt": {
+        "bytes": 632,
+        "sha256": "d24ad430686ade100320e9af0ea0e13eef97127007b34a68264eeff4b8a95d16"
+      },
+      "runtime/version.txt": {
+        "bytes": 19,
+        "sha256": "438338e09b60aac0b57049d42a43bf3dfbc72e861c808fbdb2c934f1492830b2"
+      },
+      "runtime/modules-7.2.3-psx-ps5-dev1.tar.zst": {
+        "bytes": 32119774,
+        "sha256": "2523593875b0a2da55ab8fd39ef9a3b14239c8f4c5984b34a4858926b850ecc2"
+      },
+      "source/source-7.2.3-psx-ps5-dev1.tar.zst": {
+        "bytes": 209396177,
+        "sha256": "5df29a8e21b0e525056c45879cacced75952fe956032123f6bfc0d534eb7bc24"
+      }
+    },
+    "module_count": 519,
+    "hardware_acceptance": "none",
+    "firmware_embedded": false,
+    "host_checks": "make check passed: source provenance, 29 tests and shell syntax.",
+    "artifact_contract": "runtime/artifacts.json and runtime/SHA256SUMS; source/SHA256SUMS"
   }
 }

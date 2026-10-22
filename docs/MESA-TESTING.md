@@ -8,14 +8,107 @@ their own results.
 
 ## Current checkpoint — 2026-10-21
 
+**Latest browser follow-up EXP-20261021-037 is terminal.** Isolated Firefox's
+VAAPI copy path emits actual decoded local AVC frames, then YouTube navigation
+hits `No more free UVD handles!` and `PS4_UVD_RUNTIME CLOSED error=-28`. This
+boot must be physically powered off before more graphics/video tests. The
+deployed source sets one UVD handle and closes admission on parser errors;
+exact overlap/recycling history remains uninstrumented. Do not raise quotas
+blindly. The earlier successful mpv/exact/benchmark windows retain their scopes.
+
+Separately, EXP034/036 show Chromium Mesa rendering works with video decoding
+deliberately software, but the owner still reports buffered AVC1080p YouTube
+as slow motion. Uninterrupted sampled segments advance approximately0.62x wall
+time while drops stay nearly constant. PlaybackRate/audio-clock/CPU cause is
+not isolated; the successful local fixtures lack audio. Neither a low drop
+counter nor codec filtering establishes smooth playback. Normal browser
+profiles/policies remain unchanged; no browser fix is promoted.
+
+### Installed-driver measurement follow-up
+
+EXP-20261021-030 observes a full physical-power-off recovery with the unchanged
+normal USB, matching runtime build/installed dev5 hashes, fresh boot identity,
+UVD startup and an owner-reported normal desktop. EXP031 is a prelaunch timing
+stop: no decoder or fence observer runs, and completed capture is not a GPU pass.
+
+EXP-20261021-032 then passes a bounded installed-driver observation. All40
+installed file/symlink identities match the dev5 manifest; the actual player
+maps pinned installed EGL/Gallium/GBM. First, the normal FFmpeg/VAAPI graph
+decodes all120 canonical frames/2211840 NV12 bytes exactly, whole SHA256
+`d99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491`.
+Then one hardware-thread `vaapi-copy`, with software fallback disabled and
+explicit current `AMD_DEBUG=notiling`, plays three native1080p30 fractal loops.
+All76 coarse samples have zero display/decoder drops; PTS/wall speed is
+0.9970383571x over90.334204657seconds. The owner reports smooth playback.
+mpv exits normally and no terminal kernel/UART marker is observed.
+
+Player CPU is25.08seconds, or27.7636% of one CPU core during the measured window;
+this excludes compositor/observer CPU and is not whole-system load. UVD
+completed/emitted counts are0/0 before the exact fixture,122/122 after it and
+2833/2833 after playback. The2711 playback completions include management and
+partial-pass work, not an exact displayed-frame count. Per-client DRM fdinfo
+records DEC/GFX/compute scheduler time, not calibrated physical busy percentage
+or decoder latency. Standard busy/metrics/DPM clock endpoints are absent on the
+tested boot. The window includes copy-back, GL/compositor presentation and OSD,
+not isolated maximum decoder throughput or zero-copy qualification.
+
+The new [installed-driver controller](../userspace/mesa/DEMO-SYSTEM.md) reuses
+the frozen demo's gates and adds finite execution, current-boot journal checks,
+installed-library verification, CPU/DRM accounting and15 synthetic host checks.
+Its runner receipt deliberately leaves `hardware_acceptance=false`; final
+evidence is the completed UART plus operator review. Three loops do not replace
+longer-duration/repeated-boot gates. Browser UVD, broad graphics correctness and
+CarChase remain unresolved; no stable adoption follows from this measurement.
+
+EXP-20261021-033 then completes standard `gl_trex_off` with the same frozen dev5
+bytes selected process-locally:16075frames in56.013seconds,286.986949458FPS,
+1920x1080 render target, `screenmode=1`, `is_vsync_limited=false`, exit0. All
+fences catch up, UVD stays completed2833/emitted2833 and no terminal fault is
+recorded. Environment `vsync=true` does not impose per-rendered-frame pacing on
+this offscreen path; the earlier approximately60FPS onscreen runs were capped.
+This is scene throughput, not a driver-to-driver speedup, physical GPU-busy
+percentage or broad correctness result.
+
+The owner's tiled monitor photo is consistent with the benchmark's intentional
+thumbnail mosaic, not sufficient evidence of a new driver-corruption fault.
+Pinned source `gfxbench40/src/common/opengl/offscrman.h:33–52` defines a10x10
+grid of48x27 thumbnails; `offscrman_opengl.cpp:585–609,692–702,900–913` populates/
+presents it and rotates the480x270 mosaic into a270x480 viewport for a tall
+window. This run's window is950x1034, distinct from its1920x1080 offscreen
+render target. Source explains the layout; neither the score nor thumbnail
+photo is a pixel oracle.
+
+### Earlier default-adoption and fault checkpoints
+
 **Stable adoption remains withdrawn.** At the owner's explicit request,
 EXP-20261021-023 installed exact dev5 as the experimental default on disk:
 matched Mesa/RADV packages`1:26.2.5-5.1`, all40 stage identities verified,
 clean package/database checks and signed original rollback packages retained.
 Rendering settings, update blocks and package holds remain unchanged. This
 CPU-only installation neither restarted the desktop nor repaired the existing
-CarChase-faulted boot; activation needs full power-off and a separate boot
-observation. It does not qualify a stable image or automatic driver updates.
+CarChase-faulted boot. EXP-20261021-025 subsequently observes a fresh Linux
+boot: all40 identities match, Hyprland/Xwayland map installed Gallium26.2.5,
+and the owner confirms normal desktop/mouse. This is one default-driver boot
+observation; it does not qualify a stable image or automatic driver updates.
+
+The owner's YouTube1080p30 stream reports`av01` and the fresh boot initially
+has0UVD jobs. A separate EXP027 Chromium H.264/VAAPI attempt completes5UVD
+jobs, then rejects a command submission with-28 and aborts the userspace GPU
+process. No kernel VM fault or terminal UVD marker is retained; all5UVD jobs
+complete. The exact rejected guard is not identified by this errno. Earlier
+multi-thread mpv admission failed similarly, but a shared cause is unproved.
+Normal Chromium retains its software-rendering workaround. The distribution
+owns pinned upstream codec filtering; selecting AVC is not hardware proof.
+
+EXP-20261021-028's diagnostic binary preserves normal initialization and cuts
+only the first timed shadow cascade0. It faults during motion-blur TileMax
+warmup before that cut, after15.502seconds. GPU writes land outside printed
+resource ranges; a nearby tess-ring-like allocation is a lead, not ownership
+proof. IH overflow limits earliest-event attribution. The guard closes with-5
+and the boot requires physical power-off. UVD remains643/643 throughout this
+graphics case; prior global-counter growth cannot identify a browser decoder.
+A standalone WG64 shader/readback/guard oracle is built but has no GPU result.
+
 
 The earlier dev2 Mesa 26.2.5 candidate rendered
 OpenGL/WebGL and a fresh compositor, but the Vulkan rendering check stalled.
@@ -173,7 +266,7 @@ Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical
 | Feature | Current evidence | Qualification test and required result |
 | --- | --- | --- |
 | Source and CPU tests | ✅ 44 Mesa build tests; 15 FMASK replay cases; 62 player fixture checks | Repeat pinned build/patch verification and relevant source checks for each new artifact. These do not qualify a GPU. |
-| Driver selection | ✅ 39 staged identities verified after package install; compositor and Chromium mapped 26.2.5 | Verify package/version, hashes and live process maps; reject software fallback or an older DSO. |
+| Driver selection | ✅ dev5 all40 staged identities match; fresh Hyprland/Xwayland map installed26.2.5 in EXP025 | Verify package/version, hashes and live process maps; reject software fallback or an older DSO. |
 | Desktop OpenGL / GLES | 🧪 dev5 T-Rex/Manhattan passes; ❌ CarChase graphics VM fault; GL4.6/GLES3.2 contexts enumerated | Small clear/triangle/readback under GL core/compatibility and GLES 2/3, then reduce the advanced rendering failure; expected pixels and clean process exit. |
 | EGL / GLX / GBM | 🧪 Wayland/GBM EGL contexts passed; broad eglinfo returned 1 because a platform/device probe failed | Test each intended platform separately, including a controlled Xwayland GLX context; identify failures without hiding exit status. |
 | PNG/RGB textures and browser WebGL | ✅ isolated Firefox/Chromium passed; installed-system Chromium displayed matching PNG/WebGL with AA | Verify pixel/oracle output and `glError=0`; WebGL 1 and 2 separately; normal and antialiased contexts. Repeat on the final stack. |
@@ -190,7 +283,7 @@ Legend: ✅ observed bounded pass; ❌ observed failure; 🧪 partial/historical
 | UVD playback / frame pacing | 🧪 earlier five 1080p30 loops completed without reported drops | Reproduce on final artifacts with one hardware decode thread; record source FPS, PTS/wall rate and decoder/display drops. |
 | UVD seeking / EOF / reopen | ❌ earlier interactive seek error; lifecycle not qualified | Separate bounded seek, drain/EOF and sequential reopen cases. No concurrent handles beyond the implementation's declared single-handle limit. |
 | Graphics with experimental UVD runtime enabled | ❌ CarChase VM faults close the protective guard without decode; earlier dev5 cube/UVD checks passed sequentially | Preserve the generic guard. Qualify combined simultaneous cases, sustained load and repeated boots separately. |
-| Browser video acceleration | ⏳ rendering tests disabled browser video decode | Record actual stream codec, decoder, mapped driver and dropped frames. Test single supported AVC stream before seeking or multiple tabs. |
+| Browser video acceleration | ❌ EXP027 Chromium VAAPI completes5UVD jobs, then CS rejection(-28)/GPU-process abort; normal Chromium acceleration remains disabled | Identify rejected admission/resource guard and decoder requirements; one supported AVC stream with actual decoder, driver, UVD completions and frame pacing before seeking or multiple tabs. |
 | Hyprsunset / CTM / gamma | ⏳ blocked; not tested in EXP022 | Separate display-control experiment after recovery; short mild tint, timed identity restore, independent recovery and operator observation. This also depends on Hyprland/kernel display support. |
 | VCE encoding | ⏳ not implemented/qualified | Keep unavailable until separate kernel/backend work and encode correctness tests exist; do not infer support from Mesa enumeration. |
 | Games / Wine / DXVK | ⏳ no qualification | After API tests: reproducible small native GL/Vulkan workload, then selected DXVK applications; version, settings and visual oracle recorded. 32-bit drivers require a separate build/test set. |

@@ -1,0 +1,679 @@
+From: Linux psX contributors
+Date: Wed, 21 Oct 2026 12:00:00 +0600
+Subject: [PATCH] ps4: add boot-gated bounded SATA diagnostic markers
+
+Observe the Baikal embedded HDD path without changing timeout, reset, IRQ,
+PHY or DMA policy. ps4_sata_diag=1 enables timestamped stage observations,
+effective DMA masks and mapped SG address ranges. Default is off.
+
+The device filter requires Sony 104d:90de at 0000:00:14.7; per-port markers
+use hardware port 0 rather than assuming global ata1 numbering. No disk
+payloads, raw IDENTIFY data, model, serial or key material are logged.
+
+Diagnostic delta against the matching 7.2.11 runtime source archive recorded
+in BASELINE.json. This patch is deliberately outside all active series.
+Compilation and source review do not establish hardware acceptance.
+
+diff --git a/drivers/ata/libata-core.c b/drivers/ata/libata-core.c
+--- a/drivers/ata/libata-core.c
++++ b/drivers/ata/libata-core.c
+@@ -28,6 +28,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/pci.h>
++#include <linux/ps4-sata-diag.h>
+ #include <linux/init.h>
+ #include <linux/list.h>
+ #include <linux/mm.h>
+@@ -1552,8 +1553,11 @@
+ 	DECLARE_COMPLETION_ONSTACK(wait);
+ 	unsigned long flags;
+ 	unsigned int err_mask;
++	unsigned long diag_start = jiffies;
+ 	int rc;
+ 
++	ps4_sata_diag_ap(ap, "internal.begin dev=%u cmd=%#x protocol=%u requested_ms=%u\n",
++			 dev->devno, command, tf->protocol, timeout);
+ 	if (WARN_ON(dma_dir != DMA_NONE && !buf))
+ 		return AC_ERR_INVALID;
+ 
+@@ -1627,7 +1631,17 @@
+ 		ata_eh_release(ap);
+ 	}
+ 
++	ps4_sata_diag_ap(ap, "internal.wait.begin cmd=%#x timeout_ms=%u\n",
++			 command, timeout);
+ 	rc = wait_for_completion_timeout(&wait, msecs_to_jiffies(timeout));
++	if (!rc)
++		ps4_sata_diag_ap_fault(ap,
++			"internal.wait.end cmd=%#x completed=0 elapsed_ms=%u\n",
++			command, ps4_sata_diag_ms(diag_start));
++	else
++		ps4_sata_diag_ap(ap,
++			"internal.wait.end cmd=%#x completed=1 elapsed_ms=%u\n",
++			command, ps4_sata_diag_ms(diag_start));
+ 
+ 	if (owns_eh_mutex) {
+ 		ata_eh_acquire(ap);
+@@ -1690,6 +1704,15 @@
+ 	if ((err_mask & AC_ERR_TIMEOUT) && auto_timeout)
+ 		ata_internal_cmd_timed_out(dev, command);
+ 
++	if (err_mask)
++		ps4_sata_diag_ap_fault(ap,
++			"internal.end cmd=%#x err_mask=%#x status=%#x error=%#x elapsed_ms=%u\n",
++			command, err_mask, tf->status, tf->error,
++			ps4_sata_diag_ms(diag_start));
++	else
++		ps4_sata_diag_ap(ap,
++			"internal.end cmd=%#x err_mask=0 status=%#x error=%#x elapsed_ms=%u\n",
++			command, tf->status, tf->error, ps4_sata_diag_ms(diag_start));
+ 	return err_mask;
+ }
+ 
+@@ -2991,6 +3014,8 @@
+ 	/* Set quirks */
+ 	dev->quirks |= ata_dev_quirks(dev);
+ 	ata_force_quirks(dev);
++	ps4_sata_diag_ap(ap, "configure.force_point dev=%u disabled=%u\n",
++			 dev->devno, !!(dev->quirks & ATA_QUIRK_DISABLE));
+ 
+ 	if (dev->quirks & ATA_QUIRK_DISABLE) {
+ 		ata_dev_info(dev, "unsupported device, disabling\n");
+@@ -3007,17 +3032,23 @@
+ 		return 0;
+ 	}
+ 
++	ps4_sata_diag_ap(ap, "configure.link_quirk.begin\n");
+ 	rc = ata_do_link_spd_quirk(dev);
++	ps4_sata_diag_ap(ap, "configure.link_quirk.end rc=%d\n", rc);
+ 	if (rc)
+ 		return rc;
+ 
+ 	/* let ACPI work its magic */
++	ps4_sata_diag_ap(ap, "configure.acpi.begin\n");
+ 	rc = ata_acpi_on_devcfg(dev);
++	ps4_sata_diag_ap(ap, "configure.acpi.end rc=%d\n", rc);
+ 	if (rc)
+ 		return rc;
+ 
+ 	/* massage HPA, do it early as it might change IDENTIFY data */
++	ps4_sata_diag_ap(ap, "configure.hpa.begin\n");
+ 	rc = ata_hpa_resize(dev);
++	ps4_sata_diag_ap(ap, "configure.hpa.end rc=%d\n", rc);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -4869,6 +4900,49 @@
+ 	qc->cursg = qc->sg;
+ }
+ 
++/* No payload access; inspect only the already mapped SG descriptors. */
++void ps4_sata_diag_qc_dma(struct ata_queued_cmd *qc, bool failure)
++{
++	static atomic_t mapped_lines = ATOMIC_INIT(0);
++	static atomic_t failed_lines = ATOMIC_INIT(0);
++	struct ata_port *ap = qc->ap;
++	struct scatterlist *sg;
++	u64 low = U64_MAX, high = 0;
++	bool cross_2g = false;
++	unsigned int i, nonzero = 0;
++
++	if (ap->port_no != 0 || !ps4_sata_diag_match(ap->host->dev))
++		return;
++	if (!(qc->flags & ATA_QCFLAG_DMAMAP) || !qc->sg || !qc->n_elem)
++		return;
++	if (atomic_inc_return(failure ? &failed_lines : &mapped_lines) >
++	    (failure ? 16 : 32))
++		return;
++	for_each_sg(qc->sg, sg, qc->n_elem, i) {
++		u64 begin = sg_dma_address(sg);
++		u32 len = sg_dma_len(sg);
++		u64 end;
++
++		if (!len)
++			continue;
++		end = begin + len - 1;
++		nonzero++;
++
++		low = min(low, begin);
++		high = max(high, end);
++		cross_2g |= (begin >> 31) != (end >> 31);
++	}
++	if (!nonzero)
++		low = 0;
++	__ps4_sata_diag_ap((failure ? ps4_sata_diag_fault_emit : ps4_sata_diag_emit), ap,
++		"dma.%s cmd=%#x protocol=%u tag=%u hw_tag=%u n_elem=%u "
++		"nz_elem=%u min=%#llx max=%#llx above31=%u cross2g=%u err=%#x\n",
++		failure ? "error" : "mapped", qc->tf.command, qc->tf.protocol,
++		qc->tag, qc->hw_tag, qc->n_elem, nonzero, (unsigned long long)low,
++		(unsigned long long)high, high > DMA_BIT_MASK(31), cross_2g,
++		qc->err_mask);
++}
++
+ #ifdef CONFIG_HAS_DMA
+ 
+ /**
+@@ -4920,6 +4994,7 @@
+ 	qc->orig_n_elem = qc->n_elem;
+ 	qc->n_elem = n_elem;
+ 	qc->flags |= ATA_QCFLAG_DMAMAP;
++	ps4_sata_diag_qc_dma(qc, false);
+ 
+ 	return 0;
+ }
+@@ -5072,8 +5147,10 @@
+ 	 * by EH.  libata core enforces the rule by returning NULL from
+ 	 * ata_qc_from_tag() for qcs owned by EH.
+ 	 */
+-	if (unlikely(qc->err_mask))
++	if (unlikely(qc->err_mask)) {
++		ps4_sata_diag_qc_dma(qc, true);
+ 		qc->flags |= ATA_QCFLAG_EH;
++	}
+ 
+ 	/*
+ 	 * Finish internal commands without any further processing and always
+@@ -6102,6 +6179,11 @@
+ static void async_port_probe(void *data, async_cookie_t cookie)
+ {
+ 	struct ata_port *ap = data;
++	unsigned long diag_start = jiffies;
++	unsigned long diag_scan;
++
++	ps4_sata_diag_ap(ap, "async_probe.begin cookie=%llu\n",
++			 (unsigned long long)cookie);
+ 
+ 	/*
+ 	 * If we're not allowed to scan this host in parallel,
+@@ -6113,13 +6195,22 @@
+ 	if (!(ap->host->flags & ATA_HOST_PARALLEL_SCAN) && ap->port_no != 0)
+ 		async_synchronize_cookie(cookie);
+ 
++	ps4_sata_diag_ap(ap, "async_probe.eh_submit\n");
+ 	ata_port_probe(ap);
+ 	ata_port_wait_eh(ap);
+ 
+ 	/* in order to keep device order, we need to synchronize at this point */
++	ps4_sata_diag_ap(ap, "async_probe.order_wait.begin\n");
+ 	async_synchronize_cookie(cookie);
+-
++	ps4_sata_diag_ap(ap, "async_probe.order_wait.end\n");
++
++	diag_scan = jiffies;
++	ps4_sata_diag_ap(ap, "scsi_scan.begin\n");
+ 	ata_scsi_scan_host(ap, 1);
++	ps4_sata_diag_ap(ap, "scsi_scan.end elapsed_ms=%u\n",
++			 ps4_sata_diag_ms(diag_scan));
++	ps4_sata_diag_ap(ap, "async_probe.end elapsed_ms=%u\n",
++			 ps4_sata_diag_ms(diag_start));
+ }
+ 
+ /**
+@@ -6194,6 +6285,7 @@
+ 	/* perform each probe asynchronously */
+ 	for (i = 0; i < host->n_ports; i++) {
+ 		struct ata_port *ap = host->ports[i];
++		ps4_sata_diag_ap(ap, "async_probe.schedule\n");
+ 		ap->cookie = async_schedule(async_port_probe, ap);
+ 	}
+ 
+@@ -6238,7 +6330,9 @@
+ 	int i, rc;
+ 	char *irq_desc;
+ 
++	ps4_sata_diag(host->dev, "host.start.begin irq=%d\n", irq);
+ 	rc = ata_host_start(host);
++	ps4_sata_diag(host->dev, "host.start.end rc=%d\n", rc);
+ 	if (rc)
+ 		return rc;
+ 
+@@ -6254,8 +6348,11 @@
+ 	if (!irq_desc)
+ 		return -ENOMEM;
+ 
++	ps4_sata_diag(host->dev, "host.request_irq.begin irq=%d flags=%#lx\n",
++		      irq, irq_flags);
+ 	rc = devm_request_irq(host->dev, irq, irq_handler, irq_flags,
+ 			      irq_desc, host);
++	ps4_sata_diag(host->dev, "host.request_irq.end rc=%d irq=%d\n", rc, irq);
+ 	if (rc)
+ 		return rc;
+ 
+diff --git a/drivers/ata/libata-eh.c b/drivers/ata/libata-eh.c
+--- a/drivers/ata/libata-eh.c
++++ b/drivers/ata/libata-eh.c
+@@ -15,6 +15,7 @@
+ #include <linux/blkdev.h>
+ #include <linux/export.h>
+ #include <linux/pci.h>
++#include <linux/ps4-sata-diag.h>
+ #include <scsi/scsi.h>
+ #include <scsi/scsi_host.h>
+ #include <scsi/scsi_eh.h>
+@@ -571,7 +572,10 @@
+ 	struct ata_port *ap = ata_shost_to_port(host);
+ 	unsigned long flags;
+ 	int nr_timedout;
++	unsigned long diag_start = jiffies;
+ 	LIST_HEAD(eh_work_q);
++
++	ps4_sata_diag_ap(ap, "eh.begin pflags=%#x\n", ap->pflags);
+ 
+ 	spin_lock_irqsave(host->host_lock, flags);
+ 	list_splice_init(&host->eh_cmd_q, &eh_work_q);
+@@ -591,6 +595,8 @@
+ 		scsi_eh_flush_done_q(&ap->eh_done_q);
+ 
+ 	WARN_ON(!list_empty(&eh_work_q));
++	ps4_sata_diag_ap(ap, "eh.end timedout=%d pflags=%#x elapsed_ms=%u\n",
++			 nr_timedout, ap->pflags, ps4_sata_diag_ms(diag_start));
+ }
+ 
+ /**
+@@ -670,6 +676,10 @@
+ 				set_host_byte(scmd, DID_TIME_OUT);
+ 				qc->err_mask |= AC_ERR_TIMEOUT;
+ 				qc->flags |= ATA_QCFLAG_EH;
++				ps4_sata_diag_ap_fault(ap,
++					"scsi.timeout cmd=%#x protocol=%u tag=%u hw_tag=%u\n",
++					qc->tf.command, qc->tf.protocol, qc->tag, qc->hw_tag);
++				ps4_sata_diag_qc_dma(qc, true);
+ 				nr_timedout++;
+ 			}
+ 		} else {
+@@ -839,7 +849,10 @@
+ void ata_port_wait_eh(struct ata_port *ap)
+ {
+ 	unsigned long flags;
++	unsigned long diag_start = jiffies;
+ 	DEFINE_WAIT(wait);
++
++	ps4_sata_diag_ap(ap, "eh_wait.begin\n");
+ 
+  retry:
+ 	spin_lock_irqsave(ap->lock, flags);
+@@ -859,6 +872,8 @@
+ 		ata_msleep(ap, 10);
+ 		goto retry;
+ 	}
++	ps4_sata_diag_ap(ap, "eh_wait.end elapsed_ms=%u\n",
++			 ps4_sata_diag_ms(diag_start));
+ }
+ EXPORT_SYMBOL_GPL(ata_port_wait_eh);
+ 
+@@ -3305,7 +3320,7 @@
+ 	struct ata_eh_context *ehc = &link->eh_context;
+ 	struct ata_device *dev;
+ 	unsigned int new_mask = 0;
+-	unsigned long flags;
++	unsigned long flags, diag_start;
+ 	int rc = 0;
+ 
+ 	/* For PATA drive side cable detection to work, IDENTIFY must
+@@ -3372,9 +3387,15 @@
+ 
+ 			if (dev->class == ATA_DEV_PMP)
+ 				rc = sata_pmp_attach(dev);
+-			else
++			else {
++				diag_start = jiffies;
++				ps4_sata_diag_ap(ap, "identify.begin dev=%u\n", dev->devno);
+ 				rc = ata_dev_read_id(dev, &dev->class,
+ 						     readid_flags, dev->id);
++				ps4_sata_diag_ap(ap,
++					"identify.end dev=%u rc=%d class=%u elapsed_ms=%u\n",
++					dev->devno, rc, dev->class, ps4_sata_diag_ms(diag_start));
++			}
+ 
+ 			/* read_id might have changed class, store and reset */
+ 			ehc->classes[dev->devno] = dev->class;
+@@ -3419,7 +3440,11 @@
+ 			continue;
+ 
+ 		ehc->i.flags |= ATA_EHI_PRINTINFO;
++		diag_start = jiffies;
++		ps4_sata_diag_ap(ap, "configure.begin dev=%u\n", dev->devno);
+ 		rc = ata_dev_configure(dev);
++		ps4_sata_diag_ap(ap, "configure.end dev=%u rc=%d class=%u elapsed_ms=%u\n",
++				 dev->devno, rc, dev->class, ps4_sata_diag_ms(diag_start));
+ 		ehc->i.flags &= ~ATA_EHI_PRINTINFO;
+ 		if (rc) {
+ 			dev->class = ATA_DEV_UNKNOWN;
+@@ -3462,6 +3487,7 @@
+ {
+ 	struct ata_port *ap = link->ap;
+ 	struct ata_device *dev;
++	unsigned long diag_start = jiffies;
+ 	int rc;
+ 
+ 	/* if data transfer is verified, clear DUBIOUS_XFER on ering top */
+@@ -3476,10 +3502,13 @@
+ 	}
+ 
+ 	/* has private set_mode? */
++	ps4_sata_diag_ap(ap, "set_mode.begin\n");
+ 	if (ap->ops->set_mode)
+ 		rc = ap->ops->set_mode(link, r_failed_dev);
+ 	else
+ 		rc = ata_set_mode(link, r_failed_dev);
++	ps4_sata_diag_ap(ap, "set_mode.end rc=%d elapsed_ms=%u\n",
++			 rc, ps4_sata_diag_ms(diag_start));
+ 
+ 	/* if transfer mode has changed, set DUBIOUS_XFER on device */
+ 	ata_for_each_dev(dev, link, ENABLED) {
+diff --git a/drivers/usb/host/xhci-aeolia.c b/drivers/usb/host/xhci-aeolia.c
+--- a/drivers/usb/host/xhci-aeolia.c
++++ b/drivers/usb/host/xhci-aeolia.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include <linux/pci.h>
++#include <linux/ps4-sata-diag.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
+ #include <linux/acpi.h>
+@@ -57,7 +58,16 @@
+ /* called during probe() after chip reset completes */
+ static int xhci_aeolia_setup(struct usb_hcd *hcd)
+ {
+-	return xhci_gen_setup(hcd, xhci_aeolia_quirks);
++	struct device *dev = hcd->self.controller;
++	unsigned long diag_start = jiffies;
++	int rc;
++
++	ps4_sata_diag_masks(dev, "xhci.setup.begin", 0);
++	rc = xhci_gen_setup(hcd, xhci_aeolia_quirks);
++	ps4_sata_diag_masks(dev, "xhci.setup.end", rc);
++	ps4_sata_diag(dev, "xhci.setup.elapsed_ms=%u\n",
++		      ps4_sata_diag_ms(diag_start));
++	return rc;
+ }
+ 
+ static int xhci_aeolia_probe_one(struct pci_dev *dev, int index)
+@@ -184,6 +194,7 @@
+ 	resource_size_t		rsrc_len;
+ 
+ 	dev_dbg(&pdev->dev, "ENTER \n");
++	ps4_sata_diag_masks(&pdev->dev, "embedded_ahci.begin", 0);
+ 
+ 	WARN_ON((int)ATA_MAX_QUEUE > AHCI_MAX_CMDS);
+ 
+@@ -255,7 +266,9 @@
+ 			// 		ctrl->dev_id = 0;
+ 			// }
+ 
++			ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.begin\n");
+ 			bpcie_sata_phy_init(&pdev->dev, ctlr);
++			ps4_sata_diag(&pdev->dev, "embedded_ahci.phy.end\n");
+ 			kfree(ctlr);
+ 		}
+ 		kfree(r_mem);
+@@ -340,7 +353,11 @@
+ 			ap->ops = &ata_dummy_port_ops;
+ 	}
+ 
++	ps4_sata_diag(&pdev->dev,
++		      "embedded_ahci.reset.begin irq=%d n_ports=%d cap=%#x port_map=%#x\n",
++		      hpriv->irq, n_ports, hpriv->cap, hpriv->port_map);
+ 	rc = ahci_reset_controller(host);
++	ps4_sata_diag(&pdev->dev, "embedded_ahci.reset.end rc=%d\n", rc);
+ 	dev_dbg(&pdev->dev, "ahci_reset_controller returned %d\n", rc);
+ 	if (rc)
+ 		goto release_host;
+@@ -353,7 +370,9 @@
+ 		bus_master = true;
+ 	}
+ 
++	ps4_sata_diag_masks(&pdev->dev, "embedded_ahci.activate.begin", 0);
+ 	rc = ahci_host_activate(host, &ahci_sht);
++	ps4_sata_diag_masks(&pdev->dev, "embedded_ahci.activate.end", rc);
+ 	dev_dbg(&pdev->dev, "ahci_host_activate returned %d\n", rc);
+ 	if (rc) {
+ 		goto host_deactivate;
+@@ -397,6 +416,9 @@
+ 	int retval;
+ 	struct aeolia_xhci *axhci;
+ 
++	ps4_sata_diag(&dev->dev, "driver.probe driver=%s irq=%d\n",
++		      dev_driver_string(&dev->dev), dev->irq);
++	ps4_sata_diag_masks(&dev->dev, "driver.probe.masks", 0);
+ 	if (apcie_status() == 0)
+ 		return -EPROBE_DEFER;
+ 
+@@ -421,7 +443,10 @@
+ 	 * ID: Command Aborted" on the first ENABLE_SLOT.
+ 	 * Source: rmuxnet/ps4-linux-12xx 8f2f907b.
+ 	 */
++	ps4_sata_diag(&dev->dev, "driver.irq_assign.begin\n");
+ 	axhci->nr_irqs = retval = apcie_assign_irqs(dev, NR_DEVICES);
++	ps4_sata_diag(&dev->dev, "driver.irq_assign.end nr_irqs=%d irq=%d\n",
++		      retval, dev->irq);
+ 
+ 	if (retval < 0) {
+ 		goto free_axhci;
+@@ -431,9 +456,12 @@
+ 		pci_set_master(dev);
+ 	}
+ 
++	ps4_sata_diag_masks(&dev->dev, "driver.dma31.before", 0);
+ 	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31))) {
++		ps4_sata_diag_masks(&dev->dev, "driver.dma31.after", -ENODEV);
+ 		return -ENODEV;
+ 	}
++	ps4_sata_diag_masks(&dev->dev, "driver.dma31.after", 0);
+ 
+ 	if(dev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI) {
+ 		retval = ahci_init_one(dev);
+@@ -457,7 +485,11 @@
+  		if(dev->device != PCI_DEVICE_ID_SONY_AEOLIA_XHCI && idx == 1){ //this is for Belize and Baikal
+ 			continue;
+ 		}
++		ps4_sata_diag(&dev->dev, "driver.xhci_child.begin index=%d\n", idx);
+ 		retval = xhci_aeolia_probe_one(dev, idx);
++		ps4_sata_diag(&dev->dev, "driver.xhci_child.end index=%d rc=%d\n",
++			      idx, retval);
++		ps4_sata_diag_masks(&dev->dev, "driver.xhci_child.masks", retval);
+ 		if (retval)
+ 			goto remove_hcds;
+ 		/* Let the internal hub settle before we touch the next host. */
+diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
+--- a/drivers/usb/host/xhci.c
++++ b/drivers/usb/host/xhci.c
+@@ -10,6 +10,7 @@
+ 
+ #include <linux/jiffies.h>
+ #include <linux/pci.h>
++#include <linux/ps4-sata-diag.h>
+ #include <linux/iommu.h>
+ #include <linux/iopoll.h>
+ #include <linux/irq.h>
+@@ -5526,6 +5527,9 @@
+ 	 * 64-bit addressing, unless a controller-specific quirk callback
+ 	 * limits the usable address width.
+ 	 */
++	ps4_sata_diag(dev, "xhci.dma_select.begin requested_bits=%u hcc64=%u\n",
++		      xhci->dma_mask_bits, !!(xhci->hcc_params & HCC_64BIT_ADDR));
++	ps4_sata_diag_masks(dev, "xhci.dma_select.before", 0);
+ 	if ((xhci->hcc_params & HCC_64BIT_ADDR) &&
+ 	    !dma_set_mask(dev, DMA_BIT_MASK(xhci->dma_mask_bits))) {
+ 		xhci_dbg(xhci, "Enabling %u-bit DMA addresses.\n",
+@@ -5543,6 +5547,7 @@
+ 		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+ 	}
+ 
++	ps4_sata_diag_masks(dev, "xhci.dma_select.after", 0);
+ 	spin_lock_init(&xhci->lock);
+ 	INIT_LIST_HEAD(&xhci->cmd_list);
+ 	INIT_DELAYED_WORK(&xhci->cmd_timer, xhci_handle_command_timeout);
+diff --git a/include/linux/ps4-sata-diag.h b/include/linux/ps4-sata-diag.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/ps4-sata-diag.h
+@@ -0,0 +1,67 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/* Opt-in, bounded observations for the Baikal shared xHCI/HDD function. */
++#ifndef _LINUX_PS4_SATA_DIAG_H
++#define _LINUX_PS4_SATA_DIAG_H
++
++#include <linux/device.h>
++#include <linux/dma-mapping.h>
++#include <linux/jiffies.h>
++#include <linux/pci.h>
++#include <linux/printk.h>
++
++extern bool ps4_sata_diag_enabled;
++void ps4_sata_diag_emit(const char *fmt, ...) __printf(1, 2);
++void ps4_sata_diag_fault_emit(const char *fmt, ...) __printf(1, 2);
++
++struct ata_queued_cmd;
++void ps4_sata_diag_qc_dma(struct ata_queued_cmd *qc, bool failure);
++
++static inline bool ps4_sata_diag_match(struct device *dev)
++{
++	struct pci_dev *pdev;
++
++	if (!ps4_sata_diag_enabled || !dev || !dev_is_pci(dev))
++		return false;
++	pdev = to_pci_dev(dev);
++	return pdev->vendor == 0x104d && pdev->device == 0x90de &&
++		pci_domain_nr(pdev->bus) == 0 && pdev->bus->number == 0 &&
++		pdev->devfn == PCI_DEVFN(0x14, 7);
++}
++
++#define __ps4_sata_diag(emit, dev, fmt, ...) do { \
++	struct device *__diag_dev = (dev); \
++	if (ps4_sata_diag_match(__diag_dev)) \
++		emit("%s " fmt, dev_name(__diag_dev), ##__VA_ARGS__); \
++} while (0)
++
++#define ps4_sata_diag(dev, fmt, ...) \
++	__ps4_sata_diag(ps4_sata_diag_emit, dev, fmt, ##__VA_ARGS__)
++
++/* Hardware-local port 0, rather than the changeable global ataN number. */
++#define __ps4_sata_diag_ap(emit, ap, fmt, ...) do { \
++	struct ata_port *__diag_ap = (ap); \
++	if (__diag_ap->port_no == 0) \
++		__ps4_sata_diag(emit, __diag_ap->host->dev, "ata%u hwport=%u " fmt, \
++			       (unsigned int)__diag_ap->print_id, \
++			       (unsigned int)__diag_ap->port_no, ##__VA_ARGS__); \
++} while (0)
++
++#define ps4_sata_diag_ap(ap, fmt, ...) \
++	__ps4_sata_diag_ap(ps4_sata_diag_emit, ap, fmt, ##__VA_ARGS__)
++#define ps4_sata_diag_ap_fault(ap, fmt, ...) \
++	__ps4_sata_diag_ap(ps4_sata_diag_fault_emit, ap, fmt, ##__VA_ARGS__)
++
++static inline unsigned int ps4_sata_diag_ms(unsigned long start)
++{
++	return jiffies_to_msecs(jiffies - start);
++}
++
++static inline void ps4_sata_diag_masks(struct device *dev, const char *stage,
++				      int rc)
++{
++	ps4_sata_diag(dev, "%s rc=%d dma_mask=%#llx coherent_mask=%#llx\n",
++		      stage, rc, (unsigned long long)dma_get_mask(dev),
++		      (unsigned long long)dev->coherent_dma_mask);
++}
++
++#endif
+diff --git a/init/main.c b/init/main.c
+--- a/init/main.c
++++ b/init/main.c
+@@ -13,6 +13,7 @@
+ #define DEBUG		/* Enable initcall_debug */
+ 
+ #include <linux/types.h>
++#include <linux/ps4-sata-diag.h>
+ #include <linux/export.h>
+ #include <linux/extable.h>
+ #include <linux/module.h>
+@@ -121,6 +122,65 @@
+ 
+ static int kernel_init(void *);
+ 
++/* Diagnostic-only boot gate: no writable runtime control. */
++bool ps4_sata_diag_enabled __ro_after_init;
++EXPORT_SYMBOL_GPL(ps4_sata_diag_enabled);
++static atomic_t ps4_sata_diag_lines = ATOMIC_INIT(0);
++static atomic_t ps4_sata_diag_fault_lines = ATOMIC_INIT(0);
++
++static int __init ps4_sata_diag_setup(char *str)
++{
++	if (!str)
++		return -EINVAL;
++	return kstrtobool(str, &ps4_sata_diag_enabled);
++}
++early_param("ps4_sata_diag", ps4_sata_diag_setup);
++
++void ps4_sata_diag_emit(const char *fmt, ...)
++{
++	struct va_format vaf;
++	va_list args;
++	int line;
++
++	if (!ps4_sata_diag_enabled)
++		return;
++	line = atomic_inc_return(&ps4_sata_diag_lines);
++	if (line > 192) {
++		if (line == 193)
++			pr_info("PS4_SATA_DIAG marker limit=192 reached; use native ATA logs\n");
++		return;
++	}
++	va_start(args, fmt);
++	vaf.fmt = fmt;
++	vaf.va = &args;
++	pr_info("PS4_SATA_DIAG seq=%d %pV", line, &vaf);
++	va_end(args);
++}
++EXPORT_SYMBOL_GPL(ps4_sata_diag_emit);
++
++/* Fault evidence must remain available after routine markers reach their cap. */
++void ps4_sata_diag_fault_emit(const char *fmt, ...)
++{
++	struct va_format vaf;
++	va_list args;
++	int line;
++
++	if (!ps4_sata_diag_enabled)
++		return;
++	line = atomic_inc_return(&ps4_sata_diag_fault_lines);
++	if (line > 32) {
++		if (line == 33)
++			pr_info("PS4_SATA_DIAG fault limit=32 reached; use native ATA logs\n");
++		return;
++	}
++	va_start(args, fmt);
++	vaf.fmt = fmt;
++	vaf.va = &args;
++	pr_info("PS4_SATA_DIAG fault_seq=%d %pV", line, &vaf);
++	va_end(args);
++}
++EXPORT_SYMBOL_GPL(ps4_sata_diag_fault_emit);
++
+ /*
+  * Debug helper: via this flag we know that we are in 'early bootup code'
+  * where only the boot processor is running with IRQ disabled.  This means
+@@ -1543,6 +1603,7 @@
+ 
+ static int __ref kernel_init(void *unused)
+ {
++	unsigned long diag_start;
+ 	int ret;
+ 
+ 	/*
+@@ -1552,7 +1613,13 @@
+ 
+ 	kernel_init_freeable();
+ 	/* need to finish all async __init code before freeing the memory */
++	diag_start = jiffies;
++	if (ps4_sata_diag_enabled)
++		pr_info("PS4_SATA_DIAG boot.async_wait.begin\n");
+ 	async_synchronize_full();
++	if (ps4_sata_diag_enabled)
++		pr_info("PS4_SATA_DIAG boot.async_wait.end elapsed_ms=%u\n",
++			ps4_sata_diag_ms(diag_start));
+ 
+ 	system_state = SYSTEM_FREEING_INITMEM;
+ 	kprobe_free_init_mem();

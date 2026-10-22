@@ -22,4 +22,5 @@ assert len(pins['patches']) == 4
 assert pins['hardware_acceptance'] is False
 subprocess.run([sys.executable, '-B', str(HERE / 'checks/demo_check.py')], check=True)
 subprocess.run([sys.executable, '-B', str(HERE / 'checks/bounded_log_check.py')], check=True)
+subprocess.run([sys.executable, '-B', str(HERE / 'checks/demo_system_check.py')], check=True)
 print(f'PASS: {len(record["files"])} migrated source identities, {len(pins["patches"])} pinned Mesa patches, portable player/log checks; no hardware access')

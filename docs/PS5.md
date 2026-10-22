@@ -102,3 +102,17 @@ Omarchy-specific early userspace and rootfs policy belong in sibling
 `omarchy-psx`. This kernel repository does not install packages, write console
 storage or provide a launcher. Hardware acceptance requires observed PS5 boots
 and device results under an agreed capture and rollback plan.
+
+## Native image milestone and follow-up
+
+The shared Omarchy console packages and native PS5 image builder live in the
+sibling distribution repository (`platforms/ps5/IMAGE.md`). The kernel packager
+now accepts `7.2-ps5`, with whole matching modules and complete corresponding
+source; local builds and image assembly still establish no console acceptance.
+
+The requested MediaTek Wi-Fi/Bluetooth work is pinned separately in
+`provenance/ps5-mediatek-followup.json` at upstream commit
+`b84c899348a6b71aa62cc1c73dfc5e7c03860b4c`. It is not part of the current
+baseline build. Port the additional Bluetooth patches and MT7921E config as a
+distinct development target, compare already-present community hunks first, and
+keep udev and controller-pairing policy in the distribution.

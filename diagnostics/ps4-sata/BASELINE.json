@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "baseline_kernel_release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev1",
+  "baseline_source_archive": "source-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst",
+  "baseline_source_archive_sha256": "36fa0d0119281503b456e3532080afabe2ea7b5c7bc7b05af08685d295f7a3a4",
+  "baseline_remote_path": "/home/meerzulee/Work/psx/lab/uvd-2026-10-20/driver-integration/native-runtime-package-01/source-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst",
+  "patch": "0001-ps4-sata-uart-observability.patch",
+  "patch_sha256": "d3ecab423c814fa75237086593a01a674cf679ea24768342435a75d2ba96e2fb",
+  "hardware_acceptance": false,
+  "files": [
+    {
+      "path": "drivers/ata/libata-core.c",
+      "before_sha256": "3f2c1288fc1bb4b8a3cb12e38ae31ba3896023264d98275fc4fd421d5a2e0edc",
+      "after_sha256": "86f0bb44a8da987c0547e4a4e3023611227bfda7483345a596e45f44e3f75848"
+    },
+    {
+      "path": "drivers/ata/libata-eh.c",
+      "before_sha256": "70866fa626d4efc6b2066cd288b9f18f0bfbbea8cca9ecf71c96d1df77c52cf1",
+      "after_sha256": "3ba9f15cfdd7827d9dff66e30700847a5df7fc89bde64c1c693b681bdb7fc486"
+    },
+    {
+      "path": "drivers/usb/host/xhci-aeolia.c",
+      "before_sha256": "3c890c622b2854f5859fb59143e9f9fadb5c088fe1e34b271e2b25bcc34d66ac",
+      "after_sha256": "5d44dfedb8c927b5d963888d1f420cda13663ca44bc458c8c26468d892c6c687"
+    },
+    {
+      "path": "drivers/usb/host/xhci.c",
+      "before_sha256": "4c27e30475c3d2fbb3467f1c00f719e9044af539813b8c5123bac58b0e44150d",
+      "after_sha256": "39515e337160743d9f67530e64e03c4c66cb2749001e3403f47cd7b72a5d627c"
+    },
+    {
+      "path": "include/linux/ps4-sata-diag.h",
+      "before_sha256": null,
+      "after_sha256": "64811d7d07ffc8f3e2969304d3824280f05274b7b4350cd1a78aa57d130c9be9"
+    },
+    {
+      "path": "init/main.c",
+      "before_sha256": "5763d7f5c9b0d526714e8becd61aa73fbbf8b89563a8f2fc640f0233eb3861d0",
+      "after_sha256": "7317f56a1b867f38e66af269508bad2aafd0029276cbd60101875f384264a70f"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "patch_sha256": "d3ecab423c814fa75237086593a01a674cf679ea24768342435a75d2ba96e2fb",
+  "checks": [
+    {
+      "operation": "git apply --check",
+      "exit_code": 0,
+      "stderr": ""
+    },
+    {
+      "operation": "git apply /Users/meerzulee/Work/ps4/linux-psx/diagnostics/ps4-sata/0001-ps4-sata-uart-observability.patch",
+      "exit_code": 0,
+      "stderr": ""
+    }
+  ],
+  "patched_member_sha256": "PASS all6",
+  "new_lines_over100_columns": 0,
+  "logging_revision": "independent192 routine and32 fault budgets; zero-length SG entries skipped",
+  "compilation": "pending isolated native build by primary agent",
+  "hardware_actions": "none",
+  "hardware_acceptance": false,
+  "host_emitter_budget_check": {
+    "result": "PASS",
+    "scope": "actual extracted emitter C with serialized atomic/printk host stubs; not kernel/IRQ/concurrency validation",
+    "routine_markers": 192,
+    "fault_markers_after_routine_saturation": 32,
+    "limit_notices_per_channel": 1,
+    "default_disabled": true
+  }
+}
