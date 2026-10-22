@@ -39,29 +39,30 @@ console or a fresh rebuild.
 | GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
 | Mesa version | 🧪 26.1.7 restored; fixed 26.2.5 isolated GL tests passed; system trial rolled back | ⏳ Untested | ⏳ Untested |
 | Vulkan | 🧪 26.2.5 dev5: HTILE depth oracle and 120 cube presentations passed | ⏳ Untested | ⏳ Untested |
-| UVD / H.264 decode | 🧪 1080p30 VAAPI decode and playback passed | ⏳ Untested | ⏳ Untested |
+| UVD / H.264 decode | 🧪 UVD runtime experiments passed 1080p30; the current default hybrid boot falls back to software | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
-| Internal storage / SATA | 🧪 One read-only partition scan (EXP-20261022-011) with experimental PHY/poll patches; writes, Sony encryption/UFS and installation unqualified | ⏳ Untested | ⏳ Untested |
+| Internal storage / SATA | 🧪 Hybrid USB root + internal ext4 test image RW; 64 MiB write/read and 256 MiB direct read passed; repeat boots, stress and encryption/UFS remain unqualified | ⏳ Untested | ⏳ Untested |
 | External USB root | ✅ Read/write root booted on 7.2 | ⏳ Untested | ⏳ Untested |
-| Wi-Fi | ✅ MT7668; DHCP and verified HTTPS | ⏳ Untested | ⏳ Untested |
-| Bluetooth audio | ✅ One device paired; audible stereo playback | ⏳ Untested | ⏳ Untested |
-| HDMI audio | 🧪 Detected; audible output unverified | ⏳ Untested | ⏳ Untested |
+| Wi-Fi | 🧪 Historical external firmware stack worked; current Omarchy root has no MT7668 firmware | ⏳ Untested | ⏳ Untested |
+| Bluetooth audio | 🧪 Historical external stack worked; current Omarchy root has no firmware | ⏳ Untested | ⏳ Untested |
+| HDMI audio | ✅ Clean 44.1 kHz; native 48 kHz remains broken | ⏳ Untested | ⏳ Untested |
 | Temperature monitoring | ✅ Historical `k10temp` readings on 6.18 | ⏳ Untested | ⏳ Untested |
 | Fan control | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
+| Blu-ray / optical | ⏳ Not detected; controller port and power path unknown | ⏳ Untested | ⏳ Untested |
 | Shutdown / reboot / suspend | ⏳ Not qualified; UVD recovery restrictions apply | ⏳ Untested | ⏳ Untested |
 
-The internal-SATA read-only result is one boot on the tested Slim, not
-hardware acceptance. It used the local `7.2-ps4-baikal` candidate with
-`ps4_bpcie.ps4_sata_phy_orbit=1` and `libahci.ps4_ahci_poll_ms=5`; both
-patches are disabled by default. Writes, the Sony encrypted/UFS stack,
-installation and a proper completion path remain unqualified.
+The current internal-SATA result is a hybrid USB-root Omarchy boot with an
+internal ext4 test image mounted read-write. The legacy AHCI timer was disabled
+and the command-scoped completion probe was active. Short write/read and direct
+read tests passed. Repeat boots, sustained/random I/O, the Sony encrypted/UFS
+stack, installation and a proper production completion path remain unqualified.
 
 ### Remaining hardware work
 
-- **Internal SATA:** repeat read-only boots; fix the pending completion/IRQ
-  path instead of relying on the poll workaround; validate the Sony
-  encrypted/UFS layers; only then consider writes or an installer.
+- **Internal SATA:** repeat hybrid boots; sustained and random I/O; flush and
+  error-path testing; validate the Sony encrypted/UFS layers; only then consider
+  an installer or internal-root acceptance.
 - **Thermal/fan:** read-only fan RPM/PWM discovery and sustained-load cooling;
   the current `k10temp` readings are not fan-control qualification.
 - **Power lifecycle:** exact-artifact shutdown, reboot and suspend/resume
@@ -69,8 +70,8 @@ installation and a proper completion path remain unqualified.
 - **Video:** VCE encoding, broader UVD profiles/sustained playback and a
   system-wide Mesa/Vulkan adoption path. Current UVD and Mesa results are
   experimental and artifact-scoped.
-- **Audio:** audible HDMI output and the native 48 kHz path; ALSA/PipeWire
-  enumeration alone is not acceptance.
+- **Audio:** 44.1 kHz is clean; fix native 48 kHz and verify it after a cold
+  boot. ALSA/PipeWire enumeration alone is not acceptance.
 - **Wireless:** cold firmware loading, reconnect persistence and broader
   Wi-Fi/Bluetooth device coverage without the retained external boot stack.
 - **Ethernet:** IRQ mode, offloads, cable recovery, reset and suspend; the
@@ -126,6 +127,19 @@ Choose the build command for your host. The [build guide](docs/BUILDING.md)
 lists dependencies and the native/cross-build setup. The output directory is
 `output/7.2-ps4-baikal-native-dev/`, containing the kernel, **whole matching
 module archive**, resolved config, build manifest and checksums.
+
+### Latest CI build
+
+The public `PS4 - Linux 7.x` workflow built
+`7.2.11-psx-ps4-baikal-native-dev2` successfully from commit `804365c`:
+
+- 65 active patches
+- kernel SHA-256 `aac6cc8b7036a1c5d3436df68531c931b731195677160e181389a83842393a43`
+- artifact `linux-psx-7.2-ps4-baikal-native-dev-804365c`
+- [CI run](https://github.com/meerzulee/linux-psx/actions/runs/39784010700)
+
+This CI target has not been boot-tested and does not include the separate
+audio-DTO/`7.2-ps4` experimental target.
 
 Keep a kernel and all its modules together. Device firmware is external and
 is not embedded or bundled by this repository. A compatible console loader,
