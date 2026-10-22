@@ -146,6 +146,9 @@ is not embedded or bundled by this repository. A compatible console loader,
 initramfs and Linux root filesystem are separate inputs; see the
 [boot guide](docs/BOOTING.md). New builds require their own hardware tests.
 
+For distribution-independent PS4 Baikal boot arguments, including the internal
+SATA and Ethernet test profile, see [PS4 boot arguments](docs/PS4-BOOTARGS.md).
+
 ### Ethernet and graphics
 
 The native Ethernet driver publishes `psx0`; the network manager's normal

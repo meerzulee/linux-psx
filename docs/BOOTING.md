@@ -41,15 +41,15 @@ could use `root=LABEL=PS4LINUX rootfstype=ext4 rootwait rw`; this is a root
 selector example, not a complete console command line.
 
 Retain the PS4 platform/display/UART arguments required by your established
-loader and record every change. In the historical Baikal setup,
-`pci=nocrs intremap=off` were platform settings and
-`libata.force=1.00:disable` kept internal SATA disabled. Avoid introducing
-internal-storage changes while evaluating a new kernel. Loader VRAM settings
-and boot-file naming belong to the selected loader; no universal defaults are
-assumed here.
+loader and record every change. For the current Baikal target, `pci=nocrs
+intremap=off` are platform settings. Internal SATA is no longer disabled by
+default in the current hybrid test profile; the PHY and AHCI completion
+settings are documented in [PS4-BOOTARGS.md](PS4-BOOTARGS.md). That page also
+separates generic distribution arguments from Omarchy-specific ones.
 
-The Omarchy-specific partitioned USB profile is maintained in the companion
-project:
+Loader VRAM settings and boot-file naming belong to the selected loader; no
+universal defaults are assumed here. The Omarchy-specific partitioned USB
+profile remains in the companion project:
 
 https://github.com/meerzulee/omarchy-psx/blob/master/docs/USING-LINUX-PSX.md
 

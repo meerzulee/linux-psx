@@ -1,4 +1,4 @@
-# Internal storage remains read-only research
+# Internal storage: hybrid test image, not an installer
 
 Seeing a SATA disk in Linux does not establish a usable Linux root filesystem
 on the console's internal disk. The inspected historical design is layered:
@@ -13,20 +13,22 @@ Baikal AHCI/SATA
   -> Linux root
 ```
 
-## Latest read-only result (2026-10-22)
+## Current hybrid result (2026-10-22)
 
-`EXP-20261022-011` attached the internal Toshiba HDD as `/dev/sdb` and read
-its partition table (`sdb1`, `sdb3`, `sdb5` through `sdb31`) under the local
-7.2 Baikal candidate. This used two disabled-by-default test patches:
+The internal Toshiba HDD was detected as `/dev/sdb` and used behind an ext4
+test image inside the Orbis user volume. The current test profile uses:
 
 - Orbis AHCI PHY profile: `ps4_bpcie.ps4_sata_phy_orbit=1`
-- AHCI completion poll fallback: `libahci.ps4_ahci_poll_ms=5`
+- Command-scoped AHCI completion probe: `libahci.ps4_ahci_completion_probe_ms=5`
+- Legacy unconditional poll explicitly disabled: `libahci.ps4_ahci_poll_ms=0`
 
-The first 4 KiB read and partition scan completed read-only. This is one
-boot; it is not hardware acceptance, and the poll fallback is a workaround
-for a pending completion FIS, not a proven interrupt fix. Repeat boots,
-write stability, the Sony encrypted/UFS layers and an installer remain
-unqualified. Do not treat the partition numbers as a portable layout.
+A short health check passed: 64 MiB write/read on the test image, 256 MiB
+direct read from the HDD at about 62 MB/s, and no ATA/EXT4 errors or probe stalls.
+The USB root and internal test image were mounted read-write. This is **one
+short check**, not endurance or hardware acceptance. Repeat boots, sustained
+and random I/O, flush/error paths, the Sony encrypted/UFS stack, an installer
+and internal-root boot remain unqualified. Do not treat partition numbers,
+offsets or image paths as portable defaults.
 
 ## Historical encrypted-storage path
 

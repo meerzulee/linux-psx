@@ -13,16 +13,18 @@ Three PS4 development targets build Linux v7.2.11. Local Baikal candidates
 have scoped boot evidence; rebuilt binaries have no hardware acceptance.
 See [PORT-7.2.md](PORT-7.2.md).
 
-- `7.2-ps4-baikal`: the `6.18-ps4-baikal` series ported to 7.2, release
-  `7.2.11-psx-ps4-baikal-dev1`. Build it with `make TARGET=7.2-ps4-baikal` or
+- `7.2-ps4-baikal`: the Baikal 6.18 series ported to 7.2, including the current
+  SATA bring-up patches, release `7.2.11-psx-ps4-baikal-dev1`. Build it with
+  `make TARGET=7.2-ps4-baikal` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal`.
-- `7.2-ps4-baikal-native-dev`: that exact 61-patch port plus the unchanged
-  6.18 native Ethernet autoload patch, release
-  `7.2.11-psx-ps4-baikal-native-dev1`. Build with
+- `7.2-ps4-baikal-native-dev`: the current Baikal port plus the native Ethernet
+  autoload patch and contributor underscan, release
+  `7.2.11-psx-ps4-baikal-native-dev2`. Build with
   `make TARGET=7.2-ps4-baikal-native-dev` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal-native-dev`.
-  Only LOCALVERSION differs from the base config. One local build passed
-  short wired traffic in EXP-20261018-004; this does not qualify CI rebuilds.
+  The public CI run for commit `804365c` built this target successfully. It has
+  not been boot-tested as a CI binary. The separate `7.2-ps4` target carries
+  the audio-DTO experiment.
 - `7.2-ps4`: the rmux 7.x stack for all PS4 southbridges, release
   `7.2.11-psx-ps4-dev1`. Build it with `make TARGET=7.2-ps4` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4`.

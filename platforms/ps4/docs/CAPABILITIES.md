@@ -14,10 +14,10 @@ replacement merely because it carries the patches.
 | Display | 1080p XFCE and repeated staged bridge completion | Other modes, monitors, console revisions and repeated cold boots |
 | GPU | Direct radeonsi OpenGL 4.6; roughly 59 FPS for an eight-second `glxgears` smoke; eight-second RADV Vulkan 1.3 `vkcube` | Short rendering tests do not qualify sustained load, reset, suspend or video codecs |
 | External USB | Root disk, keyboard and mouse operated | Device-specific recovery and power-loss behavior remain separate |
-| Internal SATA | Controller/disk enumeration, then one read-only partition scan (EXP-20261022-011) with the experimental PHY/poll patches | Repeat boots, a proper completion path, Sony encryption/UFS, writes and installation unqualified |
-| MT7668 Wi-Fi | Association, DHCP, SSH, DNS and verified HTTPS on the old firmware-bearing stack | The new kernel embeds no firmware; supply appropriate external firmware through the distro/boot arrangement and retest |
+| Internal SATA | Hybrid USB root + internal ext4 test image RW; 64 MiB write/read and 256 MiB direct read passed with the PHY profile and command-scoped probe | Repeat boots, sustained I/O, Sony encryption/UFS, installer and internal-root boot unqualified |
+| MT7668 Wi-Fi | Historical external-firmware stack passed association and HTTPS | Current Omarchy root has no MT7668 firmware; retest with supplied firmware |
 | Ethernet | EXP014/015 transport and EXP016 continuous MTS2 traffic | Experimental; see the separate [evidence ladder](ETHERNET-HISTORY.md) |
-| HDMI audio | HDA/ALSA/PipeWire enumeration and accepted PCM samples | No audible sound in the recorded test; playback remains partial |
+| HDMI audio | Clean 44.1 kHz output confirmed; HDA/ALSA/PipeWire path active | Native 48 kHz remains robotic/slow |
 | Bluetooth | Firmware and `hci0` present | Scanning, pairing and DualShock reconnect pending |
 | Temperature/fan | Credible `k10temp` readings around 60–61°C during short tests | No exposed fan RPM/PWM interface; sustained stress blocked by the recorded fan gap |
 | Power | Interfaces/source paths exist | Shutdown/reboot still need their own exact-artifact acceptance; suspend unavailable in the recorded runtime |

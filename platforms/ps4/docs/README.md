@@ -16,8 +16,9 @@ or deliberately left in the historical repository.
 | [Dynamic RAM and VRAM proposal](../../../docs/PS4-DYNAMIC-MEMORY.md) | Owner's shared-memory idea, existing GTT foundations and staged validation |
 | [Knowledge migration](KNOWLEDGE-MIGRATION.md) | Coverage map and immutable original references |
 
-The current build, boot and artifact interfaces are the root
-[BUILDING](../../../docs/BUILDING.md), [BOOTING](../../../docs/BOOTING.md),
+The current build, boot, artifact and distribution-argument interfaces are the
+root [BUILDING](../../../docs/BUILDING.md), [BOOTING](../../../docs/BOOTING.md),
+[PS4 boot arguments](../../../docs/PS4-BOOTARGS.md),
 [ARTIFACTS](../../../docs/ARTIFACTS.md) and
 [ETHERNET](../../../docs/ETHERNET.md) documents. Distribution installation,
 initramfs construction, desktop compatibility and NetworkManager integration
