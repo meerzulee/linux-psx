@@ -1,0 +1,174 @@
+From: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
+Date: Sat, 31 Oct 2026 16:30:00 +1100
+Subject: [PATCH] ps4: bpcie-icc: power off via ICC before the ACPI S5 handler
+
+On a Baikal PS4 Slim (CUH-2002A) Linux never powers the console off:
+the log ends at "reboot: Power down" and the power button has to be held.
+
+The legacy pm_power_off hook runs as a default-priority sys-off handler,
+after ACPI's acpi_power_off() (SYS_OFF_PRIO_FIRMWARE). On this console the
+ACPI S5 handler does not power off and apparently does not return, so
+icc_shutdown() is never reached.
+
+Register the ICC power-off as a sys-off handler with priority above
+firmware. sys-off handlers run in atomic context, so send the request
+without taking bcpie_icc_mutex and without waiting for the reply: split
+the request-buffer write out of _bpcie_icc_cmd() and add
+bpcie_icc_send_nowait(). If the request cannot be sent, icc_shutdown()
+returns and ACPI still runs.
+
+Tested on a PS4 Slim CUH-2002A with 7.2.11 native dev2: without this
+patch the console stays on after "reboot: Power down"; with it the
+console powers off and the UART log ends cleanly.
+
+Assisted-by: Claude (Anthropic)
+Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
+---
+--- a/drivers/ps4/ps4-bpcie-icc.c
++++ b/drivers/ps4/ps4-bpcie-icc.c
+@@ -8,6 +8,7 @@
+ #include <linux/delay.h>
+ #include <linux/fs.h>
+ #include <linux/uaccess.h>
++#include <linux/reboot.h>
+ #include <asm/ps4.h>
+ #include "baikal.h"
+ 
+@@ -175,12 +176,11 @@
+ 	return ret;
+ }
+ 
+-static int _bpcie_icc_cmd(struct bpcie_dev *sc, u8 major, u16 minor, const void *data,
+-		    u16 length, void *reply, u16 reply_length, bool intr)
++/* Fill the request buffer. Does not ring the doorbell, sleep or lock. */
++static int icc_write_request(struct bpcie_dev *sc, u8 major, u16 minor,
++			     const void *data, u16 length)
+ {
+-	int ret;
+ 	u32 req_empty, req_full;
+-	u16 rep_checksum;
+ 
+ 	if (length > ICC_MAX_PAYLOAD)
+ 		return -E2BIG;
+@@ -196,8 +196,6 @@
+ 
+ 	sc->icc.request.checksum = checksum(&sc->icc.request, ICC_HDR_SIZE);
+ 	sc->icc.request.checksum += checksum(data, length);
+-	sc->icc.reply_buffer = reply;
+-	sc->icc.reply_length = reply_length;
+ 
+ 	req_empty = ioread32(REQUEST + BUF_EMPTY);
+ 	req_full = ioread32(REQUEST + BUF_FULL);
+@@ -217,7 +215,22 @@
+ 			  ICC_MIN_PAYLOAD - length);
+ 
+ 	iowrite32(1, REQUEST + BUF_FULL);
++	return 0;
++}
+ 
++static int _bpcie_icc_cmd(struct bpcie_dev *sc, u8 major, u16 minor, const void *data,
++		    u16 length, void *reply, u16 reply_length, bool intr)
++{
++	int ret;
++	u16 rep_checksum;
++
++	sc->icc.reply_buffer = reply;
++	sc->icc.reply_length = reply_length;
++
++	ret = icc_write_request(sc, major, minor, data, length);
++	if (ret)
++		return ret;
++
+ 	spin_lock_irq(&sc->icc.reply_lock);
+ 	sc->icc.reply_pending = true;
+ 	spin_unlock_irq(&sc->icc.reply_lock);
+@@ -303,6 +316,33 @@
+ }
+ EXPORT_SYMBOL_GPL(bpcie_icc_cmd);
+ 
++/*
++ * Send a request without waiting for the reply, for the power-off path.
++ * sys-off handlers run in atomic context with the other CPUs stopped, so
++ * this must not take bcpie_icc_mutex or sleep. If a command was in flight
++ * when the CPUs stopped, the request buffer is busy and this fails.
++ */
++static int bpcie_icc_send_nowait(u8 major, u16 minor, const void *data,
++				 u16 length)
++{
++	struct bpcie_dev *sc = READ_ONCE(icc_sc);
++	int ret;
++
++	if (!sc)
++		return -EAGAIN;
++
++	sc->icc.reply_buffer = NULL;
++	sc->icc.reply_length = 0;
++	ret = icc_write_request(sc, major, minor, data, length);
++	if (ret)
++		return ret;
++
++	iowrite32(BPCIE_ICC_SEND | BPCIE_ICC_ACK,
++		  sc->bar2 + BPCIE_REG_ICC_STATUS);
++	iowrite32(BPCIE_ICC_SEND, sc->bar2 + BPCIE_REG_ICC_DOORBELL);
++	return 0;
++}
++
+ static void bpcie_init_usb(struct bpcie_dev *sc, int usb_no) {
+ 	u32 value_to_write;
+ 	void __iomem *addr;
+@@ -435,11 +475,26 @@
+ 	};
+ 	if (bpcie_status() != 1)
+ 		return;
+-	bpcie_icc_cmd(4, 1, command, sizeof(command), NULL, 0);
++	if (bpcie_icc_send_nowait(4, 1, command, sizeof(command)))
++		return;
+ 	mdelay(3000);
+ 	WARN_ON(1);
+ }
+ 
++/*
++ * Run the ICC power-off before ACPI's S5 handler. On Baikal the ACPI S5
++ * handler neither powers the console off nor returns, so a default-priority
++ * pm_power_off is never reached. If the ICC request fails, icc_shutdown()
++ * returns and the remaining handlers still run.
++ */
++static struct sys_off_handler *icc_power_off_handler;
++
++static int icc_power_off(struct sys_off_data *data)
++{
++	icc_shutdown();
++	return NOTIFY_DONE;
++}
++
+ static void icc_reboot(void)
+ {
+ 	uint8_t command[] = {
+@@ -582,7 +637,14 @@
+ 		sc_err("icc: pwrbutton init failed: %d\n", ret);
+ 
+ 	do_icc_init();
+-	pm_power_off = &icc_shutdown;
++	icc_power_off_handler = register_sys_off_handler(SYS_OFF_MODE_POWER_OFF,
++							 SYS_OFF_PRIO_FIRMWARE + 1,
++							 icc_power_off, NULL);
++	if (IS_ERR(icc_power_off_handler)) {
++		sc_err("icc: power-off handler registration failed: %ld\n",
++		       PTR_ERR(icc_power_off_handler));
++		icc_power_off_handler = NULL;
++	}
+ 
+ 	ioctl_tmp_buf = kzalloc(1 << 16, GFP_KERNEL);
+  	if (!ioctl_tmp_buf) {
+@@ -618,7 +680,10 @@
+ void bpcie_icc_remove(struct bpcie_dev *sc)
+ {
+ 	sc_err("bpcie_icc_remove: shouldn't normally be called\n");
+-	pm_power_off = NULL;
++	if (icc_power_off_handler) {
++		unregister_sys_off_handler(icc_power_off_handler);
++		icc_power_off_handler = NULL;
++	}
+ 	icc_pwrbutton_remove(sc);
+ 	icc_i2c_remove(sc);
+ 	mutex_lock(&bcpie_icc_mutex);
