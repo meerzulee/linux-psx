@@ -7719,5 +7719,19 @@
       "active_public_kernel_inputs_changed": false,
       "ci_at_merge": "31 host tests passed in both workflows; full kernel rebuilds still running. Local73patch application,38tests and corrected ICC object compilation passed."
     }
+  },
+  "current_finish_pass": {
+    "date": "2026-11-03",
+    "source_commit": "c8495a51e0bad4851015cd5d34ee61b2fde87e44",
+    "native_patches": 73,
+    "full_build_and_corresponding_source_packaging": "PASS",
+    "module_count": 41,
+    "hardware_boot": false,
+    "hardware_acceptance": false,
+    "native_48khz": "deferred; retain working44.1kHz output/resampling",
+    "wireless": "working in reported firmware-equipped setups; further work deferred pending specific reproducible defects",
+    "plan": "docs/CURRENT-FINISH-PLAN.md",
+    "diagnostic_proposal": "sibling omarchy-psx/docs/PS4-DIAGNOSTIC-IMAGE.md",
+    "publication": "local source checkpoint and packages only"
   }
 }

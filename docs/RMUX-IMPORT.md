@@ -181,3 +181,34 @@ and Bluetooth quirks remain separate optional capabilities. Branding, Mesa
 locking, fabricated DMI identities and scheduler policy do not need replacement
 to provide hardware interoperability. Aeolia/Belize and PS5 need independent
 device and repeated-boot evidence before support claims.
+
+## Replacing reference implementations
+
+The current finish pass keeps the native Baikal target authoritative and
+the rmux-based target as a comparison source. The native lineage still
+contains imported community work; choosing that target does not remove all
+rmux-derived code or make an independently implemented driver complete.
+
+Replace implementations by subsystem, using the hardware behavior and
+mainline Linux interfaces as the contract:
+
+1. Write the required behavior, runtime device gate, ownership/lifetime rules,
+   failure behavior and measurable result before changing code.
+2. Prefer an adequate upstream implementation. Where a PS4-specific path is
+   required, implement the smallest scoped design instead of transplanting a
+   larger reference rewrite.
+3. Review against the known failure cases and add meaningful CPU/host checks
+   where possible; compile and test the complete integrated target.
+4. Qualify one hardware variable at a time. Retire a reference implementation
+   from the active series only when its replacement meets the declared gate.
+5. Record which source was copied, adapted or only consulted, and preserve
+   earlier author headers, notices and immutable reference identities. Changing
+   names or formatting is not an independent reimplementation.
+
+The dev3 boot policy and focused failure-path changes are first steps, not a
+claim that every inherited driver has been rewritten. Next source work is
+ICC transaction/reply ownership, bounded status processing and AHCI IRQ error
+handling. Display/bridge, firmware transport, wireless and optional controls
+need their own designs and evidence; they must not delay finishing the frozen
+baseline. Imported patch bytes and historical credits remain preserved when
+a later implementation makes them inactive.

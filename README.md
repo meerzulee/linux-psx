@@ -37,15 +37,15 @@ console or a fresh rebuild.
 | --- | --- | --- | --- |
 | Linux 7.2 kernel | ✅ 7.2.11 boot observed | ⏳ Reference source; unbooted | ⏳ Reference source; unbooted |
 | GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
-| Mesa version | 🧪 26.1.7 restored; fixed 26.2.5 isolated GL tests passed; system trial rolled back | ⏳ Untested | ⏳ Untested |
+| Mesa version | 🧪 26.2.5 dev5 isolated and installed trials have scoped passes; broad qualification remains open | ⏳ Untested | ⏳ Untested |
 | Vulkan | 🧪 26.2.5 dev5: HTILE depth oracle and 120 cube presentations passed | ⏳ Untested | ⏳ Untested |
 | UVD / H.264 decode | 🧪 UVD runtime experiments passed 1080p30; the current default hybrid boot falls back to software | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
 | Internal storage / SATA | 🧪 Hybrid USB root + internal ext4 test image RW; 64 MiB write/read and 256 MiB direct read passed; repeat boots, stress and encryption/UFS remain unqualified | ⏳ Untested | ⏳ Untested |
 | External USB root | ✅ Read/write root booted on 7.2 | ⏳ Untested | ⏳ Untested |
-| Wi-Fi | 🧪 Historical external firmware stack worked; current Omarchy root has no MT7668 firmware | ⏳ Untested | ⏳ Untested |
-| Bluetooth audio | 🧪 Historical external stack worked; current Omarchy root has no firmware | ⏳ Untested | ⏳ Untested |
+| Wi-Fi | ✅ Working on reported setups with matching external firmware; further work deferred pending specific bugs | ⏳ Untested | ⏳ Untested |
+| Bluetooth audio | ✅ Working on recorded firmware-equipped setups; further work deferred pending specific bugs | ⏳ Untested | ⏳ Untested |
 | HDMI audio | ✅ Clean 44.1 kHz; native 48 kHz remains broken | ⏳ Untested | ⏳ Untested |
 | Temperature monitoring | ✅ Historical `k10temp` readings on 6.18 | ⏳ Untested | ⏳ Untested |
 | Fan control | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
@@ -77,14 +77,18 @@ not a portable installation procedure.
 - **Video:** VCE encoding, broader UVD profiles/sustained playback and a
   system-wide Mesa/Vulkan adoption path. Current UVD and Mesa results are
   experimental and artifact-scoped.
-- **Audio:** 44.1 kHz is clean; fix native 48 kHz and verify it after a cold
-  boot. ALSA/PipeWire enumeration alone is not acceptance.
-- **Wireless:** cold firmware loading, reconnect persistence and broader
-  Wi-Fi/Bluetooth device coverage without the retained external boot stack.
+- **Audio:** retain clean 44.1 kHz output and resampling of 48 kHz content.
+  Native 48 kHz research is deferred for this baseline.
+- **Wireless:** keep the reported working firmware-equipped configurations;
+  investigate new failures when a specific reproducer and hardware details exist.
 - **Ethernet:** IRQ mode, offloads, cable recovery, reset and suspend; the
   current native path is experimental and has no safe unload/reset claim.
 - **CPU/RAM:** cpufreq policy, bounded memory allocation and a measured
   RAM/VRAM split. See [PS4 dynamic memory](docs/PS4-DYNAMIC-MEMORY.md).
+
+The [current finish plan](docs/CURRENT-FINISH-PLAN.md) defines the next exact-build
+Ethernet, storage, power and UVD gates, with audio/wireless deferrals. These are
+planned checks, not new hardware acceptance.
 
 The [7.2 port notes](docs/PORT-7.2.md) record the core boot and the separate
 native Ethernet test. Wi-Fi and Bluetooth results used the retained external
@@ -137,7 +141,7 @@ lists dependencies and the native/cross-build setup. The output directory is
 `output/7.2-ps4-baikal-native-dev/`, containing the kernel, **whole matching
 module archive**, resolved config, build manifest and checksums.
 
-### Latest CI build
+### Historical dev2 CI build
 
 The public `PS4 - Linux 7.x` workflow built
 `7.2.11-psx-ps4-baikal-native-dev2` successfully from commit `804365c`:

@@ -975,7 +975,7 @@
     }
   ],
   "validation": {
-    "scope": "CPU/source and affected objects only; no complete73patch kernel link, packaged binary or hardware boot",
+    "scope": "CPU/source, complete native kernel/modules build and local runtime/corresponding-source packaging; no hardware boot or acceptance",
     "make_check": "PASS: 38 repository unit tests, Mesa source/host checks, frozen provenance/import checks,294patch audit coverage and shell syntax checks",
     "ordered_patch_application": {
       "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
@@ -1020,7 +1020,7 @@
       "full_kernel_compilation": false,
       "hardware_boot": false
     },
-    "full_kernel_compilation": false,
+    "full_kernel_compilation": true,
     "hardware_boot": false,
     "poweroff": {
       "source_pull_request": "https://github.com/meerzulee/linux-psx/pull/4",
@@ -1031,6 +1031,21 @@
       "hardware_poweroff": false,
       "reboot": "unresolved; unchanged by this patch",
       "source_merge_commit": "a1bd219a12d73d8339515e09c658f7614e847b86"
+    },
+    "complete_native_build": {
+      "result": "PASS",
+      "source_commit": "c8495a51e0bad4851015cd5d34ee61b2fde87e44",
+      "compiler": "GCC16.2.1",
+      "jobs": 3,
+      "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
+      "resolved_config_sha256": "ed529f99c6bbce733f0df8c6f6d57ac9136561013b86ecdb9e72d7ae75065526",
+      "matching_modules": 41,
+      "module_archive": "modules-7.2.11-psx-ps4-baikal-native-dev3.tar.zst",
+      "corresponding_source_packaging": "PASS",
+      "runtime_and_source_checksums": "PASS",
+      "receipt": "output/finish-current-20261103/build-package-receipt.json",
+      "hardware_boot": false,
+      "published": false
     }
   },
   "previous_native_dev2": {

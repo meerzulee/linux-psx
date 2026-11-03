@@ -99,6 +99,13 @@ hashes.
 
 ## Observing traffic
 
+The [current finish plan](CURRENT-FINISH-PLAN.md#ethernet-working-and-stable-in-a-declared-scope)
+defines the next proposed ordinary-use stability gate for a frozen Baikal build:
+three cold boots, longer verified traffic, healthy admin/cable recovery and
+Orbis networking afterward. Polling mode can meet that scoped gate; IRQ mode
+and offloads are separate improvements. The historical two-boot autoload
+result above remains unchanged, and the new gates are not yet completed.
+
 These commands are read-only apart from the explicit test traffic:
 
 ```sh

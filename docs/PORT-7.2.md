@@ -387,11 +387,13 @@ changing shared ICC state. Its atomic sender runs before ACPI and leaves the
 remaining handlers available if sending fails. The original author and sign-off
 are retained. The combined change has no hardware result; reboot remains open.
 
-The affected platform, PCI, interrupt-remapping, controller and connector
-objects, plus the complete MT76x8 subtree, compiled for the preceding 71-patch
-candidate. The new DTO and power-off object compilations are recorded separately. This is not a
-complete kernel link, a packaged binary or a hardware result. The patch audit
-and remaining independent implementation work are recorded in
+The complete 73-patch native kernel and all 41 matching modules build from
+local checkpoint `c8495a51e0bad4851015cd5d34ee61b2fde87e44` with GCC 16.2.1.
+Runtime and complete corresponding-source packaging, plus their checksums,
+pass. This exact dev3 set has not booted on hardware. The
+[current finish plan](CURRENT-FINISH-PLAN.md) records the artifact location,
+deferred audio/wireless work and the next hardware gates. The patch audit and
+remaining independent implementation work are recorded in
 [RMUX-IMPORT.md](RMUX-IMPORT.md#independent-implementation-direction--2026-11-03).
 
 The rmux-based `7.2-ps4` stays a comparison target. Its new reference dev2
