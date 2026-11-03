@@ -1499,15 +1499,25 @@
     },
     {
       "path": "platforms/ps4/docs/CAPABILITIES.md",
-      "size": 5204,
-      "sha256": "ef67273eec63635a6d691f72452b0bf83b95bad3c6f73692c9b32b5490ca0f25",
+      "size": 6330,
+      "sha256": "792d025d163b39b3d478fb267c812a7cec8e84d2bc6818b86c314add1e72bbeb",
       "post_migration_adaptations": [
         {
           "date": "2026-11-03",
           "previous_size": 5267,
           "previous_sha256": "1907c85cce00ff975896fb8d70ce261be840a92f9f9bdf92c0d91a0edb40a191",
-          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
-          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
+          "reason": "Record the reviewed 2026-10-22 documentation changes already present in master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve original migration input identities and restore curated-output verification."
+        },
+        {
+          "date": "2026-11-03",
+          "previous_size": 5204,
+          "previous_sha256": "ef67273eec63635a6d691f72452b0bf83b95bad3c6f73692c9b32b5490ca0f25",
+          "reason": "Record exact-scope contributor reports #2, #5 and #6; distinguish local and reported artifacts, static extent-map limitations and unqualified native48kHz audio. No new hardware acceptance.",
+          "source_issues": [
+            "https://github.com/meerzulee/linux-psx/issues/2",
+            "https://github.com/meerzulee/linux-psx/issues/5",
+            "https://github.com/meerzulee/linux-psx/issues/6"
+          ]
         }
       ]
     },
@@ -1518,15 +1528,23 @@
     },
     {
       "path": "platforms/ps4/docs/INTERNAL-STORAGE.md",
-      "size": 3147,
-      "sha256": "2810d631dc1ef4a8eea970c39bd038478da63e9e159e6becb7748070f3f3d06c",
+      "size": 4512,
+      "sha256": "9874d3cecb9c6ef41287ad8aaf2c6361b9dd5789e96158a9dd5f774cf9788326",
       "post_migration_adaptations": [
         {
           "date": "2026-11-03",
           "previous_size": 2970,
           "previous_sha256": "e555fdfd4038b3152f709aef0138f03ada1920fce619ee9b893327b4a719f852",
-          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
-          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
+          "reason": "Record the reviewed 2026-10-22 documentation changes already present in master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve original migration input identities and restore curated-output verification."
+        },
+        {
+          "date": "2026-11-03",
+          "previous_size": 3147,
+          "previous_sha256": "2810d631dc1ef4a8eea970c39bd038478da63e9e159e6becb7748070f3f3d06c",
+          "reason": "Record exact-scope contributor reports #2, #5 and #6; distinguish local and reported artifacts, static extent-map limitations and unqualified native48kHz audio. No new hardware acceptance.",
+          "source_issues": [
+            "https://github.com/meerzulee/linux-psx/issues/5"
+          ]
         }
       ]
     },
@@ -1551,8 +1569,7 @@
           "date": "2026-11-03",
           "previous_size": 1988,
           "previous_sha256": "30b3964c92bde1b0f9976a52a572d26dc5afa5016eb64cb068bdab17656c3aa5",
-          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
-          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
+          "reason": "Record the reviewed 2026-10-22 documentation changes already present in master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve original migration input identities and restore curated-output verification."
         }
       ]
     },

@@ -1,0 +1,36 @@
+From: psX workspace <psx@localhost>
+Subject: [PATCH] drm/amdgpu: adapt the PS4 DTO fix to the comparison target
+
+Preserve the PS4 audio DTO programming from the existing Linux psX 0175
+experiment, but use the adev already present in the rmux-based comparison
+source. The original patch was generated against the Baikal layout and
+cannot apply to this target. Keep its original bytes as historical evidence.
+
+Adapted-from: 0175-drm-amdgpu-ps4-program-audio-dto.patch
+Original-SHA256: 4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352
+This context adaptation has no hardware boot or audio acceptance result.
+---
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2556,12 +2556,20 @@
+ 	    adev->asic_type == CHIP_GLADIUS)
+ 		DRM_DEBUG_KMS("ps4 crtc mode_set: %s clock=%d adjusted=%u pll=%d\n",
+ 			      adjusted_mode->name, adjusted_mode->clock,
+ 			      amdgpu_crtc->adjusted_clock, amdgpu_crtc->pll_id);
+ 
+ 	amdgpu_atombios_crtc_set_pll(crtc, adjusted_mode);
++
++	/* The PS4 bridge bypasses afmt_setmode(), so program its 24 MHz DTO. */
++	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) {
++		WREG32(mmDCCG_AUDIO_DTO_SOURCE,
++		       amdgpu_crtc->crtc_id << DCCG_AUDIO_DTO_SOURCE__DCCG_AUDIO_DTO0_SOURCE_SEL__SHIFT);
++		WREG32(mmDCCG_AUDIO_DTO0_PHASE, 24000);
++		WREG32(mmDCCG_AUDIO_DTO0_MODULE, adjusted_mode->clock);
++	}
+ 	amdgpu_atombios_crtc_set_dtd_timing(crtc, adjusted_mode);
+ 	dce_v8_0_crtc_do_set_base(crtc, old_fb, x, y);
+ 	amdgpu_atombios_crtc_overscan_setup(crtc, mode, adjusted_mode);
+ 	amdgpu_atombios_crtc_scaler_setup(crtc);
+ 	dce_v8_0_cursor_reset(crtc);
+ 	/* update the hw version fpr dpm */

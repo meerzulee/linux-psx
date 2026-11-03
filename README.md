@@ -58,6 +58,13 @@ and the command-scoped completion probe was active. Short write/read and direct
 read tests passed. Repeat boots, sustained/random I/O, the Sony encrypted/UFS
 stack, installation and a proper production completion path remain unqualified.
 
+A separate [contributor report](https://github.com/meerzulee/linux-psx/issues/5)
+records two internal-SSD root boots on a Baikal Slim with a custom initramfs
+and dev2 plus PR #4, including one boot without USB storage. Its fixed extent
+mapping and legacy AHCI poll differ from the hybrid profile above; see the
+[storage record](platforms/ps4/docs/INTERNAL-STORAGE.md). This is scoped evidence,
+not a portable installation procedure.
+
 ### Remaining hardware work
 
 - **Internal SATA:** repeat hybrid boots; sustained and random I/O; flush and
@@ -107,8 +114,10 @@ artifacts on one console; the system remains on the original Mesa packages.
 ### Build the Linux 7.2 Baikal kernel
 
 Use `7.2-ps4-baikal-native-dev` for the Baikal port with native Ethernet.
-It produces `7.2.11-psx-ps4-baikal-native-dev2`, adding the HDMI underscan fix to
-the unchanged native-Ethernet stack. This new kernel revision is not boot-tested. The UVD runtime is a separate
+It produces `7.2.11-psx-ps4-baikal-native-dev3`, adding overridable PCI and
+interrupt-remapping platform defaults and focused platform/error-path fixes
+after the dev2 SATA/HDMI additions.
+This new kernel revision is not boot-tested. The UVD runtime is a separate
 experimental source/build path described in the UVD guide.
 
 ```sh

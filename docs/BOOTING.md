@@ -41,8 +41,10 @@ could use `root=LABEL=PS4LINUX rootfstype=ext4 rootwait rw`; this is a root
 selector example, not a complete console command line.
 
 Retain the PS4 platform/display/UART arguments required by your established
-loader and record every change. For the current Baikal target, `pci=nocrs
-intremap=off` are platform settings. Internal SATA is no longer disabled by
+loader and record every change. Baikal dev2 and older builds require the
+platform settings `pci=nocrs intremap=off`. The dev3 source candidate supplies
+these as overridable defaults; it still needs hardware validation. See
+[PS4 boot arguments](PS4-BOOTARGS.md). Internal SATA is no longer disabled by
 default in the current hybrid test profile; the PHY and AHCI completion
 settings are documented in [PS4-BOOTARGS.md](PS4-BOOTARGS.md). That page also
 separates generic distribution arguments from Omarchy-specific ones.

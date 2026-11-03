@@ -44,7 +44,26 @@ SATA reads, before the external USB root completed startup. A narrowly selected
 `libata.force=1.00:disable` was prepared as a later boot-profile candidate;
 the snapshot did not yet accept that next boot. Never generalize its port
 selector to a different machine or confuse SATA timeout with USB-root failure.
-Internal storage remains [read-only research](INTERNAL-STORAGE.md).
+Current hybrid and contributor internal-root observations are recorded in
+[internal storage](INTERNAL-STORAGE.md); the historical failure does not
+describe every later candidate, and neither record supplies a qualified installer.
+
+## Later contributor evidence
+
+These reports supplement the exact-artifact historical table above:
+
+- [Issue #2](https://github.com/meerzulee/linux-psx/issues/2) records 6.18 and
+  7.2 boots on a second Baikal Slim, including Marvell Wi-Fi, DS4 Bluetooth
+  and hash-checked Ethernet transfers. The later single-NIC tests did not
+  reproduce the initially reported gigabit loss; the 14-hour observation did
+  not retain uninterrupted UART capture.
+- [Issue #5](https://github.com/meerzulee/linux-psx/issues/5) reports two
+  internal-SSD root boots using a custom initramfs and a dev2/PR #4 kernel.
+  Its fixed extent mapping is a separate experimental workflow.
+- [Issue #6](https://github.com/meerzulee/linux-psx/issues/6) reports acoustic
+  measurements after live DTO programming: 44.1 kHz was nearly clean, while
+  native 48 kHz remained distorted. The native dev3 source candidate now
+  includes DTO initialization, but it has no boot or acoustic result yet.
 
 ## Userspace instruction set
 

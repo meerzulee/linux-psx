@@ -1,0 +1,356 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] wifi: mt76x8: bound configuration payloads and command fields
+
+Account for the set_cfg prefix separately from the proc user's payload.
+The old subtraction underflows for short writes and terminates at the
+wrong offset. Bound the payload by remaining buffer capacity and terminate
+at prefix plus payload. A zero-length write performs no command.
+
+Validate firmware-parser pointers, argument count, token lengths and item
+index before copying into the fixed-size command record. Keep the existing
+numeric format and on-wire layout. These are inherited vendor defects,
+not rmux-authored additions. Preserve vendor ownership and notices.
+CPU/source validation only; no wireless hardware acceptance is claimed.
+---
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/os/linux/gl_proc.c
+@@ -415,166 +415,167 @@
+ 	P_ADAPTER_T prAdapter;
+ 
+ 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(gPrDev));
+ 
+ 	if (!prGlueInfo) {
+ 		DBGLOG(INIT, ERROR, "procCfgRead prGlueInfo is  NULL?\n");
+ 		return -EFAULT;
+ 	}
+ 
+ 	prAdapter = prGlueInfo->prAdapter;
+ 
+ 	/* if *f_ops>0, we should return 0 to make cat command exit */
+ 	if (*f_pos > 0)
+ 		return 0;
+ 
+ 	i4Pos = scnprintf(temp, (sizeof(g_aucProcBuf) - i4Pos), "\nDUMP CONFIGURATION :\n"
+ 		"<KEY|VALUE> OR <D:KEY|VALUE>\n"
+ 		"'D': driver part current setting\n"
+ 		"===================================\n");
+ 
+ 	for (i = 0; i < WLAN_CFG_ENTRY_NUM_MAX; i++) {
+ 		prWlanCfgEntry = wlanCfgGetEntryByIndex(prAdapter, i, 0);
+ 
+ 		if ((!prWlanCfgEntry) || (prWlanCfgEntry->aucKey[0] == '\0'))
+ 			break;
+ 
+ 		i4Pos += scnprintf((temp + i4Pos), (u4BufMax - i4Pos),
+ 					"%s|%s\n", prWlanCfgEntry->aucKey, prWlanCfgEntry->aucValue);
+ 
+ 		if (i4Pos > (sizeof(g_aucProcBuf)-BUFFER_RESERVE_BYTE))
+ 			break;
+ 	}
+ 
+ 	for (i = 0; i < WLAN_CFG_REC_ENTRY_NUM_MAX; i++) {
+ 		prWlanCfgEntry = wlanCfgGetEntryByIndex(prAdapter, i, 1);
+ 
+ 		if ((!prWlanCfgEntry) || (prWlanCfgEntry->aucKey[0] == '\0'))
+ 			break;
+ 
+ 		i4Pos += scnprintf((temp + i4Pos), (u4BufMax - i4Pos),
+ 					"D:%s|%s\n", prWlanCfgEntry->aucKey, prWlanCfgEntry->aucValue);
+ 
+ 		if (i4Pos > (sizeof(g_aucProcBuf)-BUFFER_RESERVE_BYTE))
+ 			break;
+ 	}
+ 
+ 	u4CopySize = i4Pos;
+ 	if (u4CopySize > count)
+ 		u4CopySize = count;
+ 	if (copy_to_user(buf, g_aucProcBuf, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "copy to user failed\n");
+ 		return -EFAULT;
+ 	}
+ 
+ 	*f_pos += u4CopySize;
+ 	return (ssize_t)u4CopySize;
+ 
+ 
+ }
+ 
+ 
+ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
+ 		size_t count, loff_t *data)
+ {
+ 
+ 	/*	UINT_32 u4DriverCmd, u4DriverValue;
+ 	*UINT_8 *temp = &g_aucProcBuf[0];
+ 	*/
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 	P_GLUE_INFO_T prGlueInfo;
+ 	PUINT_8	pucTmp;
+ 	INT_32 i4Pos = 0;
+ 	/*	PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P; */
+ 
+ 
++	if (!count)
++		return 0;
++
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+-	if (count < u4CopySize)
+-		u4CopySize = count;
+-	else
+-		u4CopySize -= 1;
+ 
+ 	pucTmp = g_aucProcBuf;
+ 	i4Pos = scnprintf(pucTmp, sizeof(g_aucProcBuf), "%s ", "set_cfg");
+ 	pucTmp += i4Pos;
+-	u4CopySize -= i4Pos;
++	u4CopySize = sizeof(g_aucProcBuf) - i4Pos - 1;
++	if (count < u4CopySize)
++		u4CopySize = count;
+ 
+ 	if (copy_from_user(pucTmp, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+-	g_aucProcBuf[u4CopySize] = '\0';
++	g_aucProcBuf[i4Pos + u4CopySize] = '\0';
+ 
+ 
+ 	prGlueInfo = g_prGlueInfo_proc;
+ 	/* if g_u4NextDriverReadLen >0,
+ 	 * the content for next DriverCmdRead will be in : g_aucProcBuf with length : g_u4NextDriverReadLen
+ 	 */
+ 	g_u4NextDriverReadLen = priv_driver_set_cfg(prGlueInfo->prDevHandler, g_aucProcBuf, sizeof(g_aucProcBuf));
+ 
+ 	return count;
+ 
+ }
+ 
+ static ssize_t procDriverCmdRead(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+ {
+ 	/* DriverCmd read should only be executed right after a DriverCmd write
+ 	 * because content buffer 'g_aucProcBuf' is a global buffer for all proc command,
+ 	 *  otherwise , the content could be overwrite by other proc command
+ 	 */
+ 	UINT_32 u4CopySize = 0;
+ 
+ 	/* if *f_ops>0, we should return 0 to make cat command exit */
+ 	if (*f_pos > 0)
+ 		return 0;
+ 
+ 	if (g_u4NextDriverReadLen > 0) /* Detect content to show */
+ 		u4CopySize = g_u4NextDriverReadLen;
+ 	if (copy_to_user(buf, g_aucProcBuf, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "copy to user failed\n");
+ 		return -EFAULT;
+ 	}
+ 	g_u4NextDriverReadLen = 0;
+ 
+ 	*f_pos += u4CopySize;
+ 	return (ssize_t)u4CopySize;
+ }
+ 
+ 
+ 
+ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
+ 										size_t count, loff_t *data)
+ {
+ 
+ /*	UINT_32 u4DriverCmd, u4DriverValue;
+ *	UINT_8 *temp = &g_aucProcBuf[0];
+ */
+ 	UINT_32 u4CopySize = sizeof(g_aucProcBuf);
+ 	P_GLUE_INFO_T prGlueInfo;
+ /*	PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P; */
+ 
+ 
+ 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
+ 	if (count < u4CopySize)
+ 		u4CopySize = count;
+ 	else
+ 		u4CopySize -= 1;
+ 
+ 	if (copy_from_user(g_aucProcBuf, buffer, u4CopySize)) {
+ 		DBGLOG(INIT, ERROR, "error of copy from user\n");
+ 		return -EFAULT;
+ 	}
+ 	g_aucProcBuf[u4CopySize] = '\0';
+ 
+ 
+ 	prGlueInfo = g_prGlueInfo_proc;
+ 	/* if g_u4NextDriverReadLen >0,
+ 	 * the content for next DriverCmdRead will be in : g_aucProcBuf with length : g_u4NextDriverReadLen
+ 	 */
+ 	g_u4NextDriverReadLen = priv_driver_cmds(prGlueInfo->prDevHandler, g_aucProcBuf, sizeof(g_aucProcBuf));
+ 
+ 	return count;
+ }
+ 
+ #endif
+ #endif
+ 
+diff --git a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
+--- a/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
++++ b/drivers/net/wireless/mediatek/mt76x8/drv_wlan/MT6632/wlan/common/wlan_lib.c
+@@ -7714,153 +7714,158 @@
+ 	UINT_32 u4Len;
+ 
+ 	kalMemZero(aucKey, sizeof(aucKey));
+ 	kalMemZero(aucValue, sizeof(aucValue));
+ 
+ 	if ((pucKeyHead == NULL)
+ 	    || (pucValueHead == NULL)
+ 	    )
+ 		return WLAN_STATUS_FAILURE;
+ 
+ 	if (pucKeyTail) {
+ 		if (pucKeyHead > pucKeyTail)
+ 			return WLAN_STATUS_FAILURE;
+ 		u4Len = pucKeyTail - pucKeyHead + 1;
+ 	} else
+ 		u4Len = kalStrnLen(pucKeyHead, WLAN_CFG_KEY_LEN_MAX - 1);
+ 
+ 	if (u4Len >= WLAN_CFG_KEY_LEN_MAX)
+ 		u4Len = WLAN_CFG_KEY_LEN_MAX - 1;
+ 
+ 	kalStrnCpy(aucKey, pucKeyHead, u4Len);
+ 
+ 	if (pucValueTail) {
+ 		if (pucValueHead > pucValueTail)
+ 			return WLAN_STATUS_FAILURE;
+ 		u4Len = pucValueTail - pucValueHead + 1;
+ 	} else
+ 		u4Len = kalStrnLen(pucValueHead, WLAN_CFG_VALUE_LEN_MAX - 1);
+ 
+ 	if (u4Len >= WLAN_CFG_VALUE_LEN_MAX)
+ 		u4Len = WLAN_CFG_VALUE_LEN_MAX - 1;
+ 
+ 	kalStrnCpy(aucValue, pucValueHead, u4Len);
+ 
+ 	return wlanCfgSet(prAdapter, aucKey, aucValue, 0);
+ }
+ 
+ enum {
+ 	WAIT_KEY_HEAD = 0,
+ 	WAIT_KEY_TAIL,
+ 	WAIT_VALUE_HEAD,
+ 	WAIT_VALUE_TAIL,
+ 	WAIT_COMMENT_TAIL
+ };
+ 
+ #if CFG_SUPPORT_EASY_DEBUG
+ 
+ INT_8 atoi(UCHAR ch)
+ {
+ 	if (ch >= 'a' && ch <= 'f')
+ 		return ch - 87;
+ 	else if (ch >= 'A' && ch <= 'F')
+ 		return ch - 55;
+ 	else if (ch >= '0' && ch <= '9')
+ 		return ch - 48;
+ 
+ 	return 0;
+ }
+ 
+ WLAN_STATUS wlanCfgParseToFW(PCHAR *args, PCHAR args_size, UCHAR nargs, PCHAR buffer, UCHAR times)
+ {
+ 	PUCHAR data = NULL;
+ 	char ch;
+ 	INT_32 i = 0, j = 0;
+ 	UINT_32 bufferindex = 0, base = 0;
+ 	UINT_32 sum = 0, startOffset = 0;
+ 	CMD_FORMAT_V1_T cmd_v1;
+ 
+ 	memset(&cmd_v1, 0, sizeof(CMD_FORMAT_V1_T));
+ 
+ #if 0
+ 	cmd_v1.itemType = atoi(*args[ED_ITEMTYPE_SITE]);
+ #else
+ 	cmd_v1.itemType = ITEM_TYPE_DEC;
+ #endif
+-	if (buffer == NULL ||
+-		args_size[ED_STRING_SITE] == 0 ||
+-		args_size[ED_VALUE_SITE] == 0 ||
++	if (buffer == NULL || args == NULL || args_size == NULL ||
++		nargs <= ED_STRING_SITE || nargs <= ED_VALUE_SITE ||
++		args[ED_STRING_SITE] == NULL || args[ED_VALUE_SITE] == NULL ||
++		times >= MAX_CMD_ITEM_MAX ||
++		(UCHAR)args_size[ED_STRING_SITE] == 0 ||
++		(UCHAR)args_size[ED_STRING_SITE] > sizeof(cmd_v1.itemString) ||
++		(UCHAR)args_size[ED_VALUE_SITE] == 0 ||
++		(UCHAR)args_size[ED_VALUE_SITE] > sizeof(cmd_v1.itemValue) ||
+ 		(cmd_v1.itemType < ITEM_TYPE_DEC || cmd_v1.itemType > ITEM_TYPE_STR)) {
+ 		DBGLOG(INIT, ERROR, "cfg args wrong\n");
+ 		return WLAN_STATUS_FAILURE;
+ 	}
+ 
+ 	cmd_v1.itemStringLength = args_size[ED_STRING_SITE];
+ 	kalStrnCpy(cmd_v1.itemString, args[ED_STRING_SITE],  cmd_v1.itemStringLength);
+ 	DBGLOG(INIT, INFO, "itemString:");
+ 	for (i = 0; i <  cmd_v1.itemStringLength; i++)
+ 		DBGLOG(INIT, INFO, "%c", cmd_v1.itemString[i]);
+ 	DBGLOG(INIT, INFO, "\n");
+ 
+ 	DBGLOG(INIT, INFO, "cmd_v1.itemType = %d\n", cmd_v1.itemType);
+ 	if (cmd_v1.itemType == ITEM_TYPE_DEC || cmd_v1.itemType == ITEM_TYPE_HEX) {
+ 		data = args[ED_VALUE_SITE];
+ 
+ 		switch (cmd_v1.itemType) {
+ 		case ITEM_TYPE_DEC:
+ 			base = 10;
+ 			startOffset = 0;
+ 			break;
+ 		case ITEM_TYPE_HEX:
+ 			ch = *data;
+ 			if (args_size[ED_VALUE_SITE] < 3 || ch != '0') {
+ 				DBGLOG(INIT, WARN, "Hex args must have prefix '0x'\n");
+ 				return WLAN_STATUS_FAILURE;
+ 			}
+ 
+ 			data++;
+ 			ch = *data;
+ 			if (ch != 'x' && ch != 'X') {
+ 				DBGLOG(INIT, WARN, "Hex args must have prefix '0x'\n");
+ 				return WLAN_STATUS_FAILURE;
+ 			}
+ 			data++;
+ 			base = 16;
+ 			startOffset = 2;
+ 			break;
+ 		}
+ 
+ 		for (j = args_size[ED_VALUE_SITE] - 1 - startOffset; j >= 0; j--) {
+ 			sum = sum * base + atoi(*data);
+ 			DBGLOG(INIT, WARN, "size:%d data[%d]=%u, sum=%u\n",
+ 				args_size[ED_VALUE_SITE], j, atoi(*data), sum);
+ 
+ 			data++;
+ 		}
+ 
+ 		bufferindex = 0;
+ 		do {
+ 			cmd_v1.itemValue[bufferindex++] = sum & 0xFF;
+ 			sum = sum >> 8;
+ 		} while (sum > 0);
+ 		cmd_v1.itemValueLength = bufferindex;
+ 	} else if (cmd_v1.itemType == ITEM_TYPE_STR) {
+ 		cmd_v1.itemValueLength = args_size[ED_VALUE_SITE];
+ 		kalStrnCpy(cmd_v1.itemValue, args[ED_VALUE_SITE], cmd_v1.itemValueLength);
+ 	}
+ 
+ 	DBGLOG(INIT, INFO, "Length = %d itemValue:", cmd_v1.itemValueLength);
+ 	for (i = cmd_v1.itemValueLength - 1; i >= 0; i--)
+ 		DBGLOG(INIT, ERROR, "%d,", cmd_v1.itemValue[i]);
+ 	DBGLOG(INIT, INFO, "\n");
+ 	memcpy(((P_CMD_FORMAT_V1_T)buffer)+times, &cmd_v1,  sizeof(CMD_FORMAT_V1_T));
+ 
+ 	return WLAN_STATUS_SUCCESS;
+ }
+ 
+ 
+ /*----------------------------------------------------------------------------*/
+ /*!
+ * @brief This function is to send WLAN feature options to firmware
+ *
+ * @param prAdapter  Pointer of ADAPTER_T
+ *

@@ -3,8 +3,8 @@
   "created_on": "2026-10-17",
   "target": "7.2-ps4",
   "platform": "ps4",
-  "status": "development target; compile-tested only, no hardware acceptance",
-  "kernel_release": "7.2.11-psx-ps4-dev1",
+  "status": "comparison target for rmux-derived behavior; not the active native Baikal implementation; no hardware acceptance",
+  "kernel_release": "7.2.11-psx-ps4-dev2",
   "source_date_epoch": 1792195200,
   "upstream": {
     "repository": "https://github.com/gregkh/linux.git",
@@ -50,9 +50,9 @@
     "ordered_patchset_sha256": "f9783c181d17f4e749943f69895f579ea8df4a6e03dd2ff6a76a771c016af3a4"
   },
   "series_path": "platforms/ps4/patches/7.2-ps4/series",
-  "series_sha256": "e7346bb652efdd54521bb4c31c82f44c40c8a16319722ad35e43765ed0420020",
+  "series_sha256": "b883fdeec984f9b362eed32481e5768f4a506de4de1dee36ce59d613ec04ee30",
   "active_patch_count": 176,
-  "ordered_patchset_sha256": "fa9316b5fea9639c9d871e4309d3465716a722f455800e7c3775e81f4dca7d55",
+  "ordered_patchset_sha256": "13c624d8fce20fe27a345ee3aaedef9d3233e5d5df091dbde81053c0852deb84",
   "change_counts": {
     "adapted": 5,
     "context": 3,
@@ -2491,16 +2491,20 @@
       "note": "Same type confusion on Aeolia; untested on an Aeolia console."
     },
     {
-      "entry": "0175-drm-amdgpu-ps4-program-audio-dto.patch",
-      "path": "platforms/ps4/patches/7.2-ps4/0175-drm-amdgpu-ps4-program-audio-dto.patch",
-      "sha256": "4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352",
-      "size": 2465,
+      "entry": "0175a-drm-amdgpu-ps4-audio-dto-reference-context.patch",
+      "path": "platforms/ps4/patches/7.2-ps4/0175a-drm-amdgpu-ps4-audio-dto-reference-context.patch",
+      "sha256": "cf4baace3dc119e623a0743c536f130df3c15ff703e8a88ecd09343db4c4eaa0",
+      "size": 1784,
       "author": "psX workspace <psx@localhost>",
       "date": "Wed, 21 Oct 2026 22:00:00 +0600",
       "subject": "drm/amdgpu: program PS4 audio DTO during modeset",
       "origin": "port-fix",
-      "change": "audio-dto",
-      "note": "Programs DCCG_AUDIO_DTO0 from the active adjusted pixel clock on Liverpool/Gladius. One boot; acoustic validation pending."
+      "change": "context-adaptation",
+      "note": "Adapt the existing psX DTO experiment to the actual reference target; original patch retained inactive. No hardware acceptance.",
+      "adapted_from": {
+        "path": "platforms/ps4/patches/7.2-ps4/0175-drm-amdgpu-ps4-program-audio-dto.patch",
+        "sha256": "4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352"
+      }
     }
   ],
   "direct_references": [
@@ -2528,11 +2532,11 @@
   "inputs": [
     {
       "path": "targets/7.2-ps4.env",
-      "sha256": "636dc444c49c88a87d3039ec35f07e480231b1d23e0b04d2e12429222b828a1b"
+      "sha256": "f0dc2b874200359c8a6f5c07f116c3c438e00c628532e39d6cbd19d07b2459a0"
     },
     {
       "path": "platforms/ps4/config/7.2-psx-ps4.config",
-      "sha256": "61077403107cc92a21b1d4e65426e0868736af5886b6077b27eb535472e1098e"
+      "sha256": "50b80bcc87d72f0d239fb05aec0e85354b6cba4c00ea3d93e0342d6c03c2b100"
     },
     {
       "path": "platforms/ps4/config/fragments/mt7668.config",
@@ -2547,7 +2551,7 @@
     "derived_from": "platforms/ps4/config/6.18-psx-baikal.config",
     "method": "merge_config.sh -m with the mt7668 and usb-ethernet fragments and the changes below, then make olddefconfig on the patched v7.2.11 tree (GCC 16.2.1)",
     "changes": [
-      "CONFIG_LOCALVERSION=\"-psx-ps4-dev1\"",
+      "CONFIG_LOCALVERSION=\"-psx-ps4-dev2\"",
       "PS4_CPUFREQ, new with the rmux stack, is off for the first boot candidate",
       "PS4_DMI_SPOOF, new with the rmux stack, is off until it checks the running console",
       "PS4_MTS=m, as in the 6.18 target",
@@ -2561,5 +2565,12 @@
   },
   "hardware_evidence": {
     "this_target": "none; the kernel has not been booted"
-  }
+  },
+  "previous_reference_candidate": {
+    "kernel_release": "7.2.11-psx-ps4-dev1",
+    "active_patch_count": 176,
+    "series_sha256": "e7346bb652efdd54521bb4c31c82f44c40c8a16319722ad35e43765ed0420020",
+    "ordered_patchset_sha256": "fa9316b5fea9639c9d871e4309d3465716a722f455800e7c3775e81f4dca7d55"
+  },
+  "updated_on": "2026-11-03"
 }

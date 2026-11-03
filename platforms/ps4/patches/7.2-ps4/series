@@ -179,7 +179,7 @@
 # Hardware EXP-20261021-048: WALLCLK 14.778 -> 23.942 MHz, 10 s fixture
 # 16.27 -> 10.03 s with DTO phase=24000, module=adjusted pixel clock.
 # Boot-tested EXP-20261021-049: WALLCLK 23.966476 MHz, 10 s fixture 10.0828 s.
-0175-drm-amdgpu-ps4-program-audio-dto.patch
+0175a-drm-amdgpu-ps4-audio-dto-reference-context.patch
 
 # 0176 AFMT/DP-bridge test was applied in EXP-20261021-056/057 and did not fix
 # native 48 kHz. It is retained as negative evidence in the lab, not in this

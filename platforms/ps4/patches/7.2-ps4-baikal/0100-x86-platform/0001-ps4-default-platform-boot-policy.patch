@@ -1,0 +1,554 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] x86/ps4: default PCI windows and interrupt remapping for Baikal
+
+Apply the documented pci=nocrs and intremap=off platform policy without
+requiring the loader to supply these options. A runtime PS4 accessor keeps
+normal PC boots unchanged; compiling X86_PS4 alone is insufficient.
+
+Set the PCI default before the existing explicit-command-line checks, so
+pci=use_crs still overrides it. Track explicit intremap=on/off and
+nointremap choices before applying the interrupt-remapping default. Other
+intremap modifiers do not implicitly enable remapping.
+
+This is a new Linux psX addition for the 7.2 Baikal native target. It does
+not change root selection, display, SATA policy or the loader command line.
+Related report: https://github.com/meerzulee/linux-psx/issues/8
+No hardware acceptance is claimed.
+---
+diff --git a/arch/x86/include/asm/ps4.h b/arch/x86/include/asm/ps4.h
+--- a/arch/x86/include/asm/ps4.h
++++ b/arch/x86/include/asm/ps4.h
+@@ -1,95 +1,101 @@
+ /*
+  * ps4.h: Sony PS4 platform setup code
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+  * as published by the Free Software Foundation; version 2
+  * of the License.
+  */
+ #ifndef _ASM_X86_PS4_H
+ #define _ASM_X86_PS4_H
+ 
+ #ifdef CONFIG_X86_PS4
+ 
+ #include <linux/irqdomain.h>
+ 
+ #define PS4_DEFAULT_TSC_FREQ 1594000000
+ 
+ #define BCPIE_BAR4_ADDR 0xc9000000
+ #define EMC_TIMER_BASE (BCPIE_BAR4_ADDR + 0x9000) //BAR4 + 0x9000, seems this is not HPET timer, Baikal WDT
+ #define EMC_TIMER_NO(x) 0x10 * x //timer 0 or timer 1
+ #define EMC_TIMER_NO_VALUE(x) EMC_TIMER_NO(x) + 0x18 //timer 0 and timer 1
+ #define EMC_TIMER_PERIOD  EMC_TIMER_BASE + 0x04 //period0 (DWORD)
+ #define EMC_TIMER_PERIOD1  EMC_TIMER_BASE + 0x10 //period1 (DWORD & 0xFFFFFFFE)
+ //frequency in Hz = ((unsigned __int64)(period >> 1) + 1000000000000000LL) / period;
+ #define EMC_TIMER_VALUE EMC_TIMER_NO_VALUE(0)
+ #define EMC_TIMER_ON_OFF EMC_TIMER_NO(0) + 0x10
+ #define EMC_TIMER_RESET_VALUE EMC_TIMER_NO(0) + 0x14
+ 
+ extern unsigned long ps4_calibrate_tsc(void);
++bool ps4_platform_present(void);
+ 
+ /*
+  * The PS4 Aeolia southbridge device is a composite device containing some
+  * standard-ish, some not-so-standard, and some completely custom functions,
+  * all using special MSI handling. This function does the equivalent of
+  * pci_enable_msi_range and friends, for those devices. Only works after the
+  * Aeolia MSR routing function device (function 4) has been probed.
+  * Returns 1 or count, depending on IRQ allocation constraints, or negative on
+  * error. Assigned IRQ(s) start at dev->irq.
+  */
+ extern int apcie_assign_irqs(struct pci_dev *dev, int nvec);
+ extern void apcie_free_irqs(unsigned int virq, unsigned int nr_irqs);
+ 
+ extern int apcie_status(void);
+ extern int apcie_icc_cmd(u8 major, u16 minor, const void *data,
+ 			 u16 length, void *reply, u16 reply_length);
+ 
+ //Baikal		 
+ extern int bpcie_assign_irqs(struct pci_dev *dev, int nvec);
+ extern void bpcie_free_irqs(unsigned int virq, unsigned int nr_irqs);
+ 
+ extern int bpcie_status(void);
+ extern int bpcie_icc_cmd(u8 major, u16 minor, const void *data,
+ 			 u16 length, void *reply, u16 reply_length);
+ 
+ #else
++
++static inline bool ps4_platform_present(void)
++{
++	return false;
++}
+ 
+ static inline int apcie_assign_irqs(struct pci_dev *dev, int nvec)
+ {
+ 	return -ENODEV;
+ }
+ static inline void apcie_free_irqs(unsigned int virq, unsigned int nvec)
+ {
+ }
+ static inline int apcie_status(void)
+ {
+ 	return -ENODEV;
+ }
+ static inline int apcie_icc_cmd(u8 major, u16 minor, const void *data,
+ 				u16 length, void *reply, u16 reply_length)
+ {
+ 	return -ENODEV;
+ }
+ 
+ //Baikal
+ static inline int bpcie_assign_irqs(struct pci_dev *dev, int nvec)
+ {
+ 	return -ENODEV;
+ }
+ 
+ static inline void bpcie_free_irqs(unsigned int virq, unsigned int nvec)
+ {
+ }
+ 
+ static inline int bpcie_status(void)
+ {
+ 	return -ENODEV;
+ }
+ static inline int bpcie_icc_cmd(u8 major, u16 minor, const void *data,
+ 				u16 length, void *reply, u16 reply_length)
+ {
+ 	return -ENODEV;
+ }
+ 
+ #endif
+ #endif
+diff --git a/arch/x86/platform/ps4/ps4.c b/arch/x86/platform/ps4/ps4.c
+--- a/arch/x86/platform/ps4/ps4.c
++++ b/arch/x86/platform/ps4/ps4.c
+@@ -1,83 +1,88 @@
+ /*
+  * ps4.c: Sony PS4 platform setup code
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+  * as published by the Free Software Foundation; version 2
+  * of the License.
+  */
+ 
+ #define pr_fmt(fmt) "ps4: " fmt
+ 
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+ #include <linux/interrupt.h>
+ #include <linux/scatterlist.h>
+ #include <linux/irq.h>
+ #include <linux/module.h>
+ #include <linux/notifier.h>
+ 
+ #include <asm/setup.h>
+ #include <asm/mpspec_def.h>
+ #include <asm/hw_irq.h>
+ #include <asm/apic.h>
+ #include <asm/io_apic.h>
+ #include <asm/io.h>
+ #include <asm/i8259.h>
+ #include <asm/reboot.h>
+ #include <asm/msr.h>
+ #include <asm/ps4.h>
+ 
+ static bool is_ps4;
+ bool apcie_initialized;
+ bool bpcie_initialized;
++
++bool ps4_platform_present(void)
++{
++	return is_ps4;
++}
+ 
+ /*
+  * The RTC is part of the Aeolia/Baikal PCI device and will be implemented there as
+  * an RTC class device; stub these out.
+  */
+ static void dummy_get_wallclock(struct timespec64 *now)
+ {
+ 	now->tv_sec = now->tv_nsec = 0;
+ }
+ static int dummy_set_wallclock(const struct timespec64 *now)
+ {
+ 	return -ENODEV;
+ }
+ 
+ /*
+  * Provide a way for generic drivers to query for the availability of the
+  * PS4 apcie driver/device, which is a dependency for them.
+  */
+ int apcie_status(void)
+ {
+ 	if (!is_ps4)
+ 		return -ENODEV;
+ 	return apcie_initialized || bpcie_initialized;
+ }
+ EXPORT_SYMBOL_GPL(apcie_status);
+ 
+ int bpcie_status(void)
+ {
+ 	if (!is_ps4)
+ 		return -ENODEV;
+ 	return bpcie_initialized;
+ }
+ EXPORT_SYMBOL_GPL(bpcie_status);
+ 
+ void icc_reboot(void);
+ 
+ /*
+  * PS4 specific x86_init function overrides and early setup calls.
+  */
+ void __init x86_ps4_early_setup(void)
+ {
+ 	pr_info("x86_ps4_early_setup: PS4 early setup\n");
+ 	is_ps4 = true;
+ 	x86_platform.calibrate_tsc = ps4_calibrate_tsc;
+ 	x86_platform.get_wallclock = dummy_get_wallclock;
+ 	x86_platform.set_wallclock = dummy_set_wallclock;
+ 
+ 	legacy_pic = &null_legacy_pic;
+ 	machine_ops.emergency_restart = icc_reboot;
+ }
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -1,63 +1,64 @@
+ // SPDX-License-Identifier: GPL-2.0
+ 
+ #define pr_fmt(fmt) "PCI: " fmt
+ 
+ #include <linux/pci.h>
+ #include <linux/acpi.h>
+ #include <linux/init.h>
+ #include <linux/irq.h>
+ #include <linux/dmi.h>
+ #include <linux/slab.h>
+ #include <linux/pci-acpi.h>
+ #include <asm/numa.h>
+ #include <asm/pci_x86.h>
++#include <asm/ps4.h>
+ 
+ struct pci_root_info {
+ 	struct acpi_pci_root_info common;
+ 	struct pci_sysdata sd;
+ #ifdef	CONFIG_PCI_MMCONFIG
+ 	bool mcfg_added;
+ 	u8 start_bus;
+ 	u8 end_bus;
+ #endif
+ };
+ 
+ bool pci_use_e820 = true;
+ static bool pci_use_crs = true;
+ static bool pci_ignore_seg;
+ 
+ static int __init set_use_crs(const struct dmi_system_id *id)
+ {
+ 	pci_use_crs = true;
+ 	return 0;
+ }
+ 
+ static int __init set_nouse_crs(const struct dmi_system_id *id)
+ {
+ 	pci_use_crs = false;
+ 	return 0;
+ }
+ 
+ static int __init set_ignore_seg(const struct dmi_system_id *id)
+ {
+ 	pr_info("%s detected: ignoring ACPI _SEG\n", id->ident);
+ 	pci_ignore_seg = true;
+ 	return 0;
+ }
+ 
+ static int __init set_no_e820(const struct dmi_system_id *id)
+ {
+ 	pr_info("%s detected: not clipping E820 regions from _CRS\n",
+ 	        id->ident);
+ 	pci_use_e820 = false;
+ 	return 0;
+ }
+ 
+ static const struct dmi_system_id pci_crs_quirks[] __initconst = {
+ 	/* http://bugzilla.kernel.org/show_bug.cgi?id=14183 */
+ 	{
+ 		.callback = set_use_crs,
+ 		.ident = "IBM System x3800",
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "IBM"),
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "x3800"),
+@@ -177,100 +178,104 @@
+ 		.matches = {
+ 			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "Spin SP513-54N"),
+ 		},
+ 	},
+ 
+ 	/*
+ 	 * Clevo X170KM-G barebones have the same E820 reservation covering
+ 	 * the entire _CRS 32-bit window issue as the Lenovo *IIL* models.
+ 	 * See https://bugzilla.kernel.org/show_bug.cgi?id=214259
+ 	 */
+ 	{
+ 		.callback = set_no_e820,
+ 		.ident = "Clevo X170KM-G Barebone",
+ 		.matches = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "X170KM-G"),
+ 		},
+ 	},
+ 	{}
+ };
+ 
+ void __init pci_acpi_crs_quirks(void)
+ {
+ 	int year = dmi_get_bios_year();
+ 
+ 	if (year >= 0 && year < 2008 && iomem_resource.end <= 0xffffffff)
+ 		pci_use_crs = false;
+ 
+ 	/*
+ 	 * Some firmware includes unusable space (host bridge registers,
+ 	 * hidden PCI device BARs, etc) in PCI host bridge _CRS.  This is a
+ 	 * firmware defect, and 4dc2287c1805 ("x86: avoid E820 regions when
+ 	 * allocating address space") has clipped out the unusable space in
+ 	 * the past.
+ 	 *
+ 	 * But other firmware supplies E820 reserved regions that cover
+ 	 * entire _CRS windows, so clipping throws away the entire window,
+ 	 * leaving none for hot-added or uninitialized devices.  These E820
+ 	 * entries are probably *not* a firmware defect, so disable the
+ 	 * clipping by default for post-2022 machines.
+ 	 *
+ 	 * We already have quirks to disable clipping for pre-2023
+ 	 * machines, and we'll likely need quirks to *enable* clipping for
+ 	 * post-2022 machines that incorrectly include unusable space in
+ 	 * _CRS.
+ 	 */
+ 	if (year >= 2023)
+ 		pci_use_e820 = false;
+ 
+ 	dmi_check_system(pci_crs_quirks);
++
++	/* PS4 firmware supplies no usable host bridge windows. */
++	if (ps4_platform_present())
++		pci_use_crs = false;
+ 
+ 	/*
+ 	 * If the user specifies "pci=use_crs" or "pci=nocrs" explicitly, that
+ 	 * takes precedence over anything we figured out above.
+ 	 */
+ 	if (pci_probe & PCI_ROOT_NO_CRS)
+ 		pci_use_crs = false;
+ 	else if (pci_probe & PCI_USE__CRS)
+ 		pci_use_crs = true;
+ 
+ 	pr_info("%s host bridge windows from ACPI; if necessary, use \"pci=%s\" and report a bug\n",
+ 	        pci_use_crs ? "Using" : "Ignoring",
+ 	        pci_use_crs ? "nocrs" : "use_crs");
+ 
+ 	/* "pci=use_e820"/"pci=no_e820" on the kernel cmdline takes precedence */
+ 	if (pci_probe & PCI_NO_E820)
+ 		pci_use_e820 = false;
+ 	else if (pci_probe & PCI_USE_E820)
+ 		pci_use_e820 = true;
+ 
+ 	pr_info("%s E820 reservations for host bridge windows\n",
+ 	        pci_use_e820 ? "Using" : "Ignoring");
+ 	if (pci_probe & (PCI_NO_E820 | PCI_USE_E820))
+ 		pr_info("Please notify linux-pci@vger.kernel.org so future kernels can do this automatically\n");
+ }
+ 
+ /*
+  * Check if pdev is part of a PCIe switch that is directly below the
+  * specified bridge.
+  */
+ static bool pcie_switch_directly_under(struct pci_dev *bridge,
+ 				       struct pci_dev *pdev)
+ {
+ 	struct pci_dev *parent = pci_upstream_bridge(pdev);
+ 
+ 	/* If the device doesn't have a parent, it's not under anything */
+ 	if (!parent)
+ 		return false;
+ 
+ 	/*
+ 	 * If the device has a PCIe type, check if it is below the
+ 	 * corresponding PCIe switch components (if applicable). Then check
+ 	 * if its upstream port is directly beneath the specified bridge.
+ 	 */
+ 	switch (pci_pcie_type(pdev)) {
+ 	case PCI_EXP_TYPE_UPSTREAM:
+ 		return parent == bridge;
+ 
+ 	case PCI_EXP_TYPE_DOWNSTREAM:
+ 		if (pci_pcie_type(parent) != PCI_EXP_TYPE_UPSTREAM)
+diff --git a/drivers/iommu/irq_remapping.c b/drivers/iommu/irq_remapping.c
+--- a/drivers/iommu/irq_remapping.c
++++ b/drivers/iommu/irq_remapping.c
+@@ -1,151 +1,163 @@
+ // SPDX-License-Identifier: GPL-2.0-only
+ #include <linux/cpumask.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/errno.h>
+ #include <linux/msi.h>
+ #include <linux/irq.h>
+ #include <linux/pci.h>
+ #include <linux/irqdomain.h>
+ 
+ #include <asm/hw_irq.h>
+ #include <asm/irq_remapping.h>
+ #include <asm/processor.h>
+ #include <asm/x86_init.h>
+ #include <asm/apic.h>
+ #include <asm/hpet.h>
++#include <asm/ps4.h>
+ 
+ #include "irq_remapping.h"
+ 
+ int irq_remapping_enabled;
+ int irq_remap_broken;
+ int disable_sourceid_checking;
+ int no_x2apic_optout;
+ 
+ int disable_irq_post = 0;
+ 
+ bool enable_posted_msi __ro_after_init;
+ 
+ static int disable_irq_remap;
++static bool irq_remap_cmdline __initdata;
+ static struct irq_remap_ops *remap_ops;
+ 
+ static void irq_remapping_restore_boot_irq_mode(void)
+ {
+ 	/*
+ 	 * With interrupt-remapping, for now we will use virtual wire A
+ 	 * mode, as virtual wire B is little complex (need to configure
+ 	 * both IOAPIC RTE as well as interrupt-remapping table entry).
+ 	 * As this gets called during crash dump, keep this simple for
+ 	 * now.
+ 	 */
+ 	if (boot_cpu_has(X86_FEATURE_APIC) || apic_from_smp_config())
+ 		disconnect_bsp_APIC(0);
+ }
+ 
+ static void __init irq_remapping_modify_x86_ops(void)
+ {
+ 	x86_apic_ops.restore = irq_remapping_restore_boot_irq_mode;
+ }
+ 
+ static __init int setup_nointremap(char *str)
+ {
++	irq_remap_cmdline = true;
+ 	disable_irq_remap = 1;
+ 	return 0;
+ }
+ early_param("nointremap", setup_nointremap);
+ 
+ static __init int setup_irqremap(char *str)
+ {
+ 	if (!str)
+ 		return -EINVAL;
+ 
+ 	while (*str) {
+ 		if (!strncmp(str, "on", 2)) {
++			irq_remap_cmdline = true;
+ 			disable_irq_remap = 0;
+ 			disable_irq_post = 0;
+ 		} else if (!strncmp(str, "off", 3)) {
++			irq_remap_cmdline = true;
+ 			disable_irq_remap = 1;
+ 			disable_irq_post = 1;
+ 		} else if (!strncmp(str, "nosid", 5))
+ 			disable_sourceid_checking = 1;
+ 		else if (!strncmp(str, "no_x2apic_optout", 16))
+ 			no_x2apic_optout = 1;
+ 		else if (!strncmp(str, "nopost", 6))
+ 			disable_irq_post = 1;
+ 		else if (IS_ENABLED(CONFIG_X86_POSTED_MSI) && !strncmp(str, "posted_msi", 10))
+ 			enable_posted_msi = true;
+ 		str += strcspn(str, ",");
+ 		while (*str == ',')
+ 			str++;
+ 	}
+ 
+ 	return 0;
+ }
+ early_param("intremap", setup_irqremap);
+ 
+ void set_irq_remapping_broken(void)
+ {
+ 	irq_remap_broken = 1;
+ }
+ 
+ bool irq_remapping_cap(enum irq_remap_cap cap)
+ {
+ 	if (!remap_ops || disable_irq_post)
+ 		return false;
+ 
+ 	return (remap_ops->capability & (1 << cap));
+ }
+ EXPORT_SYMBOL_GPL(irq_remapping_cap);
+ 
+ int __init irq_remapping_prepare(void)
+ {
++	/* Preserve the documented PS4 default unless explicitly overridden. */
++	if (ps4_platform_present() && !irq_remap_cmdline) {
++		disable_irq_remap = 1;
++		disable_irq_post = 1;
++		pr_info("PS4: interrupt remapping off by default; override with intremap=on\n");
++	}
++
+ 	if (disable_irq_remap)
+ 		return -ENOSYS;
+ 
+ 	if (IS_ENABLED(CONFIG_INTEL_IOMMU) &&
+ 	    intel_irq_remap_ops.prepare() == 0)
+ 		remap_ops = &intel_irq_remap_ops;
+ 	else if (IS_ENABLED(CONFIG_AMD_IOMMU) &&
+ 		 amd_iommu_irq_ops.prepare() == 0)
+ 		remap_ops = &amd_iommu_irq_ops;
+ 	else if (IS_ENABLED(CONFIG_HYPERV) &&
+ 		 hyperv_irq_remap_ops.prepare() == 0)
+ 		remap_ops = &hyperv_irq_remap_ops;
+ 	else
+ 		return -ENOSYS;
+ 
+ 	return 0;
+ }
+ 
+ int __init irq_remapping_enable(void)
+ {
+ 	int ret;
+ 
+ 	if (!remap_ops->enable)
+ 		return -ENODEV;
+ 
+ 	ret = remap_ops->enable();
+ 
+ 	if (irq_remapping_enabled)
+ 		irq_remapping_modify_x86_ops();
+ 
+ 	return ret;
+ }
+ 
+ void irq_remapping_disable(void)
+ {
+ 	if (irq_remapping_enabled && remap_ops->disable)
+ 		remap_ops->disable();
+ }
+ 
+ int irq_remapping_reenable(int mode)
+ {
+ 	if (irq_remapping_enabled && remap_ops->reenable)
+ 		return remap_ops->reenable(mode);
+ 
+ 	return 0;
+ }
+ 
+ int __init irq_remap_enable_fault_handling(void)
+ {
+ 	if (!irq_remapping_enabled)

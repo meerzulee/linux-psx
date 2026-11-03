@@ -1,0 +1,172 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] ps4: release ICC command mutex when the controller is not ready
+
+The not-ready returns leak the APCIE/BPCIE command mutexes and block all
+later commands.
+Use the common unlock exit for both not-ready and normal command results.
+This is a local control-flow fix; it changes no ICC request or power policy.
+The rmux-based comparison target already handles this case correctly.
+No hardware acceptance is claimed.
+---
+diff --git a/drivers/ps4/ps4-bpcie-icc.c b/drivers/ps4/ps4-bpcie-icc.c
+--- a/drivers/ps4/ps4-bpcie-icc.c
++++ b/drivers/ps4/ps4-bpcie-icc.c
+@@ -262,74 +262,76 @@
+ 		return ret < 0 ? -EINTR : -ETIMEDOUT;
+ 	}
+ 	spin_unlock_irq(&sc->icc.reply_lock);
+ 
+ 	rep_checksum = sc->icc.reply.checksum;
+ 	sc->icc.reply.checksum = 0;
+ 	rep_checksum -= checksum(&sc->icc.reply, ICC_HDR_SIZE);
+ 	rep_checksum -= checksum(reply, sc->icc.reply_length);
+ 	rep_checksum -= sc->icc.reply_extra_checksum;
+ 
+ 	if (rep_checksum) {
+ 		sc_err("icc: checksum mismatch (diff: %x)\n", rep_checksum);
+ 		return -EIO;
+ 	}
+ 
+ 	if (sc->icc.reply.major != major ) {
+ 		sc_err("icc: major mismatch\n");
+ 		return -EIO;
+ 	}
+ 	if (sc->icc.reply.minor != (minor | ICC_REPLY) ) {
+ 		sc_err("icc: minor mismatch\n");
+ 		return -EIO;
+ 	}
+ 
+ 	return sc->icc.reply.length - ICC_HDR_SIZE;
+ }
+ 
+ int bpcie_icc_cmd(u8 major, u16 minor, const void *data, u16 length,
+ 		   void *reply, u16 reply_length)
+ {
+ 	int ret;
+ 
+ 	mutex_lock(&bcpie_icc_mutex);
+ 	if (!icc_sc) {
+ 		pr_err("icc: not ready\n");
+-		return -EAGAIN;
++		ret = -EAGAIN;
++		goto out_unlock;
+ 	}
+ 	ret = _bpcie_icc_cmd(icc_sc, major, minor, data, length, reply, reply_length,
+ 		       false);
++out_unlock:
+ 	mutex_unlock(&bcpie_icc_mutex);
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(bpcie_icc_cmd);
+ 
+ static void bpcie_init_usb(struct bpcie_dev *sc, int usb_no) {
+ 	u32 value_to_write;
+ 	void __iomem *addr;
+ 	u32 offset;
+ 
+ 	offset = usb_no ? 0x68 : 0x64;
+ 
+ 	addr = sc->bar2 + BPCIE_USB_BASE + offset;
+ 	value_to_write = ioread32(addr) | 1;
+ 	iowrite32(value_to_write, addr);
+ 
+ 	offset = usb_no ? 0x28 : 0x24;
+ 
+ 	addr = sc->bar2 + BPCIE_USB_BASE + offset;
+ 	value_to_write = ioread32(addr) | 1;
+ 	iowrite32(value_to_write, addr);
+ 
+ 	offset = usb_no ? 0x68 : 0x64;
+ 
+ 	addr = sc->bar2 + BPCIE_USB_BASE + offset;
+ 	value_to_write = ioread32(addr) | ~1;
+ 	iowrite32(value_to_write, addr);
+ 	//TODO:
+ }
+ 
+ static void resetUsbPort(void)
+ {
+ 	u8 off = 0, on = 1;
+ 	u8 resp[20];
+ 	int ret;
+diff --git a/drivers/ps4/ps4-apcie-icc.c b/drivers/ps4/ps4-apcie-icc.c
+--- a/drivers/ps4/ps4-apcie-icc.c
++++ b/drivers/ps4/ps4-apcie-icc.c
+@@ -244,74 +244,76 @@
+ 	sc->icc.reply.checksum = 0;
+ 	rep_checksum -= checksum(&sc->icc.reply, ICC_HDR_SIZE);
+ 	rep_checksum -= checksum(reply, sc->icc.reply_length);
+ 	rep_checksum -= sc->icc.reply_extra_checksum;
+ 
+ 	if (rep_checksum) {
+ 		sc_err("icc: checksum mismatch (diff: %x)\n", rep_checksum);
+ 		return -EIO;
+ 	}
+ 
+ 	if (sc->icc.reply.major != major ) {
+ 		sc_err("icc: major mismatch\n");
+ 		return -EIO;
+ 	}
+ 	if (sc->icc.reply.minor != (minor | ICC_REPLY) ) {
+ 		sc_err("icc: minor mismatch\n");
+ 		return -EIO;
+ 	}
+ 
+ 	return sc->icc.reply.length - ICC_HDR_SIZE;
+ }
+ 
+ /* From arch/x86/platform/ps4/ps4.c */
+ extern bool bpcie_initialized;
+ int apcie_icc_cmd(u8 major, u16 minor, const void *data, u16 length,
+ 		   void *reply, u16 reply_length)
+ {
+ 	if (bpcie_initialized)
+ 			return bpcie_icc_cmd(major, minor, data, length, reply, reply_length);
+ 	
+ 	int ret;
+ 
+ 	mutex_lock(&icc_mutex);
+ 	if (!icc_sc) {
+ 		pr_err("icc: not ready\n");
+-		return -EAGAIN;
++		ret = -EAGAIN;
++		goto out_unlock;
+ 	}
+ 	ret = _apcie_icc_cmd(icc_sc, major, minor, data, length, reply, reply_length,
+ 		       false);
++out_unlock:
+ 	mutex_unlock(&icc_mutex);
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(apcie_icc_cmd);
+ 
+ static void resetUsbPort(void)
+ {
+ 	u8 off = 0, on = 1;
+ 	u8 resp[20];
+ 	int ret;
+ 	
+ 	//Turn OFF Usb
+ 	ret = apcie_icc_cmd(5, 0x10, &off, sizeof(off), resp, 20);
+ 	printk("Turn OFF USB: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
+ 	if(ret < 0)
+ 	{
+ 		printk("Turn off USB failed!");
+ 		return;
+ 	}
+ 	
+ 	//Turn ON Usb
+ 	ret = apcie_icc_cmd(5, 0x10, &on, sizeof(on), resp, 20);
+ 	printk("Turn ON USB: ret=%d, reply %02x %02x %02x %02x", ret, resp[0], resp[1], resp[2], resp[3]);
+ 	if(ret < 0)
+ 	{
+ 		printk("Turn on USB failed");
+ 		return;
+ 	}
+ }
+ 
+ static void resetBtWlan(void)
+ {
+ 	u8 off = 2, on = 3;
+ 	u8 resp[20];
+ 	int ret;

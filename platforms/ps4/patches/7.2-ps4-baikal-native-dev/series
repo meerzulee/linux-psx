@@ -77,3 +77,21 @@
 
 # Unchanged contributor PR #3 HDMI underscan fix; Ethernet stays unchanged.
 ../6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch
+
+# Platform defaults; explicit pci/intremap options still override each setting.
+0100-x86-platform/0001-ps4-default-platform-boot-policy.patch
+
+# Linux psX focused controller, timer and connector lifetime fixes.
+0200-ps4-drivers/0002-ps4-icc-unlock-not-ready-command.patch
+0100-x86-platform/0002-ps4-bound-emc-calibration-waits.patch
+0300-gpu-liverpool/0037-amdgpu-ps4-connector-cleanup.patch
+0200-ps4-drivers/0003-ps4-initialize-unregistered-uart-slots.patch
+
+# Bound inherited vendor configuration interfaces; no firmware/protocol change.
+0500-network-mt7668/0001-mt76x8-bound-config-command-inputs.patch
+
+# Issue #6: existing psX audio DTO initialization, scoped to native PS4 modeset.
+0300-gpu-liverpool/0038-amdgpu-ps4-program-audio-dto.patch
+
+# Contributor PR #4 power-off handler; maintainer pending/forced-send guard.
+0200-ps4-drivers/0001-ps4-bpcie-icc-power-off-before-acpi.patch

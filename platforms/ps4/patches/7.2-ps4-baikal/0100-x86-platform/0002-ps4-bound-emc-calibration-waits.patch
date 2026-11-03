@@ -1,0 +1,176 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] x86/ps4: bound EMC stabilization and tick waits
+
+Keep the Baikal timer mapping and reset sequence, but bound every read and
+progress wait. A frozen or unstable EMC timer must return the existing
+fallback TSC frequency instead of hanging early boot. Use unsigned elapsed
+tick arithmetic so a 32-bit timer wrap remains valid.
+
+The comparison tree bounds some waits but leaves its next-tick wait open.
+This local implementation uses one bounded progress helper for every phase.
+No hardware calibration accuracy or boot acceptance is claimed.
+---
+diff --git a/arch/x86/platform/ps4/calibrate.c b/arch/x86/platform/ps4/calibrate.c
+--- a/arch/x86/platform/ps4/calibrate.c
++++ b/arch/x86/platform/ps4/calibrate.c
+@@ -1,117 +1,131 @@
+ /*
+  * calibrate.c: Sony PS4 TSC/LAPIC calibration
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+  * as published by the Free Software Foundation; version 2
+  * of the License.
+  */
+ 
+ #define pr_fmt(fmt) "ps4: " fmt
+ 
+ #include <linux/jiffies.h>
+ #include <asm/io.h>
+ #include <asm/msr.h>
+ #include <asm/ps4.h>
+ #include <asm/delay.h>
+ #include <asm/apic.h>
+ #include <linux/io.h>
+ 
+ /* The PS4 southbridge (Aeolia) has an EMC timer that ticks at 32.768kHz,
+  * which seems to be an appropriate clock reference for calibration. Both TSC
+  * and the LAPIC timer are based on the core clock frequency and thus can be
+  * calibrated together. */
+ static void __iomem *emc_timer = NULL;
+ 
+ static __init inline u32 emctimer_read32(unsigned int reg)
+ {
+ 	return ioread32(emc_timer + reg);
+ }
+ 
+ static __init inline void emctimer_write32(unsigned int reg, u32 val)
+ {
+ 	iowrite32(val, emc_timer + reg);
+ }
+ 
+-static __init inline u32 emctimer_read(void)
++static __init bool emctimer_read(u32 *value)
+ {
+-	u32 t1, t2;
+-	t1 = emctimer_read32(EMC_TIMER_VALUE);
+-	while (1) {
+-		t2 = emctimer_read32(EMC_TIMER_VALUE);
+-		if (t1 == t2)
+-			return t1;
+-		t1 = t2;
++	u32 previous = emctimer_read32(EMC_TIMER_VALUE);
++	unsigned int reads;
++
++	for (reads = 0; reads < 10000; reads++) {
++		u32 sample = emctimer_read32(EMC_TIMER_VALUE);
++
++		if (sample == previous) {
++			*value = sample;
++			return true;
++		}
++		previous = sample;
++	}
++	return false;
++}
++
++static __init bool emctimer_wait_ticks(u32 start, u32 ticks, u32 *value)
++{
++	u64 started = rdtsc();
++
++	for (;;) {
++		if (!emctimer_read(value))
++			return false;
++		if ((u32)(*value - start) >= ticks)
++			return true;
++		if (rdtsc() - started > PS4_DEFAULT_TSC_FREQ / 5)
++			return false;
++		cpu_relax();
+ 	}
+ }
+ 
+ static __init unsigned long ps4_measure_tsc_freq(void)
+ {
+ 	unsigned long ret = 0;
+-	u32 t1, t2;
++	u32 t1, t2, now;
+ 	u64 tsc1, tsc2;
+ 
+ 	// This is part of the Aeolia pcie device, but it's too early to
+ 	// do this in a driver.
+ 	emc_timer = early_ioremap(EMC_TIMER_BASE, 0x100);
+ 	if (!emc_timer)
+ 		goto fail;
+ 
+ 	// reset/start the timer
+ 	emctimer_write32(EMC_TIMER_ON_OFF, emctimer_read32(EMC_TIMER_ON_OFF) & 0xFFFFFFC8 | 0x32);
+ 	// udelay is not calibrated yet, so this is likely wildly off, but good
+ 	// enough to work.
+ 	udelay(300);
+ 	emctimer_write32(EMC_TIMER_RESET_VALUE, emctimer_read32(EMC_TIMER_RESET_VALUE) & 0xFFFFFFE0 | 0x10);
+ 	emctimer_write32(EMC_TIMER_ON_OFF, emctimer_read32(EMC_TIMER_ON_OFF) | 0x33);
+ 
+-	t1 = emctimer_read();
+-	tsc1 = tsc2 = rdtsc();
+-
+-	while (emctimer_read() == t1) {
+-		// 0.1s timeout should be enough
+-		tsc2 = rdtsc();
+-		if ((tsc2 - tsc1) > (PS4_DEFAULT_TSC_FREQ/10)) {
+-			pr_warn("EMC timer is broken.\n");
+-			goto fail;
+-		}
+-	}
++	if (!emctimer_read(&t1))
++		goto timer_failed;
++	tsc1 = rdtsc();
++	if (!emctimer_wait_ticks(t1, 1, &t2))
++		goto timer_failed;
++	tsc2 = rdtsc();
+ 	pr_info("EMC timer started in %lld TSC ticks\n", tsc2 - tsc1);
+ 
+-	// Wait for a tick boundary
+-	t1 = emctimer_read();
+-	while ((t2 = emctimer_read()) == t1);
++	/* Align the measurement to a fresh tick, then measure 31.25 ms. */
++	if (!emctimer_read(&t1) || !emctimer_wait_ticks(t1, 1, &t2))
++		goto timer_failed;
+ 	tsc1 = rdtsc();
+-
+-	// Wait for 1024 ticks to elapse (31.25ms)
+-	// We don't need to wait very long, as we are looking for transitions.
+-	// At this value, a TSC uncertainty of ~50 ticks corresponds to 1ppm of
+-	// clock accuracy.
+-	while ((emctimer_read() - t2) < 1024);
++	if (!emctimer_wait_ticks(t2, 1024, &now))
++		goto timer_failed;
+ 	tsc2 = rdtsc();
+ 
+ 	// TSC rate is 32 times the elapsed time
+ 	ret = (tsc2 - tsc1) * 32;
+ 
+ 	pr_info("Calibrated TSC frequency: %ld kHz\n", ret);
++	goto fail;
++timer_failed:
++	pr_warn("EMC timer failed to stabilize or advance; using fallback calibration.\n");
+ fail:
+ 	if (emc_timer) {
+ 		early_iounmap(emc_timer, 0x100);
+ 		emc_timer = NULL;
+ 	}
+ 	return ret;
+ }
+ 
+ unsigned long __init ps4_calibrate_tsc(void)
+ {
+ 	unsigned long tsc_freq = ps4_measure_tsc_freq();
+ 
+ 	if (!tsc_freq) {
+ 		pr_warn("Unable to measure TSC frequency, assuming default.\n");
+ 		tsc_freq = PS4_DEFAULT_TSC_FREQ;
+ 	}
+ 
+ 	lapic_timer_period = (tsc_freq + 8 * HZ) / (16 * HZ);
+ 
+ 	return (tsc_freq + 500) / 1000;
+ }

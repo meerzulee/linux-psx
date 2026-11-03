@@ -121,3 +121,63 @@ scripts/import-rmux --repo /path/to/rmux --check
 ```
 
 A full clone of the snapshot also works as `--repo` without `--fetch`.
+
+## Independent implementation direction — 2026-11-03
+
+The owner selected the native Baikal stack as the foundation for new Linux psX
+implementations. rmux remains a pinned comparison reference. New capabilities
+should use upstream interfaces and explicit hardware contracts, with small
+separately recorded patches. The existing native baseline still contains
+credited inherited adaptations; this direction does not erase that lineage or
+claim a clean-room rewrite. Retained source and equivalent prior fixes keep
+their provenance. The rmux-based `7.2-ps4` target is for comparison, not the
+base to transplant wholesale into native builds.
+
+An independent GPT-6 Astra maximum-reasoning audit and primary source/test
+review covered all 294 patch identities and series ordering, nine reference
+files, and high-risk resulting code. The two imports touch 352 and 366 paths;
+63 Baikal normalized diffs exactly match the primary import. Each `0042`
+contains 213,323 added lines, largely inherited MediaTek/vendor source, not
+rmux-authored code. This is not exhaustive line-by-line certification of that
+vendor baseline. Per-patch inventory, dispositions and remaining findings:
+[audit record](../provenance/rmux-audit-2026-11-03.json).
+
+The native dev3 source candidate adds eight focused patches:
+
+- Runtime PS4 PCI/interrupt-remapping defaults with explicit overrides.
+- Correct mutex release on APCIE/BPCIE not-ready exits.
+- Bounded EMC stabilization and tick waits, keeping the native register setup.
+- Balanced connector allocation and AUX registration cleanup, retaining PR #3.
+- Explicit unregistered UART slot state before probe cleanup.
+- Correct proc configuration prefix/payload accounting and bounded firmware
+  command fields in the inherited wireless driver.
+- Native modeset audio DTO initialization from the existing psX fix, with
+  Liverpool/Gladius and positive-clock guards; native 48 kHz remains open.
+- suds-mcduff's Baikal atomic ICC power-off contribution from PR #4, with
+  separately recorded maintainer guards for pending replies and forced shutdown.
+
+The wireless patch bounds encoded lengths and copies; the existing parser
+still narrows token sizes before that boundary. A 257-byte token can therefore
+be treated as one byte. Numeric conversion, oversized proc-write truncation
+and partial local-config updates retain their old semantics. A complete parser
+replacement needs separate tokenization and transaction tests.
+
+The original imports remain byte-identical. Some small fixes already existed
+in the comparison source; their references are recorded without importing its
+larger rewrites. CPU tests compile actual patched functions, and affected
+kernel objects plus the full MT76x8 subtree compile. No new hardware acceptance
+or public binary release follows from this work.
+
+Remaining implementation priorities are ICC transaction ownership and reply
+lengths, bounded interrupt processing, reboot and timed-out ICC recovery,
+and AHCI IRQ allocation/failure cleanup. The corrected PR #4 final power-off
+sender is integrated into the local native candidate; hardware validation remains open.
+The comparison target's broad DP-status bypass and early PCI-based IOMMU
+detection must not be adopted unchanged. These require separate designs and
+tests and independent hardware evidence.
+
+LED/buzzer/thermal controls, CPU frequency, GPU mailbox controls, EDID/hotplug
+and Bluetooth quirks remain separate optional capabilities. Branding, Mesa
+locking, fabricated DMI identities and scheduler policy do not need replacement
+to provide hardware interoperability. Aeolia/Belize and PS5 need independent
+device and repeated-boot evidence before support claims.

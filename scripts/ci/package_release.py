@@ -102,12 +102,15 @@ def release_notes(target, commit, run_url):
         )
     elif target["target"] == "7.2-ps4-baikal-native-dev":
         evidence = (
-            "Pinned Linux 7.2.11 with the 61-patch Baikal port, unchanged native MTS autoload "
-            "and PR #3 HDMI underscan fix (63 patches). This dev2 build has not been boot-tested. "
+            "Pinned Linux 7.2.11 with the Baikal port, unchanged native MTS autoload, "
+            "PR #3 HDMI underscan fix, overridable PCI/interrupt-remapping platform defaults "
+            "and focused controller/timer/connector/wireless-input fixes plus native audio DTO initialization. "
+            "Native 48 kHz audio remains unresolved. "
+            "This CI build has not been boot-tested. "
             "The historical dev1 local OrbStack build passed one cable-connected boot on one "
             "PS4 Slim / Baikal B1: USB root, desktop, native Ethernet DHCP/default route, gateway "
             "ping, HTTPS and hash-checked 4 MiB transfers both ways (EXP-20261018-004). "
-            "That dev1 result does not qualify the new HDMI addition or this rebuilt image. "
+            "That dev1 result does not qualify the later additions or this rebuilt image. "
             "Ethernet patch bytes and network configuration remain unchanged. RX drops in the "
             "historical local test remain unclassified; long-duration operation, cable/admin "
             "cycles and cold firmware loading remain unqualified. No hardware acceptance or "

@@ -1,4 +1,4 @@
-# Internal storage: hybrid test image, not an installer
+# Internal storage: experimental hybrid and internal-root results
 
 Seeing a SATA disk in Linux does not establish a usable Linux root filesystem
 on the console's internal disk. The inspected historical design is layered:
@@ -29,6 +29,28 @@ short check**, not endurance or hardware acceptance. Repeat boots, sustained
 and random I/O, flush/error paths, the Sony encrypted/UFS stack, an installer
 and internal-root boot remain unqualified. Do not treat partition numbers,
 offsets or image paths as portable defaults.
+
+## Contributor internal-root report (2026-11-01)
+
+[Issue #5](https://github.com/meerzulee/linux-psx/issues/5) records two reported
+boots on a CUH-2002A Baikal Slim, firmware 9.60, with an aftermarket Crucial
+SSD. The contributor used a local dev2 build at `804365c` plus the power-off
+patch from PR #4 and a custom initramfs. One boot had no USB storage attached.
+The report includes a hash-checked 1 GiB write/read, one power-off and one
+subsequent Orbis boot. These are contributor observations on those exact
+artifacts, not acceptance of the current source candidate or an installer.
+
+That setup uses dm-crypt followed by a fixed dm-linear extent map of an ext4
+image inside the Orbis user filesystem; Linux does not mount UFS2 read-write.
+The image must not be moved, replaced or reallocated from Orbis: a stale map
+could address different data. Superblock and UUID checks do not validate the
+whole map. Per-console keys and extent maps are not portable inputs.
+
+The report uses the legacy unconditional AHCI poll, unlike the command-scoped
+probe in the hybrid profile above. Its SSD performance and durability cannot
+be attributed to that hybrid HDD profile. Repeated boots, sustained/random I/O,
+error recovery, stock HDDs and other consoles remain separate qualification.
+Distribution-specific initramfs integration belongs with the distribution.
 
 ## Historical encrypted-storage path
 

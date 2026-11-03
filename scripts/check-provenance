@@ -73,12 +73,14 @@ def main():
     if len(knowledge["files"]) != knowledge["scope"]["file_count"]:
         raise ValueError("historical knowledge coverage count differs")
     rmux_count = check_rmux_import()
+    audit_count = check_rmux_audit()
     port_count = check_port_target()
     baikal_count, baikal_unchanged = check_baikal_port_target()
     ps5_count = check_ps5_target()
     print(f"PASS: {count} frozen checksums, {len(entries)} active patches and "
           f"{len(knowledge['curated_outputs'])} curated knowledge/test hashes; pins match")
     print(f"PASS: {rmux_count} rmux import checksums; series order and pins match")
+    print(f"PASS: independent implementation audit covers {audit_count} frozen reference patches")
     print(f"PASS: 7.2-ps4 development series: {port_count} patches; rmux sources and pins match")
     print(f"PASS: 7.2-ps4-baikal development series: {baikal_count} patches, "
           f"{baikal_unchanged} unchanged 6.18 files; sources and pins match")
@@ -112,6 +114,22 @@ def check_rmux_import():
         if "rmux-reference" in env.read_text():
             raise ValueError(f"target must not use rmux reference configs: {env.name}")
     return count
+
+
+def check_rmux_audit():
+    """Keep the independent implementation inventory tied to every frozen input."""
+    manifest = json.loads((ROOT / "provenance/rmux-import.json").read_text())
+    audit = json.loads((ROOT / "provenance/rmux-audit-2026-11-03.json").read_text())
+    expected = {(imp["name"], p["entry"]): (p["commit"], p["sha256"], p["size"])
+                for imp in manifest["imports"] for p in imp["patches"]}
+    rows = audit["patches"]
+    observed = {(p["import"], p["entry"]): (p["source_commit"], p["sha256"], p["size"])
+                for p in rows}
+    if (audit["schema"] != 1 or audit["source_manifest"] != "provenance/rmux-import.json"
+            or len(rows) != len(observed) or observed != expected
+            or audit["coverage"]["patches"] != len(expected)):
+        raise ValueError("independent implementation audit differs from frozen reference inputs")
+    return len(rows)
 
 
 def check_dev_series(name):

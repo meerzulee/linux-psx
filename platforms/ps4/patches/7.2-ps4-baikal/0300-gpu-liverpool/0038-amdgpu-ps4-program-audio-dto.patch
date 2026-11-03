@@ -1,0 +1,128 @@
+From: psX workspace <psx@localhost>
+Subject: [PATCH] drm/amdgpu: initialize PS4 Baikal audio DTO during modeset
+
+Carry the existing Linux psX DTO initialization into the native Baikal
+series. The PS4 bridge path bypasses afmt_setmode(), leaving the HDA audio
+reference at its reset rate. Program DTO0 with the current CRTC source,
+24 MHz phase and adjusted pixel-clock modulo on Liverpool/Gladius only.
+Do not program a zero or negative modulo for an invalid mode.
+
+This is an adaptation of the original Linux psX 0175 experiment, not a
+new clock algorithm or a claim that native 48 kHz audio is fixed.
+Original source commit: ec926348cdd188fdffbbf7d3a930185004084894
+Original patch SHA256: 4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352
+Contributor measurements: https://github.com/meerzulee/linux-psx/issues/6
+This native candidate requires its own boot/acoustic validation.
+---
+diff --git a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+--- a/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
++++ b/drivers/gpu/drm/amd/amdgpu/dce_v8_0.c
+@@ -2514,97 +2514,108 @@
+ 		    i != amdgpu_crtc->crtc_id &&
+ 		    amdgpu_crtc->pll_id == adev->mode_info.crtcs[i]->pll_id) {
+ 			/* one other crtc is using this pll don't turn
+ 			 * off the pll
+ 			 */
+ 			goto done;
+ 		}
+ 	}
+ 
+ 	switch (amdgpu_crtc->pll_id) {
+ 	case ATOM_PPLL1:
+ 	case ATOM_PPLL2:
+ 		/* disable the ppll */
+ 		amdgpu_atombios_crtc_program_pll(crtc, amdgpu_crtc->crtc_id, amdgpu_crtc->pll_id,
+ 						 0, 0, ATOM_DISABLE, 0, 0, 0, 0, 0, false, &ss);
+ 		break;
+ 	case ATOM_PPLL0:
+ 		/* disable the ppll */
+ 		if ((adev->asic_type == CHIP_KAVERI) ||
+ 		    (adev->asic_type == CHIP_BONAIRE) ||
+ 		    (adev->asic_type == CHIP_HAWAII))
+ 			amdgpu_atombios_crtc_program_pll(crtc, amdgpu_crtc->crtc_id, amdgpu_crtc->pll_id,
+ 						  0, 0, ATOM_DISABLE, 0, 0, 0, 0, 0, false, &ss);
+ 		break;
+ 	default:
+ 		break;
+ 	}
+ done:
+ 	amdgpu_crtc->pll_id = ATOM_PPLL_INVALID;
+ 	amdgpu_crtc->adjusted_clock = 0;
+ 	amdgpu_crtc->encoder = NULL;
+ 	amdgpu_crtc->connector = NULL;
+ }
+ 
+ static int dce_v8_0_crtc_mode_set(struct drm_crtc *crtc,
+ 				  struct drm_display_mode *mode,
+ 				  struct drm_display_mode *adjusted_mode,
+ 				  int x, int y, struct drm_framebuffer *old_fb)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
++	struct amdgpu_device *adev = drm_to_adev(crtc->dev);
+ 
+ 	if (!amdgpu_crtc->adjusted_clock) {
+ 		/* v28: PS4 ATOM BIOS sometimes returns 0 from
+ 		 * AdjustDisplayPll (we see "ACPI Error: AE_BAD_PARAMETER"
+ 		 * during ATOM init).  Without this fallback, mode_set returns
+ 		 * -EINVAL and CRTC modeset fails -> blank monitor backlight.
+ 		 * Fall back to the adjusted_mode's pixel clock directly. */
+ 		if (!adjusted_mode->clock) {
+ 			pr_warn("dce_v8_0_crtc_mode_set: adjusted_clock=0 AND adjusted_mode->clock=0, can't recover\n");
+ 			return -EINVAL;
+ 		}
+ 		pr_info("dce_v8_0_crtc_mode_set: ATOM returned 0, using adjusted_mode->clock=%d kHz\n",
+ 			adjusted_mode->clock);
+ 		amdgpu_crtc->adjusted_clock = adjusted_mode->clock;
+ 	}
+ 
+ 	amdgpu_atombios_crtc_set_pll(crtc, adjusted_mode);
++
++	/* The PS4 bridge bypasses afmt_setmode(), which normally sets DTO0. */
++	if ((adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) &&
++	    adjusted_mode->clock > 0) {
++		WREG32(mmDCCG_AUDIO_DTO_SOURCE,
++		       amdgpu_crtc->crtc_id << DCCG_AUDIO_DTO_SOURCE__DCCG_AUDIO_DTO0_SOURCE_SEL__SHIFT);
++		WREG32(mmDCCG_AUDIO_DTO0_PHASE, 24000);
++		WREG32(mmDCCG_AUDIO_DTO0_MODULE, adjusted_mode->clock);
++	}
++
+ 	amdgpu_atombios_crtc_set_dtd_timing(crtc, adjusted_mode);
+ 	dce_v8_0_crtc_do_set_base(crtc, old_fb, x, y);
+ 	amdgpu_atombios_crtc_overscan_setup(crtc, mode, adjusted_mode);
+ 	amdgpu_atombios_crtc_scaler_setup(crtc);
+ 	dce_v8_0_cursor_reset(crtc);
+ 	/* update the hw version fpr dpm */
+ 	amdgpu_crtc->hw_mode = *adjusted_mode;
+ 
+ 	return 0;
+ }
+ 
+ static bool dce_v8_0_crtc_mode_fixup(struct drm_crtc *crtc,
+ 				     const struct drm_display_mode *mode,
+ 				     struct drm_display_mode *adjusted_mode)
+ {
+ 	struct amdgpu_crtc *amdgpu_crtc = to_amdgpu_crtc(crtc);
+ 	struct drm_device *dev = crtc->dev;
+ 	struct drm_encoder *encoder;
+ 
+ 	/* assign the encoder to the amdgpu crtc to avoid repeated lookups later */
+ 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+ 		if (encoder->crtc == crtc) {
+ 			amdgpu_crtc->encoder = encoder;
+ 			amdgpu_crtc->connector = amdgpu_get_connector_for_encoder(encoder);
+ 			break;
+ 		}
+ 	}
+ 	if ((amdgpu_crtc->encoder == NULL) || (amdgpu_crtc->connector == NULL)) {
+ 		amdgpu_crtc->encoder = NULL;
+ 		amdgpu_crtc->connector = NULL;
+ 		return false;
+ 	}
+ 	if (!amdgpu_display_crtc_scaling_mode_fixup(crtc, mode, adjusted_mode))
+ 		return false;
+ 	if (amdgpu_atombios_crtc_prepare_pll(crtc, adjusted_mode))
+ 		return false;
+ 	/* pick pll */
+ 	amdgpu_crtc->pll_id = dce_v8_0_pick_pll(crtc);
+ 	/* if we can't get a PPLL for a non-DP encoder, fail */
+ 	if ((amdgpu_crtc->pll_id == ATOM_PPLL_INVALID) &&

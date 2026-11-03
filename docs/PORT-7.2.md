@@ -348,7 +348,59 @@ local clone of the pinned v7.2.11 commit. The artifacts stay local. The
 OrbStack candidate identified above passed EXP-20261018-001; the native build
 has not been booted.
 
-## Current native Baikal dev2 — HDMI underscan
+## Current native Baikal dev3 — platform boot defaults
+
+The native target now builds `7.2.11-psx-ps4-baikal-native-dev3`: the exact
+65-patch dev2 source baseline at `2138063`, followed by eight focused
+patches (73 total). It defaults to ignoring ACPI PCI host-bridge windows
+and disabling interrupt remapping only on a selected PS4 platform. Explicit
+`pci=use_crs` and `intremap=on` still override the corresponding setting.
+An unrelated supplied argument does not discard the other defaults.
+
+This records the requested behavior for [issue #8](https://github.com/meerzulee/linux-psx/issues/8),
+not a confirmed diagnosis of third-party boot failures. The kernel never reads
+`bootargs.txt`; root, display and SATA policy remain external. See
+[PS4 boot arguments](PS4-BOOTARGS.md) for older-artifact requirements.
+
+The new patches and their identities are separate from the frozen imports. Native
+Ethernet and contributor underscan bytes are unchanged. CPU tests compile the
+actual patched policy functions and exercise runtime platform selection,
+explicit overrides, modifier-only arguments and option order. Fresh hardware
+boots remain required; historical dev1/dev2 results do not qualify dev3.
+
+The other five patches release both controller mutexes on not-ready errors,
+bound all EMC calibration waits, balance connector/AUX cleanup, initialize
+unregistered UART slots and bound the inherited wireless configuration
+interfaces. They preserve existing hardware register sequences and vendor
+notices. The firmware configuration wire format is unchanged.
+
+The seventh patch carries the existing psX audio DTO programming into the
+native Baikal modeset path, addressing the missing initialization reported in
+[issue #6](https://github.com/meerzulee/linux-psx/issues/6). It programs DTO0 only
+for Liverpool/Gladius and a positive adjusted pixel clock. CPU tests cover
+the ASIC gate, CRTC selection, clock changes and invalid clocks. Native
+48 kHz distortion remains unresolved; this is not a new acoustic result.
+
+The eighth patch is [suds-mcduff's Baikal ICC power-off contribution](https://github.com/meerzulee/linux-psx/pull/4),
+with a maintainer guard that rejects forced shutdown and pending replies before
+changing shared ICC state. Its atomic sender runs before ACPI and leaves the
+remaining handlers available if sending fails. The original author and sign-off
+are retained. The combined change has no hardware result; reboot remains open.
+
+The affected platform, PCI, interrupt-remapping, controller and connector
+objects, plus the complete MT76x8 subtree, compiled for the preceding 71-patch
+candidate. The new DTO and power-off object compilations are recorded separately. This is not a
+complete kernel link, a packaged binary or a hardware result. The patch audit
+and remaining independent implementation work are recorded in
+[RMUX-IMPORT.md](RMUX-IMPORT.md#independent-implementation-direction--2026-11-03).
+
+The rmux-based `7.2-ps4` stays a comparison target. Its new reference dev2
+identity records a context adaptation of the earlier psX audio DTO patch;
+the original failed against this tree and remains preserved inactive.
+All 176 comparison patches now apply. The historical exporters reconstruct
+their recorded import checkpoints, not these later manually recorded additions.
+
+## Historical native Baikal dev2 — HDMI underscan
 
 `7.2-ps4-baikal-native-dev` now produces
 `7.2.11-psx-ps4-baikal-native-dev2`. It keeps the exact preceding61-patch

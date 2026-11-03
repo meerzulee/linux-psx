@@ -1,0 +1,67 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] drm/amdgpu: balance PS4 connector allocation and AUX registration
+
+Free the just-allocated connector when rejecting the PS4 fake output and
+pair late_register with the standard early_unregister callback. Preserve
+the contributor underscan-only property handler.
+
+Comparison reference: rmux c9e16f3ad2591c5e35fbe1fb81f02a8e799775ac
+already addresses these lifetime problems with a larger reordering. This
+local fix keeps existing ordering and changes only the missing cleanup.
+No display or teardown hardware acceptance is claimed.
+---
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.c
+@@ -1609,24 +1609,25 @@
+ 	    property != adev->mode_info.underscan_vborder_property)
+ 		return 0;
+ 
+ 	pr_info("ps4_bridge: underscan property %s=%llu\n", property->name, val);
+ 	return amdgpu_connector_set_property(connector, property, val);
+ }
+ 
+ static const struct drm_connector_funcs amdgpu_ps4_dp_connector_funcs = {
+ 	.dpms = drm_helper_connector_dpms,
+ 	.detect = ps4_bridge_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+ 	.set_property = amdgpu_ps4_dp_connector_set_property,
++	.early_unregister = amdgpu_connector_unregister,
+ 	.destroy = amdgpu_connector_destroy,
+ 	.force = amdgpu_connector_dvi_force,
+ 	.late_register = amdgpu_connector_late_register,
+ };
+ #endif
+ 
+ static const struct drm_connector_funcs amdgpu_connector_edp_funcs = {
+ 	.dpms = drm_helper_connector_dpms,
+ 	.detect = amdgpu_connector_dp_detect,
+ 	.fill_modes = drm_helper_probe_single_connector_modes,
+ 	.set_property = amdgpu_connector_set_lcd_property,
+ 	.early_unregister = amdgpu_connector_unregister,
+@@ -1703,24 +1704,25 @@
+ 	amdgpu_connector = kzalloc_obj(struct amdgpu_connector);
+ 	if (!amdgpu_connector)
+ 		return;
+ 
+ 	/* Liverpool (PS4) has an DP bridge which needs a special driver, and
+ 	 * a fake HDMI port that doesn't really exist. */
+ 	if (adev->asic_type == CHIP_LIVERPOOL || adev->asic_type == CHIP_GLADIUS) {
+ 		if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+ 			connector_type = DRM_MODE_CONNECTOR_HDMIA;
+ 			is_dp_bridge = true;
+ 			is_ps4_bridge = true;
+ 		} else {
++			kfree(amdgpu_connector);
+ 			return;
+ 		}
+ 	}
+ 
+ 	connector = &amdgpu_connector->base;
+ 
+ 	amdgpu_connector->connector_id = connector_id;
+ 	amdgpu_connector->devices = supported_device;
+ 	amdgpu_connector->shared_ddc = shared_ddc;
+ 	amdgpu_connector->connector_object_id = connector_object_id;
+ 	amdgpu_connector->hpd = *hpd;
+ 

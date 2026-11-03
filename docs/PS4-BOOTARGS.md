@@ -11,7 +11,8 @@ bounded test, not a hardware-acceptance claim.
 
 Build or download `7.2-ps4-baikal-native-dev` and install the **whole matching**
 module tree. The current CI release is
-`7.2.11-psx-ps4-baikal-native-dev2`.
+`7.2.11-psx-ps4-baikal-native-dev3` for a new local build. The last recorded
+successful CI artifact is still dev2; it does not contain the defaults below.
 
 Do not mix a kernel with another release's modules. In particular, install
 `psx_mts_net.ko` from the same archive and run the target distribution's
@@ -22,15 +23,33 @@ target has its own artifact identity.
 
 ## Minimal platform arguments
 
-These are the important PS4/Baikal platform settings:
+The dev3 source target supplies these PS4 platform defaults in code:
 
 ```text
 pci=nocrs intremap=off
 ```
 
-Keep them unless the chosen loader or kernel documents a different requirement.
 They avoid firmware/ACPI interrupt routing assumptions that do not match this
-console.
+console. Defaults apply only when the PS4 platform has actually been selected,
+not merely because the kernel was compiled with PS4 support.
+
+Overrides are **per setting**. An unrelated argument such as `root=...` keeps
+both defaults. `pci=use_crs` explicitly restores ACPI host-bridge windows;
+`intremap=on` explicitly enables interrupt remapping. `pci=nocrs`,
+`intremap=off` and `nointremap` retain their existing meanings. Modifiers such
+as `intremap=nosid` do not implicitly enable remapping. Existing precedence
+for contradictory explicit options is unchanged.
+
+The kernel receives the command line assembled by the loader; it does not
+read `bootargs.txt` or know whether that file exists. These fallbacks do not
+replace a supplied command line or invent root-device, display or SATA
+settings. They allow those two platform arguments to be omitted, not every
+argument required by a particular loader/initramfs.
+
+This is an unbooted development change, not a verified fix for reported boot
+failures. Dev2 and older Baikal builds still need the explicit arguments
+unless their own documentation specifies otherwise. Keep a working boot set
+and use bounded UART tests before relying on the new defaults.
 
 For visible early diagnostics over the physical UART, the tested form is:
 

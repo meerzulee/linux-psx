@@ -19,12 +19,13 @@ See [PORT-7.2.md](PORT-7.2.md).
   `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal`.
 - `7.2-ps4-baikal-native-dev`: the current Baikal port plus the native Ethernet
   autoload patch and contributor underscan, release
-  `7.2.11-psx-ps4-baikal-native-dev2`. Build with
+  `7.2.11-psx-ps4-baikal-native-dev3`, adding overridable platform defaults. Build with
   `make TARGET=7.2-ps4-baikal-native-dev` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4-baikal-native-dev`.
-  The public CI run for commit `804365c` built this target successfully. It has
-  not been boot-tested as a CI binary. The separate `7.2-ps4` target carries
-  the audio-DTO experiment.
+  The public CI run for commit `804365c` built the earlier dev2 successfully.
+  Dev3 includes native audio DTO initialization but has no hardware boot
+  result. The separate `7.2-ps4` comparison target also carries the DTO experiment;
+  native 48 kHz remains unresolved.
 - `7.2-ps4`: the rmux 7.x stack for all PS4 southbridges, release
   `7.2.11-psx-ps4-dev1`. Build it with `make TARGET=7.2-ps4` or
   `./scripts/build-kernel-orbstack -t 7.2-ps4`.

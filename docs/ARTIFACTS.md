@@ -38,7 +38,7 @@ the release notes.
 | --- | --- |
 | `schema` | Integer `1`. |
 | `target`, `platform` | Selected target (`6.18-ps4-baikal` or `7.2-ps4-baikal-native-dev`) and `ps4-baikal`. |
-| `kernel_release` | Selected release: `6.18.44-psx-ps4-baikal2` or `7.2.11-psx-ps4-baikal-native-dev2`. |
+| `kernel_release` | Selected release: `6.18.44-psx-ps4-baikal2` or `7.2.11-psx-ps4-baikal-native-dev3`. |
 | `kernel_sha256` | SHA256 of the packaged `bzImage`. |
 | `kernel_config_sha256` | SHA256 of the resolved packaged `config`. |
 | `embedded_firmware` | Boolean `false`. |

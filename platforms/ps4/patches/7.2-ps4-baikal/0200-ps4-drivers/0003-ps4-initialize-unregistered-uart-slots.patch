@@ -1,0 +1,33 @@
+From: Linux psX contributors <noreply@ps4-linux>
+Subject: [PATCH] ps4: initialize UART slots as unregistered
+
+The APCIE UART setup is disabled, but removal still checks serial_line.
+Zero-initialized slots appear to own ttyS0. Initialize every slot to the
+existing negative sentinel before any setup or failure cleanup.
+
+This is equivalent to the small fix already present in the comparison
+reference c14cfac43067332e0376f389b3ddbc83b1cc0ca4 by rmuxnet; record that
+reference rather than importing its surrounding controller rewrite.
+No Aeolia hardware teardown acceptance is claimed.
+---
+diff --git a/drivers/ps4/ps4-apcie.c b/drivers/ps4/ps4-apcie.c
+--- a/drivers/ps4/ps4-apcie.c
++++ b/drivers/ps4/ps4-apcie.c
+@@ -512,16 +512,17 @@
+ 
+ 	sc = kzalloc(sizeof(*sc), GFP_KERNEL);
+ 	if (!sc) {
+ 		dev_err(&dev->dev, "apcie_probe(): alloc sc failed\n");
+ 		ret = -ENOMEM;
+ 		goto disable_dev;
+ 	}
+ 	sc->pdev = dev;
++	memset(sc->serial_line, -1, sizeof(sc->serial_line));
+ 	pci_set_drvdata(dev, sc);
+ 
+ 	// eMMC ... unused?
+ 	sc->bar0 = pci_ioremap_bar(dev, 0);
+ 	// pervasive 0
+ 	sc->bar2 = pci_ioremap_bar(dev, 2);
+ 	// pervasive 1 - misc peripherals
+ 	sc->bar4 = pci_ioremap_bar(dev, 4);

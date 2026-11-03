@@ -23,6 +23,8 @@ class Native72ProvenanceTests(unittest.TestCase):
         self.name = "provenance/7.2-ps4-baikal-native-dev.json"
         self.record = json.loads((ROOT / self.name).read_text())
         names = {item["path"] for item in self.record["inputs"] + self.record["patches"]}
+        names.update(item["source_path"] for item in self.record["psx_additions"]
+                     if "source_path" in item)
         names.update({self.name, "provenance/7.2-ps4-baikal.json", "provenance/6.18-ps4-baikal.json",
                       "targets/7.2-ps4-baikal.env", "platforms/ps4/config/7.2-psx-baikal.config",
                       self.record["series_path"], self.record["base_target"]["series_path"]})
@@ -40,7 +42,7 @@ class Native72ProvenanceTests(unittest.TestCase):
                 item["sha256"] = hashlib.sha256((self.root / name).read_bytes()).hexdigest()
 
     def test_exact_tested_native_inputs_are_accepted(self):
-        self.assertEqual(APP.check_target(self.root), 65)
+        self.assertEqual(APP.check_target(self.root), 73)
 
     def test_rehashed_hardware_config_change_is_rejected(self):
         name = self.record["config"]["path"]
