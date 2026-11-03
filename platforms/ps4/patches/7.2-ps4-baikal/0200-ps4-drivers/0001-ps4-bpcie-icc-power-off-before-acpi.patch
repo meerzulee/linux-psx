@@ -21,6 +21,10 @@ Tested on a PS4 Slim CUH-2002A with 7.2.11 native dev2: without this
 patch the console stays on after "reboot: Power down"; with it the
 console powers off and the UART log ends cleanly.
 
+Maintainer adaptation (Meerzulee): reject reboot_force and pending replies
+before changing shared ICC state; retain the remaining sys-off handlers as
+the fallback. Original contribution: PR #4, commit 16c43fcd090c95669374c27cbb2df835326d259a.
+
 Assisted-by: Claude (Anthropic)
 Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
 ---
@@ -82,15 +86,15 @@ Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
  	spin_lock_irq(&sc->icc.reply_lock);
  	sc->icc.reply_pending = true;
  	spin_unlock_irq(&sc->icc.reply_lock);
-@@ -303,6 +316,33 @@
+@@ -303,6 +316,36 @@
  }
  EXPORT_SYMBOL_GPL(bpcie_icc_cmd);
  
 +/*
 + * Send a request without waiting for the reply, for the power-off path.
-+ * sys-off handlers run in atomic context with the other CPUs stopped, so
-+ * this must not take bcpie_icc_mutex or sleep. If a command was in flight
-+ * when the CPUs stopped, the request buffer is busy and this fails.
++ * sys-off handlers run in atomic context, so do not lock or sleep here.
++ * Normal shutdown stops the other CPUs; reject forced shutdown and any
++ * pending reply before changing the shared request or reply state.
 + */
 +static int bpcie_icc_send_nowait(u8 major, u16 minor, const void *data,
 +				 u16 length)
@@ -100,6 +104,9 @@ Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
 +
 +	if (!sc)
 +		return -EAGAIN;
++
++	if (reboot_force || READ_ONCE(sc->icc.reply_pending))
++		return -EBUSY;
 +
 +	sc->icc.reply_buffer = NULL;
 +	sc->icc.reply_length = 0;
@@ -116,7 +123,7 @@ Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
  static void bpcie_init_usb(struct bpcie_dev *sc, int usb_no) {
  	u32 value_to_write;
  	void __iomem *addr;
-@@ -435,11 +475,26 @@
+@@ -435,11 +478,26 @@
  	};
  	if (bpcie_status() != 1)
  		return;
@@ -144,7 +151,7 @@ Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
  static void icc_reboot(void)
  {
  	uint8_t command[] = {
-@@ -582,7 +637,14 @@
+@@ -582,7 +640,14 @@
  		sc_err("icc: pwrbutton init failed: %d\n", ret);
  
  	do_icc_init();
@@ -160,7 +167,7 @@ Signed-off-by: suds-mcduff <173517437+suds-mcduff@users.noreply.github.com>
  
  	ioctl_tmp_buf = kzalloc(1 << 16, GFP_KERNEL);
   	if (!ioctl_tmp_buf) {
-@@ -618,7 +680,10 @@
+@@ -618,7 +683,10 @@
  void bpcie_icc_remove(struct bpcie_dev *sc)
  {
  	sc_err("bpcie_icc_remove: shouldn't normally be called\n");
