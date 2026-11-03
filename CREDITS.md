@@ -63,6 +63,19 @@ establish PS5 hardware acceptance or firmware 12.40 loader support.
 candidate references the exact6.18 patch bytes, retaining its author and sign-off.
 Its reported6.18 X11 test does not establish7.2 or Wayland acceptance.
 
+## PS4 ICC power-off
+
+[suds-mcduff](https://github.com/suds-mcduff) contributed the atomic Baikal ICC
+power-off handler in [PR #4](https://github.com/meerzulee/linux-psx/pull/4),
+with a reported shutdown on a PS4 Slim CUH-2002A running firmware 9.60 and
+Linux 7.2.11 native dev2. The original
+[contribution](https://github.com/meerzulee/linux-psx/commit/16c43fcd090c95669374c27cbb2df835326d259a)
+retains its author, sign-off and assistance disclosure. Meerzulee's follow-up
+rejects forced shutdown and pending replies before changing shared ICC state.
+The patch is retained for integration; its presence alone does not activate
+it in a target. The combined change needs its own hardware validation and
+does not establish reboot support.
+
 ## MTS2 Ethernet migration
 
 The original `GPL-2.0-only` Baikal MTS2 implementation by Meerzulee and Linux

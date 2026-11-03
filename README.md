@@ -178,6 +178,12 @@ PS5 is a separate development candidate with no local hardware acceptance.
 This section will expand as PS5 work progresses; see [PS5 notes](docs/PS5.md)
 for the existing source and build record.
 
+## Contributors
+
+[suds-mcduff](https://github.com/suds-mcduff) contributed the PS4 HDMI
+underscan hook and Baikal ICC power-off patch, with scoped console testing.
+See [credits and sources](CREDITS.md) for the full source lineage and test limits.
+
 ## Contributing and licensing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for source checks and hardware reports.
