@@ -1499,8 +1499,17 @@
     },
     {
       "path": "platforms/ps4/docs/CAPABILITIES.md",
-      "size": 5267,
-      "sha256": "1907c85cce00ff975896fb8d70ce261be840a92f9f9bdf92c0d91a0edb40a191"
+      "size": 5204,
+      "sha256": "ef67273eec63635a6d691f72452b0bf83b95bad3c6f73692c9b32b5490ca0f25",
+      "post_migration_adaptations": [
+        {
+          "date": "2026-11-03",
+          "previous_size": 5267,
+          "previous_sha256": "1907c85cce00ff975896fb8d70ce261be840a92f9f9bdf92c0d91a0edb40a191",
+          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
+          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
+        }
+      ]
     },
     {
       "path": "platforms/ps4/docs/ETHERNET-HISTORY.md",
@@ -1509,8 +1518,17 @@
     },
     {
       "path": "platforms/ps4/docs/INTERNAL-STORAGE.md",
-      "size": 2970,
-      "sha256": "e555fdfd4038b3152f709aef0138f03ada1920fce619ee9b893327b4a719f852"
+      "size": 3147,
+      "sha256": "2810d631dc1ef4a8eea970c39bd038478da63e9e159e6becb7748070f3f3d06c",
+      "post_migration_adaptations": [
+        {
+          "date": "2026-11-03",
+          "previous_size": 2970,
+          "previous_sha256": "e555fdfd4038b3152f709aef0138f03ada1920fce619ee9b893327b4a719f852",
+          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
+          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
+        }
+      ]
     },
     {
       "path": "platforms/ps4/docs/KNOWLEDGE-MIGRATION.md",
@@ -1519,8 +1537,8 @@
     },
     {
       "path": "platforms/ps4/docs/README.md",
-      "size": 1988,
-      "sha256": "30b3964c92bde1b0f9976a52a572d26dc5afa5016eb64cb068bdab17656c3aa5",
+      "size": 2064,
+      "sha256": "3a6474eafde171d70ebc00b4579c79bf1078ec9cc97782e2705e89e6e75c6d9f",
       "post_migration_adaptations": [
         {
           "date": "2026-10-19",
@@ -1528,6 +1546,13 @@
           "previous_sha256": "49bf8d46c035117e59f68a5897f6ee717ff1006a27dbb90b57e64cd35c281151",
           "reason": "Add a link to the owner-requested dynamic RAM/VRAM research proposal; preserve the original migrated text and historical source identities.",
           "new_document": "docs/PS4-DYNAMIC-MEMORY.md"
+        },
+        {
+          "date": "2026-11-03",
+          "previous_size": 1988,
+          "previous_sha256": "30b3964c92bde1b0f9976a52a572d26dc5afa5016eb64cb068bdab17656c3aa5",
+          "reason": "Reconcile the curated output pin with documentation changes already present at master 2138063970722631aa0a7cb7f034ba3e11b82507; preserve historical input identities. This metadata repair does not add hardware evidence.",
+          "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507"
         }
       ]
     },
