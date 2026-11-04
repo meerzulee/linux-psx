@@ -30,6 +30,11 @@ The explicit `--alpha-ui-only` mode accepts the frozen alpha3 boot set and
 changes only the TUI binary and its receipts; all other initramfs entries,
 firmware, kernel, root image and UVD gates remain unchanged.
 
+The separate [browser UVD prototype](PS4-DIAGNOSTIC-BROWSER-UVD.md) prepares
+offline four- or 30-second AVC clips and runs only on an explicit hardware
+trial. Its first browser attempt fell back to software; longer media and
+source corrections do not establish hardware decoding or stable support.
+
 ## Source checks
 
 Use a native Linux x86-64 host for diagnostic image assembly. The builder uses

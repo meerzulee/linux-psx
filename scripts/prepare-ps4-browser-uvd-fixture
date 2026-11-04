@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Meerzulee
+"""Create an offline, software-oracle-verified browser container for one UVD test.
+
+Explicit host FFmpeg/ffprobe only. Fixed canonical input hashes; H.264 stream
+copy, no reencode/audio/playback loops. The 30s profile repeats canonical bytes
+only during host preparation. No downloads, browser or hardware operations.
+Output is a NEW host directory; failed attempts retain their bounded evidence.
+"""
+import argparse
+from fractions import Fraction
+import hashlib
+import json
+import os
+from pathlib import Path
+import resource
+import selectors
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+REPO = Path(__file__).resolve().parents[1]
+FIXTURE_SHA256 = '8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626'
+CLIP_SHA256 = 'e76dad0e9ff78727758fa0a55b5cd81b202b28e939a52eaa936f4660a37ebffd'
+REFERENCE_SHA256 = 'd99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491'
+CLIP_BYTES = 88796
+FRAME_BYTES = 18432
+FRAMES = 120
+RAW_BYTES = FRAME_BYTES*FRAMES
+LOG_BYTES = 256*1024
+CONTAINER_BYTES = 2*1024**2
+ENV = {'PATH':os.defpath, 'LANG':'C', 'LC_ALL':'C'}
+PROFILES = {4:('canonical-120',120),30:('continuous-900',900)}
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream,'sha256').hexdigest()
+
+
+def regular(path, maximum):
+    path = Path(path).absolute()
+    require(path.resolve() == path and stat.S_ISREG(path.lstat().st_mode)
+            and path.stat().st_size <= maximum, 'Expected bounded canonical regular input: '+str(path))
+    return path
+
+
+def inputs(fixture_json, clip):
+    manifest = regular(fixture_json, 1024**2)
+    clip = regular(clip, CLIP_BYTES)
+    require(digest(manifest) == FIXTURE_SHA256, 'Canonical fixture manifest SHA256 differs')
+    require(clip.stat().st_size == CLIP_BYTES and digest(clip) == CLIP_SHA256, 'Canonical clip size/SHA256 differs')
+    fixture = json.loads(manifest.read_text())
+    require(fixture.get('schema') == 'psx-uvd-playback-fixture-v1'
+            and (fixture.get('width'),fixture.get('height'),fixture.get('frame_count'),fixture.get('frame_rate'),
+                 fixture.get('frame_bytes'),fixture.get('pixel_format'),fixture.get('codec'),fixture.get('container'))
+                == (128,96,120,'30/1',FRAME_BYTES,'nv12','h264','h264-annex-b'),
+            'Expected canonical 128x96,120-frame,30fps NV12 H.264 fixture')
+    require(fixture.get('clip',{}).get('sha256') == CLIP_SHA256 and fixture['clip'].get('bytes') == CLIP_BYTES
+            and fixture.get('reference',{}).get('sha256') == REFERENCE_SHA256
+            and fixture['reference'].get('bytes') == RAW_BYTES, 'Canonical input/reference pins differ')
+    frames = fixture.get('frames',[])
+    require(len(frames) == FRAMES and [item.get('index') for item in frames] == list(range(FRAMES))
+            and all(item.get('bytes') == FRAME_BYTES and isinstance(item.get('sha256'),str)
+                    and len(item['sha256']) == 64 and set(item['sha256']) <= set('0123456789abcdef') for item in frames),
+            'Expected all 120 indexed exact NV12 frame hashes')
+    return manifest,clip,fixture
+
+
+class Oracle:
+    def __init__(self, fixture, frames=FRAMES, expected_sha256=None):
+        self.expected = fixture['frames']
+        self.frame_count = frames
+        self.expected_sha256 = expected_sha256 or REFERENCE_SHA256
+        self.buffer = bytearray()
+        self.whole = hashlib.sha256()
+        self.size = 0
+        self.hashes = []
+        self.mismatches = []
+
+    def write(self, data):
+        self.size += len(data)
+        require(self.size <= FRAME_BYTES*self.frame_count, 'Decoded NV12 output exceeds selected frame count')
+        self.whole.update(data); self.buffer.extend(data)
+        while len(self.buffer) >= FRAME_BYTES:
+            index = len(self.hashes)
+            value = hashlib.sha256(self.buffer[:FRAME_BYTES]).hexdigest()
+            del self.buffer[:FRAME_BYTES]
+            self.hashes.append(value)
+            if value != self.expected[index % FRAMES]['sha256']:
+                self.mismatches.append(index)
+
+    def observations(self):
+        return {'bytes':self.size,'frames':len(self.hashes),'sha256':self.whole.hexdigest(),
+                'frame_sha256':self.hashes,'mismatched_frames':self.mismatches}
+
+    def finish(self):
+        value = self.observations()
+        require(self.size == FRAME_BYTES*self.frame_count and not self.buffer and len(self.hashes) == self.frame_count,
+                'Decoded frame count/length differs from canonical reference')
+        require(not self.mismatches and value['sha256'] == self.expected_sha256,
+                'Decoded MP4 frame/whole NV12 oracle mismatch')
+        return value
+
+
+def bounded_command(argv, *, timeout=30, stdout_limit=LOG_BYTES, sink=None):
+    def child_limits():
+        resource.setrlimit(resource.RLIMIT_FSIZE,(CONTAINER_BYTES,CONTAINER_BYTES))
+    child = subprocess.Popen(argv,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                             env=ENV,start_new_session=True,preexec_fn=child_limits)
+    started = time.monotonic()
+    pieces = {'stdout':bytearray(),'stderr':bytearray()}
+    sizes = {'stdout':0,'stderr':0}
+    try:
+        with selectors.DefaultSelector() as selector:
+            selector.register(child.stdout,selectors.EVENT_READ,'stdout')
+            selector.register(child.stderr,selectors.EVENT_READ,'stderr')
+            while selector.get_map():
+                require(time.monotonic()-started <= timeout, 'Host FFmpeg command timed out')
+                for key,_ in selector.select(.05):
+                    data = os.read(key.fd,65536)
+                    if not data:
+                        selector.unregister(key.fileobj);continue
+                    name = key.data; sizes[name] += len(data)
+                    require(sizes[name] <= (stdout_limit if name == 'stdout' else LOG_BYTES), 'Host FFmpeg output exceeded budget')
+                    if name == 'stdout' and sink is not None:
+                        sink.write(data)
+                    else:
+                        pieces[name].extend(data)
+            code = child.wait(timeout=max(.1,timeout-(time.monotonic()-started)))
+        return {'returncode':code,'stdout':bytes(pieces['stdout']),'stderr':bytes(pieces['stderr']),
+                'stdout_bytes':sizes['stdout'],'stderr_bytes':sizes['stderr']}
+    except BaseException:
+        try: os.killpg(child.pid,signal.SIGKILL)
+        except ProcessLookupError: pass
+        child.wait(timeout=3)
+        raise
+    finally:
+        child.stdout.close();child.stderr.close()
+
+
+def timeline(document, frames, duration):
+    streams = document.get('streams',[])
+    require(len(streams) == 1, 'Expected one video stream')
+    stream = streams[0]
+    require((stream.get('codec_name'),stream.get('width'),stream.get('height')) == ('h264',128,96)
+            and stream.get('r_frame_rate') == stream.get('avg_frame_rate') == '30/1'
+            and int(stream.get('nb_frames',0)) == frames, 'MP4 stream profile/count/rate differs')
+    try:
+        time_base = Fraction(stream['time_base'])
+        container_duration = document['format']['duration']
+        require(time_base > 0 and Fraction(container_duration) == duration
+                and Fraction(stream['duration']) == duration
+                and type(stream['duration_ts']) is int and stream['duration_ts']*time_base == duration,
+                'MP4 exact duration/time base differs')
+    except (KeyError,ValueError,ZeroDivisionError) as error:
+        raise ValueError('MP4 duration/time base is invalid') from error
+    pts = [frame.get('pts') for frame in document.get('frames',[])]
+    require(len(pts) == frames and all(type(value) is int for value in pts)
+            and pts[0] == 0 and all(b > a for a,b in zip(pts,pts[1:])),
+            'ffprobe must provide every exact increasing frame PTS starting at zero')
+    require(all(value*time_base == Fraction(index,30) for index,value in enumerate(pts)),
+            'MP4 frame PTS do not form the exact selected 30fps timeline')
+    fractions = [value*time_base*1000000 for value in pts]
+    pts_us = [(value.numerator+value.denominator//2)//value.denominator for value in fractions]
+    return {'frame_pts':pts,'frame_pts_us':pts_us,'time_base':stream['time_base'],
+            'stream_duration_ts':stream['duration_ts'],'container_duration':container_duration}
+
+
+def decode_argv(ffmpeg, source):
+    return [str(ffmpeg),'-nostdin','-hide_banner','-loglevel','error','-xerror',
+            '-hwaccel','none','-threads','1','-filter_threads','1','-i',str(source),'-map','0:v:0','-an','-sn','-dn',
+            '-vf','format=nv12','-c:v','rawvideo','-threads','1','-pix_fmt','nv12','-fps_mode','passthrough',
+            '-f','rawvideo','pipe:1']
+
+
+def prepare(fixture_json, clip, ffmpeg, output, *, ffprobe, duration_seconds=4):
+    require(type(duration_seconds) is int and duration_seconds in PROFILES, 'Only explicit 4s/120-frame or 30s/900-frame profiles exist')
+    profile,frames = PROFILES[duration_seconds]
+    started = time.monotonic()
+    manifest,clip,fixture = inputs(fixture_json,clip)
+    selected = Path(ffmpeg).absolute()
+    ffmpeg = selected.resolve(strict=True)
+    require(stat.S_ISREG(ffmpeg.stat().st_mode) and os.access(ffmpeg,os.X_OK), 'Explicit FFmpeg must be an executable host file')
+    ffprobe = Path(ffprobe).resolve(strict=True)
+    require(stat.S_ISREG(ffprobe.stat().st_mode) and os.access(ffprobe,os.X_OK), 'Explicit ffprobe must be an executable host file')
+    output = Path(output).absolute()
+    require(not output.exists() and not output.is_symlink() and output.resolve() == output
+            and output.parent.is_dir(), 'Output must be a new canonical host directory')
+    require(not any(output.is_relative_to(path) for path in (Path('/dev'),Path('/proc'),Path('/sys'))), 'No device or kernel output paths')
+    require(not any(output.is_relative_to(REPO/name) for name in ('diagnostics','scripts','manifests','docs')), 'Output cannot overwrite source directories')
+    output.mkdir(mode=0o755)
+    receipt = {'schema_version':1,'status':'running','hardware_acceptance':False,
+               'hardware_decoding':'awaiting trace verification', 'source_manifest_sha256':FIXTURE_SHA256,
+               'source_clip_sha256':CLIP_SHA256,'reference_nv12_sha256':REFERENCE_SHA256,
+               'fixture_profile':profile,'width':128,'height':96,'frames':frames,'frame_count':frames,
+               'duration_seconds':duration_seconds,'fps':'30/1','frame_bytes':FRAME_BYTES,
+               'source_canonical_reference_nv12_sha256':REFERENCE_SHA256,
+               'ffmpeg':{'selected_path':str(selected),'path':str(ffmpeg),'sha256':digest(ffmpeg)},
+               'ffprobe':{'path':str(ffprobe),'sha256':digest(ffprobe)},
+               'tool_sha256':digest(Path(__file__)),'commands':[],
+               'limits':{'command_timeout_seconds':30,'log_bytes_per_stream':LOG_BYTES,'container_bytes':CONTAINER_BYTES,
+                         'decoded_bytes':FRAME_BYTES*frames,'reference_comparison':'bounded per-frame streaming'}}
+    def save():
+        (output/'build-receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+    def run(label,argv,**kwargs):
+        receipt['commands'].append({'label':label,'argv':argv})
+        save()
+        command_started = time.monotonic()
+        result = bounded_command(argv,**kwargs)
+        (output/(label+'.stderr.txt')).write_bytes(result['stderr'])
+        if result['stdout']:
+            (output/(label+'.stdout.txt')).write_bytes(result['stdout'])
+        receipt['commands'][-1].update({key:result[key] for key in ('returncode','stdout_bytes','stderr_bytes')})
+        receipt['commands'][-1]['elapsed_seconds'] = round(time.monotonic()-command_started,6)
+        require(result['returncode'] == 0, 'Host FFmpeg '+label+' failed; inspect bounded logs')
+        return result
+    try:
+        (output/'FIXTURE.json').write_bytes(manifest.read_bytes())
+        (output/'clip.h264').write_bytes(clip.read_bytes())
+        require(digest(output/'FIXTURE.json') == FIXTURE_SHA256 and digest(output/'clip.h264') == CLIP_SHA256,
+                'Copied canonical input differs')
+        (output/'LICENSE').write_bytes((REPO/'diagnostics/LICENSE').read_bytes())
+        (output/'uvd.html').write_bytes((REPO/'diagnostics/ps4/lab/uvd.html').read_bytes())
+        version = run('ffmpeg-version',[str(ffmpeg),'-version'],timeout=10)
+        receipt['ffmpeg']['version'] = version['stdout'].decode(errors='replace')
+        version = run('ffprobe-version',[str(ffprobe),'-version'],timeout=10)
+        receipt['ffprobe']['version'] = version['stdout'].decode(errors='replace')
+        source = output/'clip.h264'
+        expected_sha = REFERENCE_SHA256
+        if frames == 900:
+            canonical = Oracle(fixture)
+            reference = output/'canonical-reference.nv12'
+            with reference.open('xb') as raw:
+                class ReferenceSink:
+                    def write(self,data):
+                        canonical.write(data);raw.write(data)
+                run('canonical-decode',decode_argv(ffmpeg,source),stdout_limit=RAW_BYTES,sink=ReferenceSink())
+            receipt['canonical_software_oracle'] = canonical.observations()
+            canonical.finish()
+            expected = hashlib.sha256()
+            with reference.open('rb') as raw:
+                for index in range(frames):
+                    if index % FRAMES == 0:raw.seek(0)
+                    data = raw.read(FRAME_BYTES)
+                    require(len(data) == FRAME_BYTES and hashlib.sha256(data).hexdigest() == fixture['frames'][index % FRAMES]['sha256'],
+                            'Canonical reference changed while deriving the long oracle')
+                    expected.update(data)
+            expected_sha = expected.hexdigest()
+            source = output/'continuous.h264'
+            repetitions = (frames+FRAMES-1)//FRAMES
+            with source.open('xb') as joined:
+                for _ in range(repetitions):joined.write((output/'clip.h264').read_bytes())
+            receipt['construction'] = {'canonical_repeat_count':repetitions,'selected_frames':frames,
+                'annex_b_sha256':digest(source),'stream_copy':True,'browser_loop':False,
+                'scope':'One continuous MP4; canonical pictures repeat a 120-frame cycle. No new codec/resolution or hardware result.'}
+        else:
+            receipt['construction'] = {'canonical_repeat_count':1,'selected_frames':frames,
+                                      'stream_copy':True,'browser_loop':False}
+        receipt['reference_nv12_sha256'] = expected_sha
+        receipt['construction']['timestamps'] = 'Container packet PTS/DTS are N/30 via setts; encoded H.264 is copied, never reencoded.'
+        mp4 = output/'clip.mp4'
+        run('mux',[str(ffmpeg),'-nostdin','-hide_banner','-loglevel','error','-xerror','-fflags','+genpts',
+            '-f','h264','-framerate','30','-i',str(source),'-map','0:v:0','-an','-sn','-dn',
+            '-c:v','copy','-frames:v',str(frames),'-bsf:v','setts=pts=N/(30*TB):dts=N/(30*TB):duration=1/(30*TB)',
+            '-map_metadata','-1','-movflags','+faststart','-video_track_timescale','30000',
+            '-fps_mode','passthrough','-f','mp4','-n',str(mp4)])
+        require(mp4.is_file() and not mp4.is_symlink() and 0 < mp4.stat().st_size <= CONTAINER_BYTES,
+                'MP4 container size/type differs')
+        probe = run('ffprobe',[str(ffprobe),'-v','error','-threads','1','-select_streams','v:0',
+            '-show_frames','-show_streams','-show_format','-show_entries',
+            'frame=pts:stream=codec_name,width,height,r_frame_rate,avg_frame_rate,time_base,nb_frames,duration_ts,duration:format=duration',
+            '-of','json',str(mp4)])
+        receipt.update(timeline(json.loads(probe['stdout']),frames,duration_seconds))
+        oracle = Oracle(fixture,frames,expected_sha)
+        run('decode',decode_argv(ffmpeg,mp4),stdout_limit=FRAME_BYTES*frames,sink=oracle)
+        receipt['software_oracle'] = oracle.observations()
+        oracle.finish()
+        require(digest(manifest) == FIXTURE_SHA256 and digest(clip) == CLIP_SHA256,
+                'Canonical inputs changed during preparation')
+        require(digest(ffmpeg) == receipt['ffmpeg']['sha256'], 'Host FFmpeg changed during preparation')
+        require(digest(ffprobe) == receipt['ffprobe']['sha256'], 'Host ffprobe changed during preparation')
+        receipt.update(status='PASS',container={'path':'clip.mp4','bytes':mp4.stat().st_size,'sha256':digest(mp4)},
+                       page_sha256=digest(output/'uvd.html'),software_reference_verified=True,
+                       preparation_seconds=round(time.monotonic()-started,6))
+        save()
+        return receipt
+    except BaseException as error:
+        receipt.update(status='FAIL',error=str(error)[:1024]);save()
+        raise
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--fixture-json',type=Path,required=True)
+    parser.add_argument('--clip',type=Path,required=True)
+    parser.add_argument('--ffmpeg',type=Path,required=True,help='Explicit host executable; no downloads')
+    parser.add_argument('--ffprobe',type=Path,required=True,help='Explicit host ffprobe for exact MP4 frame PTS')
+    parser.add_argument('--duration-seconds',type=int,choices=(4,30),default=4,help='4: canonical120; 30: continuous900 from repeated canonical Annex-B input')
+    parser.add_argument('--output',type=Path,required=True,help='New host directory; never overwritten')
+    args=parser.parse_args()
+    receipt = prepare(args.fixture_json,args.clip,args.ffmpeg,args.output,ffprobe=args.ffprobe,duration_seconds=args.duration_seconds)
+    print(json.dumps({key:receipt[key] for key in ('status','fixture_profile','frames','duration_seconds','container','page_sha256',
+                     'reference_nv12_sha256','time_base','preparation_seconds','hardware_acceptance')},indent=2))
+
+
+if __name__=='__main__':
+    try:main()
+    except (OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
+        raise SystemExit('Browser UVD fixture: '+str(error))

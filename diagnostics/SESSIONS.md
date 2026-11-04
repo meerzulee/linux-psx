@@ -417,3 +417,161 @@ outside Git; one completed test is not stability qualification.
   boot-health checks and operator observations:
   `output/ps4-diagnostix-alpha3-scenarios1/`. Continuous UART capture remains
   running; physical power-off recovery is required before another UVD run.
+
+## EXP-20261105-007 — repeated cold boot passes; decode deferred
+
+- The operator confirmed full physical power-off. The unchanged
+  `alpha3-scenarios1` boot set reached the native menu, pinned-key SSH and UVD
+  STARTED/QUEUE_READY on a new boot. Installed frontend, firmware and declared
+  artifact identities matched EXP006. Current-boot CPU computation and the
+  owned 32 MiB memory-pattern check passed.
+- The owner requested graphical applications before the final decoder action.
+  No actual UVD attempt was reserved or run in this experiment. This adds one
+  successful boot observation, not another canonical AVC decode pass.
+- Completed UART continuity: 141,861 bytes, same generation/epoch,
+  03:54:26–04:02:49 local. Compact context:
+  `20261105_035426_106659-exp-20261105-007-second-cold-boot-of-frozen-alpha3-scenarios1-ca-b93fec89.md`
+  in sibling `ps4-uart/sessions/`; private evidence:
+  `output/ps4-diagnostix-alpha3-coldboot2/`.
+
+## EXP-20261105-008 — OpenGL and Firefox functional baseline
+
+- On the same unchanged boot, explicitly opened the optional X11 menu. The
+  60-second OpenGL gears window identified hardware Liverpool rendering and
+  ran at about 59.5–59.9 fps; the owner confirmed normal motion. The bounded
+  OpenGL reference-pixel check also passed. This is scoped rendering evidence,
+  not physical display-refresh or broad GPU qualification.
+- Firefox 154's automatic functional baseline completed and closed. Canvas,
+  WebGL, animation and the software-decoded VP8 video passed; capabilities
+  remained observational INCONCLUSIVE, so the aggregate remained INCONCLUSIVE.
+  The owner then requested actual browser hardware AVC decoding. Chromium
+  and the final standalone AVC action were not started in this experiment.
+- Completed UART continuity: 7,545 bytes, same generation/epoch,
+  04:03:17–04:20:27 local. Compact context:
+  `20261105_040317_974271-exp-20261105-008-x11-graphical-diagnostics-apps-before-final-avc-c9be2c3b.md`
+  in sibling `ps4-uart/sessions/`; private application reports:
+  `output/ps4-diagnostix-alpha3-graphics1/`.
+
+## EXP-20261105-009 — browser AVC plays after hardware hand-off failure
+
+- Ran one explicit sandboxed Firefox 154 trial with hardware WebRender/EGL and
+  AVC decoding enabled. The kernel, root, firmware and matching modules stayed
+  fixed. The separately staged page and 91,028-byte MP4 were SHA-pinned. Host
+  software decoding had independently verified all 120 canonical NV12 frames;
+  this verifies the input container, not browser output or hardware playback.
+- Firefox initialized VA-API with the pinned driver, then logged
+  `CreateImageVAAPI(): failed to get VideoFrameSurface` at its first frame.
+  It recreated a software decoder: zero completed VA-API frame messages and
+  120 software frame messages. The page ended at about four seconds with
+  120 total/presented frames and zero reported drops. The owner observed the
+  page appear, play apparently normally and close. **Browser hardware decoding
+  did not pass.** No terminal UVD/GPU fault appeared in the captured evidence.
+- The original result remains INCONCLUSIVE. Its first page predicate rejected
+  an unavailable `corruptedVideoFrames` counter before surfacing the actual
+  decoder failure; retained raw evidence establishes the fallback. Separately,
+  the RDD sandbox denied the libva trace-file open, and an incorrectly cased
+  `DMABuf` logging category omitted the inner hand-off details. These collection
+  limitations do not turn software playback into hardware evidence.
+- The immutable per-boot UVD intent remains consumed. No further active tests,
+  reset, unload, rearm or software power command followed. Reports were saved;
+  another decoder trial requires physical power-off and a fresh boot. Future
+  source work adds a longer offline fixture, accurate failure reporting and
+  corrected logging. An EGL vendor-file accessibility issue is a source-backed
+  hypothesis, not a demonstrated hardware fix.
+- Completed UART continuity: 1,805 bytes, same generation/epoch,
+  04:36:41–04:45:36 local. Compact context:
+  `20261105_043641_079802-exp-20261105-009-one-firefox154-hardware-avc-clip-with-immutable-f84eacbd.md`
+  in sibling `ps4-uart/sessions/`. Private page, actual decoder logs/process
+  maps, original results and conclusion:
+  `output/ps4-diagnostix-browser-uvd1/`. The continuous logger remains running.
+
+## EXP-20261105-010 — Firefox reaches hardware frames; capture runs out of RAM space
+
+- The owner explicitly directed a retry on the current boot after the normal
+  cold-boot requirement was explained. The original consumed intent and failed
+  result remained byte-identical. A private, single-use adaptation reserved a
+  separate immutable EXP010 intent and exempted only that exact preceding
+  result from the history stop; all other image, firmware, prerequisite,
+  sandbox and terminal-fault checks remained. The public runner's normal
+  one-attempt rule was not changed.
+- Selected the same verified EGL provider through a protected file under
+  `/etc/psx-diagnostics/`. Also changed to the separately verified 30-second,
+  900-frame MP4, SHA256
+  `fe5c60408d3251e94e1b64b59610b918d51a01a747b1e3d5960e001f6ed27862`.
+  Duration and selector changed together at the owner's direction; this
+  does not isolate their individual causal effects.
+- The page ended at 30 seconds: 900 total/presented frames and zero reported
+  drops. The RDD mapped the pinned EGL provider and passed DMA-BUF texture
+  creation. Saved logs contain 232 distinct VA-API output-frame messages, one
+  hardware decoder initialization and no software-frame messages. The earlier
+  first-frame hand-off error did not recur. No terminal kernel fault appeared.
+- Aggregate remains INCONCLUSIVE: the hardware-frame log is incomplete and
+  RDD libva trace writes are still denied. Read-only inspection found the
+  64 MiB `/run` filesystem had only 4 KiB free; two retained Firefox profiles
+  occupied about 52 MB. Multiple logs splice midline at 4 KiB boundaries, while
+  archive readback matches exactly. This strongly supports failed log writes
+  from filesystem exhaustion; the page alone cannot supply the missing proof.
+- Future source moves browser state/capture to the existing larger RAM pool
+  with preflight and low-space guards. This does not enlarge the core image.
+  Completed UART continuity: 1,444 bytes, same generation/epoch,
+  04:56:01–05:03:56 local. The session's original cold-boot label was retained;
+  it is not evidence of a cold boot. Compact context:
+  `20261105_045601_433731-exp-20261105-010-fresh-cold-boot-firefox-egl-selector-correction-c1e1c0a5.md`.
+  Private reports: `output/ps4-diagnostix-browser-uvd-egl2/`.
+
+## EXP-20261105-011 — Chromium baseline selects software for the small clip
+
+- The owner also requested Chromium. Preserved both earlier intents/results;
+  a private, exclusive EXP011 intent covered this additional same-boot trial.
+  Retired Firefox profiles were copied to the existing larger RAM filesystem,
+  with every regular file hash verified before removing its old RAM copy.
+  Reports, logs, source copies and boot files were preserved. `/run` available
+  space increased from 4 KiB to about 52 MB. New profiles/cache/logs used `/var`.
+- Verified and mounted the existing optional Chromium 151 provider read-only.
+  Kept its manifest unchanged; the explicit private hardware-test arguments
+  removed the software-decode disabling flag and selected the source-reviewed
+  Linux GL acceleration features. Namespace/seccomp-disabling flags were not
+  added. Enabled CDP Media events before navigating to the single pinned clip.
+- The 30-second page ended with 900 total frames, 893 presented and eight
+  reported drops. CDP explicitly identified `FFmpegVideoDecoder` and
+  `kIsPlatformVideoDecoder=false`, with no media error. **This was software
+  playback, not a UVD decode failure or hardware PASS.** Source review found
+  Chromium's default resolution-based priority prefers software below 360
+  pixels high; the control is 128x96. This supplies a concrete comparison for
+  the next experiment. No terminal kernel fault was observed.
+- Completed UART continuity: 1,279 bytes, same generation/epoch,
+  05:07:26–05:14:57 local. Compact context:
+  `20261105_050726_815583-exp-20261105-011-owner-authorized-chromium-vaapi-30second-test-s-96be2506.md`.
+  Private CDP traffic, provider receipt, original results and archive:
+  `output/ps4-diagnostix-chromium-uvd1/`.
+
+## EXP-20261105-012 — Chromium selects VA-API; strict acceptance remains open
+
+- Changed only Chromium's decoder-ordering policy by adding
+  `ResolutionBasedDecoderPriority` to the disabled-feature list. Kept the same
+  MP4, provider, EGL selection, kernel and other browser flags. Improved process
+  observation to recognize Chromium's rewritten command-line strings; this
+  changes observation, not decoder policy. A separate exclusive EXP012 intent
+  preserved all earlier intents/results under the owner's same-boot direction.
+- CDP recorded `kVideoDecoderName=VaapiVideoDecoder` and
+  `kIsPlatformVideoDecoder=true` for the target player through its ended event.
+  No later software selection or media error was recorded. The actual GPU
+  process mapped the pinned VA driver, SHA256
+  `16d87fdff0011054eeba34e2dff9067519d8756de788c4970cecf4a7038ce4a3`.
+  The 30-second clip ended with 900 total frames, 898 presented and two drops.
+- Verdict: **hardware AVC path observed in Chromium**, with zero-drop and
+  broader stability gates still open. The GPU process had psx credentials and
+  NoNewPrivs=1, but Seccomp was 0. Its console log records sandbox initialization
+  refusing a GPU process with multiple threads; other recorded processes had
+  active seccomp filters. Requested sandbox flags did not establish an intact
+  GPU sandbox. Root results remain INCONCLUSIVE;
+  the private host conclusion records the narrower positive decoder evidence.
+  No terminal UVD/GPU fault appeared. CDP captured the ended event before the
+  browser's automatic stop closed the debugging connection.
+- Completed UART continuity: zero bytes emitted, same generation/epoch,
+  05:15:23–05:16:57 local. Silence is not decoder evidence; the CDP/process/page
+  reports supply the observations. Compact context:
+  `20261105_051523_516155-exp-20261105-012-chromium-decoder-priority-comparison-same-900fr-58d7fa76.md`.
+  Private evidence: `output/ps4-diagnostix-chromium-uvd2/`.
+  Continuous capture remains running. No broad UVD, browser or kernel stability
+  promotion follows from these short, small-resolution same-boot trials.

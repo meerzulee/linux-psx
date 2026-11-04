@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT; Copyright (c) 2026 Meerzulee -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnostix · Browser UVD</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#20271b;color:#eef1e5}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:2rem;background:radial-gradient(ellipse at top,#39482c,#20271b 65%)}
+main{width:min(900px,100%);text-align:center}h1{font-size:clamp(1.6rem,4vw,2.8rem);margin:.3em}p{color:#bbc5a1;line-height:1.5}video{display:block;width:min(640px,100%);aspect-ratio:4/3;max-height:60vh;margin:1.5rem auto;background:#10150e;border:1px solid #a3b56a;border-radius:12px;object-fit:contain}#status{color:#eef1e5;font-size:1.2rem}footer{margin-top:1.5rem;font-size:.85rem;color:#bbc5a1}
+</style>
+<main>
+<h1>Diagnostix · Browser UVD</h1>
+<p>Hardware decoding: awaiting trace verification</p>
+<video id="clip" muted playsinline preload="none"></video>
+<p id="status" role="status">Preparing one playback…</p>
+<p id="detail">One pinned clip. No loop, replay or seeking. Playback alone is not hardware evidence.</p>
+<footer>made by meerzulee</footer>
+</main>
+<script>
+'use strict';
+(() => {
+  const video = document.getElementById('clip');
+  const status = document.getElementById('status');
+  const detail = document.getElementById('detail');
+  const started = performance.now();
+  let token = null, finished = false, frameCallbacks = 0, presentedFrames = null, callbackId = null;
+  const finite = value => Number.isFinite(value) && value >= 0 ? Math.min(value, 1e9) : null;
+  const counter = value => Number.isSafeInteger(value) && value >= 0 ? Math.min(value, 1e9) : null;
+  const timer = setTimeout(() => { void finish('timeout', 'Playback deadline exceeded'); }, 45000);
+  async function finish(outcome, reason = null) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    if (callbackId !== null && typeof video.cancelVideoFrameCallback === 'function') video.cancelVideoFrameCallback(callbackId);
+    if (outcome !== 'ended') video.pause();
+    let quality = {};
+    try { if (typeof video.getVideoPlaybackQuality === 'function') quality = video.getVideoPlaybackQuality(); } catch (_) {}
+    const report = {token, outcome, ended: outcome === 'ended' && video.ended === true,
+      error: reason === null ? null : String(reason).slice(0, 160),
+      currentTime: finite(video.currentTime), duration: finite(video.duration),
+      quality: {totalVideoFrames: counter(quality.totalVideoFrames), droppedVideoFrames: counter(quality.droppedVideoFrames), corruptedVideoFrames: counter(quality.corruptedVideoFrames)},
+      frameCallbacks, presentedFrames, elapsedMs: finite(performance.now() - started)};
+    status.textContent = outcome === 'ended' ? 'Playback ended · saving observations' : 'Playback stopped · saving observations';
+    if (token === null) { detail.textContent = 'Session unavailable. No playback result was authorized.'; return; }
+    const body = JSON.stringify(report);
+    if (body.length > 4096) { detail.textContent = 'Result exceeded its bound. Await the harness timeout.'; return; }
+    try {
+      const response = await fetch('/result', {method: 'POST', headers: {'Content-Type': 'application/json'}, body, cache: 'no-store', credentials: 'same-origin', keepalive: true});
+      if (!response.ok) throw new Error('Result save failed');
+      status.textContent = 'Observations saved';
+      detail.textContent = 'Hardware decoding remains awaiting trace verification. Do not replay on this boot.';
+    } catch (_) { detail.textContent = 'Result save failed. No retry; retain the harness evidence.'; }
+  }
+  function frame(_now, metadata) {
+    if (finished) return;
+    frameCallbacks = Math.min(frameCallbacks + 1, 2000);
+    presentedFrames = counter(metadata.presentedFrames);
+    if (frameCallbacks < 2000) callbackId = video.requestVideoFrameCallback(frame);
+  }
+  video.addEventListener('ended', () => { void finish('ended'); }, {once: true});
+  video.addEventListener('error', () => { void finish('error', 'Media error ' + (video.error ? video.error.code : 'unknown')); }, {once: true});
+  (async () => {
+    try {
+      const response = await fetch('/session', {cache: 'no-store', credentials: 'same-origin'});
+      if (!response.ok) throw new Error('Session unavailable');
+      const session = await response.json();
+      if (!session || typeof session.token !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(session.token)) throw new Error('Invalid session token');
+      const canonical = session.fixture_profile === 'canonical-120' && session.frame_count === 120 && session.duration_seconds === 4;
+      const continuous = session.fixture_profile === 'continuous-900' && session.frame_count === 900 && session.duration_seconds === 30;
+      if (!canonical && !continuous) throw new Error('Unsupported fixture profile');
+      if (finished) return;
+      token = session.token;
+      video.muted = true;
+      video.src = '/clip.mp4';
+      if (typeof video.requestVideoFrameCallback === 'function') callbackId = video.requestVideoFrameCallback(frame);
+      status.textContent = 'Playing once · hardware status awaits trace';
+      detail.textContent = `${session.duration_seconds} seconds · ${session.frame_count} frames · one continuous playback, no loop or replay.`;
+      await video.play();
+    } catch (error) { await finish('error', error && error.message ? error.message : 'Playback could not start'); }
+  })();
+})();
+</script>
+</html>

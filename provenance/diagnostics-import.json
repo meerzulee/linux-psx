@@ -2212,8 +2212,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
-      "destination_bytes": 10707,
+      "destination_sha256": "066f248e0b82b19e1c8a495274d7e4f29e9899fd7796ff5d4d9122722e4057d3",
+      "destination_bytes": 11006,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -2265,6 +2265,13 @@
           "destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
           "destination_bytes": 10707,
           "mode": "0644"
+        },
+        {
+          "reason": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+          "prior_destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
+          "destination_sha256": "066f248e0b82b19e1c8a495274d7e4f29e9899fd7796ff5d4d9122722e4057d3",
+          "destination_bytes": 11006,
+          "mode": "0644"
         }
       ]
     },
@@ -2301,8 +2308,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "3e8b075bd6a2d8bae835a82f53c08bcfd44f2cc1efae5134219bdfc249894baa",
-      "destination_bytes": 28695,
+      "destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
+      "destination_bytes": 39296,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2368,6 +2375,20 @@
           "prior_destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
           "destination_sha256": "3e8b075bd6a2d8bae835a82f53c08bcfd44f2cc1efae5134219bdfc249894baa",
           "destination_bytes": 28695,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+          "prior_destination_sha256": "3e8b075bd6a2d8bae835a82f53c08bcfd44f2cc1efae5134219bdfc249894baa",
+          "destination_sha256": "f9a04d8604b3ff91efb1be1ed39077ea15b1561386d1a7099be006a0c456ed01",
+          "destination_bytes": 33084,
+          "mode": "0644"
+        },
+        {
+          "reason": "Preserve actual same-boot Firefox/Chromium observations and limitations; prevent observed RAM-filesystem exhaustion with protected per-run state and sampled capacity guards before UVD intent.",
+          "prior_destination_sha256": "f9a04d8604b3ff91efb1be1ed39077ea15b1561386d1a7099be006a0c456ed01",
+          "destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
+          "destination_bytes": 39296,
           "mode": "0644"
         }
       ]
@@ -2790,6 +2811,81 @@
       "mode": "0644",
       "purpose": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
       "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/browser_uvd.py",
+      "destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
+      "destination_bytes": 54600,
+      "mode": "0644",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Preserve actual same-boot Firefox/Chromium observations and limitations; prevent observed RAM-filesystem exhaustion with protected per-run state and sampled capacity guards before UVD intent.",
+          "prior_destination_sha256": "244353938877862aaa54d2e07c49d7a90eb30d17bf140f84aeb8eaed18700701",
+          "destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
+          "destination_bytes": 54600,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "diagnostics/ps4/lab/uvd.html",
+      "destination_sha256": "c2a62985ed1e47f71a46a9555fdf6fe3369d4c1756e89e124a2e3eb91f96a5ad",
+      "destination_bytes": 5623,
+      "mode": "0644",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/prepare-ps4-browser-uvd-fixture",
+      "destination_sha256": "807306120a8267c45b4772cc61082e0a1700920f2c06522b8b5ca8cd187e2e07",
+      "destination_bytes": 18363,
+      "mode": "0755",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_browser_uvd.py",
+      "destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
+      "destination_bytes": 39554,
+      "mode": "0644",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Preserve actual same-boot Firefox/Chromium observations and limitations; prevent observed RAM-filesystem exhaustion with protected per-run state and sampled capacity guards before UVD intent.",
+          "prior_destination_sha256": "24b71e512c6b4daad33c9c7c955102c286e2c3e673698fe2afded6201ae16183",
+          "destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
+          "destination_bytes": 39554,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_browser_uvd_fixture.py",
+      "destination_sha256": "93b9b361593af164e013a1ecbd42516978cec22245d580a66f8d08e9c72472e5",
+      "destination_bytes": 12102,
+      "mode": "0644",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-BROWSER-UVD.md",
+      "destination_sha256": "f3986acca518df7d5d61a3f6c40d6a57e32f5d525f7f658b01ea48fdc13e2024",
+      "destination_bytes": 6094,
+      "mode": "0644",
+      "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Preserve actual same-boot Firefox/Chromium observations and limitations; prevent observed RAM-filesystem exhaustion with protected per-run state and sampled capacity guards before UVD intent.",
+          "prior_destination_sha256": "f3c417df6f30011df819a7033062815c9e5f72d8ab8dc5effae5f623ed6d3381",
+          "destination_sha256": "f3986acca518df7d5d61a3f6c40d6a57e32f5d525f7f658b01ea48fdc13e2024",
+          "destination_bytes": 6094,
+          "mode": "0644"
+        }
+      ]
     }
   ],
   "ownership_updates": [
@@ -3138,6 +3234,30 @@
       "reason": "Record completed EXP006 with operator-confirmed cold boot and native-menu fixes, current-boot CPU/RAM and one exact UVD reference pass; keep exact frontend cohorts and unfinished qualification gates separate.",
       "paths": [
         "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
+      "paths": [
+        "diagnostics/ps4/browser_uvd.py",
+        "diagnostics/ps4/lab/uvd.html",
+        "scripts/prepare-ps4-browser-uvd-fixture",
+        "tests/test_ps4_browser_uvd.py",
+        "tests/test_ps4_browser_uvd_fixture.py",
+        "docs/PS4-DIAGNOSTIC-BROWSER-UVD.md",
+        "docs/DIAGNOSTICS.md",
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Preserve actual same-boot Firefox/Chromium observations and limitations; prevent observed RAM-filesystem exhaustion with protected per-run state and sampled capacity guards before UVD intent.",
+      "paths": [
+        "diagnostics/ps4/browser_uvd.py",
+        "tests/test_ps4_browser_uvd.py",
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-BROWSER-UVD.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }
