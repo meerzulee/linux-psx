@@ -1,6 +1,8 @@
 /src/
 /output/
 /dist/
+/cache/
+/diagnostics/ps4/tui/target/
 __pycache__/
 *.pyc
 .DS_Store

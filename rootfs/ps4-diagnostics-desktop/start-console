@@ -1,0 +1,15 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+prepare=/run/psx-frontend/prepare-console
+[ -x "$prepare" ] || prepare=/usr/lib/psx-diagnostics/prepare-console
+if [ -x "$prepare" ]; then
+    /usr/bin/python3 "$prepare" || true
+fi
+# Clear any status text already queued before the fullscreen client starts.
+printf '\033[0m\033[2J\033[3J\033[H'
+/usr/bin/psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock
+status=$?
+/usr/bin/stty sane 2>/dev/null || true
+printf '\nDiagnostics closed (status %s). Local root console.\n' "$status"
+printf 'Return to the menu: psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock\n\n'
+exec /usr/bin/bash --noprofile --norc -i

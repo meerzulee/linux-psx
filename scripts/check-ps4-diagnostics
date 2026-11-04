@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Verify optional diagnostic source provenance and run source-only host tests."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import stat
+import subprocess
+import sys
+import tempfile
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def source_identity(name):
+    relative = PurePosixPath(name)
+    if (not relative.parts or relative.is_absolute() or str(relative) != name or ".." in relative.parts
+            or relative.parts[0] not in ("diagnostics", "rootfs", "scripts", "manifests", "tests", "docs")
+            or any(part in ("output", "cache", "target", "__pycache__", ".venv") for part in relative.parts)):
+        raise ValueError("Unsafe diagnostic source adaptation path: " + name)
+    path = REPO / name
+    info = path.lstat()
+    if (not stat.S_ISREG(info.st_mode) or path.resolve() != path
+            or stat.S_IMODE(info.st_mode) not in (0o644, 0o755)):
+        raise ValueError("Diagnostic source adaptation needs a regular source file: " + name)
+    data = path.read_bytes()
+    if b"\0" in data:
+        raise ValueError("Cannot register binary diagnostic data: " + name)
+    data.decode("utf-8")
+    return {"path": name, "destination_sha256": hashlib.sha256(data).hexdigest(),
+            "destination_bytes": len(data), "mode": f"{stat.S_IMODE(info.st_mode):04o}"}
+
+
+def record_adaptations(names, reason):
+    """Record deliberate working-copy changes without rewriting imported identities."""
+    if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
+        raise ValueError("A concise adaptation reason is required")
+    identities = [source_identity(name) for name in dict.fromkeys(names)]
+    receipt = REPO / "provenance/diagnostics-import.json"
+    record = json.loads(receipt.read_text())
+    table = {item["path"]: item for item in record["files"] + record.get("generated_files", [])}
+    changed = []
+    for identity in identities:
+        name = identity["path"]
+        if name in table:
+            item = table[name]
+            if all(item[key] == identity[key] for key in identity):
+                continue
+            item.setdefault("destination_adaptations", []).append({
+                "reason": reason.strip(), "prior_destination_sha256": item["destination_sha256"],
+                "destination_sha256": identity["destination_sha256"],
+                "destination_bytes": identity["destination_bytes"], "mode": identity["mode"]})
+            item.update(identity)
+        else:
+            item = dict(identity, purpose=reason.strip(), origin="New Linux psX source after diagnostic import")
+            record.setdefault("generated_files", []).append(item)
+        changed.append(name)
+    if not changed:
+        return
+    record.setdefault("source_working_copy_updates", []).append({
+        "reason": reason.strip(), "paths": changed,
+        "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."})
+    data = (json.dumps(record, indent=2) + "\n").encode()
+    descriptor, temporary = tempfile.mkstemp(prefix=".diagnostics-import-", dir=receipt.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, receipt)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+    print(f"Recorded {len(changed)} deliberate source adaptations; original hashes retained", flush=True)
+
+
+def verify_sources():
+    receipt = json.loads((REPO / "provenance/diagnostics-import.json").read_text())
+    seen = set()
+    for item in receipt["files"] + receipt.get("generated_files", []):
+        name = item["path"]
+        relative = PurePosixPath(name)
+        if (relative.is_absolute() or ".." in relative.parts or name in seen
+                or any(part in ("output", "cache", "target", "__pycache__", ".venv")
+                       for part in relative.parts)):
+            raise ValueError("Unsafe or duplicate diagnostic source path: " + name)
+        seen.add(name)
+        path = REPO / name
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("Diagnostic source is not a regular file: " + name)
+        data = path.read_bytes()
+        if b"\0" in data:
+            raise ValueError("Binary data in diagnostic source import: " + name)
+        data.decode("utf-8")
+        if (hashlib.sha256(data).hexdigest() != item["destination_sha256"]
+                or len(data) != item["destination_bytes"]
+                or stat.S_IMODE(info.st_mode) != int(item["mode"], 8)):
+            raise ValueError("Diagnostic source changed; record its adaptation: " + name)
+    license_text = (REPO / "diagnostics/LICENSE").read_text()
+    if not license_text.startswith("MIT License\n"):
+        raise ValueError("Diagnostic MIT license text is missing")
+    print(f"Diagnostic source receipt verified: {len(seen)} text files", flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source-only", action="store_true", help="Verify recorded source bytes without running tests")
+    parser.add_argument("--rust", action="store_true", help="Also run locked, offline Cargo tests")
+    parser.add_argument("--record-adaptation", action="append", default=[], metavar="PATH",
+                        help="Explicitly record one changed/new repository source path; repeat as needed")
+    parser.add_argument("--reason", help="Required reason for recording deliberate source changes")
+    args = parser.parse_args()
+    if args.record_adaptation:
+        if not args.reason:
+            parser.error("--record-adaptation requires --reason")
+        record_adaptations(args.record_adaptation, args.reason)
+    elif args.reason:
+        parser.error("--reason requires --record-adaptation")
+    verify_sources()
+    if args.source_only:
+        return
+    subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_ps4*.py"],
+                   cwd=REPO, check=True)
+    subprocess.run(["node", "--test", "tests/test_ps4_browser_lab.cjs"], cwd=REPO, check=True)
+    if args.rust:
+        environment = dict(os.environ)
+        environment.setdefault("CARGO_TARGET_DIR", "/var/tmp/linux-psx-diagnostics-cargo")
+        subprocess.run(["cargo", "test", "--locked", "--offline", "--manifest-path",
+                        "diagnostics/ps4/tui/Cargo.toml"], cwd=REPO, env=environment, check=True)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
+        raise SystemExit("Diagnostic checks failed: " + str(error))

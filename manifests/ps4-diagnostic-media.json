@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "pack_id": "psx-diagnostic-media-v1",
+  "maximum_pack_bytes": 33554432,
+  "optional_usb_directory": "psx-diagnostics/media/psx-diagnostic-media-v1",
+  "hardware_acceptance": false,
+  "source": {
+    "title": "Tears of Steel official teaser",
+    "url": "https://download.blender.org/demo/movies/tears-of-steel_teaser.mp4.zip",
+    "archive_name": "tears-of-steel_teaser.mp4.zip",
+    "archive_bytes": 275193406,
+    "archive_sha256": "f394ebe25189045de4ffccaaa0edee280dfd4993e4b118629474adb0548a7984",
+    "member": "tears-of-steel_teaser.mp4",
+    "member_bytes": 275771230,
+    "member_sha256": "25feaa713ecfc415528a8410466f531c75d4e75c6f5c76c81d624c825581e53b",
+    "measured_on": "2026-11-04",
+    "pin_scope": "Full archive and member SHA256 measured from the official HTTPS download; not an upstream signature",
+    "license": "CC-BY-3.0",
+    "license_url": "https://creativecommons.org/licenses/by/3.0/",
+    "project_url": "https://mango.blender.org/about/",
+    "attribution": "Tears of Steel (2012), Blender Foundation / Blender Institute, mango.blender.org. Directed by Ian Hubert; produced by Ton Roosendaal.",
+    "changes": "Silent excerpt from 6 to 14 seconds; source soundtrack omitted; 24 fps converted to 30 fps; scaled/letterboxed, credited on screen, and re-encoded. No endorsement implied."
+  },
+  "fixtures": [
+    {"id": "tos-720p-main", "content": "film", "codec": "h264", "profile": "main", "level": "3.1", "width": 1280, "height": 720, "fps": 30, "seconds": 8, "start_seconds": 6, "bitrate_kbps": 1400, "container": "mp4", "audio": false},
+    {"id": "tos-1080p-high", "content": "film", "codec": "h264", "profile": "high", "level": "4.0", "width": 1920, "height": 1080, "fps": 30, "seconds": 8, "start_seconds": 6, "bitrate_kbps": 2600, "container": "mp4", "audio": false},
+    {"id": "sync-720p-main", "content": "sync", "codec": "h264", "profile": "main", "level": "3.1", "width": 1280, "height": 720, "fps": 30, "seconds": 8, "bitrate_kbps": 1200, "container": "mkv", "audio": true},
+    {"id": "sync-1080p-high", "content": "sync", "codec": "h264", "profile": "high", "level": "4.0", "width": 1920, "height": 1080, "fps": 30, "seconds": 8, "bitrate_kbps": 2000, "container": "mkv", "audio": true},
+    {"id": "tos-720p-vp8", "content": "film", "codec": "vp8", "width": 1280, "height": 720, "fps": 30, "seconds": 8, "start_seconds": 6, "bitrate_kbps": 1400, "container": "webm", "audio": false},
+    {"id": "tos-1080p-vp9", "content": "film", "codec": "vp9", "width": 1920, "height": 1080, "fps": 30, "seconds": 8, "start_seconds": 6, "bitrate_kbps": 2200, "container": "webm", "audio": false}
+  ],
+  "decode_scope": {
+    "h264": "8-bit yuv420p, 30 fps, one reference frame, no B frames; candidate input for a separately qualified experimental AVC/UVD stack",
+    "ordinary_kernel_uvd": false,
+    "vp8_vp9": "Browser/software functional cases only; no Liverpool hardware decode claim",
+    "hevc_av1_10bit_4k": "Not generated; unsupported or deferred hardware-capability cases"
+  }
+}

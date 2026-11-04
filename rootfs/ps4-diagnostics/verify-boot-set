@@ -1,0 +1,53 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Bind the external receipt to the contract in the loaded initramfs."""
+import argparse
+import json
+from pathlib import Path
+import re
+
+
+def validate(expected, external, observed_release, media_initramfs_sha256):
+    if set(external) != set(expected) | {"initramfs_sha256"}:
+        raise ValueError("external receipt fields differ from the embedded contract")
+    if any(external.get(key) != value for key, value in expected.items()):
+        raise ValueError("external receipt differs from the embedded contract")
+    if observed_release != expected["kernel_release"]:
+        raise ValueError("running kernel release differs from the embedded contract")
+    if (not re.fullmatch(r"[a-f0-9]{64}", media_initramfs_sha256)
+            or external["initramfs_sha256"] != media_initramfs_sha256):
+        raise ValueError("staged initramfs differs from its receipt")
+    if expected.get("hardware_acceptance") is not False:
+        raise ValueError("diagnostic receipt cannot establish hardware acceptance")
+    return dict(external, manifest_validation={
+        "embedded_root_contract_verified": True,
+        "observed_kernel_release": observed_release,
+        "observed_media_initramfs_sha256": media_initramfs_sha256,
+        "kernel_hash_scope": "build contract; running kernel bytes are not measured",
+        "hardware_acceptance": False})
+
+
+def read(path):
+    if path.stat().st_size > 1024 * 1024:
+        raise ValueError("oversized boot-set receipt")
+    return json.loads(path.read_text())
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--expected", type=Path, required=True)
+    parser.add_argument("--external", type=Path, required=True)
+    parser.add_argument("--observed-release", required=True)
+    parser.add_argument("--media-initramfs-sha256", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    result = validate(read(args.expected), read(args.external), args.observed_release,
+                      args.media_initramfs_sha256)
+    args.output.write_text(json.dumps(result, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise SystemExit(f"boot-set verification: {error}")

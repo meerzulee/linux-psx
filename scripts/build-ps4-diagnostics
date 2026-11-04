@@ -1,0 +1,1118 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Meerzulee
+"""Assemble a native PS4 diagnostic RAM root from pinned local inputs.
+
+This new native assembler does not invoke or change the OrbStack PS4 wrappers.
+It writes only explicitly selected ordinary work/output directories, never USB
+media. The separate staging tool validates the selected physical drive.
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import time
+import wave
+import math
+import struct
+
+REPO = Path(__file__).resolve().parents[1]
+MIB = 1024 * 1024
+FRONTEND_FILES = {
+    "psx-diagnostics-tui": ("/usr/bin/psx-diagnostics-tui", 0o755),
+    "start-console": ("/usr/lib/psx-diagnostics/start-console", 0o755),
+    "prepare-console": (None, 0o755),
+    "style.css": ("/opt/psx-diagnostics/lab/style.css", 0o644),
+    "network.py": ("/opt/psx-diagnostics/network.py", 0o755),
+    "libxcb-keysyms.so.1": (None, 0o644),
+    "libdisplay-info.so.3": (None, 0o644),
+    "controller.py": ("/opt/psx-diagnostics/controller.py", 0o755),
+    "libvte-2.91.so.0": (None, 0o644),
+    "libgtk-layer-shell.so.0": (None, 0o644),
+    "libutempter.so.0": (None, 0o644),
+    "xfce4-terminal": (None, 0o755),
+    "JetBrainsMonoNerdFont-Regular.ttf": (None, 0o644),
+    "JetBrainsMonoNerdFont-OFL.txt": (None, 0o644),
+    "launch-graphics": ("/usr/lib/psx-diagnostics/launch-graphics", 0o755),
+    "graphics-start": ("/usr/lib/psx-diagnostics/graphics-start", 0o755),
+    "graphics-client": ("/usr/lib/psx-diagnostics/graphics-client", 0o755),
+    "graphics-session": ("/usr/lib/psx-diagnostics/graphics-session", 0o755),
+    "graphics-window": (None, 0o755),
+    "wait-graphics-wm": (None, 0o755),
+    "xorg-diagnostics.conf": ("/etc/X11/xorg.conf.d/20-psx-diagnostics.conf", 0o644),
+    "preferences.py": (None, 0o755),
+    "themes.json": (None, 0o644),
+    "themes-LICENSE": (None, 0o644),
+    "index.html": ("/opt/psx-diagnostics/lab/index.html", 0o644),
+    "lab.js": ("/opt/psx-diagnostics/lab/lab.js", 0o644),
+    "prepare-chromium-provider": (None, 0o755),
+    "launch-chromium-provider": (None, 0o755),
+    "ssh_access.py": (None, 0o755),
+}
+FRONTEND_MAX_BYTES = 8 * MIB
+FRONTEND_RAM_BYTES = 16 * MIB
+RUNTIME_SNAPSHOT_SHA256 = "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57"
+RUNTIME_LIBRARY_PROVIDERS = {
+    "libxcb-keysyms.so.1": {
+        "archive": "xcb-util-keysyms-0.4.1-5-x86_64.pkg.tar.zst",
+        "archive_sha256": "312213911881c0742e2a825432feac761e863945b74bb3a6daca97a99778d35e",
+        "member": "usr/lib/libxcb-keysyms.so.1.0.0", "bytes": 14208,
+        "sha256": "3ffbacf50c3bcf9390ce804492a39bd8e549d1b68908e4076444a2651c58468f"},
+    "libdisplay-info.so.3": {
+        "archive": "libdisplay-info-0.3.0-1-x86_64.pkg.tar.zst",
+        "archive_sha256": "07ab1479ec5e70aea174e2d0e340bd9364b507ed74f2df3bfd51b3c6f40e5787",
+        "member": "usr/lib/libdisplay-info.so.0.3.0", "bytes": 227200,
+        "sha256": "98f632c36bdd89d75914200cb6d1b3cfce8b21067e73845b8a6c4d959903f97f"},
+    "libvte-2.91.so.0": {
+        "archive": "vte3-0.84.1-1-x86_64.pkg.tar.zst",
+        "archive_sha256": "9c86d48de0ec384709dc897aeb710717b2d53c6ad3d6eb3ad75ea729e63ce0de",
+        "member": "usr/lib/libvte-2.91.so.0.8400.1", "bytes": 1173888,
+        "sha256": "43dab75973be6ce78b065d45e757f7702f1b0c70ba87446ec776a7de600d1654"},
+    "libgtk-layer-shell.so.0": {
+        "archive": "gtk-layer-shell-0.10.1-1-x86_64.pkg.tar.zst",
+        "archive_sha256": "1dde94dcb3f6eed8181f08045df26f3fe9bf361fb9f3d7348af3cf192c3c7989",
+        "member": "usr/lib/libgtk-layer-shell.so.0.10.1", "bytes": 252208,
+        "sha256": "e9c53613a654333e9610dc342e7264f8d30f26f85f1dfa4e6a22f24507c849eb"},
+    "libutempter.so.0": {
+        "archive": "libutempter-1.2.3-1-x86_64.pkg.tar.zst",
+        "archive_sha256": "e1dd15aed4cd76b42729d5dc58d4db3dd49d6c5fe08b33abee0df3bcfc98fd13",
+        "member": "usr/lib/libutempter.so.1.2.3", "bytes": 14288,
+        "sha256": "73f698103669bf518961f4e86862be8a647ec543872486cb92af32e3ede24eb5"},
+}
+RUNTIME_FILE_PROVIDERS = {
+    "xfce4-terminal": {
+        "kind": "program", "archive": "xfce4-terminal-1.2.0-1-x86_64.pkg.tar.zst",
+        "archive_sha256": "ad64b70a3dedf4524c2ba0c38914646d692f7f156286b5d66c681b496fcaee68",
+        "member": "usr/bin/xfce4-terminal", "bytes": 276800,
+        "sha256": "a1b030e65e60f12f76bcaf86b3a2911210c271bc4a3c7c53b12236a1bc765851"},
+    "JetBrainsMonoNerdFont-Regular.ttf": {
+        "kind": "font", "archive": "ttf-jetbrains-mono-nerd-basic-3.5.1-2-any.pkg.tar.zst",
+        "archive_sha256": "c574e6266139fd24f668301d39d9faab386d7041ad3952b3012a2480e09cff0c",
+        "member": "usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf", "bytes": 2571596,
+        "sha256": "1c680e8cde9fcf8b88a5605ce8d1fb94dd3fb15841f7ca7bf4c55664855e5611"},
+    "JetBrainsMonoNerdFont-OFL.txt": {
+        "kind": "license", "archive": "ttf-jetbrains-mono-nerd-basic-3.5.1-2-any.pkg.tar.zst",
+        "archive_sha256": "c574e6266139fd24f668301d39d9faab386d7041ad3952b3012a2480e09cff0c",
+        "member": "usr/share/licenses/ttf-jetbrains-mono-nerd-basic/OFL.txt", "bytes": 4399,
+        "sha256": "30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad"},
+}
+
+
+def console_profile(profile):
+    return profile.get("ui_backend", "tui") == "ratatui"
+
+
+def root_filename(profile):
+    return "rootfs.ext4" if profile.get("root_format") == "ext4-ro-loop" else "rootfs.tar.gz"
+
+
+def ext4_image_bytes(root_bytes):
+    # Includes filesystem metadata and directory/inode overhead, without
+    # preallocating a large resident RAM root on the console.
+    alignment = 64 * MIB
+    required = max(256 * MIB, root_bytes * 6 // 5 + 128 * MIB)
+    result = ((required + alignment - 1) // alignment) * alignment
+    if result >= 4 * 1024**3:
+        raise ValueError("root image would exceed the FAT32 single-file limit")
+    return result
+
+
+def authorized_key(path):
+    data = Path(path).read_bytes()
+    if len(data) > 16384:
+        raise ValueError("oversized SSH public key input")
+    lines = [line.strip() for line in data.decode().splitlines()
+             if line.strip() and not line.lstrip().startswith("#")]
+    if len(lines) != 1:
+        raise ValueError("supply exactly one explicit SSH public key")
+    fields = lines[0].split()
+    if len(fields) < 2 or fields[0] not in ("ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256",
+                                           "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"):
+        raise ValueError("input is not a supported OpenSSH public key")
+    try:
+        decoded = base64.b64decode(fields[1], validate=True)
+        size = struct.unpack_from(">I", decoded)[0]
+    except (ValueError, struct.error) as error:
+        raise ValueError("invalid SSH public key encoding") from error
+    if decoded[4:4+size] != fields[0].encode() or len(decoded) <= 4+size:
+        raise ValueError("SSH key type and encoded data disagree")
+    return (lines[0] + "\n").encode(), "SHA256:" + base64.b64encode(
+        hashlib.sha256(decoded).digest()).decode().rstrip("=")
+
+
+def console_ssh_seed(path):
+    """Public images begin without client credentials; owner builds may seed one key."""
+    data, fingerprint = authorized_key(path) if path is not None else (b"", None)
+    return data, {"ssh_authorized_key_sha256": hashlib.sha256(data).hexdigest() if data else None,
+                  "ssh_authorized_key_fingerprint": fingerprint, "ssh_setup_required": not bool(data)}
+
+
+def lock_root_password(root):
+    shadow = root / "etc/shadow"
+    if shadow.exists():
+        lines = shadow.read_text().splitlines()
+        for index, line in enumerate(lines):
+            if line.startswith("root:"):
+                parts = line.split(":"); parts[1] = "!"; lines[index] = ":".join(parts)
+        shadow.write_text("\n".join(lines) + "\n")
+        shadow.chmod(0o600)
+
+
+def executable_input(path):
+    data = Path(path).read_bytes()
+    return executable_bytes(data)
+
+
+def executable_bytes(data):
+    if (not 64 <= len(data) <= 64 * MIB or data[:7] != b"\x7fELF\x02\x01\x01"
+            or struct.unpack_from("<H", data, 16)[0] not in (2, 3)
+            or struct.unpack_from("<H", data, 18)[0] != 62):
+        raise ValueError("console program must be a bounded x86-64 ELF executable")
+    return data
+
+
+def frontend_manifest(frontend, snapshot_sums_sha256=None):
+    """Describe only the fixed console assets permitted above a verified root."""
+    if not isinstance(frontend, dict) or set(frontend) != set(FRONTEND_FILES):
+        raise ValueError("frontend overrides require exactly the fixed allowlisted names")
+    total = 0
+    files = []
+    for name, (target, mode) in FRONTEND_FILES.items():
+        data = frontend[name]
+        if not isinstance(data, bytes) or not 0 < len(data) <= FRONTEND_MAX_BYTES:
+            raise ValueError("frontend override must contain bounded nonempty bytes")
+        if name == "psx-diagnostics-tui":
+            executable_bytes(data)
+        elif name == "start-console" and not data.startswith(b"#!/bin/sh\n"):
+            raise ValueError("frontend console launcher must be a shell script")
+        elif name == "prepare-console" and not data.startswith(b"#!/usr/bin/python3\n"):
+            raise ValueError("frontend console preparation must be a Python script")
+        elif name == "network.py" and not data.startswith(b"#!/usr/bin/env python3\n"):
+            raise ValueError("frontend network helper must be a Python script")
+        elif name == "ssh_access.py" and not data.startswith(b"#!/usr/bin/env python3\n"):
+            raise ValueError("frontend SSH access helper must be a Python script")
+        elif name == "controller.py" and not data.startswith(b"#!/usr/bin/env python3\n"):
+            raise ValueError("frontend controller must be a Python script")
+        elif name in ("graphics-start", "graphics-session", "graphics-window") and not data.startswith(b"#!/bin/bash\n"):
+            raise ValueError("frontend graphics session must be a Bash script")
+        elif name == "graphics-client" and not data.startswith(b"#!/bin/sh\n"):
+            raise ValueError("frontend graphics client must be a shell script")
+        elif name == "launch-graphics" and not data.startswith(b"#!/usr/bin/python3\n"):
+            raise ValueError("frontend graphics launcher must be a Python script")
+        elif name == "wait-graphics-wm" and not data.startswith(b"#!/usr/bin/python3\n"):
+            raise ValueError("frontend window-manager waiter must be a Python script")
+        elif name == "preferences.py" and not data.startswith(b"#!/usr/bin/env python3\n"):
+            raise ValueError("frontend preferences must be a Python script")
+        elif name in ("prepare-chromium-provider", "launch-chromium-provider") and not data.startswith(b"#!/usr/bin/python3\n"):
+            raise ValueError("frontend Chromium helper must be a Python script")
+        elif name == "themes.json" and not isinstance(json.loads(data), dict):
+            raise ValueError("frontend palette manifest must be a JSON object")
+        elif name in runtime_providers():
+            runtime_provider_bytes(name, data)
+        total += len(data)
+        files.append({"name": name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                      "mode": f"{mode:04o}", "bind_target": target})
+    if total > FRONTEND_MAX_BYTES:
+        raise ValueError("frontend overrides exceed the bounded payload budget")
+    return {"schema_version": 1, "runtime_directory": "/run/psx-frontend",
+            "maximum_payload_bytes": FRONTEND_MAX_BYTES, "ram_limit_bytes": FRONTEND_RAM_BYTES,
+            "total_bytes": total, "files": files,
+            "runtime_libraries": runtime_library_receipt(
+                {"snapshot_sums_sha256": snapshot_sums_sha256} if snapshot_sums_sha256 is not None else None)}
+
+
+def runtime_library_receipt(profile=None):
+    checksum = RUNTIME_SNAPSHOT_SHA256 if profile is None else profile.get("snapshot_sums_sha256")
+    if not isinstance(checksum, str) or not re.fullmatch(r"[a-f0-9]{64}", checksum):
+        raise ValueError("runtime library snapshot must have an explicit SHA256 pin")
+    return {"schema_version": 1, "snapshot_sums_sha256": checksum,
+            "files": [dict(name=name, **provider) for name, provider in runtime_providers().items()]}
+
+
+def runtime_providers():
+    return {**{name: dict(provider, kind="library") for name, provider in RUNTIME_LIBRARY_PROVIDERS.items()},
+            **RUNTIME_FILE_PROVIDERS}
+
+
+def runtime_provider_bytes(name, data):
+    if name in RUNTIME_LIBRARY_PROVIDERS:
+        return runtime_library_bytes(name, data)
+    provider = RUNTIME_FILE_PROVIDERS[name]
+    if provider["kind"] == "program":
+        executable_bytes(data)
+    elif provider["kind"] == "font" and data[:4] != b"\x00\x01\x00\x00":
+        raise ValueError("runtime Nerd Font must be the pinned TrueType font")
+    elif provider["kind"] == "license":
+        data.decode("utf-8")
+    if len(data) != provider["bytes"] or hashlib.sha256(data).hexdigest() != provider["sha256"]:
+        raise ValueError("runtime asset differs from its pinned provider file: " + name)
+    return data
+
+
+def runtime_library_bytes(name, data):
+    provider = RUNTIME_LIBRARY_PROVIDERS[name]
+    executable_bytes(data)
+    if struct.unpack_from("<H", data, 16)[0] != 3:
+        raise ValueError("runtime library must be an x86-64 ET_DYN ELF")
+    if len(data) != provider["bytes"] or hashlib.sha256(data).hexdigest() != provider["sha256"]:
+        raise ValueError("runtime library differs from its pinned provider file: " + name)
+    return data
+
+
+def runtime_libraries_from_snapshot(snapshot, profile):
+    snapshot = Path(snapshot).resolve(strict=True)
+    source = runtime_library_receipt(profile)
+    verify(snapshot / "SHA256SUMS", source["snapshot_sums_sha256"])
+    sums = checksums(snapshot)
+    result = {}
+    for name, provider in runtime_providers().items():
+        archive_name = "repo/" + provider["archive"]
+        if sums.get(archive_name) != provider["archive_sha256"]:
+            raise ValueError("runtime provider archive differs from the snapshot receipt")
+        archive = verify(snapshot / archive_name, provider["archive_sha256"])
+        data = subprocess.run(["tar", "--zstd", "-xOf", str(archive), provider["member"]],
+                              check=True, capture_output=True).stdout
+        result[name] = runtime_provider_bytes(name, data)
+    return result
+
+
+def runtime_libraries_from_dir(directory, profile):
+    directory = Path(directory)
+    if directory.is_symlink() or not directory.is_dir():
+        raise ValueError("runtime library input must be an explicit ordinary directory")
+    receipt = directory / "provider-receipt.json"
+    if (receipt.is_symlink() or not receipt.is_file() or receipt.stat().st_size > 65536
+            or json.loads(receipt.read_text()) != runtime_library_receipt(profile)
+            or {item.name for item in directory.iterdir()} != set(runtime_providers()) | {receipt.name}):
+        raise ValueError("runtime library directory/provider receipt differs from pinned inputs")
+    result = {}
+    for name in runtime_providers():
+        path = directory / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > FRONTEND_MAX_BYTES:
+            raise ValueError("runtime library must be a bounded regular file")
+        result[name] = runtime_provider_bytes(name, path.read_bytes())
+    return result
+
+
+def prepare_runtime_library_dir(snapshot, profile, output):
+    result = runtime_libraries_from_snapshot(snapshot, profile)
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=False)
+    for name, data in result.items():
+        (output / name).write_bytes(data)
+        (output / name).chmod(0o644)
+    (output / "provider-receipt.json").write_text(json.dumps(runtime_library_receipt(profile), indent=2) + "\n")
+    return runtime_libraries_from_dir(output, profile)
+
+
+def extra_firmware(directory, profile):
+    manifest = REPO / profile["firmware_manifest"]
+    if "firmware_manifest_sha256" in profile:
+        verify(manifest, profile["firmware_manifest_sha256"])
+    record = json.loads(manifest.read_text())
+    result, facts = {}, []
+    for item in record["files"]:
+        name = PurePosixPath(item["name"])
+        if name.is_absolute() or ".." in name.parts:
+            raise ValueError("unsafe external firmware name")
+        path = Path(directory) / str(name)
+        verify(path, item["sha256"])
+        if path.stat().st_size != item["bytes"]:
+            raise ValueError("external firmware size differs")
+        result["lib/firmware/" + str(name)] = path.read_bytes()
+        facts.append({key: item[key] for key in ("name", "bytes", "sha256")})
+    return result, facts
+
+
+def enable(root, name, target="multi-user.target"):
+    destination = root / "etc/systemd/system" / (target + ".wants") / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.unlink(missing_ok=True)
+    destination.symlink_to("/usr/lib/systemd/system/" + name)
+
+
+def install_diagnostic_license(root):
+    write(root, "/usr/share/licenses/psx-diagnostics/LICENSE",
+          (REPO / "diagnostics/LICENSE").read_bytes())
+
+
+def install_console(root, key_data, tui_data):
+    for name in ("controller.py", "network.py", "preferences.py", "ssh_access.py"):
+        write(root, "/opt/psx-diagnostics/" + name,
+              (REPO / "diagnostics/ps4" / name).read_bytes(), 0o755)
+    for name in ("themes.json", "themes-LICENSE"):
+        write(root, "/opt/psx-diagnostics/" + name, (REPO / "diagnostics/ps4" / name).read_bytes())
+    source = REPO / "diagnostics/ps4/lab"
+    if not (source / "index.html").is_file():
+        raise ValueError("browser laboratory sources are incomplete")
+    for item in sorted(source.rglob("*")):
+        if item.is_symlink():
+            raise ValueError("browser-lab sources cannot be symlinks")
+        if item.is_file() and item.suffix in (".html", ".js", ".css", ".svg", ".json"):
+            write(root, "/opt/psx-diagnostics/lab/" + str(item.relative_to(source)), item.read_bytes())
+    write(root, "/usr/bin/psx-diagnostics-tui", tui_data, 0o755)
+    write(root, "/etc/psx-diagnostics/authorized_keys", key_data)
+    network_files = {
+        "psx-wired.nmconnection": ("/etc/NetworkManager/system-connections/psx-wired.nmconnection", 0o600),
+        "20-psx-diagnostics.conf": ("/etc/NetworkManager/conf.d/20-psx-diagnostics.conf", 0o644),
+        "prepare-ssh-host-key": ("/usr/lib/psx-diagnostics/prepare-ssh-host-key", 0o755),
+        "psx-ssh-host-key.service": ("/usr/lib/systemd/system/psx-ssh-host-key.service", 0o644),
+        "sshd-psx.conf": ("/etc/ssh/sshd_config.d/00-psx-diagnostics.conf", 0o644),
+        "sshd-psx-host-key.conf": ("/etc/systemd/system/sshd.service.d/10-psx-host-key.conf", 0o644),
+    }
+    for name, (destination, mode) in network_files.items():
+        write(root, destination, (REPO / "rootfs/ps4-diagnostics-gui" / name).read_bytes(), mode)
+    desktop_files = {
+        "psx-diagnostics-control.service": ("/usr/lib/systemd/system/psx-diagnostics-control.service", 0o644),
+        "psx-diagnostics-console.service": ("/usr/lib/systemd/system/psx-diagnostics-console.service", 0o644),
+        "start-console": ("/usr/lib/psx-diagnostics/start-console", 0o755),
+        "prepare-console": ("/usr/lib/psx-diagnostics/prepare-console", 0o755),
+        "psx-diagnostics-graphics@.service": ("/usr/lib/systemd/system/psx-diagnostics-graphics@.service", 0o644),
+        "launch-graphics": ("/usr/lib/psx-diagnostics/launch-graphics", 0o755),
+        "graphics-start": ("/usr/lib/psx-diagnostics/graphics-start", 0o755),
+        "graphics-client": ("/usr/lib/psx-diagnostics/graphics-client", 0o755),
+        "graphics-session": ("/usr/lib/psx-diagnostics/graphics-session", 0o755),
+        "graphics-window": ("/usr/lib/psx-diagnostics/graphics-window", 0o755),
+        "wait-graphics-wm": ("/usr/lib/psx-diagnostics/wait-graphics-wm", 0o755),
+        "prepare-chromium-provider": ("/usr/lib/psx-diagnostics/prepare-chromium-provider", 0o755),
+        "launch-chromium-provider": ("/usr/lib/psx-diagnostics/launch-chromium-provider", 0o755),
+        "graphics-xserver": ("/usr/lib/psx-diagnostics/graphics-xserver", 0o755),
+        "20-psx-diagnostics.conf": ("/etc/X11/xorg.conf.d/20-psx-diagnostics.conf", 0o644),
+        "firefox-user.js": ("/etc/psx-diagnostics/firefox-user.js", 0o644),
+        "psx-diagnostics.conf": ("/usr/lib/sysusers.d/psx-diagnostics.conf", 0o644),
+        "psx-mesa.conf": ("/usr/lib/tmpfiles.d/psx-mesa.conf", 0o644),
+    }
+    for name, (destination, mode) in desktop_files.items():
+        write(root, destination, (REPO / "rootfs/ps4-diagnostics-desktop" / name).read_bytes(), mode)
+    for name in ("NetworkManager.service", "sshd.service", "psx-ssh-host-key.service",
+                 "psx-diagnostics-control.service", "psx-diagnostics-console.service"):
+        target = root / "etc/systemd/system" / name
+        if target.is_symlink() and str(target.readlink()) == "/dev/null":
+            target.unlink()
+        if name != "sshd.service" or key_data:
+            enable(root, name)
+        else:
+            # Public images expose local enrollment first. The backend can start
+            # this unmasked service after an explicit key/password choice.
+            (root / "etc/systemd/system/multi-user.target.wants/sshd.service").unlink(missing_ok=True)
+
+
+def digest(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        while block := stream.read(MIB):
+            h.update(block)
+    return h.hexdigest()
+
+
+def module(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    app = importlib.util.module_from_spec(spec)
+    sys.modules[name] = app
+    loader.exec_module(app)
+    return app
+
+
+def verify(path, expected):
+    path = Path(path)
+    if path.is_symlink() or not path.is_file() or digest(path) != expected:
+        raise ValueError(f"input differs from its pin: {path}")
+    return path
+
+
+def checksums(directory):
+    records = {}
+    for line in (directory / "SHA256SUMS").read_text().splitlines():
+        checksum, name = line.split(None, 1)
+        name = name.lstrip(" *")
+        if not re.fullmatch(r"[a-f0-9]{64}", checksum):
+            raise ValueError("invalid checksum")
+        part = PurePosixPath(name)
+        name = str(part)
+        if part.is_absolute() or ".." in part.parts or name in records:
+            raise ValueError("unsafe/duplicate checksum path")
+        records[name] = checksum
+    return records
+
+
+def validate_kernel(runtime, profile):
+    metadata = json.loads((runtime / "artifacts.json").read_text())
+    expected = {key: profile[key] for key in ("kernel_release", "kernel_sha256", "source_commit")}
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise ValueError("runtime kernel identity differs")
+    archive = f"modules-{profile['kernel_release']}.tar.zst"
+    for name, pin in (("bzImage", profile["kernel_sha256"]),
+                      ("config", profile["config_sha256"]),
+                      (archive, profile["modules_sha256"])):
+        verify(runtime / name, pin)
+    for name, pin in checksums(runtime).items():
+        verify(runtime / name, pin)
+    config = (runtime / "config").read_text()
+    for setting in ('CONFIG_EXTRA_FIRMWARE=""', 'CONFIG_VFAT_FS=y', 'CONFIG_DEVTMPFS=y'):
+        if setting + "\n" not in config:
+            raise ValueError(f"required native setting absent: {setting}")
+    if profile.get("root_format") == "ext4-ro-loop":
+        for setting in ("CONFIG_EXT4_FS=y", "CONFIG_BLK_DEV_LOOP=y", "CONFIG_TMPFS=y"):
+            if setting + "\n" not in config:
+                raise ValueError(f"read-only loop-root setting absent: {setting}")
+    return metadata, archive
+
+
+def package_records(snapshot):
+    result = {}
+    with tarfile.open(snapshot / "repo/omarchy-ps4-snapshot.db.tar.gz") as archive:
+        for item in archive:
+            if not item.name.endswith("/desc"):
+                continue
+            text = archive.extractfile(item).read().decode()
+            values = {}
+            for block in text.split("\n\n"):
+                lines = block.splitlines()
+                if lines:
+                    values[lines[0].strip("%")] = lines[1:]
+            result[values["NAME"][0]] = values
+    return result
+
+
+def select_packages(snapshot, profile):
+    verify(snapshot / "SHA256SUMS", profile["snapshot_sums_sha256"])
+    sums = checksums(snapshot)
+    database = "repo/omarchy-ps4-snapshot.db.tar.gz"
+    verify(snapshot / database, sums[database])
+    # Every provider libalpm could choose comes from this exact frozen cache.
+    for name, pin in sums.items():
+        if name.endswith(".pkg.tar.zst"):
+            verify(snapshot / name, pin)
+    records = package_records(snapshot)
+    providers = {}
+    for name, item in records.items():
+        providers[name] = name
+        for provided in item.get("PROVIDES", []):
+            providers.setdefault(re.split(r"[<>=]", provided, 1)[0], name)
+    selected = set()
+    pending = list(profile["packages"])
+    while pending:
+        dependency = pending.pop()
+        key = re.split(r"[<>=]", dependency, 1)[0]
+        if key not in providers:
+            raise ValueError(f"offline dependency absent: {dependency}")
+        name = providers[key]
+        if name in selected:
+            continue
+        selected.add(name)
+        pending.extend(records[name].get("DEPENDS", []))
+    # libalpm performs authoritative dependency/version checking at installation.
+    output = []
+    for name in sorted(selected):
+        item = records[name]
+        filename = item["FILENAME"][0]
+        if PurePosixPath(filename).name != filename:
+            raise ValueError("unsafe package filename")
+        pin = sums["repo/" + filename]
+        if item.get("SHA256SUM", [pin])[0] != pin:
+            raise ValueError("package database/checksum manifest disagree")
+        verify(snapshot / "repo" / filename, pin)
+        output.append({"name": name, "version": item["VERSION"][0],
+                       "filename": filename, "sha256": pin})
+    return output
+
+
+def run(args, **kwargs):
+    print("[psx-diagnostics]", " ".join(map(str, args)), flush=True)
+    return subprocess.run(list(map(str, args)), check=True, **kwargs)
+
+
+def pack_root(root, profile, output, total):
+    if output.is_symlink() or (output.exists() and not stat.S_ISREG(output.stat().st_mode)):
+        raise ValueError("root image output must be a regular file, never a device or symlink")
+    if profile["root_format"] == "ext4-ro-loop":
+        size = ext4_image_bytes(total)
+        fixed_budget = profile.get("ext4_maximum_bytes")
+        if fixed_budget is not None:
+            if not isinstance(fixed_budget, int) or not 0 < fixed_budget < 4*1024**3:
+                raise ValueError("invalid fixed ext4 image budget")
+            size = min(size, fixed_budget)
+        with output.open("wb") as image:
+            image.truncate(size)
+        inodes = max(8192, sum(1 for _ in root.rglob("*")) * 11 // 10 + 1024)
+        block_bytes = profile.get("ext4_block_size", 4096)
+        if block_bytes not in (1024, 2048, 4096):
+            raise ValueError("unsupported ext4 block size")
+        run(["mkfs.ext4", "-q", "-F", "-b", str(block_bytes), "-m", "0", "-N", str(inodes),
+             "-O", "^has_journal", "-E", "lazy_itable_init=0",
+             "-L", "PSXDIAG", "-d", root, output])
+        if fixed_budget is None:
+            run(["resize2fs", "-M", output])
+            metadata = run(["dumpe2fs", "-h", output], capture_output=True, text=True,
+                           env=dict(os.environ, LC_ALL="C")).stdout
+            blocks = re.search(r"^Block count:\s+(\d+)\s*$", metadata, re.MULTILINE)
+            block_size = re.search(r"^Block size:\s+(\d+)\s*$", metadata, re.MULTILINE)
+            if not blocks or not block_size:
+                raise ValueError("cannot measure the minimized root filesystem")
+            size = int(blocks.group(1)) * int(block_size.group(1))
+            if not 0 < size <= output.stat().st_size:
+                raise ValueError("invalid minimized filesystem extent")
+            with output.open("r+b") as image:
+                image.truncate(size)
+        run(["e2fsck", "-fn", output])
+        return size
+    run(["tar", "--sort=name", f"--mtime=@{profile['source_date_epoch']}", "--numeric-owner",
+         "-C", root, "-czf", output, "."])
+    return output.stat().st_size
+
+
+def prune_root(root, profile):
+    removed = []
+    paths = list(profile.get("prune_paths", []))
+    for relative, requested in profile.get("prune_directory_except", {}).items():
+        directory = root / relative
+        if not directory.is_dir() or directory.is_symlink():
+            continue
+        keep = set(requested)
+        targets = {(directory / name).resolve() for name in requested if (directory / name).exists()}
+        # Retain the actual cursor data plus aliases to those same data files.
+        for child in directory.iterdir():
+            if child.resolve() in targets:
+                keep.add(child.name)
+        paths.extend(str(child.relative_to(root)) for child in directory.iterdir() if child.name not in keep)
+    for pattern in profile.get("prune_globs", []):
+        if PurePosixPath(pattern).is_absolute() or ".." in PurePosixPath(pattern).parts:
+            raise ValueError("unsafe diagnostic pruning pattern")
+        paths.extend(str(path.relative_to(root)) for path in root.glob(pattern))
+    for relative in sorted(set(paths)):
+        part = PurePosixPath(relative)
+        if (part.is_absolute() or ".." in part.parts
+                or not str(part).startswith(("usr/share/", "usr/include", "usr/lib/", "usr/bin/"))):
+            raise ValueError("unsafe diagnostic pruning path")
+        if any(str(part) == protected or str(part).startswith(protected + "/")
+               for protected in ("usr/share/licenses", "usr/share/hwdata", "usr/share/terminfo",
+                                  "usr/share/kbd")):
+            raise ValueError("diagnostic pruning cannot remove runtime data or licenses")
+        retained = profile.get("retain_paths", [])
+        if str(part) in retained:
+            continue
+        if any(str(keep).startswith(str(part) + "/") for keep in retained):
+            raise ValueError("diagnostic pruning would remove explicitly retained data")
+        path = root / str(part)
+        if not path.parent.resolve().is_relative_to(root.resolve()):
+            raise ValueError("pruning path leaves the generated root")
+        if not path.exists() and not path.is_symlink():
+            continue
+        size = (sum(item.stat().st_size for item in path.rglob("*")
+                    if item.is_file() and not item.is_symlink())
+                if path.is_dir() and not path.is_symlink() else path.lstat().st_size)
+        if path.is_dir() and not path.is_symlink():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        removed.append({"path": str(part), "bytes": size})
+    return {"removed": removed, "removed_bytes": sum(item["bytes"] for item in removed),
+            "licenses_retained": True, "hardware_data_retained": True}
+
+
+def boot_set_bytes(output):
+    return sum(path.stat().st_size for path in output.rglob("*")
+               if path.is_file() and path not in (output / "SHA256SUMS", output / ".psx-diagnostics-build.json"))
+
+
+def write(root, name, data, mode=0o644):
+    target = root / name.lstrip("/")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.is_symlink():
+        target.unlink()
+    target.write_bytes(data.encode() if isinstance(data, str) else data)
+    target.chmod(mode)
+    return target
+
+
+def seed_files(seed, profile):
+    record = json.loads((REPO / profile["seed_manifest"]).read_text())
+    verify(seed, record["sha256"])
+    if seed.stat().st_size != record["bytes"]:
+        raise ValueError("seed size differs")
+    parser = module("psx_diag_newc", REPO / "scripts/ps4-diagnostics-archive")
+    entries, _ = parser.parse_newc(gzip.decompress(seed.read_bytes()))
+    files = {str(PurePosixPath(e.name.decode())): e for e in entries}
+    busybox = files["bin/busybox"].data
+    validator = module("psx_diag_elf", REPO / "scripts/ps4-diagnostics-archive")
+    validator.validate_busybox(busybox)
+    firmware = {name: e.data for name, e in files.items()
+                if name.startswith("lib/firmware/") and stat.S_ISREG(e.mode)}
+    required = json.loads((REPO / "manifests/ps4-diagnostic-seed-firmware.json").read_text())["external_base_firmware"]
+    for item in required:
+        if hashlib.sha256(firmware[item["path"]]).hexdigest() != item["sha256"]:
+            raise ValueError("seed GPU/EDID firmware differs from the recorded input")
+    return files, busybox, firmware, validator
+
+
+def install_modules(root, archive, profile, validator):
+    count = 0
+    with subprocess.Popen(["zstd", "-dc", str(archive)], stdout=subprocess.PIPE) as process:
+        with tarfile.open(fileobj=process.stdout, mode="r|") as source:
+            for item in source:
+                path = PurePosixPath(item.name)
+                prefix = PurePosixPath("lib/modules") / profile["kernel_release"]
+                if path == PurePosixPath("lib") or path == PurePosixPath("lib/modules"):
+                    continue
+                if not path.is_relative_to(prefix) or ".." in path.parts:
+                    raise ValueError("module archive has an unrelated path")
+                if item.isdir():
+                    continue
+                if not item.isfile() or item.size > 32 * MIB:
+                    raise ValueError("unexpected module archive entry")
+                data = source.extractfile(item).read()
+                if item.name.endswith(".ko"):
+                    validator.validate_module(data, profile["kernel_release"])
+                    count += 1
+                write(root, "usr/" + str(path), data)
+        if process.wait() != 0:
+            raise ValueError("module decompression failed")
+    if count != profile["module_count"]:
+        raise ValueError("whole matching module count differs")
+
+
+def initramfs(profile, seed, busybox, firmware, root_sha, output, epoch, expected=None, frontend=None):
+    contract = dict(expected if expected is not None else dict(profile, rootfs_sha256=root_sha))
+    facts = None
+    if frontend is not None:
+        if not console_profile(profile) or profile.get("root_format") != "ext4-ro-loop":
+            raise ValueError("frontend overrides require the read-only console profile")
+        facts = frontend_manifest(frontend, contract.get("snapshot_sums_sha256"))
+        if expected is None:
+            contract["frontend_overrides"] = facts
+        elif contract.get("frontend_overrides") != facts:
+            raise ValueError("frontend override hashes differ from the embedded contract")
+    elif "frontend_overrides" in contract:
+        raise ValueError("embedded frontend contract has no override payload")
+    writer = module("psx_diag_cpio_writer", REPO / "scripts/ps4-diagnostics-archive")
+    files = {"init": ((REPO / "rootfs/ps4-diagnostics/init").read_bytes(), 0o100755),
+             "bin/busybox": (busybox, 0o100755),
+             "etc/psx-diagnostics.env": ((
+                 f"KERNEL_RELEASE='{profile['kernel_release']}'\nROOTFS_SHA256='{root_sha}'\n"
+                 f"RAM_ROOT_MIB='{profile['ram_root_mib']}'\nBUILD_EPOCH='{epoch}'\n"
+                 f"ROOT_FORMAT='{profile.get('root_format', 'gzip-tar-unpacked-into-tmpfs')}'\n"
+                 f"ROOTFS_FILENAME='{root_filename(profile)}'\n"
+                 f"MTS_AUTOARM='{profile.get('mts_autoarm', 0)}'\n"
+                 f"WRITABLE_ROOT_MIB='{profile.get('writable_root_mib', 512)}'\n"
+                 f"FRONTEND_OVERRIDES='{int(frontend is not None)}'\n").encode(), 0o100644),
+             "etc/psx-diagnostics-expected.json": (
+                 (json.dumps(contract, sort_keys=True) + "\n").encode(), 0o100644)}
+    if facts is not None:
+        records = []
+        for item in facts["files"]:
+            name = item["name"]
+            files["psx-frontend/" + name] = (frontend[name], stat.S_IFREG | int(item["mode"], 8))
+            records.append(f"{name}\t{item['sha256']}\t{item['bytes']}\t{item['mode']}\n")
+        files["etc/psx-frontend.tsv"] = ("".join(records).encode(), 0o100644)
+    for name, entry in seed.items():
+        if name.startswith(("bin/", "sbin/", "usr/bin/", "usr/sbin/")) and stat.S_ISLNK(entry.mode):
+            # Keep only applet links that resolve to the selected static BusyBox.
+            link = entry.data.decode()
+            if "busybox" in link:
+                files[name] = (b"/bin/busybox", 0o120777)
+    for name, data in firmware.items():
+        files[name] = (data, 0o100644)
+    for applet in ("sh", "mount", "umount", "mkdir", "cat", "cp", "chmod", "losetup", "chroot", "printf", "sleep", "mdev", "blkid",
+                   "sha256sum", "date", "awk", "gzip", "tar", "readlink", "uname", "switch_root",
+                   "ls", "sync", "modprobe", "ip", "udhcpc", "reboot", "poweroff", "wc"):
+        files.setdefault("bin/" + applet, (b"/bin/busybox", 0o120777))
+    directories = {"dev", "dev/pts", "proc", "sys", "run", "newroot", "tmp"}
+    for name in files:
+        directories.update(str(p) for p in PurePosixPath(name).parents if str(p) != ".")
+    chunks = []
+    ino = 1
+    for name in sorted(directories, key=lambda x: (x.count("/"), x)):
+        chunks.append(writer.entry(ino, 0o040755, 2, profile["source_date_epoch"], name))
+        ino += 1
+    for name, (data, mode) in sorted(files.items()):
+        chunks.append(writer.entry(ino, mode, 1, profile["source_date_epoch"], name, data))
+        ino += 1
+    for name, major, minor, permissions in (("dev/console", 5, 1, 0o600), ("dev/null", 1, 3, 0o666)):
+        node = bytearray(writer.entry(ino, stat.S_IFCHR | permissions, 1,
+                                     profile["source_date_epoch"], name))
+        node[78:86] = f"{major:08X}".encode()
+        node[86:94] = f"{minor:08X}".encode()
+        chunks.append(node)
+        ino += 1
+    chunks.append(writer.entry(ino, 0, 1, profile["source_date_epoch"], "TRAILER!!!"))
+    raw = b"".join(chunks)
+    parser = module("psx_diag_check_cpio", REPO / "scripts/ps4-diagnostics-archive")
+    parser.parse_newc(raw)
+    output.write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--kernel-runtime", type=Path, required=True)
+    parser.add_argument("--kernel-source", type=Path, required=True)
+    parser.add_argument("--snapshot", type=Path, required=True)
+    parser.add_argument("--seed", type=Path, required=True)
+    parser.add_argument("--mesa-archive", type=Path, required=True)
+    parser.add_argument("--work", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--profile", type=Path, default=REPO / "manifests/ps4-diagnostics.json")
+    parser.add_argument("--ssh-authorized-key", type=Path,
+                        help="Optional owner public key; omit for local SSH setup on first boot")
+    parser.add_argument("--firmware-dir", type=Path)
+    parser.add_argument("--tui-binary", type=Path)
+    parser.add_argument("--graphics-tools", type=Path)
+    parser.add_argument("--browser-fixture", type=Path)
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--plan", action="store_true")
+    parser.add_argument("--stage-only", action="store_true", help="Assemble and measure the generated root without packing an image")
+    args = parser.parse_args()
+    profile = json.loads(args.profile.read_text())
+    if profile.get("root_format") not in ("gzip-tar-unpacked-into-tmpfs", "ext4-ro-loop"):
+        raise ValueError("unsupported diagnostic root format")
+    if profile.get("mts_autoarm", 0) not in (0, 1):
+        raise ValueError("invalid native Ethernet autoload policy")
+    key_data = tui_data = None
+    frontend = None
+    input_facts = {}
+    if console_profile(profile):
+        if profile["root_format"] != "ext4-ro-loop":
+            raise ValueError("console profile requires the read-only loop root")
+        if not all((args.firmware_dir, args.tui_binary, args.browser_fixture)):
+            raise ValueError("console profile requires --firmware-dir, --tui-binary and --browser-fixture")
+        key_data, ssh_facts = console_ssh_seed(args.ssh_authorized_key)
+        tui_data = executable_input(args.tui_binary)
+        input_facts.update(ssh_facts, tui_sha256=hashlib.sha256(tui_data).hexdigest())
+        video_data = args.browser_fixture.read_bytes()
+        if not 4 <= len(video_data) <= 2 * MIB or video_data[:4] != b"\x1aE\xdf\xa3":
+            raise ValueError("browser fixture must be a bounded WebM file")
+        input_facts["browser_video_fixture"] = {
+            "path": "/opt/psx-diagnostics/lab/video.webm", "bytes": len(video_data),
+            "sha256": hashlib.sha256(video_data).hexdigest()}
+    runtime, snapshot, source = args.kernel_runtime.resolve(), args.snapshot.resolve(), args.kernel_source.resolve()
+    metadata, archive = validate_kernel(runtime, profile)
+    source_name = f"source-{profile['kernel_release']}.tar.zst"
+    source_sums = checksums(source)
+    verify(source / source_name, source_sums[source_name])
+    if json.loads((source / "artifacts.json").read_text()) != metadata:
+        raise ValueError("runtime and corresponding-source receipts differ")
+    packages = select_packages(snapshot, profile)
+    seed, busybox, firmware, validator = seed_files(args.seed.resolve(), profile)
+    if console_profile(profile):
+        additional, firmware_facts = extra_firmware(args.firmware_dir.resolve(), profile)
+        firmware.update(additional)
+        input_facts["external_firmware_files"] = firmware_facts
+    verify(args.mesa_archive.resolve(), profile["mesa_archive_sha256"])
+    plan = {"profile": profile, "packages": packages, "package_count": len(packages),
+            "kernel": metadata, "builder_sha256": digest(Path(__file__)),
+            "firmware_source_sha256": digest(args.seed), "hardware_acceptance": False}
+    plan.update(input_facts)
+    if args.plan:
+        print(json.dumps(plan, indent=2)); return
+    if os.geteuid() != 0:
+        raise ValueError("native root assembly needs root; --plan is unprivileged")
+    work, output = args.work.resolve(), args.output.resolve()
+    for path in (work, output):
+        if path in (Path("/"), REPO, REPO.parent) or path.is_relative_to("/dev"):
+            raise ValueError("unsafe work/output path")
+    inputs = (snapshot, runtime, source, args.seed.resolve(), args.mesa_archive.resolve(),
+              REPO / "rootfs", REPO / "diagnostics", REPO / "scripts", REPO / "manifests",
+              REPO / "userspace/mesa")
+    inputs += tuple(path.resolve() for path in
+                    (args.profile, args.ssh_authorized_key, args.firmware_dir,
+                     args.tui_binary, args.graphics_tools) if path is not None)
+    if args.browser_fixture is not None:
+        inputs += (args.browser_fixture.resolve(),)
+    if (work == output or work.is_relative_to(output) or output.is_relative_to(work)
+            or any(path == item or path.is_relative_to(item) or item.is_relative_to(path)
+                   for path in (work, output) for item in inputs)):
+        raise ValueError("work/output/input directories overlap")
+    identity = {k: profile[k] for k in ("profile", "kernel_sha256", "snapshot_sums_sha256", "mesa_archive_sha256")}
+    for path in (work, output):
+        marker = path / ".psx-diagnostics-build.json"
+        if path.exists():
+            if not args.resume or not marker.is_file() or json.loads(marker.read_text()) != identity:
+                raise ValueError(f"refusing an existing unmatched directory: {path}")
+        else:
+            path.mkdir(parents=True)
+            marker.write_text(json.dumps(identity, indent=2) + "\n")
+    root = work / "rootfs"
+    for directory in ("dev", "proc", "sys", "run", "var/lib/pacman", "var/cache/pacman/pkg"):
+        (root / directory).mkdir(parents=True, exist_ok=True)
+    null = root / "dev/null"
+    if not null.exists():
+        os.mknod(null, stat.S_IFCHR | 0o666, os.makedev(1, 3))
+    conf = work / "offline-pacman.conf"
+    conf.write_text("[options]\nArchitecture = x86_64\nSigLevel = Never\nLocalFileSigLevel = Never\n"
+                    f"[omarchy-ps4-snapshot]\nServer = file://{snapshot}/repo\n")
+    # No host /dev, /proc or /sys bind mounts; package hooks run only in this root.
+    run(["pacman", "--root", root, "--config", conf, "--dbpath", root / "var/lib/pacman",
+         "--cachedir", snapshot / "repo", "--logfile", work / "pacman.log", "--noscriptlet",
+         "-Syy", "--needed", "--noconfirm", *profile["packages"]])
+    actual = subprocess.check_output(["pacman", "--root", str(root), "--dbpath",
+               str(root / "var/lib/pacman"), "-Q"], text=True)
+    records, sums = package_records(snapshot), checksums(snapshot)
+    packages = []
+    for line in actual.splitlines():
+        name, version = line.split(" ", 1)
+        item = records[name]
+        if version != item["VERSION"][0]:
+            raise ValueError("installed package version differs from the snapshot")
+        filename = item["FILENAME"][0]
+        packages.append({"name": name, "version": version, "filename": filename,
+                         "sha256": sums["repo/" + filename]})
+    plan["packages"], plan["package_count"] = packages, len(packages)
+    install_modules(root, runtime / archive, profile, validator)
+    for name, data in firmware.items():
+        write(root, "usr/" + name, data)
+    tools = root / "usr/lib/psx-diagnostics"
+    tools.mkdir(parents=True, exist_ok=True)
+    write(root, "/usr/lib/psx-diagnostics/busybox", busybox, 0o755)
+    for name in ("ethernet-up", "udhcpc-hook", "verify-boot-set"):
+        write(root, "/usr/lib/psx-diagnostics/" + name, (REPO / "rootfs/ps4-diagnostics" / name).read_bytes(), 0o755)
+    for name in ("runner.py", "catalogue.json"):
+        write(root, "/opt/psx-diagnostics/" + name, (REPO / "diagnostics/ps4" / name).read_bytes(), 0o755 if name.endswith(".py") else 0o644)
+    install_diagnostic_license(root)
+    if console_profile(profile):
+        install_console(root, key_data, tui_data)
+        write(root, "/opt/psx-diagnostics/lab/video.webm", video_data)
+        if args.graphics_tools:
+            for item in sorted(args.graphics_tools.iterdir()):
+                if item.is_symlink() or not item.is_file():
+                    raise ValueError("graphics inputs must be regular executables")
+                if not re.fullmatch(r"psx-[a-z0-9-]+", item.name):
+                    raise ValueError("unexpected graphics executable name")
+                data = executable_input(item)
+                write(root, "/usr/lib/psx-diagnostics/" + item.name, data, 0o755)
+                input_facts.setdefault("graphics_tools", {})[item.name] = hashlib.sha256(data).hexdigest()
+    mesa_root = root / "opt/psx-mesa"
+    if mesa_root.exists():
+        shutil.rmtree(mesa_root)
+    mesa_root.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(args.mesa_archive) as members:
+        members.extractall(mesa_root, filter="data")
+    # Candidate archives carry one top-level directory; normalize it explicitly.
+    if not (mesa_root / "MESA-PSX-CANDIDATE.json").exists():
+        children = list(mesa_root.iterdir())
+        if len(children) != 1 or not children[0].is_dir():
+            raise ValueError("unexpected Mesa archive layout")
+        nested = children[0]
+        for child in list(nested.iterdir()):
+            child.rename(mesa_root / child.name)
+        nested.rmdir()
+    verify(mesa_root / "MESA-PSX-CANDIDATE.json", profile["mesa_manifest_sha256"])
+    # Source receipt provides the sibling origin; use the workspace sibling, not a copied absolute path.
+    kernel_repo = REPO
+    for name in ("with-mesa.py", "sources.json"):
+        write(root, "/opt/psx-mesa-tools/" + name, (kernel_repo / "userspace/mesa" / name).read_bytes())
+    for name in ("eglinfo", "vulkaninfo"):
+        mesa_runtime_args = '--runtime-dir "/run/psx-mesa/$(id -u)" ' if console_profile(profile) else ""
+        write(root, "/usr/local/bin/" + name,
+              '#!/bin/sh\nexec /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py '
+              f'--root /opt/psx-mesa --expected-manifest-sha256 {profile["mesa_manifest_sha256"]} '
+              + mesa_runtime_args +
+              f'-- /usr/bin/{name} "$@"\n', 0o755)
+    if console_profile(profile):
+        write(root, "/etc/psx-diagnostics/mesa.env",
+              "PSX_MESA_MANIFEST_SHA256='" + profile["mesa_manifest_sha256"] + "'\n")
+        for name, program, arguments in (("check-opengl", "psx-opengl-probe", " --run"),
+                                          ("check-vulkan", "psx-vulkan-probe", " --run draw")):
+            write(root, "/usr/lib/psx-diagnostics/" + name,
+                  '#!/bin/sh\nexec /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py '
+                  '--root /opt/psx-mesa '
+                  f'--expected-manifest-sha256 {profile["mesa_manifest_sha256"]} '
+                  '--runtime-dir "/run/psx-mesa/$(id -u)" '
+                  f'-- /usr/lib/psx-diagnostics/{program}{arguments}\n', 0o755)
+    write(root, "/etc/hostname", "psx-diagnostics\n")
+    image_version = profile.get("image_version", "dev1")
+    write(root, "/usr/lib/os-release", f'NAME="psX Diagnostics"\nID=psx-diagnostics\nID_LIKE=arch\nPRETTY_NAME="psX Diagnostics {image_version}"\nIMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION={image_version}\n')
+    write(root, "/etc/machine-id", "")
+    write(root, "/etc/resolv.conf", "")
+    write(root, "/etc/fstab", "# RAM root; diagnostic USB is already mounted by initramfs.\n")
+    write(root, "/etc/vconsole.conf", "KEYMAP=us\n")
+    if console_profile(profile):
+        write(root, "/etc/vconsole.conf", "KEYMAP=us\nFONT=latarcyrheb-sun32\n")
+        write(root, "/etc/locale.conf", "LANG=C.UTF-8\n")
+    write(root, "/etc/profile.d/psx-diagnostics.sh", "export PATH=/usr/local/bin:/usr/bin:/usr/sbin\n")
+    write(root, "/etc/systemd/journald.conf.d/psx.conf", "[Journal]\nStorage=volatile\nRuntimeMaxUse=32M\n")
+    write(root, "/etc/pacman.conf", "[options]\nArchitecture = x86_64\nSigLevel = Required DatabaseOptional\nLocalFileSigLevel = Required\n[core]\nInclude = /etc/pacman.d/mirrorlist\n[extra]\nInclude = /etc/pacman.d/mirrorlist\n")
+    write(root, "/etc/pacman.d/mirrorlist", "Server = https://geo.mirror.pkgbuild.com/$repo/os/$arch\n")
+    services = ("psx-rescue.service",) if console_profile(profile) else ("psx-diagnostics.service", "psx-rescue.service")
+    for name in services:
+        write(root, "/usr/lib/systemd/system/" + name, (REPO / "rootfs/ps4-diagnostics" / name).read_bytes())
+        enabled = root / "etc/systemd/system/multi-user.target.wants" / name
+        enabled.parent.mkdir(parents=True, exist_ok=True)
+        enabled.unlink(missing_ok=True)
+        enabled.symlink_to("/usr/lib/systemd/system/" + name)
+    write(root, "/usr/lib/systemd/system/psx-dhcp.service",
+          (REPO / "rootfs/ps4-diagnostics/psx-dhcp.service").read_bytes())
+    masks = ["getty@tty1.service", "getty@tty2.service", "systemd-networkd.service", "sleep.target",
+             "suspend.target", "hibernate.target", "hybrid-sleep.target"]
+    if console_profile(profile):
+        masks += ["getty@tty3.service", "psx-diagnostics.service", "systemd-firstboot.service"]
+    else:
+        masks += ["NetworkManager.service", "sshd.service"]
+    for name in masks:
+        target = root / "etc/systemd/system" / name
+        target.unlink(missing_ok=True)
+        target.symlink_to("/dev/null")
+    default = root / "etc/systemd/system/default.target"
+    default.unlink(missing_ok=True); default.symlink_to("/usr/lib/systemd/system/multi-user.target")
+    # Local diagnostic services provide physical console access; no password/SSH account is provisioned.
+    for command in (["/usr/bin/systemd-sysusers"], ["/usr/bin/ldconfig"]):
+        run(["chroot", root, *command])
+    if console_profile(profile):
+        home = root / "home/psx"
+        home.mkdir(parents=True, exist_ok=True)
+        home.chmod(0o750)
+        os.chown(home, 1000, 1000)
+    lock_root_password(root)
+    fixture = root / "usr/share/psx-diagnostics/audio-44100.wav"
+    fixture.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(fixture), "wb") as wav:
+        wav.setnchannels(2); wav.setsampwidth(2); wav.setframerate(44100)
+        wav.writeframes(b"".join(struct.pack("<hh", sample, sample) for sample in
+                                 (int(5000 * math.sin(2 * math.pi * 440 * n / 44100))
+                                  for n in range(44100 * 3))))
+    boot = dict(profile, kernel=metadata, fixtures={"audio_44100": {
+        "path": "/usr/share/psx-diagnostics/audio-44100.wav", "sha256": digest(fixture)}},
+        mesa_manifest_sha256=profile["mesa_manifest_sha256"],
+        packages=packages, ram_root=profile["root_format"] != "ext4-ro-loop",
+        ui_backend=profile.get("ui_backend", "tui"), hardware_acceptance=False, **input_facts)
+    if console_profile(profile):
+        frontend = {
+            "psx-diagnostics-tui": tui_data,
+            "start-console": (REPO / "rootfs/ps4-diagnostics-desktop/start-console").read_bytes(),
+            "prepare-console": (REPO / "rootfs/ps4-diagnostics-desktop/prepare-console").read_bytes(),
+            "style.css": (REPO / "diagnostics/ps4/lab/style.css").read_bytes(),
+            "network.py": (REPO / "diagnostics/ps4/network.py").read_bytes(),
+            "controller.py": (REPO / "diagnostics/ps4/controller.py").read_bytes(),
+            "ssh_access.py": (REPO / "diagnostics/ps4/ssh_access.py").read_bytes(),
+        }
+        for name in ("launch-graphics", "graphics-start", "graphics-client", "graphics-session", "graphics-window", "wait-graphics-wm", "prepare-chromium-provider", "launch-chromium-provider"):
+            frontend[name] = (REPO / "rootfs/ps4-diagnostics-desktop" / name).read_bytes()
+        frontend["xorg-diagnostics.conf"] = (REPO / "rootfs/ps4-diagnostics-desktop/20-psx-diagnostics.conf").read_bytes()
+        for name in ("preferences.py", "themes.json", "themes-LICENSE"):
+            frontend[name] = (REPO / "diagnostics/ps4" / name).read_bytes()
+        for name in ("index.html", "lab.js"):
+            frontend[name] = (REPO / "diagnostics/ps4/lab" / name).read_bytes()
+        runtime_library_receipt(profile)
+        for name, provider in runtime_providers().items():
+            library = (root / provider["member"]).resolve(strict=True)
+            if not library.is_relative_to(root.resolve()) or not library.is_file():
+                raise ValueError("installed runtime provider leaves the generated root")
+            frontend[name] = runtime_provider_bytes(name, library.read_bytes())
+        boot["frontend_overrides"] = frontend_manifest(frontend, profile["snapshot_sums_sha256"])
+    write(root, "/etc/psx-diagnostics/boot-set.json", json.dumps(boot, indent=2) + "\n")
+    write(root, "/usr/share/psx-diagnostics/packages.lock", "".join(f"{x['name']}\t{x['version']}\t{x['sha256']}\n" for x in packages))
+    # No runtime mounts or devices enter the archive.
+    for relative in ("var/log", "var/cache/pacman/pkg", "tmp", "run", "dev", "proc", "sys"):
+        directory = root / relative
+        if directory.exists():
+            for child in directory.iterdir():
+                if child.is_dir() and not child.is_symlink(): shutil.rmtree(child)
+                else: child.unlink()
+    pruning = prune_root(root, profile)
+    boot["pruning"] = pruning
+    plan["pruning"] = pruning
+    write(root, "/etc/psx-diagnostics/boot-set.json", json.dumps(boot, indent=2) + "\n")
+    total = sum(p.stat().st_size for p in root.rglob("*") if p.is_file() and not p.is_symlink())
+    (work / "root-stage-receipt.json").write_text(json.dumps(dict(plan,
+        rootfs_regular_bytes=total, generated_root=str(root),
+        within_root_budget=total <= profile["maximum_root_bytes"]), indent=2) + "\n")
+    if total > profile["maximum_root_bytes"]:
+        raise ValueError(f"root exceeds the selected profile's size budget: {total} bytes")
+    run(["chroot", root, "/usr/bin/python3", "-B", "/opt/psx-diagnostics/runner.py", "--catalogue"])
+    run(["chroot", root, "/usr/bin/python3", "-B", "/opt/psx-mesa-tools/with-mesa.py", "--root", "/opt/psx-mesa", "--verify-only"])
+    if args.stage_only:
+        print(f"PASS: generated root staged at {root}; {total // MIB} MiB regular files; no image or media written")
+        return
+    payload = output / "psx-diagnostics"
+    if payload.is_symlink():
+        raise ValueError("payload directory cannot be a symlink")
+    payload.mkdir(exist_ok=True)
+    root_archive = payload / root_filename(profile)
+    root_image_bytes = pack_root(root, profile, root_archive, total)
+    root_sha = digest(root_archive)
+    init = output / "initramfs.cpio.gz"
+    boot.update(rootfs_sha256=root_sha, rootfs_unpacked_bytes=total,
+                rootfs_file="psx-diagnostics/" + root_filename(profile), rootfs_image_bytes=root_image_bytes,
+                builder_sha256=digest(Path(__file__)))
+    initramfs(profile, seed, busybox, firmware, root_sha, init, int(time.time()), expected=boot, frontend=frontend)
+    boot["initramfs_sha256"] = digest(init)
+    shutil.copy2(runtime / "bzImage", output / "bzImage")
+    shutil.copy2(runtime / archive, payload / archive)
+    for name in ("config", "manifest.txt", "version.txt", "artifacts.json"):
+        shutil.copy2(runtime / name, payload / name)
+    if profile.get("source_payload", "complete") == "receipt-only":
+        (payload / "source-pins.json").write_text(json.dumps({
+            "source_archive": source_name, "bytes": (source / source_name).stat().st_size,
+            "sha256": source_sums[source_name], "source_commit": profile["source_commit"],
+            "repository": "https://github.com/meerzulee/linux-psx",
+            "availability": "full corresponding-source archive retained in the validated host source input; no binary release",
+            "artifacts": metadata}, indent=2) + "\n")
+    else:
+        source_dir = payload / "source"; source_dir.mkdir(exist_ok=True)
+        for name in (source_name, "artifacts.json", "SHA256SUMS"):
+            shutil.copy2(source / name, source_dir / name)
+    (payload / "boot-set.json").write_text(json.dumps(boot, indent=2) + "\n")
+    bootargs = ("earlycon=uart8250,mmio32,0xC890E000,115200n8 console=tty0 keep_bootcon "
+                f"8250.nr_uarts=0 panic=0 loglevel={profile.get('console_loglevel', 7)} printk.devkmsg=on amdgpu.dc=0 "
+                "video=HDMI-A-1:1920x1080@60D drm.edid_firmware=edid/1920x1080.bin "
+                "pci=nocrs intremap=off libata.force=1.00:disable "
+                f"psx_mts_net.autoarm={profile.get('mts_autoarm', 0)} net.ifnames=0 consoleblank=0 psx.diag_uuid=@USB_UUID@\n")
+    if console_profile(profile):
+        bootargs = bootargs.rstrip("\n") + " systemd.show_status=false\n"
+    (output / "bootargs.template.txt").write_text(bootargs)
+    (output / "vram.txt").write_text(str(profile["vram_mib"]) + "\n")
+    description = (
+        f"psX Diagnostics {image_version} - local engineering boot set, not hardware-qualified.\n"
+        "Boot with the existing PS4 loader; vram.txt requests the 1024 MiB VRAM profile.\n"
+        "Results: /run/psx-media/psx-diagnostics/results.\n"
+        "GPU tools use the pinned private experimental Mesa candidate. UVD is not enabled.\n"
+        "Internal SATA is disabled for the first boot. Power/suspend tests are not automatic.\n"
+        "Hardware acceptance requires separately observed experiments.\n")
+    if console_profile(profile):
+        description += (
+            "TTY1: Ratatui diagnostic console. Ctrl-Alt-F2: local root rescue shell.\n"
+            "Read-only ext4 root stays on USB; writable system state uses bounded tmpfs.\n"
+            "Native Ethernet uses NetworkManager DHCP. SSH uses an optional seeded owner key\n"
+            "or explicit local setup; public images start with SSH inactive and passwords disabled.\n"
+            "Firefox/Xorg start only for selected graphical tests on TTY3 and return to TTY1.\n")
+    else:
+        description += (
+            "TTY1: diagnostic TUI. Ctrl-Alt-F2: local root rescue shell. No SSH/default password.\n"
+            "USB archive is verified and unpacked into bounded RAM; changes disappear at power-off.\n"
+            "Ethernet starts gated; choose its explicit connect test. No resets/unload/rearm.\n")
+    (payload / "README.txt").write_text(description)
+    total_payload = boot_set_bytes(output)
+    limit = profile.get("maximum_boot_set_bytes")
+    if limit is not None and total_payload + MIB > limit:
+        raise ValueError(f"complete OS payload exceeds hard cap: {total_payload} bytes plus staging metadata; cap {limit}")
+    files = {str(p.relative_to(output)): digest(p) for p in output.rglob("*")
+             if p.is_file() and p not in (output / "SHA256SUMS", output / ".psx-diagnostics-build.json")}
+    (output / "SHA256SUMS").write_text("".join(f"{h}  {name}\n" for name, h in sorted(files.items())))
+    plan.update(input_facts)
+    (work / "build-receipt.json").write_text(json.dumps(dict(plan, rootfs_unpacked_bytes=total,
+        rootfs_file=boot["rootfs_file"], rootfs_image_bytes=root_image_bytes,
+        boot_set_bytes=total_payload, maximum_boot_set_bytes=limit,
+        staging_metadata_reserve_bytes=MIB if limit is not None else 0,
+        rootfs_sha256=root_sha, initramfs_sha256=digest(init), output=str(output)), indent=2) + "\n")
+    location = "read-only on USB" if profile["root_format"] == "ext4-ro-loop" else "unpacked into RAM"
+    print(f"PASS: prepared {profile['profile']}; root {total // MIB} MiB {location}; no media written")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(1)

@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "profile": "ps4-native-wayland-egl1",
+  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+  "mesa_manifest_sha256": "687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964",
+  "snapshot_sums_sha256": "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57",
+  "official_repository": {
+    "url": "https://archive.archlinux.org/repos/2026/10/19/extra/os/x86_64/extra.db",
+    "bytes": 8863050,
+    "sha256": "14c8d14b7acea75331563634da26baf3b3e5577c9afea9d1def95cf441326362"
+  },
+  "environment_reference": {
+    "url": "https://gitlab.freedesktop.org/wlroots/wlroots/-/raw/0.20.2/docs/env_vars.md",
+    "sha256": "127be8fedb553f31e5cba05a8cd8d390a612c9c9033d762540f6a94d1c97a5be"
+  },
+  "compositor": "Cage0.3.1 / wlroots0.20.2",
+  "backend": "drm",
+  "renderer": "gles2",
+  "seat_backend": "logind",
+  "hardware_acceptance": false,
+  "maximum_unpacked_bytes": 4194304,
+  "maximum_archive_bytes": 2097152,
+  "maximum_complete_os_bytes": 1073741824,
+  "providers": [
+    {
+      "package": "cage",
+      "archive": "cage-0.3.1-1-x86_64.pkg.tar.zst",
+      "bytes": 26305,
+      "sha256": "d8a8a33d864b8aa85b63990ffd1956be20d56df2f50acde1713fd820d60f61a0",
+      "source": "official-archive",
+      "members": [
+        {
+          "member": "usr/bin/cage",
+          "path": "bin/cage",
+          "bytes": 63648,
+          "sha256": "d4a28d22fc33f8e1333f5ea382e6116743540ef605c005f70c3078891edf8e64",
+          "mode": "0755"
+        },
+        {
+          "member": "usr/share/licenses/cage/LICENSE",
+          "path": "licenses/cage-MIT.txt",
+          "bytes": 1098,
+          "sha256": "e117104073335dbaf78596fb1bedf89dda63c71f60f0b665947b2d369c77ecee",
+          "mode": "0644"
+        }
+      ],
+      "url": "https://archive.archlinux.org/packages/c/cage/cage-0.3.1-1-x86_64.pkg.tar.zst",
+      "signature_sha256": "25e2e973001639ce5399a0efef686fa0f4f431c090a80e6e7b190258b09f4ac6"
+    },
+    {
+      "package": "wlroots0.20",
+      "archive": "wlroots0.20-0.20.2-1-x86_64.pkg.tar.zst",
+      "bytes": 543055,
+      "sha256": "8b1da3fbf29cc45908d8de771bd22a5813b298a9049462df5b8952f23c3ffb8f",
+      "source": "official-archive",
+      "members": [
+        {
+          "member": "usr/lib/libwlroots-0.20.so",
+          "path": "lib/libwlroots-0.20.so",
+          "bytes": 1378496,
+          "sha256": "7edca9a7d65855addda68e29ba5db94d57c803eb5fa7d0f86db3136b90ca9837",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/wlroots0.20/LICENSE",
+          "path": "licenses/wlroots-MIT.txt",
+          "bytes": 1140,
+          "sha256": "35d427c043dcafe8893b9e7247348f599847c81d9a067703587c80707f3d58df",
+          "mode": "0644"
+        }
+      ],
+      "url": "https://archive.archlinux.org/packages/w/wlroots0.20/wlroots0.20-0.20.2-1-x86_64.pkg.tar.zst",
+      "signature_sha256": "a66c7204264def11f7a2dfeefe090fd69fb984a462a13695062baea914fde85f"
+    },
+    {
+      "package": "libliftoff",
+      "archive": "libliftoff-0.5.0-1-x86_64.pkg.tar.zst",
+      "bytes": 19996,
+      "sha256": "59cf08c21500673a14287b83b89b6db5389134cc24c97d9222c7cddefa639ccf",
+      "source": "official-archive",
+      "members": [
+        {
+          "member": "usr/lib/libliftoff.so.0.5.0",
+          "path": "lib/libliftoff.so.0",
+          "bytes": 34704,
+          "sha256": "f062e3f341937c84e40979406a494f35f00f20a3de208a39070dadba04cfe08f",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/libliftoff/LICENSE",
+          "path": "licenses/libliftoff-MIT.txt",
+          "bytes": 1066,
+          "sha256": "9b230152f28fc7898665f40da7c311a1bf238a68b12cc39d9c83bbfc117a7b6b",
+          "mode": "0644"
+        }
+      ],
+      "url": "https://archive.archlinux.org/packages/l/libliftoff/libliftoff-0.5.0-1-x86_64.pkg.tar.zst",
+      "signature_sha256": "1cae42cee00d930f9f0b8aa293da9a1dca74c30409759918af551527e1cbe6ce"
+    },
+    {
+      "package": "seatd",
+      "archive": "seatd-0.9.3-1-x86_64.pkg.tar.zst",
+      "bytes": 40320,
+      "sha256": "b4b52430149e66aaeb4cb474f4b756b5c862adecf6e8ecbf358d67470d2b35de",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libseat.so.1",
+          "path": "lib/libseat.so.1",
+          "bytes": 42976,
+          "sha256": "a2d13262e51a034077202d7bd0a7a7a1847ed07ccd84e87264ebc54012133289",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/seatd/LICENSE",
+          "path": "licenses/seatd-MIT.txt",
+          "bytes": 1054,
+          "sha256": "282a494803d666616bd726e0279636b5f6a31387ae19a707459074050f2600d3",
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "package": "libdisplay-info",
+      "archive": "libdisplay-info-0.3.0-1-x86_64.pkg.tar.zst",
+      "bytes": 124625,
+      "sha256": "07ab1479ec5e70aea174e2d0e340bd9364b507ed74f2df3bfd51b3c6f40e5787",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libdisplay-info.so.0.3.0",
+          "path": "lib/libdisplay-info.so.3",
+          "bytes": 227200,
+          "sha256": "98f632c36bdd89d75914200cb6d1b3cfce8b21067e73845b8a6c4d959903f97f",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/libdisplay-info/LICENSE",
+          "path": "licenses/libdisplay-info-MIT.txt",
+          "bytes": 1089,
+          "sha256": "15b396244e58830c5614b9394f4deccfe684970cd507f299383ab57ad339eedd",
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "package": "xcb-util-errors",
+      "archive": "xcb-util-errors-1.0.1-2-x86_64.pkg.tar.zst",
+      "bytes": 13450,
+      "sha256": "5e0e83836ed96e39b7f9188199cb7fa5a1b085efe1e0cb74ddcc8d52d2d45574",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libxcb-errors.so.0.0.0",
+          "path": "lib/libxcb-errors.so.0",
+          "bytes": 38864,
+          "sha256": "0562876ae0b46688df279267bdd96ead7b83e6f7cf27e6e6f9af229845b14bbb",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/xcb-util-errors/COPYING",
+          "path": "licenses/xcb-errors.txt",
+          "bytes": 1280,
+          "sha256": "9ed4cdd83b4dda055621a21d8e90840c1c052559c5e4e2a0956e9ca8daff6489",
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "package": "xcb-util-renderutil",
+      "archive": "xcb-util-renderutil-0.3.10-2-x86_64.pkg.tar.zst",
+      "bytes": 9522,
+      "sha256": "4855eaf033ec72f27cce311ebf4b7c9bd8518c73ee3a372bd9b1cf7baaafa4dd",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libxcb-render-util.so.0.0.0",
+          "path": "lib/libxcb-render-util.so.0",
+          "bytes": 18320,
+          "sha256": "7331618d11a5974da5629ac3bb383f559d5cad7cbb729cdfa6a77859b8045e3e",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/xcb-util-renderutil/LICENSE",
+          "path": "licenses/xcb-renderutil.txt",
+          "bytes": 3654,
+          "sha256": "271169dd66674e9c396697af0b4822d1c59ccd2342b7740864d667a02963068b",
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "package": "xcb-util-wm",
+      "archive": "xcb-util-wm-0.4.2-2-x86_64.pkg.tar.zst",
+      "bytes": 33792,
+      "sha256": "aa4becb215290dc33fcf2938b4e5604fceaf1189e4d2d5688861001413fc888c",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libxcb-ewmh.so.2.0.0",
+          "path": "lib/libxcb-ewmh.so.2",
+          "bytes": 55240,
+          "sha256": "4bd1b2fb186f1226343a406261ffb4cf39ef9ba86af3b4eaec8afe1e7a475afd",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/lib/libxcb-icccm.so.4.0.0",
+          "path": "lib/libxcb-icccm.so.4",
+          "bytes": 22328,
+          "sha256": "cd64c092e6a82c24d0683b48825d565dae99a720620d17ac9be832fca6fe60da",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/xcb-util-wm/LICENSE",
+          "path": "licenses/xcb-wm.txt",
+          "bytes": 1441,
+          "sha256": "12ab3559977a4b22ae3030b90c64a386e6ec51ab0e4eab1ff530f81a2639400a",
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "package": "xcb-util-keysyms",
+      "archive": "xcb-util-keysyms-0.4.1-5-x86_64.pkg.tar.zst",
+      "bytes": 7729,
+      "sha256": "312213911881c0742e2a825432feac761e863945b74bb3a6daca97a99778d35e",
+      "source": "pinned-snapshot",
+      "members": [
+        {
+          "member": "usr/lib/libxcb-keysyms.so.1.0.0",
+          "path": "lib/libxcb-keysyms.so.1",
+          "bytes": 14208,
+          "sha256": "3ffbacf50c3bcf9390ce804492a39bd8e549d1b68908e4076444a2651c58468f",
+          "mode": "0644"
+        },
+        {
+          "member": "usr/share/licenses/xcb-util-keysyms/LICENSE",
+          "path": "licenses/xcb-keysyms.txt",
+          "bytes": 1456,
+          "sha256": "d499c1bf2c2a5f0a0498e5204d998388e308dcf2273dfbe2250a5b9a73f66537",
+          "mode": "0644"
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "archive": "wayland-protocols-1.49-1-any.pkg.tar.zst",
+    "sha256": "79efa08167c423c6bdbba0efeb05ccc0ef9172c930be96a5b93f8208bdab04a4",
+    "member": "usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml",
+    "member_sha256": "7ba7f9c8473deee674cb1f154a18abd0bb0cc072604fc055b0c15e459fc4c7df"
+  }
+}

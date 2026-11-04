@@ -1,0 +1,21 @@
+[Unit]
+Description=psX Diagnostics console
+After=local-fs.target systemd-udev-trigger.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/python3 /opt/psx-diagnostics/runner.py --results-dir /run/psx-media/psx-diagnostics/results inventory
+ExecStart=/usr/bin/python3 /opt/psx-diagnostics/runner.py --results-dir /run/psx-media/psx-diagnostics/results menu
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=TERM=linux
+Environment=PATH=/usr/local/bin:/usr/bin:/usr/sbin
+WorkingDirectory=/root
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+case "${PSX_WAYLAND_SUITE:-}" in /run/psx-wayland/suite) ;; *) exit 2 ;; esac
+# with-mesa selected the pinned private driver path; append only this verified
+# suite's generic dependencies. This command never selects a Vulkan renderer.
+export LD_LIBRARY_PATH="/opt/psx-mesa/usr/lib:$PSX_WAYLAND_SUITE/lib"
+exec "$PSX_WAYLAND_SUITE/bin/cage" -D -s -- "$PSX_WAYLAND_SUITE/client-exec"

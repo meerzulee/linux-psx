@@ -1,0 +1,11 @@
+[Unit]
+Description=Selected psX diagnostic Ethernet connection
+After=local-fs.target
+ConditionPathExists=/sys/module/psx_mts_net/parameters/report
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/psx-diagnostics/busybox udhcpc -f -n -t 3 -T 4 -i psx0 -s /usr/lib/psx-diagnostics/udhcpc-hook
+StandardOutput=append:/run/psx-dhcp.log
+StandardError=append:/run/psx-dhcp.log
+# Selected by ethernet-up only. No boot activation and no automatic restarts.

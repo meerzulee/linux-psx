@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Rebuild the pinned console frontend/initramfs while retaining the USB root.
+
+Offline data-only operation: no device, mount, network, payload or console use.
+The output is a complete boot set; FTP staging skips the unchanged large root.
+"""
+import argparse
+import copy
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import sys
+import time
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def refresh(base, tui, output, revision='olive1', plan_only=False, snapshot=None, runtime_library_dir=None):
+    base = Path(base).resolve(strict=True)
+    output = Path(output).resolve()
+    if output == base or output.is_relative_to(base) or base.is_relative_to(output):
+        raise ValueError('Frontend output must be separate from the original boot set')
+    if not re.fullmatch(r'[a-z0-9][a-z0-9.-]{0,47}', revision):
+        raise ValueError('Invalid frontend revision')
+    stage = load('psx_frontend_stage', REPO / 'scripts/stage-ps4-diagnostics-usb')
+    image = load('psx_frontend_image', REPO / 'scripts/build-ps4-diagnostics')
+    parser = load('psx_frontend_cpio', REPO / 'scripts/ps4-diagnostics-archive')
+    files, metadata = stage.source_files(base)
+    if metadata.get('root_format') != 'ext4-ro-loop' or not image.console_profile(metadata):
+        raise ValueError('Frontend refresh requires the verified read-only console profile')
+    frontend = {
+        'psx-diagnostics-tui': image.executable_input(tui),
+        'start-console': (REPO / 'rootfs/ps4-diagnostics-desktop/start-console').read_bytes(),
+        'prepare-console': (REPO / 'rootfs/ps4-diagnostics-desktop/prepare-console').read_bytes(),
+        'style.css': (REPO / 'diagnostics/ps4/lab/style.css').read_bytes(),
+        'network.py': (REPO / 'diagnostics/ps4/network.py').read_bytes(),
+        'controller.py': (REPO / 'diagnostics/ps4/controller.py').read_bytes(),
+        'ssh_access.py': (REPO / 'diagnostics/ps4/ssh_access.py').read_bytes(),
+    }
+    for name in ('launch-graphics', 'graphics-start', 'graphics-client', 'graphics-session', 'graphics-window', 'wait-graphics-wm', 'prepare-chromium-provider', 'launch-chromium-provider'):
+        frontend[name] = (REPO / 'rootfs/ps4-diagnostics-desktop' / name).read_bytes()
+    frontend['xorg-diagnostics.conf'] = (REPO / 'rootfs/ps4-diagnostics-desktop/20-psx-diagnostics.conf').read_bytes()
+    for name in ('preferences.py', 'themes.json', 'themes-LICENSE'):
+        frontend[name] = (REPO / 'diagnostics/ps4' / name).read_bytes()
+    for name in ('index.html', 'lab.js'):
+        frontend[name] = (REPO / 'diagnostics/ps4/lab' / name).read_bytes()
+    if (snapshot is None) == (runtime_library_dir is None):
+        raise ValueError('Supply exactly one pinned --snapshot or --runtime-library-dir')
+    frontend.update(image.runtime_libraries_from_snapshot(snapshot, metadata) if snapshot is not None
+                    else image.runtime_libraries_from_dir(runtime_library_dir, metadata))
+    facts = image.frontend_manifest(frontend, metadata.get('snapshot_sums_sha256'))
+    entries, _ = parser.parse_newc(gzip.decompress((base / 'initramfs.cpio.gz').read_bytes()))
+    seed = {entry.name.decode(): entry for entry in entries}
+    busybox = seed['bin/busybox'].data
+    validator = load('psx_frontend_elf', REPO / 'scripts/ps4-diagnostics-archive')
+    validator.validate_busybox(busybox)
+    old_contract = json.loads(seed['etc/psx-diagnostics-expected.json'].data)
+    expected_old = dict(metadata)
+    expected_old.pop('initramfs_sha256')
+    if expected_old != old_contract:
+        raise ValueError('Original initramfs and boot receipt do not agree')
+    firmware = {name: entry.data for name, entry in seed.items()
+                if name.startswith('lib/firmware/') and stat.S_ISREG(entry.mode)}
+    expected = copy.deepcopy(expected_old)
+    expected.update(
+        frontend_overrides=facts,
+        frontend_revision=revision,
+        frontend_theme='olive',
+        rootfs_tui_sha256=metadata.get('rootfs_tui_sha256', metadata['tui_sha256']),
+        tui_sha256=sha(frontend['psx-diagnostics-tui']),
+        builder_sha256=stage.digest(REPO / 'scripts/build-ps4-diagnostics'),
+        frontend_refresh={
+            'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
+            'base_initramfs_sha256': files['initramfs.cpio.gz'],
+            'tool_sha256': stage.digest(Path(__file__)),
+            'root_image_unchanged': True,
+            'kernel_unchanged': True,
+        })
+    plan = {'profile': metadata['profile'], 'revision': revision,
+            'frontend_bytes': facts['total_bytes'], 'frontend_ram_limit_bytes': facts['ram_limit_bytes'],
+            'rootfs_sha256': metadata['rootfs_sha256'], 'root_image_unchanged': True,
+            'kernel_unchanged': True, 'output': str(output), 'hardware_acceptance': False}
+    if plan_only:
+        return plan
+    output.mkdir(parents=True, exist_ok=False)
+    mutable = {'initramfs.cpio.gz', 'psx-diagnostics/boot-set.json'}
+    for name in files:
+        if name in mutable:
+            continue
+        destination = output / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(base / name, destination)
+        except OSError:
+            shutil.copy2(base / name, destination)
+    init = output / 'initramfs.cpio.gz'
+    image.initramfs(metadata, seed, busybox, firmware, metadata['rootfs_sha256'],
+                    init, int(time.time()), expected=expected, frontend=frontend)
+    external = dict(expected, initramfs_sha256=stage.digest(init))
+    receipt = output / 'psx-diagnostics/boot-set.json'
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text(json.dumps(external, indent=2) + '\n')
+    checksums = {name: stage.digest(output / name) for name in files}
+    (output / 'SHA256SUMS').write_text(stage.installed_sums(checksums))
+    final_files, final = stage.source_files(output)
+    total = sum((output / name).stat().st_size for name in final_files) + (output / 'SHA256SUMS').stat().st_size
+    if total + 1024**2 > final['maximum_boot_set_bytes']:
+        raise ValueError('Frontend refresh exceeds the complete OS cap and metadata reserve')
+    plan.update(status='PASS', boot_set_bytes=total, initramfs_bytes=init.stat().st_size,
+                initramfs_sha256=final['initramfs_sha256'], frontend_overrides=facts)
+    (output.parent / 'frontend-refresh-receipt.json').write_text(json.dumps(plan, indent=2) + '\n')
+    return plan
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--base', type=Path, required=True)
+    parser.add_argument('--tui-binary', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--revision', default='olive1')
+    libraries = parser.add_mutually_exclusive_group(required=True)
+    libraries.add_argument('--snapshot', type=Path, help='Extract the exact runtime providers from the pinned offline snapshot')
+    libraries.add_argument('--runtime-library-dir', type=Path, help='Exact provider files and provider-receipt.json')
+    parser.add_argument('--plan', action='store_true')
+    args = parser.parse_args()
+    result = refresh(args.base, args.tui_binary, args.output, args.revision, args.plan,
+                     snapshot=args.snapshot, runtime_library_dir=args.runtime_library_dir)
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError) as error:
+        raise SystemExit('Frontend refresh: ' + str(error))

@@ -1,0 +1,199 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# PS4 diagnostic USB root. Never formats, repartitions or mounts internal disks.
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+
+say() {
+    printf '[psx-diagnostics-init] %s\n' "$*"
+    printf '[psx-diagnostics-init] %s\n' "$*" >/dev/kmsg 2>/dev/null || true
+}
+rescue() {
+    say "STOP: $*"
+    say 'Diagnostic root was not started. Local rescue shell; no automatic retry.'
+    # A caller may be reading a manifest on stdin; restore interactive console I/O.
+    exec /bin/sh -i </dev/console >/dev/console 2>&1
+}
+install_frontend() {
+    # The new helper has no file in older roots: keep it in RAM, and bind only
+    # the twelve existing regular files. Never replace a whole /usr directory.
+    [ -f /etc/psx-frontend.tsv ] && [ ! -L /etc/psx-frontend.tsv ] || rescue 'Missing frontend manifest.'
+    mkdir -p /run/psx-frontend || rescue 'Cannot prepare frontend RAM directory.'
+    # Public pinned assets must be searchable by the unprivileged graphics user.
+    mount -t tmpfs -o mode=0755,nosuid,nodev,size=16m tmpfs /run/psx-frontend || rescue 'Cannot allocate bounded frontend RAM.'
+    frontend_seen=0
+    frontend_total=0
+    while read -r name pin bytes mode extra; do
+        [ -z "$extra" ] || rescue 'Invalid frontend manifest fields.'
+        target=''
+        case "$name" in
+            psx-diagnostics-tui) bit=1; wanted_mode=0755; target=/usr/bin/psx-diagnostics-tui ;;
+            start-console) bit=2; wanted_mode=0755; target=/usr/lib/psx-diagnostics/start-console ;;
+            prepare-console) bit=4; wanted_mode=0755 ;;
+            style.css) bit=8; wanted_mode=0644; target=/opt/psx-diagnostics/lab/style.css ;;
+            network.py) bit=16; wanted_mode=0755; target=/opt/psx-diagnostics/network.py ;;
+            libxcb-keysyms.so.1) bit=32; wanted_mode=0644 ;;
+            libdisplay-info.so.3) bit=64; wanted_mode=0644 ;;
+            controller.py) bit=128; wanted_mode=0755; target=/opt/psx-diagnostics/controller.py ;;
+            libvte-2.91.so.0) bit=256; wanted_mode=0644 ;;
+            libgtk-layer-shell.so.0) bit=512; wanted_mode=0644 ;;
+            libutempter.so.0) bit=1024; wanted_mode=0644 ;;
+            xfce4-terminal) bit=2048; wanted_mode=0755 ;;
+            JetBrainsMonoNerdFont-Regular.ttf) bit=4096; wanted_mode=0644 ;;
+            JetBrainsMonoNerdFont-OFL.txt) bit=8192; wanted_mode=0644 ;;
+            launch-graphics) bit=16384; wanted_mode=0755; target=/usr/lib/psx-diagnostics/launch-graphics ;;
+            graphics-start) bit=32768; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-start ;;
+            graphics-client) bit=65536; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-client ;;
+            graphics-session) bit=131072; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-session ;;
+            graphics-window) bit=262144; wanted_mode=0755 ;;
+            wait-graphics-wm) bit=524288; wanted_mode=0755 ;;
+            xorg-diagnostics.conf) bit=1048576; wanted_mode=0644; target=/etc/X11/xorg.conf.d/20-psx-diagnostics.conf ;;
+            preferences.py) bit=2097152; wanted_mode=0755 ;;
+            themes.json) bit=4194304; wanted_mode=0644 ;;
+            themes-LICENSE) bit=8388608; wanted_mode=0644 ;;
+            index.html) bit=16777216; wanted_mode=0644; target=/opt/psx-diagnostics/lab/index.html ;;
+            lab.js) bit=33554432; wanted_mode=0644; target=/opt/psx-diagnostics/lab/lab.js ;;
+            prepare-chromium-provider) bit=67108864; wanted_mode=0755 ;;
+            launch-chromium-provider) bit=134217728; wanted_mode=0755 ;;
+            ssh_access.py) bit=268435456; wanted_mode=0755 ;;
+            *) rescue 'Frontend name is outside the fixed allowlist.' ;;
+        esac
+        [ "$((frontend_seen & bit))" -eq 0 ] || rescue 'Duplicate frontend override.'
+        frontend_seen=$((frontend_seen | bit))
+        [ "$mode" = "$wanted_mode" ] || rescue 'Frontend mode differs from the fixed policy.'
+        case "$pin" in ''|*[!0-9a-f]*) rescue 'Invalid frontend checksum.' ;; esac
+        [ "${#pin}" -eq 64 ] || rescue 'Invalid frontend checksum length.'
+        case "$bytes" in ''|*[!0-9]*) rescue 'Invalid frontend size.' ;; esac
+        [ "${#bytes}" -le 7 ] && [ "$bytes" -gt 0 ] && [ "$bytes" -le 8388608 ] || rescue 'Oversized frontend file.'
+        frontend_total=$((frontend_total + bytes))
+        [ "$frontend_total" -le 8388608 ] || rescue 'Frontend exceeds its RAM payload budget.'
+        source=/psx-frontend/$name
+        [ -f "$source" ] && [ ! -L "$source" ] || rescue 'Frontend override is missing or not a regular file.'
+        [ "$(wc -c < "$source")" -eq "$bytes" ] || rescue 'Frontend size differs from its manifest.'
+        printf '%s  %s\n' "$pin" "$source" | sha256sum -c - >/dev/null || rescue 'Frontend checksum differs from its manifest.'
+        destination=/run/psx-frontend/$name
+        cp "$source" "$destination" && chmod "$wanted_mode" "$destination" || rescue 'Cannot copy frontend into RAM.'
+        if [ -n "$target" ]; then
+            destination_root=/newroot$target
+            [ -f "$destination_root" ] && [ ! -L "$destination_root" ] || rescue 'Frontend bind target is missing or not a regular file.'
+            [ "$(readlink -f "$destination_root")" = "$destination_root" ] || rescue 'Frontend bind target leaves its fixed root path.'
+            mount --bind "$destination" "$destination_root" || rescue 'Cannot attach frontend override.'
+            mount -o remount,bind,ro "$destination" "$destination_root" || rescue 'Cannot make frontend override read-only.'
+        fi
+    done < /etc/psx-frontend.tsv
+    [ "$frontend_seen" -eq 536870911 ] || rescue 'Frontend manifest does not contain every required override.'
+}
+mount -t proc proc /proc || rescue 'Cannot mount proc.'
+mount -t sysfs sysfs /sys || rescue 'Cannot mount sysfs.'
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /run /newroot /dev/pts
+mount -t tmpfs -o mode=0755,nosuid,nodev,size=64m tmpfs /run || rescue 'Cannot mount run.'
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+mdev -s 2>/dev/null || true
+. /etc/psx-diagnostics.env || rescue 'Missing embedded build contract.'
+ROOT_FORMAT=${ROOT_FORMAT:-gzip-tar-unpacked-into-tmpfs}
+ROOTFS_FILENAME=${ROOTFS_FILENAME:-rootfs.tar.gz}
+MTS_AUTOARM=${MTS_AUTOARM:-0}
+WRITABLE_ROOT_MIB=${WRITABLE_ROOT_MIB:-512}
+FRONTEND_OVERRIDES=${FRONTEND_OVERRIDES:-0}
+MEDIA_UUID=''
+CLOCK_EPOCH=$BUILD_EPOCH
+SATA_DISABLED=0
+MTS_GATED=0
+SATA_FLAGS=0
+MTS_FLAGS=0
+for parameter in $(cat /proc/cmdline); do
+    case "$parameter" in
+        psx.diag_uuid=*) MEDIA_UUID=${parameter#*=} ;;
+        time=*) CLOCK_EPOCH=${parameter#*=} ;;
+        libata.force=*)
+            SATA_FLAGS=$((SATA_FLAGS + 1))
+            [ "$parameter" = 'libata.force=1.00:disable' ] && SATA_DISABLED=1 ;;
+        psx_mts_net.autoarm=*)
+            MTS_FLAGS=$((MTS_FLAGS + 1))
+            [ "$parameter" = "psx_mts_net.autoarm=$MTS_AUTOARM" ] && MTS_GATED=1 ;;
+    esac
+done
+case "$MEDIA_UUID" in ''|*[!a-fA-F0-9-]*) rescue 'Missing or invalid diagnostic USB UUID.' ;; esac
+case "$CLOCK_EPOCH" in ''|*[!0-9]*) rescue 'Invalid loader time.' ;; esac
+date -u -s "@$CLOCK_EPOCH" >/dev/null 2>&1 || true
+[ "$(uname -r)" = "$KERNEL_RELEASE" ] || rescue 'Kernel release differs from this boot set.'
+[ "$SATA_DISABLED:$SATA_FLAGS" = '1:1' ] || rescue 'This profile requires one exact internal-SATA disable argument.'
+[ "$MTS_GATED:$MTS_FLAGS" = '1:1' ] || rescue "This profile requires one exact Ethernet autoarm=$MTS_AUTOARM argument."
+say "Kernel $KERNEL_RELEASE; USB $ROOT_FORMAT profile; internal SATA disabled."
+
+# Inspect only USB partitions before asking blkid to read their metadata.
+DEVICE=''
+attempt=0
+while [ "$attempt" -lt 30 ]; do
+    mdev -s 2>/dev/null || true
+    matches=0
+    for block in /sys/class/block/*; do
+        [ -r "$block/partition" ] || continue
+        ancestry=$(readlink -f "$block" 2>/dev/null)
+        case "$ancestry" in *'/usb'*) ;; *) continue ;; esac
+        candidate=/dev/${block##*/}
+        identity=$(blkid "$candidate" 2>/dev/null)
+        case "$identity" in *" UUID=\"$MEDIA_UUID\""*) ;; *) continue ;; esac
+        case "$identity" in *' TYPE="vfat"'*) ;; *) continue ;; esac
+        DEVICE=$candidate
+        matches=$((matches + 1))
+    done
+    [ "$matches" -le 1 ] || rescue 'More than one USB partition has the requested identity.'
+    [ "$matches" -eq 1 ] && break
+    attempt=$((attempt + 1))
+    sleep 1
+done
+[ -n "$DEVICE" ] || rescue 'Diagnostic FAT32 USB was not found within 30 seconds.'
+mkdir -p /run/psx-media
+mount -t vfat -o rw,nosuid,nodev,noexec,uid=0,gid=0,fmask=0177,dmask=0077 "$DEVICE" /run/psx-media || rescue 'Cannot mount diagnostic USB.'
+case "$ROOTFS_FILENAME" in rootfs.tar.gz|rootfs.ext4) ;; *) rescue 'Invalid embedded root filename.' ;; esac
+ARCHIVE=/run/psx-media/psx-diagnostics/$ROOTFS_FILENAME
+[ -f "$ARCHIVE" ] || rescue 'Diagnostic root image is missing.'
+printf '%s  %s\n' "$ROOTFS_SHA256" "$ARCHIVE" | sha256sum -c - || rescue 'Root image checksum differs.'
+available=$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)
+case "$ROOT_FORMAT" in
+    gzip-tar-unpacked-into-tmpfs)
+        [ "${available:-0}" -ge "$((RAM_ROOT_MIB + 768))" ] || rescue 'Not enough RAM for this diagnostic profile.'
+        say "Verified root archive. Unpacking into bounded ${RAM_ROOT_MIB} MiB RAM root."
+        mount -t tmpfs -o "mode=0755,nosuid,nodev,size=${RAM_ROOT_MIB}m" tmpfs /newroot || rescue 'Cannot allocate RAM root.'
+        tar -xzpf "$ARCHIVE" -C /newroot || rescue 'Root archive extraction failed.' ;;
+    ext4-ro-loop)
+        [ "$ROOTFS_FILENAME" = 'rootfs.ext4' ] || rescue 'Loop root requires the ext4 image.'
+        [ "${available:-0}" -ge "$((WRITABLE_ROOT_MIB + 512))" ] || rescue 'Not enough RAM for writable diagnostic state.'
+        LOOP=$(losetup -f) || rescue 'No free loop device.'
+        losetup -r "$LOOP" "$ARCHIVE" || rescue 'Cannot attach the read-only root image.'
+        mount -t ext4 -o ro,noload "$LOOP" /newroot || rescue 'Cannot mount the read-only root image.'
+        mkdir -p /run/psx-writable
+        mount -t tmpfs -o "mode=0755,nosuid,nodev,size=${WRITABLE_ROOT_MIB}m" tmpfs /run/psx-writable || rescue 'Cannot allocate bounded writable state.'
+        for directory in etc var tmp home root; do
+            cp -a "/newroot/$directory" "/run/psx-writable/$directory" || rescue "Cannot prepare writable /$directory."
+            mount --bind "/run/psx-writable/$directory" "/newroot/$directory" || rescue "Cannot attach writable /$directory."
+        done
+        say "Verified read-only USB root; writable state is bounded to ${WRITABLE_ROOT_MIB} MiB." ;;
+    *) rescue 'Unsupported embedded root format.' ;;
+esac
+[ -x /newroot/usr/lib/systemd/systemd ] || rescue 'Diagnostic root has no init.'
+[ -x /newroot/opt/psx-diagnostics/runner.py ] || rescue 'Diagnostic runner is missing.'
+mkdir -p /newroot/etc/psx-diagnostics /newroot/run /newroot/proc /newroot/sys /newroot/dev
+cp /run/psx-media/psx-diagnostics/boot-set.json /newroot/etc/psx-diagnostics/external-boot-set.json || rescue 'Boot-set receipt is missing.'
+cp /etc/psx-diagnostics-expected.json /newroot/etc/psx-diagnostics/expected-boot-set.json || rescue 'Embedded receipt contract is missing.'
+media_init_sha=$(sha256sum /run/psx-media/initramfs.cpio.gz | awk '{print $1}')
+chroot /newroot /usr/bin/python3 /usr/lib/psx-diagnostics/verify-boot-set \
+    --expected /etc/psx-diagnostics/expected-boot-set.json --external /etc/psx-diagnostics/external-boot-set.json \
+    --observed-release "$KERNEL_RELEASE" --media-initramfs-sha256 "$media_init_sha" \
+    --output /etc/psx-diagnostics/boot-set.json || rescue 'External boot-set receipt does not match the embedded contract.'
+case "$FRONTEND_OVERRIDES" in
+    1)
+        [ "$ROOT_FORMAT" = 'ext4-ro-loop' ] || rescue 'Frontend overrides require a read-only console root.'
+        install_frontend ;;
+    0) [ ! -e /etc/psx-frontend.tsv ] || rescue 'Unexpected frontend manifest.' ;;
+    *) rescue 'Invalid embedded frontend policy.' ;;
+esac
+mkdir -p /run/psx-media/psx-diagnostics/results
+say 'Starting psX Diagnostics. Results stay on the diagnostic USB; system writes stay in RAM.'
+mount --move /dev /newroot/dev || rescue 'Cannot move dev.'
+mount --move /proc /newroot/proc || rescue 'Cannot move proc.'
+mount --move /sys /newroot/sys || rescue 'Cannot move sys.'
+mount --move /run /newroot/run || rescue 'Cannot move run.'
+exec switch_root /newroot /sbin/init

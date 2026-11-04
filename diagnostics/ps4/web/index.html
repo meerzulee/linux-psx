@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT; Copyright (c) 2026 Meerzulee -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>psX Diagnostics</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <div id="demo-banner" class="demo-banner" hidden>DEMO PREVIEW · Sample hardware and results · No console actions</div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="psX Diagnostics home"><span class="brand-mark">ps<span>X</span></span><span class="brand-divider"></span><span class="brand-name">DIAGNOSTICS</span></a>
+    <div class="top-status"><span id="connection-status" class="connection-status"><span class="status-dot"></span>Connecting to console</span><span id="ssh-top" class="quiet">SSH —</span><time id="clock">—:—</time></div>
+  </header>
+  <main>
+    <section class="welcome" aria-labelledby="home-title">
+      <div><p class="eyebrow">PLAYSTATION 4 · LINUX</p><h1 id="home-title">Your console, at a glance.</h1><p id="system-subtitle" class="welcome-subtitle">Hardware, connection and tests. Everything in one place.</p></div>
+      <button id="quick-button" class="button button-primary quick-button" type="button"><span class="play-symbol" aria-hidden="true">▶</span> Quick check</button>
+    </section>
+    <nav id="tiles" class="tiles" aria-label="Diagnostic areas"></nav>
+    <section id="detail" class="detail" aria-live="off" aria-labelledby="detail-title"><div class="empty-state">Connecting to the diagnostic service…</div></section>
+  </main>
+  <aside id="activity" class="activity" aria-live="polite" hidden></aside>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <footer><span>psX Diagnostics <span class="footer-separator">/</span> <span id="footer-build">Console tools</span></span><span>← → Browse <span class="footer-separator">·</span> Enter Select <span class="footer-separator">·</span> Esc Back</span></footer>
+  <dialog id="report-dialog" class="dialog report-dialog"><div class="dialog-heading"><h2 id="report-title">Test details</h2><button class="icon-button" data-close-dialog aria-label="Close test details">×</button></div><div id="report-body"></div></dialog>
+  <dialog id="retry-dialog" class="dialog"><form method="dialog" id="retry-form"><h2>Before trying again</h2><p>The last attempt did not finish successfully. Record what changed so this run has useful context.</p><label for="retry-reason">What changed?</label><textarea id="retry-reason" rows="3" maxlength="1024" required placeholder="For example: connected the Ethernet cable"></textarea><div class="button-row"><button value="cancel" class="button button-secondary" formnovalidate>Cancel</button><button value="run" class="button button-primary">Run once</button></div></form></dialog>
+  <noscript><div class="empty-state">Enable JavaScript to use the diagnostic dashboard.</div></noscript>
+</body>
+</html>

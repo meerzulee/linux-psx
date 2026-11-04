@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Build a pinned optional native Wayland test suite without opening a GPU.
+
+Only explicit ordinary output/cache directories are written. Missing immutable
+official archives are acquired only with --fetch; no package installation occurs.
+"""
+import argparse
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shlex
+import stat
+import subprocess
+import tarfile
+import tempfile
+import urllib.request
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    app = importlib.util.module_from_spec(spec)
+    loader.exec_module(app)
+    return app
+
+
+def sha(data): return hashlib.sha256(data).hexdigest()
+def digest(path): return sha(Path(path).read_bytes())
+
+
+def verify(path, checksum, size=None):
+    if path.is_symlink() or not path.is_file() or digest(path) != checksum or (size is not None and path.stat().st_size != size):
+        raise ValueError('Wayland input differs from its pin: ' + str(path))
+
+
+def acquire(path, url, checksum, size=None, fetch=False):
+    if not path.exists():
+        if not fetch:
+            raise ValueError('Missing pinned archive; use --fetch: ' + path.name)
+        with urllib.request.urlopen(url, timeout=30) as response:
+            data = response.read(8*1024**2)
+        if sha(data) != checksum or (size is not None and len(data) != size):
+            raise ValueError('Downloaded archive differs from its pin')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open('xb') as output: output.write(data)
+    verify(path, checksum, size)
+
+
+def extract(archive, member):
+    if PurePosixPath(member).is_absolute() or '..' in PurePosixPath(member).parts:
+        raise ValueError('Unsafe package member')
+    return subprocess.run(['tar', '--zstd', '-xOf', str(archive), member],
+                          check=True, capture_output=True, timeout=30).stdout
+
+
+def signature(archive, checksum, keyring):
+    detached = archive.with_name(archive.name+'.sig')
+    verify(detached, checksum)
+    with tempfile.TemporaryDirectory(dir='/var/tmp', prefix='psx-wayland-gpg-') as temporary:
+        ring = Path(temporary) / 'archlinux.gpg'
+        subprocess.run(['gpg', '--batch', '--dearmor', '--output', str(ring), str(keyring)],
+                       check=True, capture_output=True, timeout=10)
+        result = subprocess.run(['gpgv', '--homedir', temporary, '--keyring', str(ring), '--status-fd', '1',
+                                 str(detached), str(archive)], check=True, capture_output=True, text=True, timeout=10)
+    matches = re.findall(r'^\[GNUPG:\] VALIDSIG ([0-9A-F]+) ', result.stdout, re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError('Missing unambiguous Arch package signature')
+    return matches[0]
+
+
+def elf_info(path):
+    data = path.read_bytes()
+    if data[:7] != b'\x7fELF\x02\x01\x01' or int.from_bytes(data[18:20], 'little') != 62:
+        raise ValueError('Suite needs baseline x86-64 ELF files')
+    text = subprocess.run(['readelf', '-d', str(path)], check=True, capture_output=True, text=True, timeout=10).stdout
+    return re.findall(r'\(NEEDED\).*\[([^]]+)\]', text)
+
+
+def dependency_audit(suite, root):
+    directories = [root/'opt/psx-mesa/usr/lib', suite/'lib', root/'usr/lib']
+    seeds = [suite/'bin/cage', suite/'bin/psx-wayland-egl']
+    seeds += [path for path in (root/'opt/psx-mesa/usr/lib').glob('libEGL_mesa.so*') if path.is_file()]
+    seeds += [path for path in (root/'opt/psx-mesa/usr/lib').glob('libgallium*.so*') if path.is_file()]
+    pending, checked, records = list(seeds), set(), []
+    while pending:
+        path = pending.pop()
+        canonical = path.resolve()
+        if canonical in checked: continue
+        if not any(canonical.is_relative_to(base.resolve()) for base in (suite, root)):
+            raise ValueError('ELF dependency leaves the selected roots')
+        checked.add(canonical)
+        needed = elf_info(canonical)
+        records.append({'name': path.name, 'sha256': digest(canonical), 'needed': needed})
+        for name in needed:
+            candidates = [directory/name for directory in directories]
+            selected = next((candidate for candidate in candidates if candidate.is_file()), None)
+            if selected is None:
+                raise ValueError('Missing native Wayland/private Mesa dependency: ' + name)
+            pending.append(selected)
+    return {'elf_files': len(records), 'missing': [], 'scope': 'readelf DT_NEEDED closure; no ELF/GPU execution', 'files': records}
+
+
+def write(root, name, data, mode=0o644):
+    path = root/name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data); path.chmod(mode)
+
+
+def build(args):
+    profile = json.loads((REPO/'manifests/ps4-wayland-suite.json').read_text())
+    root, snapshot = args.root.resolve(strict=True), args.snapshot.resolve(strict=True)
+    verify(snapshot/'SHA256SUMS', profile['snapshot_sums_sha256'])
+    loaded = json.loads((root/'etc/psx-diagnostics/boot-set.json').read_text())
+    if (loaded.get('kernel_release') != profile['kernel_release']
+            or loaded.get('mesa_manifest_sha256') != profile['mesa_manifest_sha256']):
+        raise ValueError('Staged root differs from the target PS4 kernel/Mesa profile')
+    output = args.output.resolve(); output.mkdir(parents=True, exist_ok=False)
+    suite = output/'suite'; suite.mkdir()
+    signatures = {}
+    for provider in profile['providers']:
+        if provider['source'] == 'official-archive':
+            archive = args.cache/provider['archive']
+            acquire(archive, provider['url'], provider['sha256'], provider['bytes'], args.fetch)
+            acquire(archive.with_name(archive.name+'.sig'), provider['url']+'.sig', provider['signature_sha256'], fetch=args.fetch)
+            signatures[provider['package']] = signature(archive, provider['signature_sha256'],
+                root/'usr/share/pacman/keyrings/archlinux.gpg')
+        else:
+            archive = snapshot/'repo'/provider['archive']
+            verify(archive, provider['sha256'], provider['bytes'])
+        for member in provider['members']:
+            data = extract(archive, member['member'])
+            if len(data) != member['bytes'] or sha(data) != member['sha256']:
+                raise ValueError('Extracted provider file differs from its pin')
+            write(suite, member['path'], data, int(member['mode'], 8))
+    compile_dir = output/'compile'; compile_dir.mkdir()
+    protocol = profile['protocol']; archive = snapshot/'repo'/protocol['archive']
+    verify(archive, protocol['sha256'])
+    xml = extract(archive, protocol['member'])
+    if sha(xml) != protocol['member_sha256']: raise ValueError('xdg-shell protocol differs')
+    protocol_path = compile_dir/'xdg-shell.xml'; protocol_path.write_bytes(xml)
+    for action, name in (('client-header', 'xdg-shell-client-protocol.h'), ('private-code', 'xdg-shell-protocol.c')):
+        subprocess.run(['wayland-scanner', action, str(protocol_path), str(compile_dir/name)], check=True, timeout=10)
+    source = REPO/'diagnostics/ps4/wayland/native-egl.c'
+    options = shlex.split(subprocess.run(['pkg-config', '--cflags', '--libs', 'wayland-client', 'wayland-egl', 'egl', 'glesv2'],
+                                         check=True, capture_output=True, text=True).stdout)
+    command = ['cc', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-march=x86-64', '-mtune=generic',
+               '-I'+str(compile_dir), str(source), str(compile_dir/'xdg-shell-protocol.c'), '-o', str(suite/'bin/psx-wayland-egl'), *options]
+    subprocess.run(command, check=True, timeout=30, env=dict(os.environ, TMPDIR=str(compile_dir)))
+    (suite/'bin/psx-wayland-egl').chmod(0o755)
+    write(suite, 'sources/native-egl.c', source.read_bytes())
+    write(suite, 'sources/xdg-shell.xml', xml)
+    write(suite, 'licenses/psx-diagnostics-MIT.txt', (REPO/'diagnostics/LICENSE').read_bytes())
+    write(suite, 'runtime.py', (REPO/'diagnostics/ps4/wayland/runtime.py').read_bytes(), 0o755)
+    for name in ('compositor-exec', 'client-exec', 'client-driver-exec'):
+        write(suite, name, (REPO/'rootfs/ps4-wayland'/name).read_bytes(), 0o755)
+    audit = dependency_audit(suite, root)
+    files = {str(path.relative_to(suite)): {'sha256': digest(path), 'bytes': path.stat().st_size,
+              'mode': f'{stat.S_IMODE(path.stat().st_mode):04o}'} for path in sorted(suite.rglob('*')) if path.is_file()}
+    total = sum(item['bytes'] for item in files.values())
+    if total > profile['maximum_unpacked_bytes']: raise ValueError('Wayland suite exceeds its RAM budget')
+    manifest = dict(profile, files=files, package_signature_fingerprints=signatures,
+                    dependency_audit=audit, compiler_command=command, suite_regular_bytes=total)
+    receipt = (json.dumps(manifest, indent=2)+'\n').encode()
+    if total+len(receipt) > profile['maximum_unpacked_bytes']:
+        raise ValueError('Wayland suite and receipt exceed the RAM budget')
+    write(suite, 'suite.json', receipt)
+    runtime = load('psx_wayland_build_verifier', REPO/'diagnostics/ps4/wayland/runtime.py')
+    runtime.verify_tree(suite)
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode='w', format=tarfile.USTAR_FORMAT) as tar:
+        for path in sorted(suite.rglob('*')):
+            if not path.is_file(): continue
+            data = path.read_bytes(); info = tarfile.TarInfo(str(path.relative_to(suite)))
+            info.size = len(data); info.mode = stat.S_IMODE(path.stat().st_mode); info.mtime = 1792195200
+            tar.addfile(info, io.BytesIO(data))
+    packed = gzip.compress(raw.getvalue(), compresslevel=9, mtime=0)
+    if len(packed) > profile['maximum_archive_bytes']: raise ValueError('Wayland archive exceeds budget')
+    archive = output/'psx-wayland-suite.tar.gz'; archive.write_bytes(packed)
+    launcher = output/'launch-wayland'
+    launcher.write_bytes((REPO/'rootfs/ps4-wayland/launch-wayland').read_bytes()); launcher.chmod(0o755)
+    plan = {'status': 'PASS', 'profile': profile['profile'], 'archive_bytes': len(packed), 'archive_sha256': sha(packed),
+            'launcher_bytes': launcher.stat().st_size, 'launcher_sha256': digest(launcher), 'suite_regular_bytes': total,
+            'dependency_elf_files': audit['elf_files'], 'hardware_acceptance': False, 'hardware_run': False}
+    if args.base_boot_set:
+        stage = load('psx_wayland_stage', REPO/'scripts/stage-ps4-diagnostics-usb')
+        base = args.base_boot_set.resolve(strict=True); base_files, _ = stage.source_files(base)
+        size = sum((base/name).stat().st_size for name in base_files)+(base/'SHA256SUMS').stat().st_size
+        projected = size+len(packed)+launcher.stat().st_size+1024**2
+        plan.update(base_boot_set_bytes=size, conservative_complete_os_bytes=projected,
+                    maximum_complete_os_bytes=profile['maximum_complete_os_bytes'], fits_core=projected<=profile['maximum_complete_os_bytes'])
+        if not plan['fits_core']: plan['status'] = 'OPTIONAL-ONLY'
+    (output/'build-receipt.json').write_text(json.dumps(plan, indent=2)+'\n')
+    return plan
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--snapshot', type=Path, required=True)
+    parser.add_argument('--cache', type=Path, default=REPO/'cache/ps4-wayland')
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--base-boot-set', type=Path)
+    parser.add_argument('--fetch', action='store_true')
+    print(json.dumps(build(parser.parse_args()), indent=2))
+
+
+if __name__ == '__main__':
+    try: main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        raise SystemExit('Wayland suite build: '+str(error))

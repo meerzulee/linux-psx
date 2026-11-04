@@ -1,0 +1,17 @@
+[connection]
+id=psx-wired
+uuid=cc5a17a7-2026-4404-a418-7bdad2909d38
+type=ethernet
+interface-name=psx0
+autoconnect=true
+autoconnect-retries=1
+
+[ethernet]
+cloned-mac-address=permanent
+
+[ipv4]
+method=auto
+dhcp-timeout=30
+
+[ipv6]
+method=auto

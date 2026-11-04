@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+set -eu
+case "${PSX_WAYLAND_SUITE:-}" in /run/psx-wayland/suite) ;; *) exit 2 ;; esac
+unset DISPLAY
+exec /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+    --runtime-dir /run/psx-mesa/0 \
+    --expected-manifest-sha256 687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964 \
+    -- "$PSX_WAYLAND_SUITE/client-driver-exec"

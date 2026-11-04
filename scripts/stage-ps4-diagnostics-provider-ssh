@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Plan or stage the one pinned optional Chromium provider over strict SSH.
+
+Streams to the existing identified USB; never changes boot files, mounts or
+launches anything. Different existing files are refused; partials are retained.
+"""
+import argparse
+import ctypes
+import hashlib
+import importlib.machinery
+import importlib.util
+import inspect
+import json
+import os
+from pathlib import Path
+import re
+import select
+import shlex
+import signal
+import stat
+import sys
+import time
+import uuid
+
+loader = importlib.machinery.SourceFileLoader("psx_provider_ssh_base", str(Path(__file__).with_name("update-ps4-diagnostics-frontend-ssh")))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+BASE = importlib.util.module_from_spec(spec); sys.modules[spec.name] = BASE; loader.exec_module(BASE)
+RemoteUSB = BASE.RemoteUSB
+IMAGE = "chromium-151.0.7922.169-psx1.ext4"
+SIZE = 402653184
+FILES = (IMAGE, "chromium-provider.json", "provider-manifest.json")
+PREFIX = "psx-diagnostics/providers/"
+CHUNK = 1024 * 1024
+
+
+def stream_hash(stream):
+    total = 0; digest = hashlib.sha256()
+    while data := stream.read(CHUNK): total += len(data); digest.update(data)
+    return {"bytes": total, "sha256": digest.hexdigest()}
+
+
+def source_files(source):
+    streams = {}
+    try:
+        for name in FILES:
+            fd = os.open(source / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            stream = os.fdopen(fd, "rb"); streams[name] = stream
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_size > (SIZE if name == IMAGE else 65536):
+                raise ValueError("Provider input is not a bounded regular file")
+        metadata = json.load(streams["provider-manifest.json"])
+        config = json.load(streams["chromium-provider.json"])
+        if (not isinstance(metadata, dict) or not isinstance(config, dict)
+                or metadata.get("provider_id") != "chromium-151.0.7922.169-psx1" or metadata.get("image") != IMAGE
+                or metadata.get("image_bytes") != SIZE or metadata.get("hardware_acceptance") is not False
+                or config != metadata.get("launcher_config") or config.get("schema_version") != 1
+                or config.get("provider_manifest_sha256") != metadata.get("provider_manifest_sha256")
+                or not re.fullmatch(r"[a-f0-9]{64}", str(metadata.get("provider_manifest_sha256", "")))):
+            raise ValueError("Provider manifest/config do not identify the fixed candidate")
+        facts = {}
+        for name, stream in streams.items(): stream.seek(0); facts[name] = stream_hash(stream); stream.seek(0)
+        if facts[IMAGE] != {"bytes": SIZE, "sha256": metadata.get("image_sha256")}:
+            raise ValueError("Provider image differs from its size/SHA256 pin")
+        return streams, facts
+    except BaseException:
+        for stream in streams.values(): stream.close()
+        raise
+
+
+class ProviderUSB(RemoteUSB):
+    partial = None
+
+    def recheck(self):
+        identity, device = self.identify()
+        if identity != self.expected or device != self.device or os.fstat(self.fd).st_dev != device:
+            raise ValueError("USB identity changed; preserve partials")
+
+    def hashed(self, name, directory=None):
+        owned = directory is None
+        try:
+            if owned: directory, leaf = self.parent(PREFIX + name)
+            else: leaf = name
+            fd = os.open(leaf, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+            with os.fdopen(fd, "rb") as stream:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode) or info.st_dev != self.device or info.st_size > SIZE:
+                    raise ValueError("Provider path is not a contained bounded regular file")
+                facts = stream_hash(stream)
+                if facts["bytes"] != info.st_size: raise ValueError("Provider changed during readback")
+                return facts
+        except FileNotFoundError: return None
+        finally:
+            if owned and directory is not None: os.close(directory)
+
+    def inspect_provider(self, files):
+        if set(files) != set(FILES): raise ValueError("Only the fixed image and two sidecars may be staged")
+        directory, _ = self.parent("psx-diagnostics/anchor"); os.close(directory)
+        for name, facts in files.items():
+            if (not isinstance(facts, dict) or not re.fullmatch(r"[a-f0-9]{64}", str(facts.get("sha256", "")))
+                    or not isinstance(facts.get("bytes"), int) or not 0 < facts["bytes"] <= (SIZE if name == IMAGE else 65536)
+                    or name == IMAGE and facts["bytes"] != SIZE):
+                raise ValueError("Invalid provider transfer contract")
+        self.recheck()
+        current = {name: self.hashed(name) for name in FILES}
+        if any(value is not None and value != files[name] for name, value in current.items()):
+            raise ValueError("Different existing provider bytes; no overwrite is permitted")
+        return [name for name in FILES if current[name] is None]
+
+    def create_directory(self):
+        self.recheck()
+        directory, _ = self.parent("psx-diagnostics/anchor")
+        try:
+            try: os.mkdir("providers", 0o700, dir_fd=directory)
+            except FileExistsError: pass
+            os.fsync(directory)
+        finally: os.close(directory)
+        directory, _ = self.parent(PREFIX + "anchor"); os.close(directory)
+
+    def store(self, name, expected, stream, announce=lambda value: None):
+        if name not in FILES: raise ValueError("Unallowlisted provider file")
+        self.recheck()
+        directory, leaf = self.parent(PREFIX + name)
+        staged = "." + leaf + "." + uuid.uuid4().hex + ".partial"
+        try:
+            fd = os.open(staged, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+            self.partial = PREFIX + staged
+            with os.fdopen(fd, "wb") as target:
+                remaining = expected["bytes"]
+                try:
+                    announce({"status": "READY", "name": name, "partial": self.partial})
+                    while remaining:
+                        chunk = stream.read(min(CHUNK, remaining))
+                        if not chunk: raise ValueError("Incomplete provider transfer; partial retained")
+                        target.write(chunk); remaining -= len(chunk)
+                finally: target.flush(); os.fsync(target.fileno()); os.fsync(directory)
+            if self.hashed(staged, directory) != expected: raise ValueError("Provider full readback differs; partial retained")
+            self.recheck()
+            rename = ctypes.CDLL(None, use_errno=True).renameat2
+            rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+            if rename(directory, staged.encode(), directory, leaf.encode(), 1) != 0:
+                raise OSError(ctypes.get_errno(), "Atomic no-overwrite publication refused; partial retained")
+            os.fsync(directory); self.partial = None
+            if self.hashed(leaf, directory) != expected: raise ValueError("Published provider readback differs")
+            self.recheck()
+        finally: os.close(directory)
+
+
+def provider_main():
+    usb = None
+    def receive():
+        raw = sys.stdin.buffer.readline(65537)
+        if len(raw) > 65536 or not raw.endswith(b"\n"): raise ValueError("Invalid provider request")
+        return json.loads(raw)
+    def say(value): print(json.dumps(value), flush=True)
+    def interrupted(*_): raise RuntimeError("Provider transfer interrupted")
+    signal.signal(signal.SIGHUP, interrupted); signal.signal(signal.SIGTERM, interrupted)
+    try:
+        request = receive()
+        with ProviderUSB(request["identity"]) as usb:
+            files = request["files"]; missing = usb.inspect_provider(files)
+            say({"status": "INSPECTED", "identity": usb.identity, "missing": missing})
+            action = receive().get("operation")
+            if action == "finish": return
+            if action != "stage": raise ValueError("Invalid provider transaction phase")
+            missing = usb.inspect_provider(files)
+            if missing: usb.create_directory()
+            for name in missing:
+                usb.store(name, files[name], sys.stdin.buffer, say)
+                say({"status": "STAGED", "name": name})
+            if usb.inspect_provider(files): raise ValueError("Provider publication remains incomplete")
+            say({"status": "PASS", "verified_readback": True, "files": files})
+    except Exception as error:
+        say({"status": "ERROR", "error": str(error) + "; partial=" + str(usb.partial if usb else None), "rollback": "not-needed"})
+
+
+def provider_program():
+    code = BASE.remote_program().rsplit("\nremote_main()\n", 1)[0]
+    constants = "\n".join(name + " = " + repr(globals()[name]) for name in ("IMAGE", "SIZE", "FILES", "PREFIX", "CHUNK"))
+    return code + "\nimport ctypes, re\n" + constants + "\n" + "\n".join(inspect.getsource(x) for x in (stream_hash, ProviderUSB, provider_main)) + "\nprovider_main()\n"
+
+
+class Session(BASE.SSHSession):
+    def __init__(self, args):
+        super().__init__(args)
+        self.command[-1] = "python3 -u -c " + shlex.quote(provider_program())
+
+    def upload(self, stream, size):
+        fd = self.process.stdin.fileno(); os.set_blocking(fd, False)
+        remaining = size; deadline = time.monotonic() + 900
+        try:
+            while remaining:
+                data = stream.read(min(CHUNK, remaining))
+                if not data: raise ValueError("Local provider input ended early")
+                pending = memoryview(data)
+                while pending:
+                    timeout = deadline - time.monotonic()
+                    if timeout <= 0 or not select.select([], [fd], [], timeout)[1]: raise TimeoutError("Provider upload exceeded 900 seconds")
+                    try: written = os.write(fd, pending)
+                    except BlockingIOError: continue
+                    if not written: raise OSError("SSH input closed")
+                    pending = pending[written:]
+                remaining -= len(data)
+        finally: os.set_blocking(fd, True)
+
+
+def stage(args, session_factory=Session):
+    source = args.source.resolve(strict=True); receipt = args.receipt.resolve()
+    if receipt.is_relative_to(source) or receipt.exists(): raise ValueError("Use a new receipt outside the provider source")
+    streams, files = source_files(source)
+    report = {"apply": args.apply, "source": str(source), "files": files, "hardware_acceptance": False}
+    def save():
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        temporary = receipt.with_name(receipt.name + ".tmp-" + uuid.uuid4().hex)
+        with temporary.open("x") as target:
+            json.dump(report, target, indent=2); target.write("\n"); target.flush(); os.fsync(target.fileno())
+        os.replace(temporary, receipt)
+        directory = os.open(receipt.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try: os.fsync(directory)
+        finally: os.close(directory)
+    try:
+        identity = {"serial": args.expect_serial, "bytes": args.expect_bytes, "uuid": args.expect_uuid}
+        report["target"] = identity
+        with session_factory(args) as session:
+            session.send({"identity": identity, "files": files})
+            observed = session.receive()
+            if observed.get("status") != "INSPECTED" or observed.get("identity") != identity: raise ValueError("USB inspection differs")
+            report.update(status="PLAN", missing=observed["missing"])
+            if not args.apply: session.send({"operation": "finish"}); return report
+            report["status"] = "STAGING"; save(); session.send({"operation": "stage"})
+            while True:
+                result = session.receive(timeout=900)
+                if result.get("status") == "READY":
+                    name = result["name"]
+                    if name not in FILES: raise ValueError("Unexpected remote transfer request")
+                    report.update(remote_partial=result["partial"], transferring=name); save()
+                    streams[name].seek(0); session.upload(streams[name], files[name]["bytes"])
+                elif result.get("status") == "STAGED": report.setdefault("staged", []).append(result["name"]); save()
+                elif result.get("status") == "PASS" and result.get("files") == files and result.get("verified_readback") is True:
+                    report.update(result); report["remote_partial"] = None; save(); return report
+                else: raise ValueError("Provider acknowledgement differs")
+    except Exception as error:
+        if args.apply: report.update(status="ERROR", error=str(error)); save()
+        raise
+    finally:
+        for stream in streams.values(): stream.close()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("source", "identity", "known-hosts", "receipt"): parser.add_argument("--" + name, type=Path, required=True)
+    for name in ("host", "host-key-alias", "expect-serial", "expect-uuid"): parser.add_argument("--" + name, required=True)
+    parser.add_argument("--port", type=int, default=22); parser.add_argument("--expect-bytes", type=int, required=True)
+    parser.add_argument("--apply", action="store_true")
+    print(json.dumps(stage(parser.parse_args()), indent=2))
+
+
+if __name__ == "__main__":
+    try: main()
+    except (OSError, ValueError, KeyError, TypeError) as error: raise SystemExit("Provider SSH staging: " + str(error))

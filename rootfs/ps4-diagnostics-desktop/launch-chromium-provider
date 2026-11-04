@@ -1,0 +1,118 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Launch the fixed optional Chromium comparison as psx; never mount a provider."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import stat
+import sys
+import tempfile
+
+PROVIDER = Path("/run/psx-chromium")
+CONFIG = Path("/etc/psx-diagnostics/chromium-provider.json")
+COOKIE = Path("/run/psx-graphics-user/Xauthority")
+PROFILE = Path("/home/psx/.local/share/psx-diagnostics/chromium")
+CACHE = Path("/home/psx/.cache/psx-diagnostics/chromium")
+FLAGS = ["--ozone-platform=x11", "--use-gl=angle", "--use-angle=gl",
+         "--disable-features=Vulkan,VulkanFromANGLE", "--disable-background-networking",
+         "--disable-component-update", "--no-first-run", "--no-default-browser-check", "--lang=en-US", "--kiosk"]
+LAB = "http://127.0.0.1:8080/lab"
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""): value.update(chunk)
+    return value.hexdigest()
+
+
+def mounted_readonly_exec(text):
+    found = []
+    for line in text.splitlines():
+        before, separator, after = line.partition(" - ")
+        fields = before.split(); filesystem = after.split()
+        if separator and len(fields) >= 6 and fields[4] == str(PROVIDER):
+            options = set(fields[5].split(","))
+            found.append(bool(filesystem and filesystem[0] == "ext4" and
+                              {"ro", "nosuid", "nodev"} <= options and "noexec" not in options))
+    return len(found) == 1 and found[0]
+
+
+def root_json(path):
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022 or info.st_size > 1024 * 1024:
+        raise ValueError("Expected bounded root-owned read-only configuration: " + str(path))
+    value = json.loads(path.read_text())
+    if not isinstance(value, dict): raise ValueError("Configuration must be an object")
+    return value
+
+
+def command(provider, mesa_pin, profile=PROFILE):
+    if provider.get("browser_flags") != FLAGS or provider.get("lab_url") != LAB or provider.get("kernel_release") != RELEASE:
+        raise ValueError("Provider does not match the fixed browser comparison")
+    return ["/usr/bin/python3", "/opt/psx-mesa-tools/with-mesa.py", "--root", "/opt/psx-mesa",
+            "--runtime-dir", "/run/psx-mesa/1000", "--expected-manifest-sha256", mesa_pin, "--",
+            "/usr/bin/env", "LD_LIBRARY_PATH=/opt/psx-mesa/usr/lib:/run/psx-chromium/usr/lib",
+            str(PROVIDER / "usr/lib/chromium/chromium"), *FLAGS,
+            "--user-data-dir=" + str(profile), "--disk-cache-dir=" + str(CACHE),
+            "--disk-cache-size=16777216", LAB]
+
+
+def fresh_profile(parent=PROFILE):
+    path = Path(tempfile.mkdtemp(prefix='session-', dir=parent))
+    path.chmod(0o700)
+    return path
+
+
+def main():
+    if len(sys.argv) != 1 or os.geteuid() != 1000 or pwd.getpwuid(1000).pw_name != "psx" or os.uname().release != RELEASE:
+        raise ValueError("This fixed launcher requires the psx user on the selected diagnostic kernel")
+    if not mounted_readonly_exec(Path("/proc/self/mountinfo").read_text()):
+        raise ValueError("Provider must be a separately verified ext4 ro,nosuid,nodev,exec mount")
+    config = root_json(CONFIG)
+    provider = root_json(PROVIDER / "PROVIDER.json")
+    if config.get("schema_version") != 1 or digest(PROVIDER / "PROVIDER.json") != config.get("provider_manifest_sha256"):
+        raise ValueError("Mounted provider differs from the root-selected manifest")
+    expected = {item["path"]: item for item in provider["files"]}
+    for relative in ("usr/lib/chromium/chromium", "usr/lib/chromium/chrome-sandbox", "usr/lib/chromium/chrome_crashpad_handler"):
+        path = PROVIDER / relative
+        if path.is_symlink() or digest(path) != expected[relative]["sha256"]:
+            raise ValueError("Chromium executable differs from the pinned provider")
+    cookie = COOKIE.lstat()
+    if not stat.S_ISREG(cookie.st_mode) or cookie.st_uid != 1000 or cookie.st_mode & 0o077 or not os.access(COOKIE, os.R_OK):
+        raise ValueError("The existing psx graphical-session cookie is unavailable")
+    if int(Path("/proc/sys/user/max_user_namespaces").read_text()) <= 0:
+        raise ValueError("Namespace sandbox is unavailable; no unsandboxed fallback")
+    clone = Path("/proc/sys/kernel/unprivileged_userns_clone")
+    if clone.exists() and clone.read_text().strip() != "1":
+        raise ValueError("Unprivileged user namespaces are disabled")
+    boot = root_json(Path("/etc/psx-diagnostics/boot-set.json"))
+    mesa_pin = provider["mesa_manifest_sha256"]
+    if boot.get("mesa_manifest_sha256") != mesa_pin:
+        raise ValueError("Browser comparison requires the same pinned Mesa as the diagnostic root")
+    for directory in (PROFILE, CACHE):
+        directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+        if directory.is_symlink() or directory.stat().st_uid != 1000:
+            raise ValueError("Browser RAM profile is not owned by psx")
+        directory.chmod(0o700)
+    profile = fresh_profile()
+    argv = command(provider, mesa_pin, profile)
+    environment = dict(os.environ, HOME="/home/psx", USER="psx", LOGNAME="psx", DISPLAY=":0",
+                       XAUTHORITY=str(COOKIE), XDG_RUNTIME_DIR="/run/user/1000", LANG="C.UTF-8", LC_ALL="C.UTF-8")
+    for name in ("WAYLAND_DISPLAY", "CHROME_DEVEL_SANDBOX", "CHROME_FLAGS", "CHROMIUM_FLAGS", "LD_PRELOAD", "LD_AUDIT"):
+        environment.pop(name, None)
+    receipt = Path("/run/user/1000/psx-chromium-launch.json")
+    receipt.write_text(json.dumps({"provider_id": provider["provider_id"], "kernel_release": RELEASE,
+        "provider_manifest_sha256": config["provider_manifest_sha256"], "browser_binary_sha256": expected["usr/lib/chromium/chromium"]["sha256"],
+        "argv": argv, "display": ":0", "uid": 1000, "sandbox_requested": "namespace + seccomp; verify chrome://sandbox",
+        "hardware_acceptance": False}, indent=2) + "\n")
+    os.execve(argv[0], argv, environment)
+
+
+if __name__ == "__main__":
+    try: main()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise SystemExit("Chromium comparison: " + str(error))

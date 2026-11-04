@@ -1,0 +1,120 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""One explicit native Ethernet publication and a managed DHCP connection."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
+PARAMETERS = Path("/sys/module/psx_mts_net/parameters")
+
+
+def fresh(report):
+    return (report.get("bound") == 1 and report.get("allowed") == 0
+            and report.get("attempted") == 0 and report.get("published") == 0
+            and report.get("terminal_fault") == 0 and report.get("admin_up") == 0)
+
+
+def healthy(report):
+    return (report.get("bound") == 1 and report.get("published") == 1
+            and report.get("engine_live") == 1 and report.get("terminal_fault") == 0
+            and report.get("admin_up") == 1)
+
+
+def command(args, timeout=15):
+    return subprocess.run(args, check=True, text=True, capture_output=True, timeout=timeout).stdout
+
+
+def report():
+    value = json.loads((PARAMETERS / "report").read_text())
+    if value.get("initializing_or_going"):
+        raise RuntimeError("MTS module is not LIVE")
+    return value
+
+
+def addresses():
+    return json.loads(command(["ip", "-json", "-4", "address", "show", "dev", "psx0"]))
+
+
+def connected():
+    return any(a.get("scope") == "global" for link in addresses() for a in link.get("addr_info", []))
+
+
+def service_active():
+    return subprocess.run(["systemctl", "is-active", "--quiet", "psx-dhcp.service"],
+                          capture_output=True, timeout=5, check=False).returncode == 0
+
+
+def main():
+    if len(sys.argv) != 1 or os.geteuid() != 0 or os.uname().release != RELEASE:
+        raise RuntimeError("helper requires root, no arguments and the exact native diagnostic release")
+    command(["modprobe", "psx_mts_net"])
+    if (PARAMETERS / "autoarm").read_text().strip().lower() not in ("0", "n", "no"):
+        raise RuntimeError("this helper is only for the explicit autoarm=0 inventory profile")
+    before = report()
+    if before.get("terminal_fault"):
+        raise RuntimeError("terminal MTS state: no reset, retry or rearm")
+    if not before.get("published"):
+        if not fresh(before):
+            raise RuntimeError("not a fresh first-publication state")
+        (PARAMETERS / "allow_open").write_text("1\n")
+        command(["ip", "link", "set", "dev", "psx0", "up"])
+    elif not healthy(before):
+        raise RuntimeError("existing publication is not healthy; preserve it and stop")
+    current = report()
+    if not healthy(current):
+        raise RuntimeError("first open did not establish a healthy retained generation")
+    generation = hashlib.sha256(json.dumps(current.get("dma"), sort_keys=True).encode()).hexdigest()
+    deadline = time.monotonic() + 15
+    while not current.get("carrier") and time.monotonic() < deadline:
+        time.sleep(0.25)
+        current = report()
+        if not healthy(current):
+            raise RuntimeError("MTS stopped while waiting for carrier")
+    if not current.get("carrier"):
+        raise RuntimeError("no carrier within 15 seconds; retained generation remains loaded")
+    if not connected():
+        receipt = Path("/run/psx-mts-dhcp-attempt.json")
+        marker = {"generation": generation, "carrier_changes": current.get("carrier_changes")}
+        if receipt.exists() and json.loads(receipt.read_text()) == marker:
+            raise RuntimeError("unchanged failed DHCP attempt; inspect evidence before retrying")
+        receipt.write_text(json.dumps(marker))
+        command(["systemctl", "start", "psx-dhcp.service"])
+        deadline = time.monotonic() + 40
+        while not connected() and time.monotonic() < deadline:
+            if not service_active():
+                raise RuntimeError("DHCP service stopped before obtaining an address")
+            if not healthy(report()):
+                raise RuntimeError("MTS stopped during DHCP")
+            time.sleep(0.25)
+    final = report()
+    if (not healthy(final) or not connected()
+            or hashlib.sha256(json.dumps(final.get("dma"), sort_keys=True).encode()).hexdigest() != generation):
+        raise RuntimeError("addressing or retained driver state failed")
+    routes = json.loads(command(["ip", "-json", "-4", "route", "show", "default", "dev", "psx0"]))
+    if not routes:
+        raise RuntimeError("no default IPv4 route on psx0")
+    print(json.dumps({"interface": "psx0", "published": 1, "generation": generation,
+                      "carrier": final["carrier"], "address_present": True,
+                      "default_route_present": True,
+                      "lease_service": "psx-dhcp.service" if service_active() else None,
+                      "hardware_acceptance": False}))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        for stream in (getattr(error, "stdout", None), getattr(error, "stderr", None)):
+            if stream:
+                print(stream.decode(errors="replace") if isinstance(stream, bytes) else stream,
+                      file=sys.stderr)
+        log = Path("/run/psx-dhcp.log")
+        if log.is_file():
+            print(log.read_text(errors="replace")[-16000:], file=sys.stderr)
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1)

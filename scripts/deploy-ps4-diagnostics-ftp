@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Update only receipt-owned diagnostic USB files through Orbis FTP.
+
+Default is a read-only plan. --apply saves and verifies local rollback copies,
+stages/readbacks changed files, then publishes them. Superseded OS files move
+off the USB only after the new set verifies; results and SSH state are retained.
+"""
+import argparse
+import ftplib
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import sys
+import time
+import uuid
+
+HERE = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader("psx_usb_staging", str(HERE / "stage-ps4-diagnostics-usb"))
+spec = importlib.util.spec_from_loader("psx_usb_staging", loader)
+STAGE = importlib.util.module_from_spec(spec)
+loader.exec_module(STAGE)
+
+
+def listed(ftp, directory):
+    ftp.cwd(directory)
+    return {PurePosixPath(value).name for value in ftp.nlst()} - {".", ".."}
+
+
+def exists(ftp, path):
+    parent = str(PurePosixPath(path).parent)
+    try:
+        return PurePosixPath(path).name in listed(ftp, parent)
+    except ftplib.error_perm as error:
+        if str(error).startswith("550") and parent != "/" and not exists(ftp, parent):
+            return False
+        raise
+
+
+def make_dirs(ftp, path):
+    current = ""
+    for part in PurePosixPath(path).parts[1:]:
+        parent = current or "/"
+        current += "/" + part
+        if part not in listed(ftp, parent):
+            ftp.mkd(current)
+
+
+def read_file(ftp, path, destination=None, maximum=4 * 1024**3, collect=False):
+    checksum, size, pieces = hashlib.sha256(), 0, []
+    def block(data):
+        nonlocal size
+        size += len(data)
+        if size > maximum:
+            raise ValueError("remote file exceeded its size bound")
+        checksum.update(data)
+        if destination:
+            destination.write(data)
+        if collect:
+            pieces.append(data)
+    ftp.retrbinary("RETR " + path, block, blocksize=256 * 1024)
+    return size, checksum.hexdigest(), b"".join(pieces)
+
+
+def remote_json(ftp, path):
+    return json.loads(read_file(ftp, path, maximum=1024 * 1024, collect=True)[2])
+
+
+def verify_receipt(receipt, serial, capacity, usb_uuid):
+    if (receipt.get("owner") != "psx-diagnostics-usb-v1"
+            or receipt.get("verified_readback") is not True
+            or receipt.get("hardware_acceptance") is not False
+            or receipt.get("target", {}).get("serial") != serial
+            or receipt["target"].get("bytes") != capacity
+            or receipt["target"].get("uuid") != usb_uuid
+            or not isinstance(receipt.get("files"), dict)):
+        raise ValueError("remote receipt does not identify the selected diagnostic USB")
+    for name, pin in receipt["files"].items():
+        if STAGE.safe_name(name) != name or (name not in ("bzImage", "initramfs.cpio.gz", "bootargs.txt", "vram.txt")
+                and not name.startswith("psx-diagnostics/")):
+            raise ValueError("previous receipt has an unrelated path")
+        if not isinstance(pin, str) or len(pin) != 64 or any(c not in "0123456789abcdef" for c in pin):
+            raise ValueError("invalid previous file checksum")
+        if (name in ("psx-diagnostics/installed.json", "psx-diagnostics/USB-SHA256SUMS")
+                or name.startswith(("psx-diagnostics/results/", "psx-diagnostics/state/", "psx-diagnostics/backups/"))):
+            raise ValueError("mutable USB state must not be an owned OS payload")
+
+
+def rollback(ftp, root, staging, previous, expected, backup, journal):
+    """Restore only bytes belonging to either verified set; reject ambiguity."""
+    for name in reversed(list(expected)):
+        path = root + "/" + name
+        if not exists(ftp, path):
+            continue
+        actual = read_file(ftp, path)[1]
+        if actual == previous["files"].get(name):
+            continue
+        if actual != expected[name]:
+            raise ValueError("rollback found unexpected bytes; manual recovery needed: " + name)
+        ftp.delete(path)
+        journal("rollback_remove_new", name=name)
+    for name, pin in previous["files"].items():
+        path = root + "/" + name
+        if exists(ftp, path):
+            if read_file(ftp, path)[1] != pin:
+                raise ValueError("rollback destination differs: " + name)
+            continue
+        saved = staging + "/old/" + name
+        make_dirs(ftp, str(PurePosixPath(path).parent))
+        if exists(ftp, saved):
+            if read_file(ftp, saved)[1] != pin:
+                raise ValueError("rollback staging bytes differ: " + name)
+            ftp.rename(saved, path)
+        else:
+            local = backup / name
+            if STAGE.digest(local) != pin:
+                raise ValueError("rollback local backup differs: " + name)
+            with local.open("rb") as stream:
+                ftp.storbinary("STOR " + path, stream, blocksize=256 * 1024)
+        if read_file(ftp, path)[1] != pin:
+            raise ValueError("rollback readback differs: " + name)
+        journal("rollback_restore_old", name=name)
+    for name in ("installed.json", "USB-SHA256SUMS"):
+        data = (backup / name).read_bytes()
+        path = root + "/psx-diagnostics/" + name
+        ftp.storbinary("STOR " + path, io.BytesIO(data))
+        if read_file(ftp, path, maximum=1024 * 1024, collect=True)[2] != data:
+            raise ValueError("rollback receipt differs")
+    journal("rollback_verified")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", type=int, default=2121)
+    parser.add_argument("--remote-root", choices=("/mnt/usb0", "/mnt/usb1"), default="/mnt/usb0")
+    parser.add_argument("--expect-serial", required=True)
+    parser.add_argument("--expect-bytes", type=int, required=True)
+    parser.add_argument("--expect-uuid", required=True)
+    parser.add_argument("--backup", type=Path, required=True)
+    parser.add_argument("--reuse-verified-backup", action="store_true")
+    parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--apply", action="store_true")
+    args = parser.parse_args()
+    source = args.source.resolve(strict=True)
+    files, metadata = STAGE.source_files(source)
+    template = (source / "bootargs.template.txt").read_text()
+    if template.count("@USB_UUID@") != 1:
+        raise ValueError("one explicit diagnostic USB UUID is required")
+    bootargs = STAGE.render_bootargs(template, args.expect_uuid, metadata)
+    expected = {name: pin for name, pin in files.items() if name != "bootargs.template.txt"}
+    expected["bootargs.txt"] = hashlib.sha256(bootargs).hexdigest()
+    root = args.remote_root
+    with ftplib.FTP(timeout=20) as ftp:
+        ftp.connect(args.host, args.port)
+        ftp.login()
+        previous_bytes = read_file(ftp, root + "/psx-diagnostics/installed.json", maximum=1024 * 1024, collect=True)[2]
+        previous = json.loads(previous_bytes)
+        verify_receipt(previous, args.expect_serial, args.expect_bytes, args.expect_uuid)
+        sums = read_file(ftp, root + "/psx-diagnostics/USB-SHA256SUMS", maximum=1024 * 1024, collect=True)[2].decode()
+        if sums != STAGE.installed_sums(previous["files"]):
+            raise ValueError("remote generated checksum file differs from the old receipt")
+        for name in expected:
+            if name not in previous["files"] and exists(ftp, root + "/" + name):
+                raise ValueError("refusing to replace an unowned USB file: " + name)
+        changed = [name for name in expected if expected[name] != previous["files"].get(name)]
+        obsolete = sorted(set(previous["files"]) - set(expected))
+        plan = {"profile": metadata["profile"], "kernel_release": metadata["kernel_release"],
+                "operation": "update receipt-owned USB OS files; preserve state/results; local rollback backup",
+                "target": previous["target"], "changed_files": changed, "retired_files": obsolete,
+                "source_bytes": sum((source / n).stat().st_size for n in files if n != "bootargs.template.txt") + len(bootargs),
+                "backup": str(args.backup.resolve()), "apply": args.apply,
+                "hardware_acceptance": False, "payload_executed": False}
+        print(json.dumps(plan, indent=2), flush=True)
+        if metadata.get("maximum_boot_set_bytes") is not None and plan["source_bytes"] + 1024**2 > metadata["maximum_boot_set_bytes"]:
+            raise ValueError("complete OS payload plus generated-metadata reserve exceeds cap")
+        if not args.apply:
+            return
+        backup = args.backup.resolve()
+        if args.reuse_verified_backup:
+            if backup.is_symlink() or not backup.is_dir():
+                raise ValueError("verified recovery directory is missing")
+            marker = json.loads((backup / "backup-verified.json").read_text())
+            if (marker.get("status") != "PASS" or marker.get("target") != previous["target"]
+                    or marker.get("files") != previous["files"]
+                    or (backup / "installed.json").read_bytes() != previous_bytes
+                    or (backup / "USB-SHA256SUMS").read_text() != sums):
+                raise ValueError("verified recovery copy belongs to another USB set")
+        else:
+            backup.mkdir(mode=0o700, parents=True, exist_ok=False)
+            (backup / "installed.json").write_bytes(previous_bytes)
+            (backup / "USB-SHA256SUMS").write_text(sums)
+        for name, pin in previous["files"].items():
+            path = backup / name
+            if not args.reuse_verified_backup:
+                path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+                with path.open("xb") as output:
+                    _, actual, _ = read_file(ftp, root + "/" + name, output)
+                    output.flush(); os.fsync(output.fileno())
+                if actual != pin:
+                    raise ValueError("old USB file changed: " + name)
+            if path.is_symlink() or not path.resolve().is_relative_to(backup) or STAGE.digest(path) != pin:
+                raise ValueError("old USB file changed or recovery copy failed: " + name)
+            print("BACKUP VERIFIED " + name, flush=True)
+        for name in set(previous["files"]) - set(changed) - set(obsolete):
+            if read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
+                raise ValueError("unchanged USB file drifted before staging: " + name)
+        staging = root + "/.psx-stage-" + uuid.uuid4().hex
+        make_dirs(ftp, staging)
+        published, moved, committed = [], [], False
+        def journal(event, **fields):
+            with (backup / "journal.jsonl").open("a") as output:
+                output.write(json.dumps(dict(event=event, unix=time.time(), **fields)) + "\n")
+                output.flush(); os.fsync(output.fileno())
+        try:
+            for name in changed:
+                target = staging + "/new/" + name
+                make_dirs(ftp, str(PurePosixPath(target).parent))
+                last_progress = time.monotonic()
+                transferred = 0
+                def progress(data):
+                    nonlocal last_progress, transferred
+                    transferred += len(data)
+                    if time.monotonic() - last_progress > 8:
+                        print(f"UPLOADING {name}: {transferred // (1024*1024)} MiB", flush=True)
+                        last_progress = time.monotonic()
+                stream = io.BytesIO(bootargs) if name == "bootargs.txt" else (source / name).open("rb")
+                with stream:
+                    ftp.storbinary("STOR " + target, stream, blocksize=256 * 1024, callback=progress)
+                if read_file(ftp, target)[1] != expected[name]:
+                    raise ValueError("staged USB file differs: " + name)
+                print("STAGED VERIFIED " + name, flush=True)
+            ordered = sorted(n for n in changed if n.startswith("psx-diagnostics/")) + [n for n in ("bzImage", "initramfs.cpio.gz", "vram.txt", "bootargs.txt") if n in changed]
+            for name in ordered + obsolete:
+                if name in previous["files"]:
+                    if read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
+                        raise ValueError("old USB file changed before publication: " + name)
+                    saved = staging + "/old/" + name
+                    make_dirs(ftp, str(PurePosixPath(saved).parent))
+                    journal("before_move_old", name=name)
+                    ftp.rename(root + "/" + name, saved)
+                    moved.append(name)
+                if name in expected:
+                    make_dirs(ftp, str(PurePosixPath(root + "/" + name).parent))
+                    journal("before_publish", name=name)
+                    ftp.rename(staging + "/new/" + name, root + "/" + name)
+                    published.append(name)
+            for name, pin in expected.items():
+                if read_file(ftp, root + "/" + name)[1] != pin:
+                    raise ValueError("published USB readback differs: " + name)
+            marker = dict(previous, profile=metadata["profile"], kernel_release=metadata["kernel_release"],
+                          files=expected, verified_readback=True, staged_unix=time.time(),
+                          hardware_acceptance=False, payload_executed=False,
+                          backup=str(backup), evidence_mode="owner-authorized-ftp-only")
+            for name, data in (("installed.json", (json.dumps(marker, indent=2) + "\n").encode()),
+                               ("USB-SHA256SUMS", STAGE.installed_sums(expected).encode())):
+                path = root + "/psx-diagnostics/" + name
+                ftp.storbinary("STOR " + path, io.BytesIO(data))
+                if read_file(ftp, path, maximum=1024*1024, collect=True)[2] != data:
+                    raise ValueError("generated receipt readback differs")
+            journal("new_set_verified", files=len(expected))
+            committed = True
+            # Only verified, backed-up old bytes are removed from the USB.
+            for name in moved:
+                saved = staging + "/old/" + name
+                if read_file(ftp, saved)[1] != previous["files"][name]:
+                    raise ValueError("old recovery bytes changed; retain staging directory")
+                ftp.delete(saved)
+            result = dict(plan, status="PASS", verified_readback=True, files=expected,
+                          total_os_payload_bytes=plan["source_bytes"], usb_state_preserved=True,
+                          backup_manifest=str(backup / "installed.json"), remote_staging=staging)
+            args.receipt.parent.mkdir(parents=True, exist_ok=True)
+            args.receipt.write_text(json.dumps(result, indent=2) + "\n")
+            journal("update_completed", receipt=str(args.receipt))
+            print("PASS: new diagnostic USB set verified; old OS payload saved on host", flush=True)
+        except Exception as error:
+            journal("update_failed", error=str(error), published=published, moved=moved,
+                    recovery="Local copies and any remote staging files retained; do not launch an incomplete set")
+            if not committed:
+                try:
+                    rollback(ftp, root, staging, previous, expected, backup, journal)
+                    print("Previous USB set restored and verified; new update was not applied", flush=True)
+                except Exception as rollback_error:
+                    journal("rollback_incomplete", error=str(rollback_error), backup=str(backup), staging=staging)
+                    print("STOP: recovery needs review; do not boot. Verified host backup: " + str(backup), file=sys.stderr, flush=True)
+            else:
+                print("New set verified; old-file cleanup needs review. Retaining host backup.", file=sys.stderr, flush=True)
+            raise
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, ftplib.Error) as error:
+        raise SystemExit("diagnostic FTP update: " + str(error))

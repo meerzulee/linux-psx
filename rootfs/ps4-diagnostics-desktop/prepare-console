@@ -1,0 +1,218 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Prepare the local diagnostic VT; kernel messages remain available on UART."""
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import stat
+import struct
+import subprocess
+import sys
+
+KDGETMODE = 0x4B3B
+GIO_CMAP = 0x4B70
+PIO_CMAP = 0x4B71
+TIOCLINUX = 0x541C
+TIOCL_SETKMSGREDIRECT = 11
+TIOCL_GETKMSGREDIRECT = 17
+
+# Linux VT palette indices, shared with the Ratatui frontend.
+OLIVE = {0: "20271b", 2: "2e3a25", 3: "4d6036", 7: "bbc5a1",
+         10: "a3b56a", 15: "eef1e5"}
+FONT = 'latarcyrheb-sun32'
+RUNTIME_LIBRARIES = ('libxcb-keysyms.so.1', 'libdisplay-info.so.3', 'libvte-2.91.so.0',
+                     'libgtk-layer-shell.so.0', 'libutempter.so.0')
+
+
+def active_frontend_overrides(root, base_manifest):
+    path = root / 'run/psx-frontend/active-overrides.json'
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    if (not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022
+            or info.st_size > 65536 or path.parent.resolve() != path.parent):
+        raise ValueError('Active frontend receipt must be a bounded, root-owned regular file')
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as stream:
+        opened = os.fstat(stream.fileno())
+        if ((opened.st_dev, opened.st_ino, opened.st_size) != (info.st_dev, info.st_ino, info.st_size)
+                or opened.st_uid != 0 or opened.st_mode & 0o022):
+            raise ValueError('Active frontend receipt changed while opening')
+        data = stream.read(65537)
+    if len(data) > 65536:
+        raise ValueError('Active frontend receipt exceeds its size limit')
+    receipt = json.loads(data)
+    if (not isinstance(receipt, dict)
+            or set(receipt) != {'schema_version', 'boot_id', 'base_manifest_sha256', 'frontend_overrides'}
+            or type(receipt['schema_version']) is not int or receipt['schema_version'] != 1
+            or not isinstance(receipt['frontend_overrides'], dict)):
+        raise ValueError('Active frontend receipt has an unsupported schema')
+    boot_id = (root / 'proc/sys/kernel/random/boot_id').read_text().strip()
+    if (receipt['boot_id'] != boot_id
+            or receipt['base_manifest_sha256'] != hashlib.sha256(base_manifest).hexdigest()):
+        raise ValueError('Active frontend receipt does not bind this boot and loaded manifest')
+    return receipt['frontend_overrides']
+
+
+def register_runtime_libraries(root, manifest, console):
+    directory = root / 'run/psx-frontend'
+    paths = [directory / name for name in RUNTIME_LIBRARIES]
+    if not any(path.exists() or path.is_symlink() for path in paths):
+        return {'applied': False, 'reason': 'No RAM library bundle'}
+    if (directory.is_symlink() or directory.resolve() != directory
+            or stat.S_IMODE(directory.stat().st_mode) != 0o755):
+        raise ValueError('Runtime library directory must be a searchable, fixed RAM path')
+    records = manifest.get('frontend_overrides', {}).get('files', [])
+    for name, path in zip(RUNTIME_LIBRARIES, paths):
+        facts = [item for item in records if item.get('name') == name]
+        if (len(facts) != 1 or facts[0].get('bind_target') is not None
+                or facts[0].get('mode') != '0644' or not path.is_file() or path.is_symlink()):
+            raise ValueError('Missing verified runtime library: ' + name)
+        if (path.stat().st_size > 8*1024**2 or stat.S_IMODE(path.stat().st_mode) != 0o644
+                or facts[0].get('bytes') != path.stat().st_size):
+            raise ValueError('Runtime library size/mode differs from the frontend contract')
+        data = path.read_bytes()
+        if (len(data) < 64 or data[:7] != b'\x7fELF\x02\x01\x01'
+                or struct.unpack_from('<HH', data, 16) != (3, 62)
+                or hashlib.sha256(data).hexdigest() != facts[0].get('sha256')):
+            raise ValueError('Runtime library ELF/checksum differs from the frontend contract')
+    console.library_cache(str(directory))
+    return {'applied': True, 'libraries': list(RUNTIME_LIBRARIES)}
+
+
+class Console:
+    def release(self):
+        return os.uname().release
+
+    def root(self):
+        return os.geteuid() == 0
+
+    def tty(self, fd):
+        return os.ttyname(fd)
+
+    def text_mode(self, fd):
+        value = bytearray(4)
+        fcntl.ioctl(fd, KDGETMODE, value)
+        return int.from_bytes(value, sys.byteorder) == 0
+
+    def library_cache(self, directory):
+        # /etc is writable RAM. -X leaves all read-only system symlinks alone.
+        subprocess.run(['/usr/bin/ldconfig', '-X', directory], stdin=subprocess.DEVNULL,
+                       capture_output=True, timeout=5, check=True)
+
+    def redirect_messages(self, fd):
+        # Raw printk goes to VT11; VT12 shows the full journal without duplicates.
+        # Opening the devices allocates them without switching the active VT.
+        with open('/dev/tty11', 'r+b', buffering=0), open('/dev/tty12', 'r+b', buffering=0):
+            previous = bytearray([TIOCL_GETKMSGREDIRECT])
+            fcntl.ioctl(fd, TIOCLINUX, previous)
+            fcntl.ioctl(fd, TIOCLINUX, bytes([TIOCL_SETKMSGREDIRECT, 11]))
+        return previous[0]
+
+    def hide_systemd_status(self):
+        # The synchronous call prevents a late status line racing the first paint.
+        try:
+            result = subprocess.run([
+                '/usr/bin/busctl', '--timeout=2s', 'call', 'org.freedesktop.systemd1',
+                '/org/freedesktop/systemd1', 'org.freedesktop.systemd1.Manager',
+                'SetShowStatus', 's', 'no'], stdin=subprocess.DEVNULL,
+                capture_output=True, timeout=3)
+            if result.returncode == 0:
+                return
+        except (OSError, subprocess.SubprocessError):
+            pass
+        os.kill(1, signal.SIGRTMIN + 21)
+
+    def log_view(self):
+        active = subprocess.run(['/usr/bin/systemctl', 'is-active', '--quiet',
+                                 'psx-diagnostics-logs.service'], stdin=subprocess.DEVNULL,
+                                capture_output=True, timeout=3)
+        if active.returncode == 0:
+            return
+        subprocess.run([
+            '/usr/bin/systemd-run', '--quiet', '--unit=psx-diagnostics-logs', '--collect',
+            '--property=Type=exec', '--property=StandardInput=null',
+            '--property=StandardOutput=tty', '--property=StandardError=journal',
+            '--property=TTYPath=/dev/tty12', '--property=TTYReset=yes', '--',
+            '/usr/bin/journalctl', '--boot', '--follow', '--no-pager',
+            '--output=short-monotonic', '--lines=60'], stdin=subprocess.DEVNULL,
+            capture_output=True, timeout=5, check=True)
+
+    def palette(self, fd):
+        colors = bytearray(48)
+        fcntl.ioctl(fd, GIO_CMAP, colors)
+        for index, value in OLIVE.items():
+            colors[3*index:3*index+3] = bytes.fromhex(value)
+        fcntl.ioctl(fd, PIO_CMAP, colors)
+
+    def font(self, tty):
+        subprocess.run(['/usr/bin/setfont', '-C', tty,
+                        '/usr/share/kbd/consolefonts/' + FONT + '.psfu.gz'],
+                       stdin=subprocess.DEVNULL, capture_output=True, timeout=5,
+                       check=True)
+
+    def clear(self, fd):
+        os.write(fd, b'\x1b[?25l\x1b[0m\x1b[2J\x1b[3J\x1b[H')
+
+    def disable_blanking(self, fd):
+        os.write(fd, b'\x1b[9;0]')
+
+
+def prepare(root_prefix='/', console=None, fd=1):
+    root = Path(root_prefix).resolve()
+    if root != Path('/') and console is None:
+        raise ValueError('Fixture roots require synthetic console operations')
+    console = console or Console()
+    base_manifest = (root / 'etc/psx-diagnostics/boot-set.json').read_bytes()
+    manifest = json.loads(base_manifest)
+    expected = manifest.get('kernel_release', '')
+    if not console.root() or '-psx-ps4-' not in expected or console.release() != expected:
+        raise ValueError('Console setup requires the matching PS4 diagnostic kernel and root')
+    errors = []
+    try:
+        overrides = active_frontend_overrides(root, base_manifest)
+        runtime_manifest = {'frontend_overrides': overrides} if overrides is not None else manifest
+        libraries = register_runtime_libraries(root, runtime_manifest, console)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        libraries = {'applied': False, 'reason': 'RAM library registration failed'}
+        errors.append('runtime_libraries: ' + str(error))
+    tty = console.tty(fd)
+    if not re.fullmatch(r'/dev/tty[1-9][0-9]*', tty) or not console.text_mode(fd):
+        return {'applied': False, 'reason': 'Not a local text virtual terminal',
+                'runtime_libraries': libraries, 'errors': errors}
+    result = {'applied': True, 'tty': tty, 'kernel_messages_vt': 11,
+              'journal_vt': 12, 'theme': 'olive', 'font': FONT, 'errors': errors,
+              'runtime_libraries': libraries}
+    for name, action in (
+            ('kernel_messages', lambda: console.redirect_messages(fd)),
+            ('systemd_status', lambda: console.hide_systemd_status()
+             if (root / 'proc/1/comm').read_text().strip() == 'systemd' else None),
+            ('log_view', lambda: console.log_view()),
+            ('console_blanking', lambda: console.disable_blanking(fd) if tty == '/dev/tty1' else None),
+            ('font', lambda: console.font(tty)),
+            ('palette', lambda: console.palette(fd)),
+            ('clear', lambda: console.clear(fd))):
+        try:
+            action()
+            if name == 'console_blanking' and tty == '/dev/tty1':
+                result['console_blank_timeout_seconds'] = 0
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            result['errors'].append(name + ': ' + str(error))
+    return result
+
+
+if __name__ == '__main__':
+    try:
+        facts = prepare()
+        directory = Path('/run/psx-console')
+        directory.mkdir(mode=0o700, exist_ok=True)
+        (directory / 'presentation.json').write_text(json.dumps(facts, indent=2) + '\n')
+        if facts.get('errors'):
+            print('Diagnostic console preparation: ' + '; '.join(facts['errors']), file=sys.stderr)
+    except (OSError, ValueError, KeyError) as error:
+        raise SystemExit('Diagnostic console preparation: ' + str(error))

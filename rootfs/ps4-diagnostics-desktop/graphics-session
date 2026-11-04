@@ -1,0 +1,97 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -uo pipefail
+case "${PSX_GRAPHICS_MODE:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics) ;; *) exit 2 ;; esac
+export DISPLAY=:0
+if [[ "${PSX_GRAPHICS_WINDOWED:-0}" == 1 ]]; then
+    [[ "$PSX_GRAPHICS_MODE" != diagnostics ]] || exit 2
+    export XAUTHORITY=/run/psx-graphics-user/Xauthority
+else
+    export XAUTHORITY=/run/psx-desktop/Xauthority
+fi
+if [[ "$PSX_GRAPHICS_MODE" == diagnostics ]]; then
+    export XDG_RUNTIME_DIR=/run/user/0
+else
+    export XDG_RUNTIME_DIR=/run/user/1000
+fi
+unset WAYLAND_DISPLAY
+. /etc/psx-diagnostics/mesa.env
+if [[ "${PSX_GRAPHICS_WINDOWED:-0}" != 1 ]]; then
+    /usr/bin/xfwm4 --compositor=off --replace &
+    wm_pid=$!
+    trap 'kill "$wm_pid" 2>/dev/null || true' EXIT
+    wait_wm=/run/psx-frontend/wait-graphics-wm
+    [[ -x "$wait_wm" ]] || wait_wm=/usr/lib/psx-diagnostics/wait-graphics-wm
+    if [[ ! -x "$wait_wm" ]] || ! /usr/bin/python3 "$wait_wm"; then
+        printf '%s\n' 'Diagnostic window manager did not start; returning to the console.' >&2
+        exit 1
+    fi
+fi
+case "$PSX_GRAPHICS_MODE" in
+    diagnostics)
+        terminal=/run/psx-frontend/xfce4-terminal
+        font=/run/psx-frontend/JetBrainsMonoNerdFont-Regular.ttf
+        [[ -x "$terminal" && -r "$font" ]] || exit 1
+        export XDG_CONFIG_HOME="$HOME/.config" XDG_DATA_HOME="$HOME/.local/share"
+        export XDG_CACHE_HOME="$HOME/.cache" COLORTERM=truecolor TERM=xterm-256color
+        font_dir="$XDG_DATA_HOME/fonts"
+        mkdir -p "$font_dir" || exit 1
+        ln -sfn "$font" "$font_dir/JetBrainsMonoNerdFont-Regular.ttf" || exit 1
+        /usr/bin/fc-cache "$font_dir" || exit 1
+        preferences=/run/psx-frontend/preferences.py
+        [[ -r "$preferences" ]] || preferences=/opt/psx-diagnostics/preferences.py
+        if ! /usr/bin/python3 "$preferences" session-start --session-pid "$$"; then
+            printf '%s\n' 'Cannot apply graphical terminal preferences; returning to the console.' >&2
+            exit 1
+        fi
+        LD_LIBRARY_PATH="/run/psx-frontend${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$terminal" --disable-server --fullscreen --hide-menubar --hide-toolbar \
+            --hide-scrollbar --hide-borders --title='psX Diagnostics' \
+            --execute /usr/bin/psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock
+        exit $? ;;
+    chromium)
+        chromium=/run/psx-frontend/launch-chromium-provider
+        [[ -x "$chromium" ]] || chromium=/usr/lib/psx-diagnostics/launch-chromium-provider
+        if [[ ! -x "$chromium" ]]; then
+            printf '%s\n' 'Chromium requires the optional verified 384 MiB USB provider.' >&2
+            exit 1
+        fi
+        "$chromium"
+        exit $? ;;
+    browser|protondb)
+        browser_target=http://127.0.0.1:8080/lab
+        if [[ "$PSX_GRAPHICS_MODE" == protondb ]]; then
+            browser_target=https://www.protondb.com/
+        fi
+        profile_parent="$HOME/.local/share/psx-diagnostics/firefox"
+        mkdir -p "$profile_parent" || exit 1
+        chmod 0700 "$profile_parent" || exit 1
+        profile=$(mktemp -d "$profile_parent/session-XXXXXXXX") || exit 1
+        cp /etc/psx-diagnostics/firefox-user.js "$profile/user.js" || exit 1
+        cat >> "$profile/user.js" <<'EOF'
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.sessionstore.max_resumed_crashes", 0);
+user_pref("browser.startup.page", 0);
+user_pref("browser.cache.disk.enable", false);
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("startup.homepage_welcome_url", "");
+user_pref("startup.homepage_welcome_url.additional", "");
+user_pref("datareporting.policy.firstRunURL", "");
+user_pref("browser.shell.checkDefaultBrowser", false);
+EOF
+        /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+            --runtime-dir "/run/psx-mesa/$(id -u)" \
+            --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" \
+            -- /usr/bin/firefox --no-remote --profile "$profile" --kiosk "$browser_target"
+        exit $? ;;
+    opengl) program=/usr/bin/glxgears; args=(-info) ;;
+    vulkan) program=/usr/bin/vkcube; args=() ;;
+esac
+/usr/bin/timeout --signal=TERM --kill-after=3 60 \
+    /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+    --runtime-dir "/run/psx-mesa/$(id -u)" \
+    --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" \
+    -- "$program" "${args[@]}"
+status=$?
+case "$status" in 0|124) exit 0 ;; *) exit "$status" ;; esac

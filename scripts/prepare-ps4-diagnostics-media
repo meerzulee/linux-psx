@@ -1,0 +1,333 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Prepare optional licensed diagnostic clips on the host; never access a console.
+
+Only software FFmpeg codecs are used. Downloads stay in ignored cache/; packs
+must be new directories under ignored output/. No device discovery or USB writes.
+"""
+import argparse
+from fractions import Fraction
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import struct
+import subprocess
+import sys
+import urllib.request
+import wave
+import zipfile
+
+ROOT = Path(__file__).resolve().parents[1]
+MIB = 1024 * 1024
+SOURCE_CACHE = ROOT / "cache/ps4-diagnostic-media/sources"
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(MIB), b""):
+            value.update(chunk)
+    return value.hexdigest()
+
+
+def verify(path, size, pin):
+    path = Path(path)
+    if path.is_symlink() or not stat.S_ISREG(path.stat().st_mode):
+        raise ValueError("Expected a regular pinned input: " + str(path))
+    if path.stat().st_size != size or digest(path) != pin:
+        raise ValueError("Input differs from its exact size/hash pin: " + str(path))
+
+
+def validate(spec):
+    if spec.get("schema_version") != 1 or spec.get("hardware_acceptance") is not False:
+        raise ValueError("Invalid media contract")
+    if not 0 < spec["maximum_pack_bytes"] <= 32 * MIB:
+        raise ValueError("Pack budget exceeds 32 MiB")
+    source = spec["source"]
+    if not source["url"].startswith("https://download.blender.org/demo/movies/"):
+        raise ValueError("Expected the recorded official HTTPS source")
+    for name in ("archive_name", "member"):
+        if Path(source[name]).name != source[name] or source[name] in (".", ".."):
+            raise ValueError("Source member must be a plain filename")
+    for prefix in ("archive", "member"):
+        if not 0 < source[prefix + "_bytes"] <= 400 * MIB:
+            raise ValueError("Oversized source")
+        if not re.fullmatch(r"[a-f0-9]{64}", source[prefix + "_sha256"]):
+            raise ValueError("Invalid source hash")
+    ids = set()
+    if not 1 <= len(spec["fixtures"]) <= 8:
+        raise ValueError("Expected one to eight bounded fixtures")
+    for item in spec["fixtures"]:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", item["id"]) or item["id"] in ids:
+            raise ValueError("Invalid or duplicate fixture ID")
+        ids.add(item["id"])
+        if ((item["width"], item["height"]) not in ((1280, 720), (1920, 1080))
+                or item["fps"] != 30 or not 5 <= item["seconds"] <= 15
+                or not 100 <= item["bitrate_kbps"] <= 4000):
+            raise ValueError("Fixture is outside the bounded HD profile")
+        if item["codec"] not in ("h264", "vp8", "vp9") or item["content"] not in ("film", "sync"):
+            raise ValueError("Unsupported fixture codec/content")
+        if item["content"] == "film" and not 0 <= item["start_seconds"] <= 20:
+            raise ValueError("Invalid excerpt offset")
+        if item["audio"] != (item["content"] == "sync"):
+            raise ValueError("Only the synthetic fixture carries audio")
+        if item["codec"] == "h264":
+            expected = ("main", "3.1") if item["width"] == 1280 else ("high", "4.0")
+            if (item["profile"], item["level"]) != expected:
+                raise ValueError("Invalid AVC profile/level")
+            if item["container"] != ("mkv" if item["audio"] else "mp4"):
+                raise ValueError("Invalid AVC container")
+        elif item["container"] != "webm" or item["audio"]:
+            raise ValueError("Web fixtures must be silent WebM")
+    return spec
+
+
+def output_path(path, output_root=ROOT / "output"):
+    path, output_root = Path(path).resolve(), Path(output_root).resolve()
+    if path == output_root or not path.is_relative_to(output_root) or path.exists():
+        raise ValueError("Use a new directory below the repository output/ directory")
+    return path
+
+
+def source_input(source, download):
+    archive = SOURCE_CACHE / source["archive_name"]
+    member = SOURCE_CACHE / source["member"]
+    if not archive.exists():
+        if not download:
+            raise ValueError("Source absent; supply --download for the pinned official archive")
+        SOURCE_CACHE.mkdir(parents=True, exist_ok=True)
+        partial = archive.with_suffix(archive.suffix + ".partial")
+        try:
+            with urllib.request.urlopen(source["url"], timeout=30) as response, partial.open("xb") as stream:
+                total = 0
+                while chunk := response.read(MIB):
+                    total += len(chunk)
+                    if total > source["archive_bytes"]:
+                        raise ValueError("Download exceeded pinned size")
+                    stream.write(chunk)
+            verify(partial, source["archive_bytes"], source["archive_sha256"])
+            partial.rename(archive)
+        except Exception:
+            # Preserve a partial download for inspection; never accept it as a source.
+            raise
+    verify(archive, source["archive_bytes"], source["archive_sha256"])
+    if not member.exists():
+        with zipfile.ZipFile(archive) as zipped:
+            matches = [info for info in zipped.infolist() if info.filename == source["member"]]
+            if len(matches) != 1 or matches[0].file_size != source["member_bytes"]:
+                raise ValueError("ZIP member differs from the pinned contract")
+            with zipped.open(matches[0]) as stream, member.open("xb") as target:
+                shutil.copyfileobj(stream, target, MIB)
+    verify(member, source["member_bytes"], source["member_sha256"])
+    return member
+
+
+def run(command, timeout=240):
+    result = subprocess.run(list(map(str, command)), stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=timeout, cwd=ROOT)
+    if result.returncode:
+        raise ValueError("Host command failed: " + result.stderr.decode(errors="replace")[-4000:])
+    return result
+
+
+def tool(name):
+    path = shutil.which(name)
+    if not path:
+        raise ValueError("Required native host tool is unavailable: " + name)
+    version = run([path, "-version"], 10)
+    text = (version.stdout + version.stderr).decode(errors="replace")
+    return {"path": str(Path(path).resolve()), "sha256": digest(path), "version_and_build": text,
+            "version_and_build_sha256": hashlib.sha256(text.encode()).hexdigest()}
+
+
+def audio_fixture(path, seconds):
+    rate = 44100
+    samples = bytearray()
+    for index in range(rate * seconds):
+        value = int(6000 * math.sin(2 * math.pi * 1000 * index / rate)) if index % rate < 4410 else 0
+        samples.extend(struct.pack("<hh", value, value))
+    with wave.open(str(path), "wb") as stream:
+        stream.setnchannels(2); stream.setsampwidth(2); stream.setframerate(rate)
+        stream.writeframes(samples)
+    return {"sample_rate": rate, "channels": 2, "sample_format": "s16le", "frames": rate * seconds,
+            "pcm_sha256": hashlib.sha256(samples).hexdigest(), "tone_hz": 1000,
+            "amplitude_s16": 6000, "pulse_samples": 4410,
+            "audio_onsets_samples": [rate * second for second in range(seconds)],
+            "video_flash_frames": [[30 * second + offset for offset in range(3)] for second in range(seconds)],
+            "expected_relation": "Audio pulse starts with the first white flash frame at each integer second"}
+
+
+def encode_command(ffmpeg, item, source, audio, font, destination):
+    command = [ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-n", "-filter_threads", "2"]
+    width, height = item["width"], item["height"]
+    # FFmpeg's filter grammar needs an escaped colon inside drawtext expressions.
+    font_filter = str(font).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+    if item["content"] == "film":
+        command += ["-hwaccel", "none", "-threads", "2", "-ss", str(item["start_seconds"]), "-i", str(source)]
+        filters = (f"fps=30,scale={width}:{height}:force_original_aspect_ratio=decrease:force_divisible_by=2,"
+                   f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,"
+                   f"drawtext=fontfile='{font_filter}':text='Tears of Steel - Blender Foundation - CC BY 3.0':"
+                   "fontsize=18:fontcolor=white:box=1:boxcolor=black@0.8:x=16:y=h-32")
+    else:
+        command += ["-f", "lavfi", "-i", f"smptebars=size={width}x{height}:rate=30", "-i", str(audio)]
+        filters = ("drawbox=x=0:y=0:w=iw:h=ih/6:color=white:t=fill:enable='lt(mod(n,30),3)',"
+                   f"drawtext=fontfile='{font_filter}':text='FRAME %{{eif\\:n\\:d\\:3}}  PTS %{{pts\\:hms}}':"
+                   "fontsize=42:fontcolor=white:box=1:boxcolor=black@0.9:x=32:y=h-100")
+    command += ["-map", "0:v:0", "-t", str(item["seconds"]), "-vf", filters + ",format=yuv420p",
+                "-pix_fmt", "yuv420p", "-r", "30", "-fps_mode", "cfr", "-map_metadata", "-1",
+                "-threads", "2", "-b:v", str(item["bitrate_kbps"]) + "k"]
+    if item["codec"] == "h264":
+        command += ["-c:v", "libx264", "-preset", "fast", "-profile:v", item["profile"], "-level:v", item["level"],
+                    "-refs", "1", "-bf", "0", "-g", "30", "-keyint_min", "30", "-sc_threshold", "0",
+                    "-maxrate", str(item["bitrate_kbps"]) + "k", "-bufsize", str(item["bitrate_kbps"] * 2) + "k"]
+        if item["container"] == "mp4":
+            command += ["-movflags", "+faststart"]
+    else:
+        command += ["-c:v", "libvpx" if item["codec"] == "vp8" else "libvpx-vp9",
+                    "-deadline", "good", "-cpu-used", "4", "-g", "30"]
+    command += ["-map", "1:a:0", "-c:a", "pcm_s16le", "-ar", "44100", "-ac", "2"] if item["audio"] else ["-an"]
+    return command + [str(destination)]
+
+
+def frame_hashes(text, width, height, frames):
+    timebase = re.search(r"^#tb 0: (\d+/\d+)$", text, re.M)
+    if not timebase or Fraction(timebase[1]) != Fraction(1, 30):
+        raise ValueError("Software oracle has an unexpected time base")
+    rows = []
+    for line in text.splitlines():
+        if not line or line.startswith("#"):
+            continue
+        columns = [value.strip() for value in line.split(",")]
+        if len(columns) != 6 or not re.fullmatch(r"[a-f0-9]{64}", columns[5]):
+            raise ValueError("Malformed decoded frame hash")
+        stream, dts, pts, duration, size = map(int, columns[:5])
+        if (stream, dts, pts, duration, size) != (0, len(rows), len(rows), 1, width * height * 3 // 2):
+            raise ValueError("Frame timing, ordering or NV12 size differs from the oracle")
+        rows.append({"frame": len(rows), "pts": pts, "duration": duration, "bytes": size, "sha256": columns[5]})
+    if len(rows) != frames:
+        raise ValueError("Decoded frame count differs from the fixture duration")
+    return {"format": "nv12", "time_base": "1/30", "frames": rows, "decode": "software, -hwaccel none"}
+
+
+def inspect(ffmpeg, ffprobe, path, item, audio):
+    probe = json.loads(run([ffprobe, "-v", "error", "-show_format", "-show_streams", "-of", "json", path], 60).stdout)
+    video = next(stream for stream in probe["streams"] if stream["codec_type"] == "video")
+    if (video["codec_name"], video["width"], video["height"], video["pix_fmt"]) != (item["codec"], item["width"], item["height"], "yuv420p"):
+        raise ValueError("Encoded codec/dimensions/bit depth differ")
+    if Fraction(video["avg_frame_rate"]) != 30:
+        raise ValueError("Encoded frame rate differs")
+    if item["codec"] == "h264":
+        if (video["profile"].lower() != item["profile"] or video["has_b_frames"] != 0
+                or video["level"] != {"3.1": 31, "4.0": 40}[item["level"]]):
+            raise ValueError("AVC profile or B-frame policy differs")
+        headers = run([ffmpeg, "-hide_banner", "-loglevel", "trace", "-nostdin", "-i", path,
+                       "-map", "0:v:0", "-an", "-c:v", "copy", "-bsf:v", "trace_headers",
+                       "-frames:v", "1", "-f", "null", "-"], 30).stderr.decode()
+        refs = re.findall(r"max_num_ref_frames[^\n]*=\s*(\d+)", headers)
+        if not refs or set(refs) != {"1"}:
+            raise ValueError("AVC bitstream does not have one reference frame")
+        probe["verified_max_num_ref_frames"] = 1
+    frame_probe = json.loads(run([ffprobe, "-v", "error", "-select_streams", "v:0", "-show_frames",
+                         "-show_entries", "frame=pts_time,best_effort_timestamp_time,duration_time,key_frame,pict_type",
+                         "-of", "json", path], 120).stdout)
+    expected = item["seconds"] * 30
+    if len(frame_probe["frames"]) != expected or any(
+            abs(float(frame["best_effort_timestamp_time"]) - index / 30) > 0.0011
+            for index, frame in enumerate(frame_probe["frames"])):
+        raise ValueError("Container PTS differs from the 30 fps timeline")
+    raw_hashes = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-hwaccel", "none", "-threads", "2",
+                     "-i", path, "-map", "0:v:0", "-an", "-sn", "-dn", "-pix_fmt", "nv12",
+                     "-c:v", "rawvideo", "-threads:v", "1", "-f", "framehash", "-hash", "sha256", "-"], 120).stdout.decode()
+    oracle = frame_hashes(raw_hashes, item["width"], item["height"], expected)
+    if item["audio"]:
+        stream = next(s for s in probe["streams"] if s["codec_type"] == "audio")
+        if (stream["codec_name"], stream["sample_rate"], stream["channels"]) != ("pcm_s16le", "44100", 2):
+            raise ValueError("Sync audio encoding differs")
+        if float(stream.get("start_time", "nan")) != 0:
+            raise ValueError("Sync audio must start at the same zero PTS as video")
+        pcm = run([ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", path, "-map", "0:a:0",
+                   "-vn", "-c:a", "pcm_s16le", "-f", "s16le", "-"], 30).stdout
+        if len(pcm) != audio["frames"] * 4 or hashlib.sha256(pcm).hexdigest() != audio["pcm_sha256"]:
+            raise ValueError("Decoded sync audio differs from its exact sample oracle")
+        oracle["audio"] = audio
+    return {"ffprobe": probe, "frame_timestamps": frame_probe["frames"], "software_reference": oracle}
+
+
+def write_json(path, value):
+    path.write_text(json.dumps(value, indent=2) + "\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--manifest", type=Path, default=ROOT / "manifests/ps4-diagnostic-media.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "output/ps4-diagnostic-media-v1")
+    parser.add_argument("--font", type=Path, default=Path("/usr/share/fonts/liberation/LiberationMono-Regular.ttf"))
+    parser.add_argument("--download", action="store_true", help="Fetch only the pinned official source if absent")
+    parser.add_argument("--plan", action="store_true", help="Inspect the recipe without writes, downloads or encoding")
+    args = parser.parse_args()
+    spec = validate(json.loads(args.manifest.read_text()))
+    output = output_path(args.output)
+    if args.plan:
+        print(json.dumps({"pack_id": spec["pack_id"], "fixtures": spec["fixtures"], "budget": spec["maximum_pack_bytes"],
+                          "source_archive_bytes": spec["source"]["archive_bytes"], "output": str(output), "hardware_acceptance": False}, indent=2))
+        return
+    programs = {name: tool(name) for name in ("ffmpeg", "ffprobe")}
+    font = args.font.resolve(strict=True)
+    if not font.is_file():
+        raise ValueError("Supply an explicit local TTF/OTF font")
+    source = source_input(spec["source"], args.download)
+    source_probe = json.loads(run([programs["ffprobe"]["path"], "-v", "error", "-show_format",
+                                   "-show_streams", "-of", "json", source], 60).stdout)
+    output.mkdir(parents=True, exist_ok=False)
+    seconds = {f["seconds"] for f in spec["fixtures"] if f["audio"]}
+    if len(seconds) != 1:
+        raise ValueError("Sync fixtures must share one duration")
+    audio_path = output / "sync-audio-44100.wav"
+    audio = audio_fixture(audio_path, seconds.pop())
+    receipt = {"schema_version": 1, "pack_id": spec["pack_id"], "hardware_acceptance": False,
+               "scope": "Native host software encoding/decoding only; no console or hardware decoder executed",
+               "recipe_sha256": digest(args.manifest), "builder_sha256": digest(Path(__file__)),
+               "tools": programs, "font": {"name": font.name, "sha256": digest(font)},
+               "source": spec["source"], "source_ffprobe": source_probe,
+               "decode_scope": spec["decode_scope"], "fixtures": [],
+               "optional_usb_directory": spec["optional_usb_directory"], "maximum_pack_bytes": spec["maximum_pack_bytes"]}
+    for item in spec["fixtures"]:
+        print("Preparing " + item["id"], flush=True)
+        destination = output / (item["id"] + "." + item["container"])
+        command = encode_command(programs["ffmpeg"]["path"], item, source, audio_path, font, destination)
+        run(command)
+        measurements = inspect(programs["ffmpeg"]["path"], programs["ffprobe"]["path"], destination, item, audio)
+        metadata = output / (item["id"] + ".json")
+        write_json(metadata, dict(recipe=item, encode_command=list(map(str, command)), **measurements))
+        receipt["fixtures"].append(dict(item, filename=destination.name, bytes=destination.stat().st_size,
+                                        sha256=digest(destination), metadata=metadata.name, metadata_sha256=digest(metadata)))
+        if sum(p.stat().st_size for p in output.iterdir()) > spec["maximum_pack_bytes"]:
+            raise ValueError("Optional fixture pack exceeded its 32 MiB budget")
+    attribution = (spec["source"]["attribution"] + "\n" + spec["source"]["project_url"] + "\n"
+                   + spec["source"]["license"] + ": " + spec["source"]["license_url"] + "\n"
+                   + "Source: " + spec["source"]["url"] + "\nChanges: " + spec["source"]["changes"] + "\n\n"
+                   + "Synthetic bars/counter/flash/beep recipe: Meerzulee, MIT (Linux psX diagnostics/LICENSE).\n"
+                   + "The host font is rasterized into video; the font file is not bundled.\n"
+                   + "Optional test data only. Playback is not hardware-decode proof.\n")
+    (output / "ATTRIBUTION.txt").write_text(attribution)
+    shutil.copyfile(ROOT / "diagnostics/LICENSE", output / "SYNTHETIC-LICENSE.txt")
+    write_json(output / "PACK.json", receipt)
+    sums = "".join(digest(p) + "  " + p.name + "\n" for p in sorted(output.iterdir()) if p.is_file())
+    (output / "SHA256SUMS").write_text(sums)
+    total = sum(p.stat().st_size for p in output.iterdir())
+    if total > spec["maximum_pack_bytes"]:
+        raise ValueError("Complete pack with metadata exceeds budget")
+    print(json.dumps({"status": "HOST_VALIDATED", "output": str(output), "pack_bytes": total,
+                      "fixture_count": len(receipt["fixtures"]), "hardware_acceptance": False}, indent=2))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
+        raise SystemExit("Media preparation: " + str(error))

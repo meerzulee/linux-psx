@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Meerzulee
+# CPIO parsing adapted from omarchy-ps4/fpkg/tools/repack-initramfs-init,
+# source SHA256 1dad6062683b8bd13d62c1c911ff0535637ab6585ab8060f299df9ffbf18dbcb.
+# MIT was applied by the originating repository; the original had no notice.
+"""Data-only newc and x86-64 ELF helpers for the optional diagnostic appliance."""
+from __future__ import annotations
+from pathlib import PurePosixPath
+import stat
+import struct
+from typing import NamedTuple
+
+class ArchiveError(ValueError):
+    pass
+
+
+class Entry(NamedTuple):
+    name: bytes
+    header: bytes
+    prefix: bytes
+    data: bytes
+    raw: bytes
+    mode: int
+    nlink: int
+
+
+def align4(value: int) -> int:
+    return (value + 3) & ~3
+
+
+def parse_newc(archive: bytes) -> tuple[list[Entry], bytes]:
+    """Parse one newc archive strictly, including its trailer and zero padding."""
+    entries = []
+    names = set()
+    offset = 0
+    while True:
+        start = offset
+        header = archive[offset:offset + 110]
+        if len(header) != 110 or header[:6] != b"070701":
+            raise ArchiveError("expected a complete 070701 newc header")
+        try:
+            if any(byte not in b"0123456789abcdefABCDEF" for byte in header[6:]):
+                raise ValueError
+            fields = [int(header[index:index + 8], 16) for index in range(6, 110, 8)]
+        except ValueError as error:
+            raise ArchiveError("invalid newc hexadecimal field") from error
+        mode, nlink, size, name_size, check = fields[1], fields[4], fields[6], fields[11], fields[12]
+        if name_size < 2 or check != 0:
+            raise ArchiveError("invalid newc name size or checksum field")
+        name_start = offset + 110
+        data_start = align4(name_start + name_size)
+        data_end = data_start + size
+        end = align4(data_end)
+        if end > len(archive):
+            raise ArchiveError("truncated newc name, data or padding")
+        encoded_name = archive[name_start:name_start + name_size]
+        if encoded_name[-1:] != b"\0" or b"\0" in encoded_name[:-1]:
+            raise ArchiveError("newc name must have exactly one terminal NUL")
+        name = encoded_name[:-1]
+        if name == b"TRAILER!!!":
+            if size != 0 or any(archive[end:]):
+                raise ArchiveError("invalid trailer or nonzero trailing data")
+            return entries, archive[start:]
+        try:
+            decoded_name = name.decode("utf-8")
+        except UnicodeDecodeError as error:
+            raise ArchiveError("newc name is not UTF-8") from error
+        path = PurePosixPath(decoded_name)
+        if path.is_absolute() or ".." in path.parts:
+            raise ArchiveError("unsafe newc path")
+        canonical_name = str(path)
+        if canonical_name in names:
+            raise ArchiveError("duplicate newc path")
+        names.add(canonical_name)
+        entries.append(Entry(name, header, archive[start:data_start], archive[data_start:data_end],
+                             archive[start:end], mode, nlink))
+        offset = end
+
+
+def pad4(size):
+    return (4 - size % 4) % 4
+
+
+def entry(ino, mode, nlink, mtime, name, payload=b""):
+    encoded = name.encode() + b"\0"
+    fields = [ino, mode, 0, 0, nlink, mtime, len(payload), 0, 0, 0, 0, len(encoded), 0]
+    header = b"070701" + b"".join(b"%08X" % value for value in fields)
+    out = header + encoded + b"\0" * pad4(110 + len(encoded)) + payload
+    return out + b"\0" * pad4(len(payload))
+
+
+class ProbeError(ValueError):
+    pass
+
+
+def elf_header(data: bytes, description: str) -> tuple:
+    if len(data) < 64 or data[:7] != b"\x7fELF\x02\x01\x01":
+        raise ProbeError(f"{description} must be ELF64 little-endian")
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", data)
+    if header[2] != 62 or header[3] != 1 or header[8] != 64:
+        raise ProbeError(f"{description} must be x86-64 ELF version 1")
+    return header
+
+
+def bounded_slice(data: bytes, offset: int, size: int) -> bytes:
+    if offset < 0 or size < 0 or offset + size > len(data):
+        raise ProbeError("ELF range exceeds input")
+    return data[offset:offset + size]
+
+
+def validate_busybox(data: bytes) -> None:
+    h = elf_header(data, "BusyBox")
+    if h[1] not in (2, 3) or h[4] == 0 or h[9] != 56 or not 0 < h[10] <= 128:
+        raise ProbeError("BusyBox must have executable ELF program headers")
+    headers = bounded_slice(data, h[5], h[9] * h[10])
+    executable_entry = False
+    for offset in range(0, len(headers), 56):
+        kind, flags, pos, address, _, size, memory_size, _ = struct.unpack_from("<IIQQQQQQ", headers, offset)
+        if size > memory_size:
+            raise ProbeError("invalid BusyBox segment sizes")
+        segment = bounded_slice(data, pos, size)
+        if kind == 3:
+            raise ProbeError("BusyBox must be static: PT_INTERP is forbidden")
+        if kind == 1 and flags & 1 and address <= h[4] < address + memory_size:
+            executable_entry = True
+        if kind == 2:
+            if size % 16:
+                raise ProbeError("invalid BusyBox dynamic segment")
+            for index in range(0, size, 16):
+                tag, _ = struct.unpack_from("<qQ", segment, index)
+                if tag == 0:
+                    break
+                if tag == 1:
+                    raise ProbeError("BusyBox must be static: DT_NEEDED is forbidden")
+    if not executable_entry:
+        raise ProbeError("BusyBox entry is not in an executable load segment")
+
+
+def validate_module(data: bytes, release: str) -> None:
+    h = elf_header(data, "kernel module")
+    if h[1] != 1 or h[11] != 64 or not 0 < h[12] <= 8192 or not 0 < h[13] < h[12]:
+        raise ProbeError("kernel module has unsupported ELF section headers")
+    headers = bounded_slice(data, h[6], 64 * h[12])
+    sections = [struct.unpack_from("<IIQQQQIIQQ", headers, index * 64) for index in range(h[12])]
+    names_section = sections[h[13]]
+    names = bounded_slice(data, names_section[4], names_section[5])
+    vermagic = []
+    for section in sections:
+        if section[0] >= len(names):
+            raise ProbeError("kernel module has invalid section name")
+        name = names[section[0]:].split(b"\0", 1)[0]
+        if name == b".modinfo":
+            info = bounded_slice(data, section[4], section[5])
+            vermagic.extend(value[9:].split(b" ", 1)[0] for value in info.split(b"\0")
+                            if value.startswith(b"vermagic="))
+    if vermagic != [release.encode()]:
+        raise ProbeError("kernel module vermagic does not match the selected release")
+
+
+if __name__ == "__main__":
+    import argparse
+    argparse.ArgumentParser(description=__doc__).parse_args()

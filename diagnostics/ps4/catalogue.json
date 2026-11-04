@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "suite_id": "psx.ps4.diagnostics",
+  "suite_version": "0.1.0",
+  "expected_kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+  "statuses": ["PASS", "FAIL", "DEGRADED", "NOT_RUN", "UNSUPPORTED", "DEFERRED", "BLOCKED", "INCONCLUSIVE"],
+  "optional_tools": {
+    "ethernet.connect": ["/usr/lib/psx-diagnostics/ethernet-up", "ip"],
+    "ethernet.https": ["ip", "curl"],
+    "gpu.opengl.info": ["eglinfo"],
+    "gpu.vulkan.info": ["vulkaninfo"],
+    "audio.44100": ["aplay"]
+  },
+  "parameter_schemas": {
+    "cpu.compute": {"seconds": {"type": "integer", "minimum": 1, "maximum": 10, "default": 3}},
+    "memory.pattern": {"memory_mib": {"type": "integer", "minimum": 1, "maximum": 128, "default": 16}},
+    "ethernet.status": {"interface": {"type": "interface-name", "default": "psx0"}},
+    "ethernet.https": {"interface": {"type": "interface-name", "default": "psx0"}, "url": {"type": "https-url", "required": true}},
+    "audio.44100": {"fixture": {"type": "pcm-wav-path", "default": "manifest fixture"}, "audio_device": {"type": "alsa-hardware-device", "default": "hw:0,3"}}
+  },
+  "presets": [{"id": "quick", "version": 1, "title": "Quick check", "stop_on_failure": true,
+    "steps": [{"test_id": "inventory.readonly", "parameters": {}},
+              {"test_id": "cpu.compute", "parameters": {"seconds": 2}},
+              {"test_id": "memory.pattern", "parameters": {"memory_mib": 32}}]}],
+  "policy": {
+    "default_action": "menu-or-list",
+    "automatic_hardware_acceptance": false,
+    "firmware": "external",
+    "ordinary_kernel_uvd": false,
+    "mts": "one retained generation; no reset, unload, unbind, rearm or administrative changes",
+    "results": "Local private evidence; review and redact before sharing. Inventory is observation, not a functional PASS."
+  },
+  "tests": [
+    {"id": "inventory.readonly", "version": 1, "title": "Hardware inventory", "area": "System", "kind": "observation", "timeout_seconds": 15, "description": "Read CPU, RAM, kernel, PCI, USB, input, thermal and block-device metadata. Never open a disk for data."},
+    {"id": "cpu.compute", "version": 1, "title": "Bounded CPU computation", "area": "CPU", "kind": "functional", "timeout_seconds": 15, "description": "One worker repeats a known SHA-256 computation for 1–10 seconds. This does not qualify all cores, clocks or cooling."},
+    {"id": "memory.pattern", "version": 1, "title": "Owned memory pattern", "area": "RAM", "kind": "functional", "timeout_seconds": 30, "description": "Check patterns in 1–128 MiB owned by one worker, leaving a fixed system reserve. No physical-memory or VRAM access."},
+    {"id": "ethernet.status", "version": 1, "title": "Ethernet status", "area": "Ethernet", "kind": "observation", "timeout_seconds": 15, "description": "Read interface/carrier/counters, native driver report and route metadata. Do not open, arm or change the interface."},
+    {"id": "ethernet.connect", "version": 1, "title": "Connect Ethernet once", "area": "Ethernet", "kind": "functional", "timeout_seconds": 135, "description": "Explicitly run the installed first-publication/DHCP helper (120-second limit), then observe carrier, addressing and routes. The helper owns the one-generation gate; this is not autoload qualification."},
+    {"id": "ethernet.https", "version": 1, "title": "Interface-bound HTTPS", "area": "Ethernet", "kind": "functional", "timeout_seconds": 55, "description": "Explicit user-supplied HTTPS URL, verified TLS, no proxy or redirects, bound to an already connected interface. Record address, route and transfer evidence."},
+    {"id": "gpu.opengl.info", "version": 1, "title": "Offscreen EGL information", "area": "Graphics", "kind": "observation", "timeout_seconds": 30, "description": "Explicitly run eglinfo -B -p surfaceless with no window-display environment. May initialize the GPU; no pixel oracle or functional PASS."},
+    {"id": "gpu.vulkan.info", "version": 1, "title": "Headless Vulkan information", "area": "Graphics", "kind": "observation", "timeout_seconds": 30, "description": "Explicitly run vulkaninfo --summary without a window display. Enumerated APIs/devices are not rendered-frame validation."},
+    {"id": "audio.info", "version": 1, "title": "Audio devices", "area": "Audio", "kind": "observation", "timeout_seconds": 10, "description": "Read ALSA card and PCM metadata; no sound is played."},
+    {"id": "audio.44100", "version": 1, "title": "44.1 kHz fixture playback", "area": "Audio", "kind": "operator", "timeout_seconds": 30, "description": "Play an explicitly selected, hashed PCM WAV of at most 20 seconds at 44.1 kHz. Audible output, pitch and duration require operator confirmation."},
+    {"id": "storage.inventory", "version": 1, "title": "Storage inventory only", "area": "Storage", "kind": "observation", "timeout_seconds": 15, "description": "Read sysfs model, size, transport path and mount metadata. No raw disk reads, writes, mounts, filesystem repair, format or image growth."},
+    {"id": "uvd.avc", "version": 1, "title": "UVD AVC decoding", "area": "Video", "kind": "unavailable", "timeout_seconds": 1, "description": "Unsupported in this ordinary kernel image. The experimental UVD derivative requires its own matched stack and lifecycle plan."},
+    {"id": "audio.native48", "version": 1, "title": "Native 48 kHz audio", "area": "Audio", "kind": "deferred", "timeout_seconds": 1, "description": "Deferred. The supported output profile is 44.1 kHz; resampled 48 kHz content is distinct from native 48 kHz."},
+    {"id": "wireless.wifi", "version": 1, "title": "Wi-Fi exploration", "area": "Wireless", "kind": "deferred", "timeout_seconds": 1, "description": "Working on recorded firmware-equipped setups. New exploration is deferred pending a specific reproducible bug."},
+    {"id": "wireless.bluetooth", "version": 1, "title": "Bluetooth exploration", "area": "Wireless", "kind": "deferred", "timeout_seconds": 1, "description": "Working on recorded firmware-equipped setups. No automatic pairing, firmware loading or radio-state changes."},
+    {"id": "power.off", "version": 1, "title": "Power-off qualification", "area": "Power", "kind": "blocked", "timeout_seconds": 1, "description": "Blocked in this runner. Requires an external UART/session receipt and the separate operator power-test stage; never executes a power command."},
+    {"id": "power.reboot", "version": 1, "title": "Reboot qualification", "area": "Power", "kind": "blocked", "timeout_seconds": 1, "description": "Blocked pending separate reboot-path review and an externally observed experiment. Never executes a reboot command."},
+    {"id": "power.suspend", "version": 1, "title": "Suspend / hibernate", "area": "Power", "kind": "unavailable", "timeout_seconds": 1, "description": "Excluded because retained-DMA lifecycle support is not established."}
+  ]
+}

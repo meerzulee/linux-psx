@@ -8,10 +8,12 @@
   hardware acceptance (`docs/PS5.md`). `7.2-ps4-baikal` and
   `7.2-ps4` are compile-tested development targets (`docs/PORT-7.2.md`) with
   no hardware acceptance.
-- Keep runtime/build inputs distribution-independent. Omarchy setup and boot
-  profiles belong to `omarchy-psx`. Do not add a desktop, package manager,
-  init-system or network-manager requirement to the kernel or generic artifact
-  contract.
+- Keep kernel runtime/build inputs distribution-independent. Production Omarchy
+  setup and desktop profiles belong to `omarchy-psx`. This repository also owns
+  the optional PS4 diagnostic appliance source and image builders; read
+  `diagnostics/AGENTS.md` and `docs/DIAGNOSTICS.md` for that separate scope. Its
+  desktop, package-manager, init-system and network-manager choices must never
+  become requirements of the kernel or generic artifact contract.
 - Ethernet needs no userspace adapter: `psx_mts_net` autoloads through its PCI
   alias and its first open publishes (`0700-network-mts/0002`). Preserve one
   first-publication attempt per boot and retained DMA; add no retries, unload
@@ -39,13 +41,16 @@
 
 - `userspace/mesa/` owns optional distribution-independent PS4 Mesa patches,
   pinned native builder and validation/demo tools. Preserve their per-file
-  licenses and `provenance/mesa-import.json`; Omarchy package policy and
-  desktop activation remain in `omarchy-psx`. Mesa is not a kernel dependency.
+  licenses and `provenance/mesa-import.json`; production Omarchy package policy
+  and desktop activation remain in `omarchy-psx`. Optional diagnostic-appliance
+  packaging is local to this repository. Mesa is not a kernel dependency.
 
 ## Verification and hardware
 
 - Run `make check` for frozen import checksums, active series/target integrity
   and host contracts. Record adaptations separately whenever inputs change.
+- Run `make check-diagnostics` for the optional diagnostic source and host
+  tests. Keep these checks separate from the default kernel check/build.
 - Portable MTS tests compile the original GPL fixture against the header
   extracted from the active patch; keep that linkage rather than testing an
   unrelated copied header. A native C compiler is required for host checks.

@@ -147,3 +147,21 @@ The local AVC capability and selected-entry FMASK fixes are independent
 adaptations. Original source ownership and byte identities from Omarchy psX
 are recorded in `provenance/mesa-import.json`; no kernel GPL license is
 imposed on imported MIT-licensed Mesa files.
+
+## Optional PS4 diagnostic appliance
+
+The diagnostic frontends, image/media builders, network helpers and host tests
+were copied non-destructively from Omarchy psX at
+`bbff47f25249d32e867ced1a400229cdf5a28737`, including pending source work.
+[The import receipt](provenance/diagnostics-import.json) preserves each original
+byte hash, subsequent source synchronization and local adaptations. Linux psX
+now owns this optional appliance's source and image builds; the production
+Omarchy distribution remains a separate project.
+
+These source tools retain their MIT notices and the original
+[MIT license](diagnostics/LICENSE). Individual third-party components retain
+their own licenses. Imported Omarchy palettes retain their pinned source and
+license in `diagnostics/ps4/themes.json` and `themes-LICENSE`; the palette source
+commit is `f0020448ca87329199de7cb12f2015ebc4a3e5e7`. Kernel GPLv2 licensing is
+unchanged. Binary packages, private keys, firmware and generated media are not
+part of this source import.

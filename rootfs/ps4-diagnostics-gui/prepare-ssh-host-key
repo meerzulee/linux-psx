@@ -1,0 +1,164 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Persist a unique diagnostic-installation SSH key, then copy it into RAM.
+
+An owner may pre-stage ssh_host_ed25519_key and its .pub in STATE. Otherwise a
+key is generated on first use. The identity follows this owner-assigned USB;
+it does not depend on functioning Ethernet. No private key comes from the image.
+"""
+import base64
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import uuid
+
+STATE = "/run/psx-media/psx-diagnostics/state/ssh"
+RUNTIME = "/run/psx-ssh"
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
+
+
+def fingerprint(public):
+    parts = public.split()
+    if len(parts) < 2 or parts[0] != "ssh-ed25519":
+        raise ValueError("Expected an Ed25519 host public key")
+    blob = base64.b64decode(parts[1], validate=True)
+    if len(blob) != 51 or blob[:19] != b"\x00\x00\x00\x0bssh-ed25519\x00\x00\x00\x20":
+        raise ValueError("Invalid host public-key encoding")
+    return "SHA256:" + base64.b64encode(hashlib.sha256(blob).digest()).decode().rstrip("=")
+
+
+def read_regular(path, limit=65536):
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+        raise ValueError("SSH identity input must be a bounded regular file")
+    return path.read_bytes()
+
+
+def private_directory(path):
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) & 0o077:
+        raise ValueError("SSH state must be private to root; use a protected media mount")
+
+
+def atomic(path, data, mode=0o600):
+    temporary = path.with_name("." + path.name + "." + uuid.uuid4().hex)
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def prepare(root_prefix="/", executor=None):
+    root = Path(root_prefix).resolve()
+    fixture = root != Path("/")
+
+    def local(name):
+        path = root / name.lstrip("/")
+        if not path.resolve().is_relative_to(root):
+            raise ValueError("SSH path escapes the selected filesystem")
+        return path
+
+    def command(arguments):
+        if fixture and executor is None:
+            raise ValueError("Fixture roots never execute host tools")
+        argv = [str(local("/usr/bin/ssh-keygen")), *arguments]
+        if executor:
+            result = executor(argv, 8)
+        else:
+            result = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                    timeout=8, check=False, env={"PATH": "/usr/bin", "LC_ALL": "C"})
+        if result.returncode != 0:
+            raise ValueError("Host-key generation or validation failed")
+        return result.stdout.strip()
+
+    if local("/proc/sys/kernel/osrelease").read_text().strip() != RELEASE:
+        raise ValueError("SSH setup requires the selected native diagnostic kernel")
+    owner = local("/etc/psx-diagnostics/authorized_keys")
+    owner_info = owner.lstat()
+    owner_data = read_regular(owner)
+    # An empty public-image seed is intentional. Host identity preparation is
+    # independent of client enrollment and never enables authentication.
+    if (owner_info.st_uid != os.geteuid() or owner_info.st_mode & 0o022
+            or b"PRIVATE KEY" in owner_data):
+        raise ValueError("A protected root-owned authorized_keys seed file is required")
+    mountinfo = local("/proc/self/mountinfo").read_text()
+    mounted = any(len(line.split()) > 5 and line.split()[4] == "/run/psx-media"
+                  and "rw" in line.split()[5].split(",") for line in mountinfo.splitlines())
+    if not mounted:
+        raise ValueError("Selected diagnostic media is not mounted writable")
+    media = local("/run/psx-media")
+    media_info = media.stat()
+    if media_info.st_uid != os.geteuid() or stat.S_IMODE(media_info.st_mode) & 0o077:
+        raise ValueError("Persistent SSH keys require a root-only diagnostic media mount")
+    state, runtime = local(STATE), local(RUNTIME)
+    private_directory(state); private_directory(runtime)
+    lock = os.open(state / ".lock", os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        binding_path = state / "identity.json"
+        binding = json.loads(read_regular(binding_path)) if binding_path.exists() else None
+        if binding is not None and (not isinstance(binding, dict) or binding.get("schema_version") != 1 or
+                                    not re.fullmatch(r"[a-f0-9]{32}", str(binding.get("identity_id", "")))):
+            raise ValueError("Persistent SSH identity receipt is invalid")
+        identity_id = binding["identity_id"] if binding else uuid.uuid4().hex
+        key, public_path = state / "ssh_host_ed25519_key", state / "ssh_host_ed25519_key.pub"
+        work = runtime / ("prepare-" + uuid.uuid4().hex)
+        work.mkdir(mode=0o700)
+        try:
+            temporary_key = work / "key"
+            if key.exists():
+                info = key.lstat()
+                if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                    raise ValueError("Persistent host private key is not private to root")
+                atomic(temporary_key, read_regular(key))
+            else:
+                if binding or public_path.exists():
+                    raise ValueError("Existing SSH identity has lost its private key; refusing silent rotation")
+                command(["-q", "-t", "ed25519", "-N", "", "-f", str(temporary_key), "-C", "psx-diagnostics-host"])
+            public = command(["-y", "-P", "", "-f", str(temporary_key)])
+            checksum = fingerprint(public)
+            if public_path.exists() and fingerprint(read_regular(public_path).decode()) != checksum:
+                raise ValueError("Stored host public and private keys disagree")
+            if binding and binding.get("fingerprint") != checksum:
+                raise ValueError("Persistent host key differs from its recorded identity")
+            private = read_regular(temporary_key)
+            if not key.exists():
+                atomic(key, private)
+            if not public_path.exists():
+                atomic(public_path, (public + "\n").encode())
+            if binding is None:
+                atomic(binding_path, (json.dumps({"schema_version": 1, "identity_id": identity_id,
+                       "identity_scope": "diagnostic-usb-installation", "fingerprint": checksum}) + "\n").encode())
+            atomic(runtime / key.name, private)
+            atomic(runtime / public_path.name, (public + "\n").encode(), 0o644)
+            return {"fingerprint": checksum, "identity_id": identity_id, "persistent": True,
+                    "identity_scope": "diagnostic-usb-installation"}
+        finally:
+            shutil.rmtree(work)
+    finally:
+        os.close(lock)
+
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) != 1 or os.geteuid() != 0:
+            raise ValueError("SSH setup requires root and no arguments")
+        print(json.dumps(prepare()))
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        raise SystemExit("SSH identity setup: " + str(error))

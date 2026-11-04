@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>psX · Browser diagnostics</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/lab.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <span class="brand">psX<span> / </span></span>
+    <div class="identity"><small>DIAGNOSTICS</small><h1>Browser</h1></div>
+    <div class="connection"><span id="browser">Browser</span><span id="connection">Connecting…</span></div>
+    <div class="suite-controls"><button id="cancel" type="button" disabled>Stop</button><button id="run-all" type="button">Run all tests <span aria-hidden="true">↗</span></button></div>
+  </header>
+  <nav aria-label="Browser tests">
+    <ol id="suite-progress" class="tests" aria-label="Suite progress">
+      <li id="step-capabilities"><button data-test="capabilities"><b>01</b><strong>Capabilities</strong><span id="status-capabilities">Ready</span></button></li>
+      <li id="step-canvas2d"><button data-test="canvas2d"><b>02</b><strong>Canvas</strong><span id="status-canvas2d">Ready</span></button></li>
+      <li id="step-webgl"><button data-test="webgl"><b>03</b><strong>WebGL</strong><span id="status-webgl">Ready</span></button></li>
+      <li id="step-animation"><button data-test="animation"><b>04</b><strong>Frame pacing</strong><span id="status-animation">Ready</span></button></li>
+      <li id="step-video"><button data-test="video"><b>05</b><strong>Video</strong><span id="status-video">Ready</span></button></li>
+    </ol>
+    <progress id="progress" max="5" value="0" aria-label="Saved suite results"></progress>
+  </nav>
+  <div class="workspace">
+    <section class="stage" aria-label="Test preview">
+      <div class="stage-heading"><div><span class="eyebrow">LIVE PREVIEW</span><h2 id="title">Ready to run</h2></div><p id="summary" role="status" aria-live="polite">Select a test or run the suite.</p></div>
+      <div id="preview" class="preview">
+        <div id="preview-idle" class="preview-idle"><span class="preview-mark" aria-hidden="true">◈</span><span id="preview-label">Browser diagnostics</span></div>
+        <canvas id="canvas" width="320" height="180" hidden></canvas>
+        <video id="video" src="/video.webm" preload="none" muted playsinline controls hidden></video>
+      </div>
+      <div class="renderer"><span class="eyebrow">RENDERER</span><span id="renderer">Awaiting WebGL test</span><span id="renderer-kind">—</span></div>
+    </section>
+    <section class="results" aria-label="Test results">
+      <div class="results-heading"><h2>Results</h2><button id="details-toggle" type="button" aria-expanded="false" aria-controls="output">Details</button></div>
+      <div class="results-body">
+        <div id="readings">
+          <div class="key-metrics">
+            <div class="metric"><span class="eyebrow">ANIMATION</span><div><strong id="metric-fps">—</strong><span class="unit">fps</span></div><span>Average rAF cadence</span></div>
+            <div class="metric"><span class="eyebrow">VIDEO DROPS</span><div><strong id="metric-drops">—</strong><span class="unit">%</span></div><span id="metric-video-frames">Awaiting playback</span></div>
+          </div>
+          <div class="reading-group"><h3>Frame pacing</h3><dl>
+            <div><dt>Median interval</dt><dd id="metric-median">—</dd></div>
+            <div><dt>95th percentile</dt><dd id="metric-p95">—</dd></div>
+            <div><dt>Missed frames <span class="estimate">est.</span></dt><dd id="metric-missed">—</dd></div>
+          </dl></div>
+          <div class="reading-group"><h3>Rendering</h3><dl>
+            <div><dt>Canvas readback</dt><dd id="metric-canvas">—</dd></div>
+            <div><dt>WebGL readback</dt><dd id="metric-webgl">—</dd></div>
+            <div><dt>Screen</dt><dd id="metric-screen">—</dd></div>
+            <div><dt>Configured refresh</dt><dd id="metric-refresh">Unavailable</dd></div>
+          </dl></div>
+          <p id="measurement-note" class="measurement-note">Measurements appear as each test completes.</p>
+        </div>
+        <pre id="output" tabindex="0" aria-label="Detailed evidence" hidden></pre>
+      </div>
+      <div class="results-foot"><span id="saved-count">0 / 5 saved</span><span>This browser</span></div>
+    </section>
+  </div>
+  <footer><span id="system">Reading system identity…</span><span class="creator">made by meerzulee</span><span><kbd>Alt</kbd> + <kbd>F4</kbd> Return to diagnostics</span></footer>
+</main>
+</body>
+</html>

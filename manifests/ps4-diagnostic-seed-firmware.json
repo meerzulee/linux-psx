@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "purpose": "External historical seed GPU/EDID component pins for the standalone diagnostic assembler.",
+  "origin_repository": "https://github.com/meerzulee/omarchy-psx",
+  "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+  "origin_path": "manifests/ps4-initramfs.json",
+  "origin_sha256": "62a87174ba876fdfe793c53a364be8b5b8cf6465af5220215585f77a61be9dc9",
+  "external_base_firmware": [
+    {
+      "path": "lib/firmware/amdgpu/liverpool_ce.bin",
+      "bytes": 8832,
+      "sha256": "173ff0d1633fa0e0a22e0b7e92780b4ec9bb0a72346f0c0ccd8ffe899078763a"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_me.bin",
+      "bytes": 17024,
+      "sha256": "ab835c37011af3af2a597f2fd806e155cccb869e2e2171e65c2524dade506056"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_mec.bin",
+      "bytes": 17024,
+      "sha256": "e86d5846f8433bc682b7dbdf2a4563ec1c527e223ca77460ef15294507b9ba32"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_mec2.bin",
+      "bytes": 17024,
+      "sha256": "f3250bc60e0ff24a80830ebda428fc781d641395e5977d84588694d803cd993a"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_pfp.bin",
+      "bytes": 17024,
+      "sha256": "d2b3ce936f184b4fa0fe10fd867c125b5902862377a5343f03c11f76be62343f"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_rlc.bin",
+      "bytes": 6400,
+      "sha256": "8c26efaac42f508042b8db0ed04efe7a2ee5e30ad3ae139f0846fbb3cf85abca"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_sdma.bin",
+      "bytes": 4456,
+      "sha256": "638602157d38a25e584e81710c9c3a36731c52599d92e010b77dd53890dc662a"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_sdma1.bin",
+      "bytes": 4456,
+      "sha256": "8bb8fc3280153dbc9dc545d3ec046fa38361be5acf7e6f956aa0fd57196c84b8"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_uvd.bin",
+      "bytes": 232752,
+      "sha256": "30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9"
+    },
+    {
+      "path": "lib/firmware/amdgpu/liverpool_vce.bin",
+      "bytes": 101072,
+      "sha256": "fb768657d70c8674c1c48a284e5299ab2877ac2420957ea4b36c75f7f5997869"
+    },
+    {
+      "path": "lib/firmware/edid/1920x1080.bin",
+      "bytes": 128,
+      "sha256": "78fae7bf275d9ac2acab158330acdbe4fe823f23453cee21503f70c638a6918e"
+    }
+  ],
+  "binary_policy": "Hashes only; no firmware, BusyBox or seed bytes are imported."
+}

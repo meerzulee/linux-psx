@@ -1,0 +1,19 @@
+[Unit]
+Description=psX Diagnostics local rescue terminal
+After=local-fs.target
+Conflicts=getty@tty2.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash --login
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty2
+TTYReset=yes
+TTYVHangup=yes
+Environment=TERM=linux
+WorkingDirectory=/root
+
+[Install]
+WantedBy=multi-user.target

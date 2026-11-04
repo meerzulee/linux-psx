@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "profile": "ps4-baikal-diagnostics-dev1",
+  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+  "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
+  "config_sha256": "ed529f99c6bbce733f0df8c6f6d57ac9136561013b86ecdb9e72d7ae75065526",
+  "modules_sha256": "1503cd05c86fa64b6b11abdf7e8b2eac8cfc4a4214f547caf877524914f1392a",
+  "source_commit": "c8495a51e0bad4851015cd5d34ee61b2fde87e44",
+  "module_count": 41,
+  "mesa_archive_sha256": "5c397d86a769ed55dd35798c32bfcedea5c4e3ce6eee5147dd282a04c9385fe9",
+  "mesa_manifest_sha256": "687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964",
+  "seed_manifest": "manifests/ps4-initramfs-seed.json",
+  "snapshot_sums_sha256": "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57",
+  "snapshot_policy": "existing checksum-pinned development package snapshot; not a signed production release",
+  "packages": [
+    "filesystem", "bash", "coreutils", "systemd", "systemd-sysvcompat",
+    "python", "iproute2", "iputils", "curl", "alsa-utils", "pciutils",
+    "usbutils", "kmod", "mesa-utils", "vulkan-tools", "nano", "less",
+    "pacman", "archlinux-keyring", "ca-certificates"
+  ],
+  "ram_root_mib": 1536,
+  "vram_mib": 1024,
+  "maximum_root_bytes": 1073741824,
+  "source_date_epoch": 1792195200,
+  "root_format": "gzip-tar-unpacked-into-tmpfs",
+  "ui_backend": "tui",
+  "uvd_runtime": false,
+  "ethernet_policy": "autoarm=0; explicit first-open helper; no background network manager",
+  "sata_policy": "disabled-first-boot",
+  "native_48khz": "deferred",
+  "wireless": "deferred; retain recorded working setups",
+  "hardware_acceptance": false
+}

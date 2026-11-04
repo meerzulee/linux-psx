@@ -1,0 +1,6 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+. /etc/psx-diagnostics/mesa.env
+exec /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+    --runtime-dir "/run/psx-mesa/$(id -u)" \
+    --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" -- /usr/bin/Xorg "$@"

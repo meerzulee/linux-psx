@@ -99,6 +99,15 @@ hashes.
 
 ## Observing traffic
 
+The later `7.2.11-psx-ps4-baikal-native-dev3` diagnostic boot also established
+wired DHCP/SSH and carried the checksum-verified diagnostic/provider transfers.
+Its profile explicitly selects `autoarm=1`; it is separate evidence from the
+historical 6.18 autoload result. The frontend experiments in the
+[diagnostic ledger](../diagnostics/SESSIONS.md) share one boot and do not count
+as additional cold boots or a controlled bidirectional longevity test. Current
+status: working on this recorded Baikal setup; ordinary-use stability
+qualification remains pending.
+
 The [current finish plan](CURRENT-FINISH-PLAN.md#ethernet-working-and-stable-in-a-declared-scope)
 defines the next proposed ordinary-use stability gate for a frozen Baikal build:
 three cold boots, longer verified traffic, healthy admin/cable recovery and

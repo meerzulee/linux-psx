@@ -1,0 +1,217 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Verify and attach one fixed optional browser pack. Never format or write USB."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+MEDIA = Path('/run/psx-media')
+PACKS = MEDIA / 'psx-diagnostics/providers'
+TARGET = Path('/run/psx-chromium')
+CONFIG = Path('/etc/psx-diagnostics/chromium-provider.json')
+EXPECTED = {
+    'provider_id': 'chromium-151.0.7922.169-psx1',
+    'image': 'chromium-151.0.7922.169-psx1.ext4',
+    'image_bytes': 402653184,
+    'image_sha256': '8fbff1558ca522b4834e022449f4ea33d08738b90b7187eacaa794fb9bfe15a4',
+    'provider_manifest_sha256': 'e38814eb6cd59ff4e04cb7ea67059fba8cdab232e866d82127e0482c7172d0e8',
+    'kernel_release': '7.2.11-psx-ps4-baikal-native-dev3',
+    'base_rootfs_sha256': '2c357c871d6422218935c0250d1282b90d2c4bdaae5b20b95b4cac621fdea424',
+    'mesa_manifest_sha256': '687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964',
+}
+LAUNCH_CONFIG = {'schema_version': 1, 'provider_manifest_sha256': EXPECTED['provider_manifest_sha256']}
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def safe_path(path):
+    require(path.resolve() == path, 'Provider paths must not contain symlinks')
+
+
+def read_file(path, maximum=1024*1024):
+    safe_path(path)
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022
+                and info.st_size <= maximum, 'Provider metadata is not a bounded root-owned regular file')
+        value = stream.read(maximum + 1)
+    require(len(value) <= maximum, 'Provider metadata exceeds its bound')
+    return value
+
+
+def read_json(path):
+    value = json.loads(read_file(path))
+    require(isinstance(value, dict), 'Provider metadata must be an object')
+    return value
+
+
+def mount_records(text):
+    records = []
+    for line in text.splitlines():
+        left, right = line.split(' - ', 1)
+        a, b = left.split(), right.split()
+        unescape = lambda value: re.sub(r'\\([0-7]{3})', lambda match: chr(int(match[1], 8)), value)
+        records.append({'device': a[2], 'root': unescape(a[3]), 'target': unescape(a[4]),
+                        'options': set(a[5].split(',')), 'fs': b[0], 'source': unescape(b[1])})
+    return records
+
+
+def mounts():
+    return mount_records(Path('/proc/self/mountinfo').read_text())
+
+
+def exact_mount(records, target):
+    found = [record for record in records if record['target'] == str(target)]
+    require(len(found) <= 1, 'Overlaid provider/media mount requires review')
+    return found[0] if found else None
+
+
+def verify_sidecars(receipt, config, boot, installed, uuid):
+    for key in ('provider_id', 'image', 'image_bytes', 'image_sha256', 'provider_manifest_sha256'):
+        require(receipt.get(key) == EXPECTED[key], 'Optional provider pin differs: ' + key)
+    require(type(receipt['image_bytes']) is int and receipt.get('hardware_acceptance') is False
+            and receipt.get('kernel_root_unchanged') is True and receipt.get('launcher_config') == LAUNCH_CONFIG
+            and config == LAUNCH_CONFIG, 'Optional provider receipt/configuration differs')
+    for key, expected in (('kernel_release', EXPECTED['kernel_release']), ('rootfs_sha256', EXPECTED['base_rootfs_sha256']),
+                          ('mesa_manifest_sha256', EXPECTED['mesa_manifest_sha256'])):
+        require(boot.get(key) == expected, 'Running diagnostic root/kernel/Mesa differs: ' + key)
+    require(installed.get('owner') == 'psx-diagnostics-usb-v1' and installed.get('verified_readback') is True
+            and installed.get('hardware_acceptance') is False
+            and installed.get('target', {}).get('uuid', '').upper() == uuid.upper()
+            and installed.get('files', {}).get(boot.get('rootfs_file')) == EXPECTED['base_rootfs_sha256'],
+            'Mounted USB does not match the loaded diagnostic root identity')
+
+
+def digest_fd(descriptor, deadline):
+    value = hashlib.sha256()
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    while True:
+        require(time.monotonic() < deadline, 'Provider hash verification exceeded its time limit')
+        chunk = os.read(descriptor, 1024*1024)
+        if not chunk:
+            return value.hexdigest()
+        value.update(chunk)
+
+
+def verify_mount(record, image_info):
+    require(record is not None and record['fs'] == 'ext4' and record['root'] == '/'
+            and {'ro', 'nosuid', 'nodev'} <= record['options'] and 'noexec' not in record['options']
+            and re.fullmatch(r'/dev/loop[0-9]+', record['source']) is not None,
+            'Existing provider mount is not a separate read-only executable loop filesystem')
+    sysfs = Path('/sys/dev/block') / record['device']
+    backing = Path((sysfs / 'loop/backing_file').read_text().strip())
+    require(backing == PACKS / EXPECTED['image'], 'Provider loop backing path differs')
+    observed = backing.stat()
+    require((observed.st_dev, observed.st_ino, observed.st_size) ==
+            (image_info.st_dev, image_info.st_ino, image_info.st_size), 'Provider loop backing identity differs')
+    require((sysfs / 'ro').read_text().strip() == '1'
+            and (sysfs / 'loop/offset').read_text().strip() == '0'
+            and int((sysfs / 'loop/sizelimit').read_text()) in (0, EXPECTED['image_bytes']),
+            'Provider loop is writable, offset or truncated')
+
+
+def atomic_config():
+    safe_path(CONFIG.parent)
+    descriptor, temporary = tempfile.mkstemp(prefix='.chromium-provider-', dir=CONFIG.parent)
+    try:
+        with os.fdopen(descriptor, 'w') as stream:
+            os.fchmod(stream.fileno(), 0o644)
+            json.dump(LAUNCH_CONFIG, stream)
+            stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
+        os.replace(temporary, CONFIG)
+        parent = os.open(CONFIG.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(parent)
+        finally:
+            os.close(parent)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def run(argv, **kwargs):
+    return subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                          check=True, timeout=10, **kwargs)
+
+
+def main():
+    require(len(sys.argv) == 1 and os.geteuid() == 0, 'Expected root prepare-chromium-provider with no arguments')
+    require(os.uname().release == EXPECTED['kernel_release'], 'Chromium provider requires its selected diagnostic kernel')
+    deadline = time.monotonic() + 40
+    records = mounts()
+    media = exact_mount(records, MEDIA)
+    require(media is not None and media['fs'] == 'vfat' and {'nosuid', 'nodev', 'noexec'} <= media['options'],
+            'Expected the already-mounted diagnostic FAT USB')
+    etc = exact_mount(records, Path('/etc'))
+    require(etc is not None and etc['fs'] == 'tmpfs' and 'rw' in etc['options'], 'Root configuration must be writable RAM')
+    uuids = [token.partition('=')[2] for token in Path('/proc/cmdline').read_text().split() if token.startswith('psx.diag_uuid=')]
+    require(len(uuids) == 1 and re.fullmatch(r'[a-fA-F0-9]{4}-[a-fA-F0-9]{4}', uuids[0]), 'Missing selected diagnostic USB UUID')
+    boot = read_json(Path('/etc/psx-diagnostics/boot-set.json'))
+    receipt = read_json(PACKS / 'provider-manifest.json')
+    config = read_json(PACKS / 'chromium-provider.json')
+    installed = read_json(MEDIA / 'psx-diagnostics/installed.json')
+    verify_sidecars(receipt, config, boot, installed, uuids[0])
+    if CONFIG.exists() or CONFIG.is_symlink():
+        require(read_json(CONFIG) == LAUNCH_CONFIG, 'Existing root Chromium configuration differs; review it first')
+    image = PACKS / EXPECTED['image']
+    safe_path(image)
+    descriptor = os.open(image, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    attached = False
+    try:
+        info = os.fstat(descriptor)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022
+                and info.st_size == EXPECTED['image_bytes']
+                and f'{os.major(info.st_dev)}:{os.minor(info.st_dev)}' == media['device'],
+                'Optional image must be the pinned regular file on the selected USB mount')
+        require(digest_fd(descriptor, deadline) == EXPECTED['image_sha256'], 'Optional Chromium image SHA256 differs')
+        require((image.stat().st_dev, image.stat().st_ino, image.stat().st_size, image.stat().st_mtime_ns)
+                == (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns), 'Optional image changed while being verified')
+        current = exact_mount(records, TARGET)
+        if current is not None:
+            verify_mount(current, info)
+            require(CONFIG.exists() and read_json(CONFIG) == LAUNCH_CONFIG, 'Mounted provider has no matching root configuration')
+        else:
+            safe_path(TARGET)
+            TARGET.mkdir(mode=0o755, exist_ok=True)
+            require(TARGET.stat().st_uid == 0 and not any(TARGET.iterdir()), 'Provider mountpoint must be empty and root-owned')
+            run(['/usr/bin/mount', '-t', 'ext4', '-o', 'loop,ro,nosuid,nodev,exec,noload',
+                 '/proc/self/fd/' + str(descriptor), str(TARGET)], pass_fds=(descriptor,))
+            attached = True
+            verify_mount(exact_mount(mounts(), TARGET), info)
+        require(not any(item['target'].startswith(str(TARGET) + '/') for item in mounts()), 'Provider has unexpected nested mounts')
+        embedded_bytes = read_file(TARGET / 'PROVIDER.json')
+        require(hashlib.sha256(embedded_bytes).hexdigest() == EXPECTED['provider_manifest_sha256'], 'Embedded provider manifest SHA256 differs')
+        embedded = json.loads(embedded_bytes)
+        for key in ('provider_id', 'kernel_release', 'base_rootfs_sha256', 'mesa_manifest_sha256'):
+            require(embedded.get(key) == EXPECTED[key], 'Embedded provider identity differs: ' + key)
+        require(embedded.get('hardware_acceptance') is False, 'Provider must remain a development candidate')
+        if attached:
+            atomic_config()
+        print(json.dumps({'prepared': True, 'reused': not attached, 'mountpoint': str(TARGET),
+                          'provider_id': EXPECTED['provider_id'], 'image_sha256': EXPECTED['image_sha256'],
+                          'hardware_acceptance': False}))
+    except Exception:
+        if attached:
+            # Only the new, read-only optional mount is ours to remove. Never touch an existing mount.
+            run(['/usr/bin/umount', str(TARGET)])
+        raise
+    finally:
+        os.close(descriptor)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        raise SystemExit('Chromium provider preparation: ' + str(error))

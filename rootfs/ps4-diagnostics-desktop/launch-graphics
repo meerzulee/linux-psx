@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Start one fixed graphical diagnostic session; never starts at boot."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+MODES = ("browser", "chromium", "protondb", "opengl", "vulkan", "diagnostics")
+WINDOW_MODES = ("browser", "chromium", "protondb", "opengl", "vulkan")
+BUSY_STATES = ("active", "activating", "reloading", "deactivating")
+SYSTEMD_RUNTIME = Path('/run/systemd/system')
+AUTOMATIC_LIMIT = b'[Service]\nRuntimeMaxSec=120s\n'
+
+
+def standalone_runtime_limit(service, automatic):
+    """A fixed RAM drop-in survives controller death; manual sessions clear it."""
+    directory = SYSTEMD_RUNTIME / (service + '.d')
+    path = directory / '50-psx-browser-runtime.conf'
+    if directory.is_symlink() or path.is_symlink():
+        raise ValueError('unsafe browser runtime-limit path')
+    if path.exists() and (not path.is_file() or path.read_bytes() != AUTOMATIC_LIMIT):
+        raise ValueError('unexpected browser runtime-limit configuration')
+    changed = False
+    if automatic and not path.exists():
+        directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(AUTOMATIC_LIMIT)
+        changed = True
+    elif not automatic and path.exists():
+        path.unlink()
+        changed = True
+    if changed:
+        subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=10, capture_output=True)
+
+
+def active_state(service):
+    result = subprocess.run(["systemctl", "show", "--property=ActiveState", "--value", service],
+                            capture_output=True, text=True, timeout=5)
+    return result.stdout.strip()
+
+
+def main():
+    automatic = len(sys.argv) == 3 and sys.argv[1] == '--automatic'
+    args = sys.argv[2:] if automatic else sys.argv[1:]
+    if os.geteuid() != 0 or len(args) != 1 or args[0] not in MODES or (automatic and args[0] not in ('browser', 'chromium')):
+        raise ValueError("expected root launch-graphics browser|chromium|protondb|opengl|vulkan|diagnostics")
+    mode = args[0]
+    manifest = json.loads(Path("/etc/psx-diagnostics/boot-set.json").read_text())
+    if os.uname().release != manifest.get("kernel_release"):
+        raise ValueError("running kernel differs from the graphical diagnostic boot set")
+    states = {mode: active_state("psx-diagnostics-graphics@" + mode + ".service") for mode in MODES}
+    for session_mode, state in states.items():
+        if state in BUSY_STATES and not (session_mode == "diagnostics" and state == "active"
+                                        and mode in WINDOW_MODES):
+            raise ValueError("a graphical diagnostic is already active; finish it first")
+    for session_mode in WINDOW_MODES:
+        if active_state("psx-diagnostics-window-" + session_mode + ".service") in BUSY_STATES:
+            raise ValueError("a graphical test window is already active; finish it first")
+    windowed = states["diagnostics"] == "active"
+    if windowed:
+        service = "psx-diagnostics-window-" + mode + ".service"
+        helper = Path("/run/psx-frontend/graphics-window")
+        if not os.access(helper, os.X_OK):
+            helper = Path("/usr/lib/psx-diagnostics/graphics-window")
+        runtime = ['--property=RuntimeMaxSec=120'] if automatic else []
+        subprocess.run(["systemd-run", "--quiet", "--collect", "--service-type=exec", "--unit=" + service,
+                        "--property=BindsTo=psx-diagnostics-graphics@diagnostics.service",
+                        "--property=After=psx-diagnostics-graphics@diagnostics.service",
+                        "--property=KillMode=control-group", "--property=TimeoutStopSec=8",
+                        "--property=StandardOutput=journal", "--property=StandardError=journal",
+                        *runtime, str(helper), mode], check=True, timeout=15, capture_output=True)
+    else:
+        service = "psx-diagnostics-graphics@" + mode + ".service"
+        if mode in ('browser', 'chromium'):
+            standalone_runtime_limit(service, automatic)
+        subprocess.run(["systemctl", "start", service], check=True, timeout=15,
+                       capture_output=True)
+    print(json.dumps({"started": True, "mode": mode, "service": service,
+                      'automatic': automatic, 'runtime_max_seconds': 120 if automatic else None,
+                      "terminal": "tty3", "windowed": windowed,
+                      "return_terminal": "tty3" if windowed else "tty1", "hardware_acceptance": False}))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1)

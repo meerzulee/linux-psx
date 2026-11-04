@@ -13,7 +13,8 @@
 
 Linux psX brings PS4 and PS5 kernel development into one source project with
 separate console targets. It owns the kernel patches, builds, matching modules, PS4 Mesa source
-and hardware evidence. Distribution and desktop integration live in
+and hardware evidence. It also owns the optional
+[PS4 diagnostic appliance and image builders](docs/DIAGNOSTICS.md). Production distribution and desktop integration live in
 [Omarchy psX](https://github.com/meerzulee/omarchy-psx).
 
 ## PlayStation 4
@@ -121,7 +122,11 @@ Use `7.2-ps4-baikal-native-dev` for the Baikal port with native Ethernet.
 It produces `7.2.11-psx-ps4-baikal-native-dev3`, adding overridable PCI and
 interrupt-remapping platform defaults and focused platform/error-path fixes
 after the dev2 SATA/HDMI additions.
-This new kernel revision is not boot-tested. The UVD runtime is a separate
+The local build pinned by the [diagnostic profile](manifests/ps4-diagnostics-console.json)
+has booted on the owner's Baikal console with wired networking and graphics/browser
+observations recorded in the [diagnostic ledger](diagnostics/SESSIONS.md).
+Repeated-boot and ordinary-use stability gates remain open; new CI binaries or
+fresh rebuilds need their own qualification. The UVD runtime remains a separate
 experimental source/build path described in the UVD guide.
 
 ```sh

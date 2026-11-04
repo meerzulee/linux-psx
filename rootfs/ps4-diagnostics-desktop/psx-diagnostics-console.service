@@ -1,0 +1,21 @@
+[Unit]
+Description=psX Diagnostics console
+After=local-fs.target psx-diagnostics-control.service
+Wants=psx-diagnostics-control.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/psx-diagnostics/start-console
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=TERM=linux
+Environment=PATH=/usr/local/bin:/usr/bin:/usr/sbin
+WorkingDirectory=/root
+
+[Install]
+WantedBy=multi-user.target

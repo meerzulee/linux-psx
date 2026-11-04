@@ -1,0 +1,504 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Update only diagnostic frontend boot files through a pinned SSH connection.
+
+The default is a read-only plan. --apply backs up every small boot/recovery
+file on the host before permitting remote writes. The mounted FAT filesystem
+stays pinned by a directory FD; the running system and boot arguments stay intact.
+"""
+import argparse
+import base64
+import hashlib
+import importlib.machinery
+import importlib.util
+import inspect
+import json
+import os
+from pathlib import Path
+import re
+import select
+import shlex
+import signal
+import stat
+import subprocess
+import sys
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader("psx_frontend_ssh_base", str(ROOT / "deploy-ps4-diagnostics-ftp"))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+DEPLOY = importlib.util.module_from_spec(spec)
+loader.exec_module(DEPLOY)
+REMOTE_ROOT = "/run/psx-media"
+READ_LIMITS = {"initramfs.cpio.gz": 16*1024**2, "bootargs.txt": 65536,
+               "psx-diagnostics/boot-set.json": 1024**2,
+               "psx-diagnostics/installed.json": 1024**2,
+               "psx-diagnostics/USB-SHA256SUMS": 1024**2}
+PAYLOAD = ("initramfs.cpio.gz", "psx-diagnostics/boot-set.json")
+RECEIPTS = ("psx-diagnostics/USB-SHA256SUMS", "psx-diagnostics/installed.json")
+FRONTEND_FIELDS = {"initramfs_sha256", "tui_sha256", "builder_sha256", "frontend_overrides",
+                   "frontend_revision", "frontend_theme", "rootfs_tui_sha256", "frontend_refresh"}
+MAX_WIRE_BYTES = 32*1024**2
+
+
+def pin(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def validate_identity(mount, inventory, device_number, expected):
+    if (mount.get("target") != REMOTE_ROOT or mount.get("fstype") != "vfat"
+            or "rw" not in mount.get("options", "").split(",")):
+        raise ValueError("Expected the existing writable diagnostic FAT mount")
+    nodes = []
+
+    def walk(items):
+        for item in items:
+            nodes.append(item)
+            walk(item.get("children", []))
+
+    walk(inventory.get("blockdevices", []))
+    partition = [item for item in nodes if item.get("path") == mount.get("source")]
+    disks = [item for item in nodes if item.get("type") == "disk"]
+    identity = f"{os.major(device_number)}:{os.minor(device_number)}"
+    if (len(partition) != 1 or partition[0].get("type") != "part"
+            or partition[0].get("fstype") != "vfat"
+            or partition[0].get("uuid") != expected["uuid"]
+            or partition[0].get("maj:min") != identity or mount.get("maj:min") != identity
+            or len(disks) != 1 or disks[0].get("tran") != "usb"
+            or disks[0].get("serial") != expected["serial"]
+            or disks[0].get("size") != expected["bytes"]):
+        raise ValueError("Live USB serial/capacity/UUID/device differs from the selected target")
+    return {key: expected[key] for key in ("serial", "bytes", "uuid")}
+
+
+class RemoteUSB:
+    mountpoint = REMOTE_ROOT
+
+    def __init__(self, expected):
+        self.expected = expected
+        self.fd = None
+        self.snapshot = None
+        self.staging = None
+        self.rollback_status = "not-needed"
+
+    def identify(self):
+        if os.geteuid() != 0:
+            raise ValueError("The diagnostic USB updater requires a root SSH session")
+        mount = json.loads(subprocess.run(
+            ["findmnt", "--json", "--target", REMOTE_ROOT, "--output", "TARGET,SOURCE,FSTYPE,OPTIONS,MAJ:MIN"],
+            check=True, capture_output=True, text=True, timeout=10).stdout)["filesystems"]
+        if len(mount) != 1:
+            raise ValueError("Diagnostic mount identity is ambiguous")
+        mount = mount[0]
+        source = mount.get("source", "")
+        if not source.startswith("/dev/"):
+            raise ValueError("Diagnostic FAT source is not a block device")
+        source_info = os.stat(source)
+        if not stat.S_ISBLK(source_info.st_mode):
+            raise ValueError("Diagnostic FAT source is not a block device")
+        device_number = source_info.st_rdev
+        inventory = json.loads(subprocess.run(
+            ["lsblk", "--json", "--bytes", "--paths", "--inverse", "--output",
+             "PATH,TYPE,TRAN,SERIAL,SIZE,FSTYPE,UUID,MAJ:MIN", source],
+            check=True, capture_output=True, text=True, timeout=10).stdout)
+        return validate_identity(mount, inventory, device_number, self.expected), device_number
+
+    def __enter__(self):
+        self.identity, self.device = self.identify()
+        self.fd = os.open(self.mountpoint, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        if os.fstat(self.fd).st_dev != self.device:
+            self.__exit__(None, None, None)
+            raise ValueError("Opened directory does not pin the selected mounted filesystem")
+        return self
+
+    def __exit__(self, *_):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def parent(self, name):
+        parts = name.split("/")
+        if any(part in ("", ".", "..") for part in parts):
+            raise ValueError("Unsafe USB-relative path")
+        directory = os.dup(self.fd)
+        try:
+            for part in parts[:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                os.close(directory)
+                directory = child
+                if os.fstat(directory).st_dev != self.device:
+                    raise ValueError("USB path crosses another filesystem")
+            return directory, parts[-1]
+        except BaseException:
+            os.close(directory)
+            raise
+
+    def read(self, name, maximum=None):
+        maximum = READ_LIMITS[name] if maximum is None else maximum
+        directory, leaf = self.parent(name)
+        try:
+            descriptor = os.open(leaf, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=directory)
+            with os.fdopen(descriptor, "rb") as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_dev != self.device or info.st_size > maximum:
+                    raise ValueError("USB input is not a bounded contained regular file: " + name)
+                data = stream.read(maximum+1)
+                if len(data) != info.st_size or len(data) > maximum:
+                    raise ValueError("USB input changed while reading: " + name)
+                return data
+        finally:
+            os.close(directory)
+
+    def inspect(self):
+        self.snapshot = {name: self.read(name) for name in READ_LIMITS}
+        return {"identity": self.identity,
+                "files": {name: base64.b64encode(data).decode() for name, data in self.snapshot.items()}}
+
+    def check_current(self):
+        identity, device = self.identify()
+        if identity != self.identity or device != self.device or os.fstat(self.fd).st_dev != device:
+            raise ValueError("Diagnostic mount changed during the transaction")
+        if any(self.read(name) != data for name, data in self.snapshot.items()):
+            raise ValueError("Small USB boot files drifted after inspection")
+
+    def write_staged(self, name, data):
+        directory, leaf = self.parent(name)
+        try:
+            descriptor = os.open(leaf, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(data); stream.flush(); os.fsync(stream.fileno())
+            os.fsync(directory)
+            if self.read(name, len(data)) != data:
+                raise ValueError("Staged USB readback differs: " + name)
+        finally:
+            os.close(directory)
+
+    def replace(self, staged, destination):
+        source_fd, source_leaf = self.parent(staged)
+        target_fd, target_leaf = self.parent(destination)
+        try:
+            os.replace(source_leaf, target_leaf, src_dir_fd=source_fd, dst_dir_fd=target_fd)
+            os.fsync(source_fd); os.fsync(target_fd)
+        finally:
+            os.close(source_fd); os.close(target_fd)
+
+    def restore(self, new):
+        # Refuse an unknown current byte sequence before restoring anything.
+        states = {name: self.read(name) for name in new}
+        for name, data in states.items():
+            if data not in (self.snapshot[name], new[name]):
+                raise ValueError("Rollback refused unknown destination bytes: " + name)
+            if data != self.snapshot[name]:
+                saved = self.staging + "/old/" + str(list(new).index(name))
+                if self.read(saved, READ_LIMITS[name]) != self.snapshot[name]:
+                    raise ValueError("Rollback copy differs from the inspected old bytes")
+        for name in reversed(list(new)):
+            if states[name] == self.snapshot[name]:
+                continue
+            saved = self.staging + "/old/" + str(list(new).index(name))
+            self.replace(saved, name)
+            if self.read(name) != self.snapshot[name]:
+                raise ValueError("Restored USB readback differs")
+        self.rollback_status = "restored"
+
+    def commit(self, request):
+        if request.get("backup_complete") is not True or request.get("backup_pins") != {
+                name: pin(data) for name, data in self.snapshot.items()}:
+            raise ValueError("Verified host recovery backup is required before USB writes")
+        encoded = request.get("files", {})
+        if (not isinstance(encoded, dict) or set(encoded) - set(PAYLOAD + RECEIPTS)
+                or not set(RECEIPTS).issubset(encoded)):
+            raise ValueError("SSH update is limited to frontend payload and ownership receipts")
+        new = {}
+        for name in PAYLOAD + RECEIPTS:
+            if name in encoded:
+                data = base64.b64decode(encoded[name], validate=True)
+                if not 0 < len(data) <= READ_LIMITS[name]:
+                    raise ValueError("Oversized frontend transaction input")
+                new[name] = data
+        self.check_current()
+        self.staging = ".psx-frontend-ssh-" + uuid.uuid4().hex
+        os.mkdir(self.staging, 0o700, dir_fd=self.fd)
+        staging_fd = os.open(self.staging, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=self.fd)
+        try:
+            os.mkdir("new", 0o700, dir_fd=staging_fd); os.mkdir("old", 0o700, dir_fd=staging_fd)
+            os.fsync(staging_fd); os.fsync(self.fd)
+        finally:
+            os.close(staging_fd)
+        try:
+            for index, (name, data) in enumerate(new.items()):
+                self.write_staged(self.staging + "/old/" + str(index), self.snapshot[name])
+                self.write_staged(self.staging + "/new/" + str(index), data)
+            self.check_current()
+            for index, (name, data) in enumerate(new.items()):
+                if self.read(name) != self.snapshot[name]:
+                    raise ValueError("Old USB destination changed before atomic replacement")
+                self.replace(self.staging + "/new/" + str(index), name)
+                if self.read(name) != data:
+                    raise ValueError("Published USB readback differs: " + name)
+            for name, old in self.snapshot.items():
+                if self.read(name) != new.get(name, old):
+                    raise ValueError("Final USB readback differs: " + name)
+            identity, device = self.identify()
+            if identity != self.identity or device != self.device:
+                raise ValueError("USB identity changed during publication")
+        except BaseException as error:
+            self.rollback_status = "in-progress"
+            try:
+                self.restore(new)
+            except BaseException as rollback_error:
+                self.rollback_status = "blocked-unknown-bytes"
+                raise ValueError(str(error) + "; " + str(rollback_error)) from error
+            raise
+        # Keep the small, root-private remote recovery copies until reviewed.
+        return {"status": "PASS", "verified_readback": True, "remote_recovery": self.staging,
+                "files": {name: pin(data) for name, data in new.items()}}
+
+
+def remote_main():
+    def receive():
+        line = sys.stdin.buffer.readline(MAX_WIRE_BYTES+1)
+        if len(line) > MAX_WIRE_BYTES or not line.endswith(b"\n"):
+            raise ValueError("Incomplete or oversized SSH transaction request")
+        return json.loads(line)
+
+    def interrupted(*_):
+        if usb is not None and usb.rollback_status == "in-progress":
+            return
+        raise RuntimeError("SSH transaction interrupted")
+
+    usb = None
+    try:
+        request = receive()
+        if request.get("operation") != "inspect":
+            raise ValueError("SSH transaction must begin with read-only inspection")
+        with RemoteUSB(request["identity"]) as usb:
+            print(json.dumps(dict(status="INSPECTED", **usb.inspect())), flush=True)
+            request = receive()
+            if request.get("operation") == "finish":
+                return
+            if request.get("operation") != "commit":
+                raise ValueError("Invalid SSH transaction phase")
+            signal.signal(signal.SIGTERM, interrupted)
+            signal.signal(signal.SIGHUP, interrupted)
+            print(json.dumps(usb.commit(request)), flush=True)
+    except Exception as error:
+        print(json.dumps({"status": "ERROR", "error": str(error),
+                          "rollback": usb.rollback_status if usb else "not-needed",
+                          "remote_recovery": usb.staging if usb else None}), flush=True)
+
+
+def remote_program():
+    imports = "import base64, hashlib, json, os, signal, stat, subprocess, sys, uuid\n"
+    constants = "\n".join(f"{name} = {value!r}" for name, value in (
+        ("REMOTE_ROOT", REMOTE_ROOT), ("READ_LIMITS", READ_LIMITS), ("PAYLOAD", PAYLOAD),
+        ("RECEIPTS", RECEIPTS), ("MAX_WIRE_BYTES", MAX_WIRE_BYTES)))
+    return imports + constants + "\n" + "\n".join(inspect.getsource(item) for item in (
+        pin, validate_identity, RemoteUSB, remote_main)) + "\nremote_main()\n"
+
+
+class SSHSession:
+    def __init__(self, args):
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9:._%-]*", args.host) or not 1 <= args.port <= 65535:
+            raise ValueError("Invalid SSH host/port")
+        key = args.identity.resolve(strict=True)
+        known = args.known_hosts.resolve(strict=True)
+        if not key.is_file() or not known.is_file() or any(c in str(known) for c in "\r\n"):
+            raise ValueError("Explicit SSH identity and pinned known_hosts files are required")
+        quoted_known = '"' + str(known).replace("\\", "\\\\").replace('"', '\\"') + '"'
+        self.command = ["ssh", "-F", "/dev/null", "-T", "-p", str(args.port), "-i", str(key),
+            "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=yes",
+            "-o", "UserKnownHostsFile=" + quoted_known, "-o", "GlobalKnownHostsFile=/dev/null",
+            "-o", "UpdateHostKeys=no", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+            "root@" + args.host, "python3 -u -c " + shlex.quote(remote_program())]
+        alias = getattr(args, "host_key_alias", None)
+        if alias:
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", alias):
+                raise ValueError("Invalid pinned SSH host-key alias")
+            self.command[1:1] = ["-o", "HostKeyAlias=" + alias]
+        self.process = None
+        self.buffer = b""
+
+    def __enter__(self):
+        self.process = subprocess.Popen(self.command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, bufsize=0)
+        return self
+
+    def send(self, request):
+        raw = (json.dumps(request, separators=(",", ":")) + "\n").encode()
+        if len(raw) > MAX_WIRE_BYTES:
+            raise ValueError("SSH transaction exceeds its bounded wire budget")
+        pending = memoryview(raw)
+        while pending:
+            written = self.process.stdin.write(pending)
+            if not written:
+                raise OSError("SSH input closed during transaction transfer")
+            pending = pending[written:]
+        self.process.stdin.flush()
+
+    def receive(self, timeout=120):
+        deadline = time.monotonic() + timeout
+        while b"\n" not in self.buffer:
+            remaining = deadline-time.monotonic()
+            if remaining <= 0 or not select.select([self.process.stdout], [], [], remaining)[0]:
+                raise TimeoutError("SSH transaction timed out; retain the host backup and inspect before retrying")
+            data = os.read(self.process.stdout.fileno(), 65536)
+            if not data:
+                raise OSError("SSH session ended before acknowledgement; outcome may need recovery review")
+            self.buffer += data
+            if len(self.buffer) > MAX_WIRE_BYTES:
+                raise ValueError("Oversized SSH transaction response")
+        raw, self.buffer = self.buffer.split(b"\n", 1)
+        result = json.loads(raw)
+        if result.get("status") == "ERROR":
+            raise ValueError("Remote update: " + result["error"] + "; rollback=" + result["rollback"])
+        return result
+
+    def __exit__(self, *_):
+        if self.process is not None:
+            self.process.stdin.close()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.terminate(); self.process.wait(timeout=5)
+            self.process.stdout.close(); self.process.stderr.close()
+
+
+def prepare(source, files, metadata, snapshot, identity):
+    if (metadata.get("root_format") != "ext4-ro-loop" or metadata.get("ui_backend") != "ratatui"
+            or not metadata.get("frontend_overrides")
+            or metadata.get("frontend_refresh", {}).get("root_image_unchanged") is not True):
+        raise ValueError("Source is not a pinned frontend-only refresh")
+    previous = json.loads(snapshot["psx-diagnostics/installed.json"])
+    DEPLOY.verify_receipt(previous, identity["serial"], identity["bytes"], identity["uuid"])
+    if snapshot["psx-diagnostics/USB-SHA256SUMS"] != DEPLOY.STAGE.installed_sums(previous["files"]).encode():
+        raise ValueError("USB checksum list differs from its ownership receipt")
+    for name in PAYLOAD + ("bootargs.txt",):
+        if pin(snapshot[name]) != previous["files"].get(name):
+            raise ValueError("Owned small USB boot file changed: " + name)
+    bootargs = snapshot["bootargs.txt"]
+    if [token for token in bootargs.decode().split() if token.startswith("psx.diag_uuid=")] != ["psx.diag_uuid="+identity["uuid"]]:
+        raise ValueError("Existing boot arguments do not bind the selected USB")
+    expected = {name: value for name, value in files.items() if name != "bootargs.template.txt"}
+    expected["bootargs.txt"] = pin(bootargs)
+    if (previous.get("profile") != metadata["profile"] or previous.get("kernel_release") != metadata["kernel_release"]
+            or set(previous["files"]) != set(expected)):
+        raise ValueError("Frontend update must preserve the complete existing profile/file set")
+    changed = sorted(name for name in expected if previous["files"][name] != expected[name])
+    if set(changed) - set(PAYLOAD):
+        raise ValueError("SSH frontend update would change an unrelated payload file")
+    previous_meta = json.loads(snapshot["psx-diagnostics/boot-set.json"])
+    if ({key: value for key, value in previous_meta.items() if key not in FRONTEND_FIELDS}
+            != {key: value for key, value in metadata.items() if key not in FRONTEND_FIELDS}):
+        raise ValueError("Frontend update must retain all immutable kernel/config/modules/root metadata pins")
+    if previous_meta.get("initramfs_sha256") != previous["files"]["initramfs.cpio.gz"]:
+        raise ValueError("Existing boot metadata and initramfs ownership pin disagree")
+    if (previous_meta.get("rootfs_sha256") != metadata["rootfs_sha256"]
+            or expected.get(metadata["rootfs_file"]) != metadata["rootfs_sha256"]):
+        raise ValueError("Frontend update must preserve the exact root image")
+    total = sum((source / name).stat().st_size for name in files if name != "bootargs.template.txt") + len(bootargs)
+    if total+1024**2 > metadata["maximum_boot_set_bytes"]:
+        raise ValueError("Complete payload exceeds its cap and receipt reserve")
+    new = {}
+    for name in changed:
+        if (source / name).stat().st_size > READ_LIMITS[name]:
+            raise ValueError("Frontend payload exceeds its small-file budget")
+        data = (source / name).read_bytes()
+        if pin(data) != expected[name]:
+            raise ValueError("Frontend source drifted after validation")
+        new[name] = data
+    return previous, expected, changed, new, total
+
+
+def backup_files(backup, snapshot, plan):
+    backup.mkdir(mode=0o700, parents=True, exist_ok=False)
+    for name, data in snapshot.items():
+        path = backup / name
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with path.open("xb") as stream:
+            stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        if path.read_bytes() != data:
+            raise ValueError("Host recovery readback differs: " + name)
+    pins = {name: pin(data) for name, data in snapshot.items()}
+    manifest = (json.dumps(dict(plan, backup_pins=pins, recovery_complete=True), indent=2)+"\n").encode()
+    with (backup / "backup.json").open("xb") as stream:
+        stream.write(manifest); stream.flush(); os.fsync(stream.fileno())
+    for directory in sorted({backup, backup.parent} | {path.parent for path in backup.rglob("*")}, key=str, reverse=True):
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    return pins
+
+
+def update(args, session_factory=SSHSession):
+    source = args.source.resolve(strict=True)
+    files, metadata = DEPLOY.STAGE.source_files(source)
+    identity = {"serial": args.expect_serial, "bytes": args.expect_bytes, "uuid": args.expect_uuid}
+    with session_factory(args) as session:
+        session.send({"operation": "inspect", "identity": identity})
+        observed = session.receive()
+        if observed.get("status") != "INSPECTED" or observed.get("identity") != identity or set(observed.get("files", {})) != set(READ_LIMITS):
+            raise ValueError("Live SSH USB inspection did not match the selected identity/files")
+        snapshot = {name: base64.b64decode(data, validate=True) for name, data in observed["files"].items()}
+        if any(len(data) > READ_LIMITS[name] for name, data in snapshot.items()):
+            raise ValueError("Oversized SSH recovery input")
+        previous, expected, changed, new, total = prepare(source, files, metadata, snapshot, identity)
+        plan = {"profile": metadata["profile"], "frontend_revision": metadata["frontend_revision"],
+                "target": identity, "remote_root": REMOTE_ROOT, "changed_files": changed,
+                "root_image_unchanged": True, "kernel_unchanged": True, "arguments_preserved": True,
+                "total_os_payload_bytes": total, "apply": args.apply, "hardware_acceptance": False,
+                "verification_scope": "Full small-file SHA256 readback; unchanged payload retained from the verified ownership receipt"}
+        print(json.dumps(plan, indent=2), flush=True)
+        if not args.apply or not changed:
+            session.send({"operation": "finish"})
+            return dict(plan, status="UNCHANGED" if args.apply else "PLAN")
+        backup = args.backup.resolve()
+        receipt = args.receipt.resolve()
+        if (backup.is_relative_to(source) or source.is_relative_to(backup)
+                or receipt.is_relative_to(source) or receipt.is_relative_to(backup)):
+            raise ValueError("Recovery backup and result receipt must be separate from the source")
+        pins = backup_files(backup, snapshot, plan)
+        marker = dict(previous, files=expected, frontend_revision=metadata["frontend_revision"],
+                      verified_readback=True, verification_scope=plan["verification_scope"],
+                      staged_unix=time.time(), hardware_acceptance=False, backup=str(backup),
+                      frontend_transport="ssh", boot_arguments_preserved=True)
+        new.update({"psx-diagnostics/installed.json": (json.dumps(marker, indent=2)+"\n").encode(),
+                    "psx-diagnostics/USB-SHA256SUMS": DEPLOY.STAGE.installed_sums(expected).encode()})
+        session.send({"operation": "commit", "backup_complete": True, "backup_pins": pins,
+                      "files": {name: base64.b64encode(data).decode() for name, data in new.items()}})
+        result = session.receive()
+        if (result.get("status") != "PASS" or result.get("verified_readback") is not True
+                or result.get("files") != {name: pin(data) for name, data in new.items()}):
+            raise ValueError("SSH publication acknowledgement differs; retain backup and inspect before retrying")
+        result = dict(plan) | result | {"backup": str(backup), "files": expected}
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        DEPLOY.STAGE.atomic_write(receipt, data=(json.dumps(result, indent=2)+"\n").encode())
+        return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", type=int, default=22)
+    parser.add_argument("--host-key-alias", help="Name of this USB installation in the pinned known_hosts file")
+    parser.add_argument("--identity", type=Path, required=True)
+    parser.add_argument("--known-hosts", type=Path, required=True)
+    parser.add_argument("--expect-serial", required=True)
+    parser.add_argument("--expect-bytes", type=int, required=True)
+    parser.add_argument("--expect-uuid", required=True)
+    parser.add_argument("--backup", type=Path, required=True)
+    parser.add_argument("--receipt", type=Path, required=True)
+    parser.add_argument("--apply", action="store_true")
+    result = update(parser.parse_args())
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        raise SystemExit("Frontend SSH update: " + str(error))

@@ -1,0 +1,132 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Validate a pinned optional Wayland suite; only --apply starts the DRM test."""
+import argparse
+import gzip
+import hashlib
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import stat
+import subprocess
+import sys
+import tarfile
+import uuid
+
+MAX_ARCHIVE = 2*1024**2
+MAX_UNPACKED = 4*1024**2
+DESTINATION = Path('/run/psx-wayland/suite')
+
+
+def inspect_archive(path, expected):
+    path = Path(path)
+    if (not re.fullmatch('[a-f0-9]{64}', expected) or path.is_symlink() or not path.is_file()
+            or path.stat().st_size > MAX_ARCHIVE):
+        raise ValueError('Expected an explicit bounded, pinned Wayland suite archive')
+    packed = path.read_bytes()
+    if hashlib.sha256(packed).hexdigest() != expected:
+        raise ValueError('Wayland archive differs from its expected SHA256')
+    members, total = {}, 0
+    with tarfile.open(fileobj=io.BytesIO(packed), mode='r:gz') as tar:
+        for item in tar:
+            name = PurePosixPath(item.name)
+            if (not item.isfile() or name.is_absolute() or '..' in name.parts or str(name) != item.name
+                    or item.name in members or len(members) >= 64 or item.size > MAX_UNPACKED):
+                raise ValueError('Unsafe or duplicate Wayland archive member')
+            total += item.size
+            if total > MAX_UNPACKED: raise ValueError('Wayland archive exceeds its unpacked RAM budget')
+            members[item.name] = (tar.extractfile(item).read(), item.mode)
+    if 'suite.json' not in members: raise ValueError('Missing Wayland suite receipt')
+    manifest = json.loads(members['suite.json'][0])
+    if (manifest.get('schema_version') != 1 or manifest.get('backend') != 'drm'
+            or manifest.get('renderer') != 'gles2' or manifest.get('hardware_acceptance') is not False
+            or set(members) != set(manifest.get('files', {})) | {'suite.json'}):
+        raise ValueError('Wayland suite does not match the fixed native/GLES2 policy')
+    for name, item in manifest['files'].items():
+        data, mode = members[name]
+        if (len(data) != item['bytes'] or hashlib.sha256(data).hexdigest() != item['sha256']
+                or mode != int(item['mode'], 8) or mode not in (0o644, 0o755)):
+            raise ValueError('Wayland suite member differs from its receipt')
+    return manifest, members
+
+
+def stage(members, destination=DESTINATION):
+    parent = destination.parent
+    parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if parent.is_symlink() or parent.resolve() != parent or parent.stat().st_uid != 0 or parent.stat().st_mode & 0o022:
+        raise ValueError('Unsafe private Wayland RAM directory')
+    if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
+        raise ValueError('Wayland suite destination must be an ordinary private directory')
+    if destination.exists():
+        for name, (data, mode) in members.items():
+            path = destination/name
+            if (path.is_symlink() or not path.is_file() or path.read_bytes() != data
+                    or stat.S_IMODE(path.stat().st_mode) != mode):
+                raise ValueError('Existing staged Wayland suite differs; inspect before retrying')
+        return
+    destination.mkdir(mode=0o700)
+    for name, (data, mode) in members.items():
+        path = destination/name; path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        with path.open('xb') as output: output.write(data)
+        path.chmod(mode)
+
+
+def systemd_command(run_id):
+    return ['/usr/bin/systemd-run', '--quiet', '--wait', '--collect', '--service-type=exec',
+        '--unit=psx-diagnostics-wayland', '--property=User=root', '--property=PAMName=login',
+        '--property=StandardInput=tty', '--property=TTYPath=/dev/tty3', '--property=TTYReset=yes',
+        '--property=TTYVHangup=yes', '--property=StandardOutput=journal', '--property=StandardError=journal',
+        '--property=RuntimeDirectory=psx-wayland-session', '--property=RuntimeDirectoryMode=0700',
+        '--property=RuntimeMaxSec=35', '--property=TimeoutStopSec=8', '--property=KillMode=control-group',
+        '--property=ExecStartPre=/usr/bin/chvt 3', '--property=ExecStopPost=-/usr/bin/chvt 1',
+        '--property=Environment=XDG_SESSION_TYPE=wayland', '--', '/usr/bin/python3',
+        str(DESTINATION/'runtime.py'), '--run', '--run-id', run_id]
+
+
+def launch(args, root_prefix='/', operations=None):
+    manifest, members = inspect_archive(args.suite, args.expected_sha256)
+    namespace = {'__name__': 'psx_pinned_wayland_preflight', '__file__': str(DESTINATION/'runtime.py')}
+    # Only project code inside the fully hash-verified archive is imported.
+    exec(compile(members['runtime.py'][0], namespace['__file__'], 'exec'), namespace)
+    facts = namespace['preflight'](None, root_prefix=root_prefix, operations=operations, verified_manifest=manifest)
+    if not args.apply:
+        print(json.dumps(dict(facts, apply=False, archive_sha256=args.expected_sha256), indent=2)); return
+    if Path(root_prefix).resolve() != Path('/') or operations is not None:
+        raise ValueError('Fixture roots cannot activate a Wayland session')
+    stage(members)
+    namespace['verify_tree'](DESTINATION)
+    run_id = uuid.uuid4().hex
+    directory = DESTINATION.parent/'runs'/run_id
+    directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+    try:
+        completed = subprocess.run(systemd_command(run_id), capture_output=True, text=True, timeout=50)
+        returncode = completed.returncode
+    except subprocess.TimeoutExpired:
+        returncode = 124
+    result = directory/'result.json'
+    if result.is_file() and not result.is_symlink() and result.stat().st_size <= 65536:
+        report = json.loads(result.read_text())
+        if report.get('boot_id') != facts['boot_id'] or report.get('run_id') != run_id:
+            raise ValueError('Wayland result identity differs from this run')
+    else:
+        report = dict(facts, status='INCONCLUSIVE', stop_required=True, phase='service-setup',
+                      run_id=run_id, service_returncode=returncode)
+    report['result_directory'] = str(directory)
+    print(json.dumps(report, indent=2))
+    if returncode != 0 or report.get('status') != 'PASS': raise SystemExit(1)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--suite', type=Path, required=True)
+    parser.add_argument('--expected-sha256', required=True)
+    parser.add_argument('--apply', action='store_true')
+    launch(parser.parse_args())
+
+
+if __name__ == '__main__':
+    try: main()
+    except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.SubprocessError) as error:
+        raise SystemExit('Native Wayland launch: '+str(error))

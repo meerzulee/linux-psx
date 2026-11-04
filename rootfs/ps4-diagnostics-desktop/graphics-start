@@ -1,0 +1,30 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+set -euo pipefail
+case "${1:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics) ;; *) exit 2 ;; esac
+export PSX_GRAPHICS_MODE=$1
+export DISPLAY=:0
+export XAUTHORITY=/run/psx-desktop/Xauthority
+if [[ "$PSX_GRAPHICS_MODE" == diagnostics ]]; then
+    session_user=root
+    export XDG_RUNTIME_DIR=/run/user/0
+else
+    session_user=psx
+    export XDG_RUNTIME_DIR=/run/user/1000
+fi
+install -d -o root -g root -m 0755 /run/psx-mesa
+install -d -o root -g root -m 0700 /run/psx-mesa/0
+install -d -o psx -g psx -m 0700 /run/psx-mesa/1000
+install -d -o "$session_user" -g "$session_user" -m 0700 /run/psx-desktop "$XDG_RUNTIME_DIR"
+install -o "$session_user" -g "$session_user" -m 0600 /dev/null "$XAUTHORITY"
+cookie=$(mcookie)
+xauth -f "$XAUTHORITY" add :0 . "$cookie"
+chown "$session_user:$session_user" "$XAUTHORITY"
+if [[ "$PSX_GRAPHICS_MODE" == chromium ]]; then
+    install -d -o psx -g psx -m 0700 /run/psx-graphics-user
+    install -o psx -g psx -m 0600 "$XAUTHORITY" /run/psx-graphics-user/Xauthority
+fi
+unset cookie
+exec /usr/bin/xinit /usr/lib/psx-diagnostics/graphics-client -- \
+    /usr/lib/psx-diagnostics/graphics-xserver :0 vt3 -keeptty -s 0 -dpms -nolisten tcp -noreset -auth "$XAUTHORITY" \
+    -logfile /run/psx-desktop/Xorg.log

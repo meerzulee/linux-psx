@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare the private diagnostic SSH identity
+After=local-fs.target
+Before=sshd.service psx-diagnostics-control.service
+ConditionPathExists=/etc/psx-diagnostics/authorized_keys
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/psx-diagnostics/prepare-ssh-host-key
+RemainAfterExit=yes
+TimeoutStartSec=30
+UMask=0077

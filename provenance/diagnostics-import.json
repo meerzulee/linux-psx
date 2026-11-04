@@ -1,0 +1,2514 @@
+{
+  "schema_version": 1,
+  "component": "optional PS4 diagnostic appliance source and image build tooling",
+  "origin_repository": "https://github.com/meerzulee/omarchy-psx",
+  "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+  "origin_dirty": true,
+  "destination_repository": "https://github.com/meerzulee/linux-psx",
+  "destination_head": "2138063970722631aa0a7cb7f034ba3e11b82507",
+  "method": "Non-destructive source-only copy; original dirty source retained until primary review.",
+  "license_policy": "Preserve per-file notices and diagnostics/LICENSE (MIT); kernel licensing and generic artifact contract unchanged.",
+  "exclusions": [
+    "output",
+    "cache",
+    "root-level generated upstream src/",
+    "target",
+    "__pycache__",
+    "venv",
+    "firmware bytes",
+    "media",
+    "keys",
+    "private logs",
+    "binary files"
+  ],
+  "status": "Standalone source and offline frontend-build handoff verified; former source retained pending primary review.",
+  "files": [
+    {
+      "origin_path": "diagnostics/ps4/catalogue.json",
+      "path": "diagnostics/ps4/catalogue.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "d6c371cc89b6095efaadda81d287e05de7a150bddd002a81c2735c0ab17bcf84",
+      "import_sha256": "d6c371cc89b6095efaadda81d287e05de7a150bddd002a81c2735c0ab17bcf84",
+      "bytes": 6845,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "d6c371cc89b6095efaadda81d287e05de7a150bddd002a81c2735c0ab17bcf84",
+      "destination_bytes": 6845
+    },
+    {
+      "origin_path": "diagnostics/ps4/controller.py",
+      "path": "diagnostics/ps4/controller.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "b1e6398b01d56966cfa92fae5b4b90abd04a7107753b1dbc8901be543ded2339",
+      "import_sha256": "b1e6398b01d56966cfa92fae5b4b90abd04a7107753b1dbc8901be543ded2339",
+      "bytes": 34104,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
+      "destination_bytes": 62126,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "d184808c4cc121bc8b297b27e87295a4c4fc1285ad1abc8498370933d4933267",
+          "prior_destination_sha256": "b1e6398b01d56966cfa92fae5b4b90abd04a7107753b1dbc8901be543ded2339",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "d184808c4cc121bc8b297b27e87295a4c4fc1285ad1abc8498370933d4933267",
+          "destination_sha256": "50b6f3eff8a870b3d7ddebcfb4a78bac7d42650703bac18492cd39e0c168adc7",
+          "destination_bytes": 62090,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "50b6f3eff8a870b3d7ddebcfb4a78bac7d42650703bac18492cd39e0c168adc7",
+          "destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
+          "destination_bytes": 62126,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/lab/generate-video.py",
+      "path": "diagnostics/ps4/lab/generate-video.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "fb2e70342a1a6ff3d5cf9fbbc7760bf9c87d63055fe70a8d39fcc2029bef9b26",
+      "import_sha256": "fb2e70342a1a6ff3d5cf9fbbc7760bf9c87d63055fe70a8d39fcc2029bef9b26",
+      "bytes": 1330,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "fb2e70342a1a6ff3d5cf9fbbc7760bf9c87d63055fe70a8d39fcc2029bef9b26",
+      "destination_bytes": 1330
+    },
+    {
+      "origin_path": "diagnostics/ps4/lab/index.html",
+      "path": "diagnostics/ps4/lab/index.html",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "70904250331059a79ecbb42a518b0b67782e5fdc68880349cdf51ab1035a3d2c",
+      "import_sha256": "70904250331059a79ecbb42a518b0b67782e5fdc68880349cdf51ab1035a3d2c",
+      "bytes": 2225,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "81cc138c25b0db77ad746ac4145cf38b3b80a2139a518179c576801a62a15c87",
+      "destination_bytes": 4554,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "70904250331059a79ecbb42a518b0b67782e5fdc68880349cdf51ab1035a3d2c",
+          "destination_sha256": "e103c879213777b0a257685b37efb34cffba25c1568fd3c7d7cb03572590b33a",
+          "destination_bytes": 4508,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "e103c879213777b0a257685b37efb34cffba25c1568fd3c7d7cb03572590b33a",
+          "destination_sha256": "81cc138c25b0db77ad746ac4145cf38b3b80a2139a518179c576801a62a15c87",
+          "destination_bytes": 4554,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/lab/lab.js",
+      "path": "diagnostics/ps4/lab/lab.js",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "b4ccb0728c00ae82841572e42f8807b5b9dc99c9eb435895194780a59f0d93df",
+      "import_sha256": "b4ccb0728c00ae82841572e42f8807b5b9dc99c9eb435895194780a59f0d93df",
+      "bytes": 19283,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "8906b02c8116352c361fa060b8c7aabd84cefc4bf0b2491b4c3599418db9e78f",
+      "destination_bytes": 25367,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "9da921f3ab66c5cfdebf544f5d9b667884502f7ddc208cca3fb7c28d020d70f3",
+          "prior_destination_sha256": "b4ccb0728c00ae82841572e42f8807b5b9dc99c9eb435895194780a59f0d93df",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "9da921f3ab66c5cfdebf544f5d9b667884502f7ddc208cca3fb7c28d020d70f3",
+          "destination_sha256": "8906b02c8116352c361fa060b8c7aabd84cefc4bf0b2491b4c3599418db9e78f",
+          "destination_bytes": 25367,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/lab/style.css",
+      "path": "diagnostics/ps4/lab/style.css",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "02c6c3690b8becfe7abe907a1b6f26fd07c9e362be904901c4c437f1d2b48c19",
+      "import_sha256": "02c6c3690b8becfe7abe907a1b6f26fd07c9e362be904901c4c437f1d2b48c19",
+      "bytes": 2653,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "c897da512f39fe1f6985bf6114b542577fadc1fe2d716a2b0619efcf2118da66",
+      "destination_bytes": 9456,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "02c6c3690b8becfe7abe907a1b6f26fd07c9e362be904901c4c437f1d2b48c19",
+          "destination_sha256": "3523348804e47054f036847c2dba2389a5a2272396de8e9f9ca4307e91a9560c",
+          "destination_bytes": 9406,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "3523348804e47054f036847c2dba2389a5a2272396de8e9f9ca4307e91a9560c",
+          "destination_sha256": "c897da512f39fe1f6985bf6114b542577fadc1fe2d716a2b0619efcf2118da66",
+          "destination_bytes": 9456,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/network.py",
+      "path": "diagnostics/ps4/network.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "d22e7dca42d1db27a0545e83b0d01f0b56fcac5f8239a109c9cde9b539ead213",
+      "import_sha256": "d22e7dca42d1db27a0545e83b0d01f0b56fcac5f8239a109c9cde9b539ead213",
+      "bytes": 19360,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "97ba42e5d4d26833672e0189694bf2be62925540f2c656ba51d9100376845b39",
+      "destination_bytes": 20791,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "97ba42e5d4d26833672e0189694bf2be62925540f2c656ba51d9100376845b39",
+          "prior_destination_sha256": "d22e7dca42d1db27a0545e83b0d01f0b56fcac5f8239a109c9cde9b539ead213",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/preferences.py",
+      "path": "diagnostics/ps4/preferences.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "81b76a8ebabfe4404e0427b32dfc093756e7302221013d3ca92a66d18c4b0041",
+      "import_sha256": "81b76a8ebabfe4404e0427b32dfc093756e7302221013d3ca92a66d18c4b0041",
+      "bytes": 13112,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "3812d4655fe2b336402c18f727f2401a8dda50aea337b74d22d5f6ff0203c2f7",
+      "destination_bytes": 13336,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "81b76a8ebabfe4404e0427b32dfc093756e7302221013d3ca92a66d18c4b0041",
+          "destination_sha256": "3812d4655fe2b336402c18f727f2401a8dda50aea337b74d22d5f6ff0203c2f7",
+          "destination_bytes": 13336,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/runner.py",
+      "path": "diagnostics/ps4/runner.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
+      "import_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
+      "bytes": 53810,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
+      "destination_bytes": 53810
+    },
+    {
+      "origin_path": "diagnostics/ps4/themes-LICENSE",
+      "path": "diagnostics/ps4/themes-LICENSE",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "717ba1949502290f8e47688ae2e323acd06c8ca47aec9f7596b15f678c1af4a2",
+      "import_sha256": "717ba1949502290f8e47688ae2e323acd06c8ca47aec9f7596b15f678c1af4a2",
+      "bytes": 1063,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "717ba1949502290f8e47688ae2e323acd06c8ca47aec9f7596b15f678c1af4a2",
+      "destination_bytes": 1063
+    },
+    {
+      "origin_path": "diagnostics/ps4/themes.json",
+      "path": "diagnostics/ps4/themes.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "edb9c3285a925845828f99bd8b0badabc21db8000df8f46d2bfcbc270798eb70",
+      "import_sha256": "edb9c3285a925845828f99bd8b0badabc21db8000df8f46d2bfcbc270798eb70",
+      "bytes": 19531,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "edb9c3285a925845828f99bd8b0badabc21db8000df8f46d2bfcbc270798eb70",
+      "destination_bytes": 19531
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/.gitignore",
+      "path": "diagnostics/ps4/tui/.gitignore",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+      "import_sha256": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+      "bytes": 9,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "306fd52e74fca6746e12acc750f232de15e71da917756a1270d74c91f5eb7368",
+      "destination_bytes": 9
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/Cargo.lock",
+      "path": "diagnostics/ps4/tui/Cargo.lock",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "4c2561b7f4ab0024099be30369dd87c428185eae2dc066ce56484c631157bc5b",
+      "import_sha256": "4c2561b7f4ab0024099be30369dd87c428185eae2dc066ce56484c631157bc5b",
+      "bytes": 21575,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "4c2561b7f4ab0024099be30369dd87c428185eae2dc066ce56484c631157bc5b",
+      "destination_bytes": 21575
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/Cargo.toml",
+      "path": "diagnostics/ps4/tui/Cargo.toml",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "d79fe82c447b1456792b0839ac7716ff140a437ddc7ee958ad625b835a2f2834",
+      "import_sha256": "d79fe82c447b1456792b0839ac7716ff140a437ddc7ee958ad625b835a2f2834",
+      "bytes": 504,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "d79fe82c447b1456792b0839ac7716ff140a437ddc7ee958ad625b835a2f2834",
+      "destination_bytes": 504
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/README.md",
+      "path": "diagnostics/ps4/tui/README.md",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "658b087763b1f2d157991ff9a1b86cd4c854ae6a9ff57f30a38c9c9ae0b1d7f8",
+      "import_sha256": "658b087763b1f2d157991ff9a1b86cd4c854ae6a9ff57f30a38c9c9ae0b1d7f8",
+      "bytes": 4816,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "658b087763b1f2d157991ff9a1b86cd4c854ae6a9ff57f30a38c9c9ae0b1d7f8",
+      "destination_bytes": 4816
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/src/ipc.rs",
+      "path": "diagnostics/ps4/tui/src/ipc.rs",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "98e94a8af0d1f6084cb5f404e9e4e3d674efdc859ea9619d52ba5d3d616b15d6",
+      "import_sha256": "98e94a8af0d1f6084cb5f404e9e4e3d674efdc859ea9619d52ba5d3d616b15d6",
+      "bytes": 6027,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "8ed4215c46902cc7ab7a878bf6dcab9087b25ae2e934639531cb39615ee5700c",
+      "destination_bytes": 6405,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "98e94a8af0d1f6084cb5f404e9e4e3d674efdc859ea9619d52ba5d3d616b15d6",
+          "destination_sha256": "8ed4215c46902cc7ab7a878bf6dcab9087b25ae2e934639531cb39615ee5700c",
+          "destination_bytes": 6405,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/src/main.rs",
+      "path": "diagnostics/ps4/tui/src/main.rs",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "8d21b92add16fdec12acce955f64c09612c66fcdd99ed8766fe7848631dfd53b",
+      "import_sha256": "8d21b92add16fdec12acce955f64c09612c66fcdd99ed8766fe7848631dfd53b",
+      "bytes": 42628,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "617f88113df45433f2baf44be69e79335c7879d26e11276f9b0b4638f3941f2c",
+      "destination_bytes": 73474,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "33fdd318f64429b6f768a55a62b10a748942912ccf5a1c258066f1c707375c51",
+          "prior_destination_sha256": "8d21b92add16fdec12acce955f64c09612c66fcdd99ed8766fe7848631dfd53b",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "33fdd318f64429b6f768a55a62b10a748942912ccf5a1c258066f1c707375c51",
+          "destination_sha256": "ff5b26e04827950efaf8bf79c93361b5155479824b45600d4e7e694b1b9d7ce2",
+          "destination_bytes": 58297,
+          "mode": "0644"
+        },
+        {
+          "reason": "Final GUI source freeze: rustfmt and stale audio-group fixture index reconciliation after category reordering; preserve all earlier import and adaptation hashes",
+          "prior_destination_sha256": "ff5b26e04827950efaf8bf79c93361b5155479824b45600d4e7e694b1b9d7ce2",
+          "destination_sha256": "c3c607fc8a2e8f1316bc133401052463933c81b5b41d74dec6f3bfe9be052f2c",
+          "destination_bytes": 58297,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+          "prior_destination_sha256": "c3c607fc8a2e8f1316bc133401052463933c81b5b41d74dec6f3bfe9be052f2c",
+          "destination_sha256": "df37df7e3478de0a08802d7e19a56079ffef3f96803f96c2eaa4a559abac1340",
+          "destination_bytes": 66736,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "df37df7e3478de0a08802d7e19a56079ffef3f96803f96c2eaa4a559abac1340",
+          "destination_sha256": "617f88113df45433f2baf44be69e79335c7879d26e11276f9b0b4638f3941f2c",
+          "destination_bytes": 73474,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/src/model.rs",
+      "path": "diagnostics/ps4/tui/src/model.rs",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "fb2f4c4fb0be56210e625572611f825ffb7809507649ca2f3ab570e8e83f8c95",
+      "import_sha256": "fb2f4c4fb0be56210e625572611f825ffb7809507649ca2f3ab570e8e83f8c95",
+      "bytes": 24915,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "d1efa8480aebdbf6fd6e2a5665e0aa607297b68afaa314ec5d9deecd145011be",
+      "destination_bytes": 33679,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "f1559a5091a1b77ae6ae0e93c3c04c4a5e22562cdfd8a3c80eaf721a6d04fa68",
+          "prior_destination_sha256": "fb2f4c4fb0be56210e625572611f825ffb7809507649ca2f3ab570e8e83f8c95",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "f1559a5091a1b77ae6ae0e93c3c04c4a5e22562cdfd8a3c80eaf721a6d04fa68",
+          "destination_sha256": "265318b6d7ace08e429025433a124465a83c35dab5b50aace6366101559ff6a3",
+          "destination_bytes": 29820,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+          "prior_destination_sha256": "265318b6d7ace08e429025433a124465a83c35dab5b50aace6366101559ff6a3",
+          "destination_sha256": "716da8ccd5779d1c424e4e55bd8b283e0607de1828276a907d482897e187f0fd",
+          "destination_bytes": 29764,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "716da8ccd5779d1c424e4e55bd8b283e0607de1828276a907d482897e187f0fd",
+          "destination_sha256": "d1efa8480aebdbf6fd6e2a5665e0aa607297b68afaa314ec5d9deecd145011be",
+          "destination_bytes": 33679,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/tui/src/ui.rs",
+      "path": "diagnostics/ps4/tui/src/ui.rs",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "c46e26f00f7db40c66588d66b263caf6b23065bc8d2a7a84e0e188661beb04e4",
+      "import_sha256": "c46e26f00f7db40c66588d66b263caf6b23065bc8d2a7a84e0e188661beb04e4",
+      "bytes": 39080,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "0092d9190702ba0a4a6e70181fec5e7c3f639b7e3c2155b6c35151d23e60fe0f",
+      "destination_bytes": 64561,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "c46e26f00f7db40c66588d66b263caf6b23065bc8d2a7a84e0e188661beb04e4",
+          "destination_sha256": "b78b1715966b90b7cc9af9031f1aa4bbaf84ef0390f7e8b3ed4a4ac78da5e409",
+          "destination_bytes": 47177,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+          "prior_destination_sha256": "b78b1715966b90b7cc9af9031f1aa4bbaf84ef0390f7e8b3ed4a4ac78da5e409",
+          "destination_sha256": "d860ea2b854e8b17b69662245b1b3dedbfe2fff408269cdf530ca9198c2b5760",
+          "destination_bytes": 60264,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add the requested vertical divider between hardware components and details; record completed EXP016 display and navigation evidence.",
+          "prior_destination_sha256": "d860ea2b854e8b17b69662245b1b3dedbfe2fff408269cdf530ca9198c2b5760",
+          "destination_sha256": "d315fd6a47fb5fb357519de034be52ed127bb61b01e3b9960cfdc5d7e787637a",
+          "destination_bytes": 60457,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "d315fd6a47fb5fb357519de034be52ed127bb61b01e3b9960cfdc5d7e787637a",
+          "destination_sha256": "0092d9190702ba0a4a6e70181fec5e7c3f639b7e3c2155b6c35151d23e60fe0f",
+          "destination_bytes": 64561,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "diagnostics/ps4/wayland/native-egl.c",
+      "path": "diagnostics/ps4/wayland/native-egl.c",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "39b9b4d0aa4fe359d0e3d096ab933d03555f3803e7ef21c906d96f78e22b3eb9",
+      "import_sha256": "39b9b4d0aa4fe359d0e3d096ab933d03555f3803e7ef21c906d96f78e22b3eb9",
+      "bytes": 9790,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "39b9b4d0aa4fe359d0e3d096ab933d03555f3803e7ef21c906d96f78e22b3eb9",
+      "destination_bytes": 9790
+    },
+    {
+      "origin_path": "diagnostics/ps4/wayland/runtime.py",
+      "path": "diagnostics/ps4/wayland/runtime.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
+      "import_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
+      "bytes": 10471,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
+      "destination_bytes": 10471
+    },
+    {
+      "origin_path": "diagnostics/ps4/web/app.css",
+      "path": "diagnostics/ps4/web/app.css",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "ac701995d2de268440394bc64f27535201c4f10be78f10c40933f1bd9b05aa5d",
+      "import_sha256": "ac701995d2de268440394bc64f27535201c4f10be78f10c40933f1bd9b05aa5d",
+      "bytes": 17882,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "ac701995d2de268440394bc64f27535201c4f10be78f10c40933f1bd9b05aa5d",
+      "destination_bytes": 17882
+    },
+    {
+      "origin_path": "diagnostics/ps4/web/index.html",
+      "path": "diagnostics/ps4/web/index.html",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "922ee7a64b6707710d47b4eda5b9d6e9b92c501466e3f72acf729a9b4aa54804",
+      "import_sha256": "922ee7a64b6707710d47b4eda5b9d6e9b92c501466e3f72acf729a9b4aa54804",
+      "bytes": 3099,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "922ee7a64b6707710d47b4eda5b9d6e9b92c501466e3f72acf729a9b4aa54804",
+      "destination_bytes": 3099
+    },
+    {
+      "origin_path": "docs/PS4-DIAGNOSTIC-CHROMIUM.md",
+      "path": "docs/PS4-DIAGNOSTIC-CHROMIUM.md",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "0087b377f7709904b674a7437de3e16e4a717ddba6adaddc39e648d714a0e41e",
+      "import_sha256": "0087b377f7709904b674a7437de3e16e4a717ddba6adaddc39e648d714a0e41e",
+      "bytes": 7485,
+      "mode": "0644",
+      "adaptations": [
+        "Identify standalone Linux source/image-build ownership."
+      ],
+      "destination_sha256": "2266f97b175ce668c6acd6132c6bc2659e6591cbefcd855bd763a7b80b01b823",
+      "destination_bytes": 7776
+    },
+    {
+      "origin_path": "docs/PS4-DIAGNOSTIC-IMAGE.md",
+      "path": "docs/PS4-DIAGNOSTIC-IMAGE.md",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "c13a3edd4bcd7bd92c923827f51de81349881327ca1d446714ebd1d48c23f745",
+      "import_sha256": "c13a3edd4bcd7bd92c923827f51de81349881327ca1d446714ebd1d48c23f745",
+      "bytes": 27685,
+      "mode": "0644",
+      "adaptations": [
+        "Link standalone ownership/build guide, preserve historical scope, update owner table and 28 fixed-asset count."
+      ],
+      "destination_sha256": "b2f7c8c4ed1ecf8813c95191f29ab769b1650ce82ca2b18cf2ded5622a45d699",
+      "destination_bytes": 28440,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "5eeee350bc16e34c11e249b771e214241436dc547f6c1d0bb8fd1979eb7c7f72",
+          "destination_sha256": "2a1c31969f85c2fb9e38fadf659a9732e88cd4a5a5b847a4674efccd4ad49fc0",
+          "destination_bytes": 28188,
+          "mode": "0644"
+        },
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "2a1c31969f85c2fb9e38fadf659a9732e88cd4a5a5b847a4674efccd4ad49fc0",
+          "destination_sha256": "b2f7c8c4ed1ecf8813c95191f29ab769b1650ce82ca2b18cf2ded5622a45d699",
+          "destination_bytes": 28440,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "manifests/ps4-chromium-provider.json",
+      "path": "manifests/ps4-chromium-provider.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "c37e89ebbdac7305a3ab0080e40981938324e2360f07441baec69418c02b0c0c",
+      "import_sha256": "c37e89ebbdac7305a3ab0080e40981938324e2360f07441baec69418c02b0c0c",
+      "bytes": 2519,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "c37e89ebbdac7305a3ab0080e40981938324e2360f07441baec69418c02b0c0c",
+      "destination_bytes": 2519
+    },
+    {
+      "origin_path": "manifests/ps4-diagnostics-console.json",
+      "path": "manifests/ps4-diagnostics-console.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "66843c048a3f9d68ec82783a8dabc5812f9e68594a6dbd9a9871f41af4492e54",
+      "import_sha256": "66843c048a3f9d68ec82783a8dabc5812f9e68594a6dbd9a9871f41af4492e54",
+      "bytes": 5088,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "a0caeefebc65f56a08e87255317ef7b8920a77f9b9324b3e9e75f7727a465890",
+      "destination_bytes": 5204,
+      "destination_adaptations": [
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "66843c048a3f9d68ec82783a8dabc5812f9e68594a6dbd9a9871f41af4492e54",
+          "destination_sha256": "a0caeefebc65f56a08e87255317ef7b8920a77f9b9324b3e9e75f7727a465890",
+          "destination_bytes": 5204,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "manifests/ps4-diagnostics.json",
+      "path": "manifests/ps4-diagnostics.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "b08dce4b67219e7a14897ece091078d136427973df18e47450f03f5ec10e9ecd",
+      "import_sha256": "b08dce4b67219e7a14897ece091078d136427973df18e47450f03f5ec10e9ecd",
+      "bytes": 1673,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "b08dce4b67219e7a14897ece091078d136427973df18e47450f03f5ec10e9ecd",
+      "destination_bytes": 1673
+    },
+    {
+      "origin_path": "manifests/ps4-firmware.json",
+      "path": "manifests/ps4-firmware.json",
+      "origin_head_blob": "7ba9259dddcb94b96db4b180f1e8a4db4795ea8f",
+      "origin_pending": false,
+      "origin_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
+      "import_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
+      "bytes": 5202,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
+      "destination_bytes": 5202
+    },
+    {
+      "origin_path": "manifests/ps4-initramfs-seed.json",
+      "path": "manifests/ps4-initramfs-seed.json",
+      "origin_head_blob": "cd725470a425c8708d4f905eb9ed2feb57c59834",
+      "origin_pending": false,
+      "origin_sha256": "9398a28e84529b8a0877878c8b8894594ae1c99a12a2ee0bacebc94ef46af652",
+      "import_sha256": "9398a28e84529b8a0877878c8b8894594ae1c99a12a2ee0bacebc94ef46af652",
+      "bytes": 1092,
+      "mode": "0644",
+      "adaptations": [
+        "Describe the standalone diagnostic consumer while retaining exact external seed size/hash/URL."
+      ],
+      "destination_sha256": "5bfacae98bbb4754488e8cce81b9b20e25a0fdc69c821212b57dc9bcd5373d7e",
+      "destination_bytes": 1103
+    },
+    {
+      "origin_path": "manifests/ps4-wayland-suite.json",
+      "path": "manifests/ps4-wayland-suite.json",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "5121ab3bce41141b182d7ab0825509b2f8cdb21a553d858cdb7cfa86764f9a8c",
+      "import_sha256": "5121ab3bce41141b182d7ab0825509b2f8cdb21a553d858cdb7cfa86764f9a8c",
+      "bytes": 9346,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "5121ab3bce41141b182d7ab0825509b2f8cdb21a553d858cdb7cfa86764f9a8c",
+      "destination_bytes": 9346
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/20-psx-diagnostics.conf",
+      "path": "rootfs/ps4-diagnostics-desktop/20-psx-diagnostics.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "0040cb176085c5ed434c04f0e25f3787bb9e4a2ec6432e6a0a05e2b3940ae5eb",
+      "import_sha256": "0040cb176085c5ed434c04f0e25f3787bb9e4a2ec6432e6a0a05e2b3940ae5eb",
+      "bytes": 279,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "0040cb176085c5ed434c04f0e25f3787bb9e4a2ec6432e6a0a05e2b3940ae5eb",
+      "destination_bytes": 279
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/firefox-user.js",
+      "path": "rootfs/ps4-diagnostics-desktop/firefox-user.js",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "68076eeb0b7511c7c3169a38ec97a2adf0c3ba9fbd8762b68db47e8da3caeb93",
+      "import_sha256": "68076eeb0b7511c7c3169a38ec97a2adf0c3ba9fbd8762b68db47e8da3caeb93",
+      "bytes": 764,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "68076eeb0b7511c7c3169a38ec97a2adf0c3ba9fbd8762b68db47e8da3caeb93",
+      "destination_bytes": 764
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/graphics-client",
+      "path": "rootfs/ps4-diagnostics-desktop/graphics-client",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "98536d0b302042379aacc53f93ea3b3e05619d4ab4f0b88be857fb3beb0124e4",
+      "import_sha256": "98536d0b302042379aacc53f93ea3b3e05619d4ab4f0b88be857fb3beb0124e4",
+      "bytes": 1038,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "98f19e662602f793e926e5700367dd473dc278acc779252ac28ad2d702552db3",
+      "destination_bytes": 1047,
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "98536d0b302042379aacc53f93ea3b3e05619d4ab4f0b88be857fb3beb0124e4",
+          "destination_sha256": "98f19e662602f793e926e5700367dd473dc278acc779252ac28ad2d702552db3",
+          "destination_bytes": 1047,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/graphics-session",
+      "path": "rootfs/ps4-diagnostics-desktop/graphics-session",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "f2f51542b3eb617f17354323e37949f04c14dbe5156ddccb663880ea02c37469",
+      "import_sha256": "f2f51542b3eb617f17354323e37949f04c14dbe5156ddccb663880ea02c37469",
+      "bytes": 3662,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "c514e9c0745f0ce52437d2263bda5ed03f7c137e4ec9e0e8abde49b8435f70f5",
+      "destination_bytes": 4571,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "9c8b082b31a272ce0548f236281577ab7a59680f04bbf54d69c3d07c7a8f1584",
+          "prior_destination_sha256": "f2f51542b3eb617f17354323e37949f04c14dbe5156ddccb663880ea02c37469",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "9c8b082b31a272ce0548f236281577ab7a59680f04bbf54d69c3d07c7a8f1584",
+          "destination_sha256": "c514e9c0745f0ce52437d2263bda5ed03f7c137e4ec9e0e8abde49b8435f70f5",
+          "destination_bytes": 4571,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/graphics-start",
+      "path": "rootfs/ps4-diagnostics-desktop/graphics-start",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "93dec4d8692ed546726d465e04385f6ad6f983cc4f8e2ae046f03558b536f0d3",
+      "import_sha256": "93dec4d8692ed546726d465e04385f6ad6f983cc4f8e2ae046f03558b536f0d3",
+      "bytes": 1269,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "dcef17113193e10afdb861edee9e0f953baf4d48bea46721ec9eaf7b8c1f8b52",
+      "destination_bytes": 1289,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "1eb432e9bf7534a6f0305ccb80d9eb8c9cacec89ee9e88d993324fa407062559",
+          "prior_destination_sha256": "93dec4d8692ed546726d465e04385f6ad6f983cc4f8e2ae046f03558b536f0d3",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "1eb432e9bf7534a6f0305ccb80d9eb8c9cacec89ee9e88d993324fa407062559",
+          "destination_sha256": "dcef17113193e10afdb861edee9e0f953baf4d48bea46721ec9eaf7b8c1f8b52",
+          "destination_bytes": 1289,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/graphics-window",
+      "path": "rootfs/ps4-diagnostics-desktop/graphics-window",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "79ccf9319509d673afee46f5695202a246b881c2b4a31eebd43113c36c64140d",
+      "import_sha256": "79ccf9319509d673afee46f5695202a246b881c2b4a31eebd43113c36c64140d",
+      "bytes": 672,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "06db8c4dc772a2f303cf53fec044f508efb3a1c1fed7899e68b7b4981f1f8c26",
+      "destination_bytes": 681,
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "79ccf9319509d673afee46f5695202a246b881c2b4a31eebd43113c36c64140d",
+          "destination_sha256": "06db8c4dc772a2f303cf53fec044f508efb3a1c1fed7899e68b7b4981f1f8c26",
+          "destination_bytes": 681,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/graphics-xserver",
+      "path": "rootfs/ps4-diagnostics-desktop/graphics-xserver",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "088c14d8047fb81efeceb62de46e56d86e7d2cd3676e85363b23c3def093fa95",
+      "import_sha256": "088c14d8047fb81efeceb62de46e56d86e7d2cd3676e85363b23c3def093fa95",
+      "bytes": 277,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "088c14d8047fb81efeceb62de46e56d86e7d2cd3676e85363b23c3def093fa95",
+      "destination_bytes": 277
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/launch-chromium-provider",
+      "path": "rootfs/ps4-diagnostics-desktop/launch-chromium-provider",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "37b29a2078c13f706a2874c63712c3860dcc3c025c323f541e6e0e5ef5181f31",
+      "import_sha256": "37b29a2078c13f706a2874c63712c3860dcc3c025c323f541e6e0e5ef5181f31",
+      "bytes": 6054,
+      "mode": "0755",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "fbb46aa4eb6d1d16c7e05f0b97c37fbe9e1eb9a1e202a551e4cfd112a0948473",
+      "destination_bytes": 6266,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "fbb46aa4eb6d1d16c7e05f0b97c37fbe9e1eb9a1e202a551e4cfd112a0948473",
+          "prior_destination_sha256": "37b29a2078c13f706a2874c63712c3860dcc3c025c323f541e6e0e5ef5181f31",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/launch-graphics",
+      "path": "rootfs/ps4-diagnostics-desktop/launch-graphics",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "76dea77c0007977cf14bbe6087b86062628828516227c73fc82b0146a6b83409",
+      "import_sha256": "76dea77c0007977cf14bbe6087b86062628828516227c73fc82b0146a6b83409",
+      "bytes": 3178,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "b5223255084e1c1fb5c7b6fb2bc6401f4cffeef7fa450c9a8896a16a227e2cab",
+      "destination_bytes": 4819,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "76dea77c0007977cf14bbe6087b86062628828516227c73fc82b0146a6b83409",
+          "destination_sha256": "b8d171c4e605441f85aa7fa21fd16755616b7a8fb7ac321c25f6f2c0c6e6c38f",
+          "destination_bytes": 4786,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "b8d171c4e605441f85aa7fa21fd16755616b7a8fb7ac321c25f6f2c0c6e6c38f",
+          "destination_sha256": "b5223255084e1c1fb5c7b6fb2bc6401f4cffeef7fa450c9a8896a16a227e2cab",
+          "destination_bytes": 4819,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/prepare-console",
+      "path": "rootfs/ps4-diagnostics-desktop/prepare-console",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "20c8b8d6d8667d7593471dfbb07da0e0634e47488499d5cec2e2fe4f24de13f2",
+      "import_sha256": "20c8b8d6d8667d7593471dfbb07da0e0634e47488499d5cec2e2fe4f24de13f2",
+      "bytes": 10104,
+      "mode": "0755",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "c488d323cb2499562acbd5e0d812f555cbf7a53a0fffd6c7ec2ae4d103125cf5",
+      "destination_bytes": 10406,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "c488d323cb2499562acbd5e0d812f555cbf7a53a0fffd6c7ec2ae4d103125cf5",
+          "prior_destination_sha256": "20c8b8d6d8667d7593471dfbb07da0e0634e47488499d5cec2e2fe4f24de13f2",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-console.service",
+      "path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-console.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "28ea3d707a1cfcb90fb9f7c1a7c0c8d455193c5f8b36e97784effddfd2a1bc7f",
+      "import_sha256": "28ea3d707a1cfcb90fb9f7c1a7c0c8d455193c5f8b36e97784effddfd2a1bc7f",
+      "bytes": 476,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "28ea3d707a1cfcb90fb9f7c1a7c0c8d455193c5f8b36e97784effddfd2a1bc7f",
+      "destination_bytes": 476
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-control.service",
+      "path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-control.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "4a293e018509dfdf5a34863512bf75cc22c5d619f0e566961de6b9f6ed8a6946",
+      "import_sha256": "4a293e018509dfdf5a34863512bf75cc22c5d619f0e566961de6b9f6ed8a6946",
+      "bytes": 592,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "4a293e018509dfdf5a34863512bf75cc22c5d619f0e566961de6b9f6ed8a6946",
+      "destination_bytes": 592
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-graphics@.service",
+      "path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics-graphics@.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "c2399e447e2d3b84705597f311b3cb866157f415c3f035fc04554e1723e04209",
+      "import_sha256": "c2399e447e2d3b84705597f311b3cb866157f415c3f035fc04554e1723e04209",
+      "bytes": 555,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "c2399e447e2d3b84705597f311b3cb866157f415c3f035fc04554e1723e04209",
+      "destination_bytes": 555
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics.conf",
+      "path": "rootfs/ps4-diagnostics-desktop/psx-diagnostics.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "97582caabea71474483133f27927d4d82fec4fe2a0acd981cfbba002213392cf",
+      "import_sha256": "97582caabea71474483133f27927d4d82fec4fe2a0acd981cfbba002213392cf",
+      "bytes": 183,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "97582caabea71474483133f27927d4d82fec4fe2a0acd981cfbba002213392cf",
+      "destination_bytes": 183
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/psx-mesa.conf",
+      "path": "rootfs/ps4-diagnostics-desktop/psx-mesa.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "59204cf152fb99f3d04a735f129e545130887b0afaf86185ec40fd7fc1e2dbcf",
+      "import_sha256": "59204cf152fb99f3d04a735f129e545130887b0afaf86185ec40fd7fc1e2dbcf",
+      "bytes": 185,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "59204cf152fb99f3d04a735f129e545130887b0afaf86185ec40fd7fc1e2dbcf",
+      "destination_bytes": 185
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/start-console",
+      "path": "rootfs/ps4-diagnostics-desktop/start-console",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "cdd4ddd03f16a2ab6f169b88778eab1226442039288c9057d5db6fd5378c8ad2",
+      "import_sha256": "cdd4ddd03f16a2ab6f169b88778eab1226442039288c9057d5db6fd5378c8ad2",
+      "bytes": 669,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "cdd4ddd03f16a2ab6f169b88778eab1226442039288c9057d5db6fd5378c8ad2",
+      "destination_bytes": 669
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/wait-graphics-wm",
+      "path": "rootfs/ps4-diagnostics-desktop/wait-graphics-wm",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "88d253a810198c5529b46609309d669ade197f1efe8750dcf5488770f146ffa6",
+      "import_sha256": "88d253a810198c5529b46609309d669ade197f1efe8750dcf5488770f146ffa6",
+      "bytes": 6541,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "88d253a810198c5529b46609309d669ade197f1efe8750dcf5488770f146ffa6",
+      "destination_bytes": 6541
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/20-psx-diagnostics.conf",
+      "path": "rootfs/ps4-diagnostics-gui/20-psx-diagnostics.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "cd86c1e6e2366ed8dc58e26392fcbf854d2630f845d3c6bd9e3b16062d8880b5",
+      "import_sha256": "cd86c1e6e2366ed8dc58e26392fcbf854d2630f845d3c6bd9e3b16062d8880b5",
+      "bytes": 98,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "850baab5dc4ffb766d98e9d0d6e9d5e847936a4f89f5cb68904c9d18ad12e7b0",
+      "destination_bytes": 97,
+      "destination_adaptations": [
+        {
+          "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+          "prior_destination_sha256": "cd86c1e6e2366ed8dc58e26392fcbf854d2630f845d3c6bd9e3b16062d8880b5",
+          "destination_sha256": "850baab5dc4ffb766d98e9d0d6e9d5e847936a4f89f5cb68904c9d18ad12e7b0",
+          "destination_bytes": 97,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/prepare-ssh-host-key",
+      "path": "rootfs/ps4-diagnostics-gui/prepare-ssh-host-key",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "4e1e747fa2d3f1aaff7503db44021937060858872515f9c654bb558866d93284",
+      "import_sha256": "4e1e747fa2d3f1aaff7503db44021937060858872515f9c654bb558866d93284",
+      "bytes": 7433,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "89947ff438764765034f3e464b8eb89ecfffeae70afd57f4a7b06806168a5342",
+      "destination_bytes": 7638,
+      "destination_adaptations": [
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "4e1e747fa2d3f1aaff7503db44021937060858872515f9c654bb558866d93284",
+          "destination_sha256": "89947ff438764765034f3e464b8eb89ecfffeae70afd57f4a7b06806168a5342",
+          "destination_bytes": 7638,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/psx-ssh-host-key.service",
+      "path": "rootfs/ps4-diagnostics-gui/psx-ssh-host-key.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "09e4e678edc992e9179b477707363cf648a54371c2bda48c6edca56be3c91f32",
+      "import_sha256": "09e4e678edc992e9179b477707363cf648a54371c2bda48c6edca56be3c91f32",
+      "bytes": 293,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "d77b6bfc86fa9d81eaf4d45b3ac1a0d9a3a12f09e4f6d9e4ddfa6aec1b06a48f",
+      "destination_bytes": 324,
+      "destination_adaptations": [
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "09e4e678edc992e9179b477707363cf648a54371c2bda48c6edca56be3c91f32",
+          "destination_sha256": "231ee6ad6b7dbb870cd8729a1a203b503a8c53b6f4e0ba1602c900dc49aab73a",
+          "destination_bytes": 325,
+          "mode": "0644"
+        },
+        {
+          "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+          "prior_destination_sha256": "231ee6ad6b7dbb870cd8729a1a203b503a8c53b6f4e0ba1602c900dc49aab73a",
+          "destination_sha256": "d77b6bfc86fa9d81eaf4d45b3ac1a0d9a3a12f09e4f6d9e4ddfa6aec1b06a48f",
+          "destination_bytes": 324,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/psx-wired.nmconnection",
+      "path": "rootfs/ps4-diagnostics-gui/psx-wired.nmconnection",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "8e96dee33d37c34eb8676b221773fe9eb1a6e7f5394642499a8e86e024eeff57",
+      "import_sha256": "8e96dee33d37c34eb8676b221773fe9eb1a6e7f5394642499a8e86e024eeff57",
+      "bytes": 239,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "6b625d7fed255d284cbcd7ffff17473786ba0b7e4eb1c4cf1b26d30af2079f5c",
+      "destination_bytes": 238,
+      "destination_adaptations": [
+        {
+          "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+          "prior_destination_sha256": "8e96dee33d37c34eb8676b221773fe9eb1a6e7f5394642499a8e86e024eeff57",
+          "destination_sha256": "6b625d7fed255d284cbcd7ffff17473786ba0b7e4eb1c4cf1b26d30af2079f5c",
+          "destination_bytes": 238,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/sshd-psx-host-key.conf",
+      "path": "rootfs/ps4-diagnostics-gui/sshd-psx-host-key.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "3bf0bac3c0e2876377f1cd069f1f9d481b87b5c24ca765cb80c07648b40811be",
+      "import_sha256": "3bf0bac3c0e2876377f1cd069f1f9d481b87b5c24ca765cb80c07648b40811be",
+      "bytes": 73,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "f7320ebbab717a5948759a25f0a3469451b93fcb7414ccce337eaef7281bac7f",
+      "destination_bytes": 72,
+      "destination_adaptations": [
+        {
+          "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+          "prior_destination_sha256": "3bf0bac3c0e2876377f1cd069f1f9d481b87b5c24ca765cb80c07648b40811be",
+          "destination_sha256": "f7320ebbab717a5948759a25f0a3469451b93fcb7414ccce337eaef7281bac7f",
+          "destination_bytes": 72,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-gui/sshd-psx.conf",
+      "path": "rootfs/ps4-diagnostics-gui/sshd-psx.conf",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "34750f125891b8c8e2ffe6ad965a5765b339b4c90d48fa32475e1e1f70f548b2",
+      "import_sha256": "34750f125891b8c8e2ffe6ad965a5765b339b4c90d48fa32475e1e1f70f548b2",
+      "bytes": 403,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "72a5d4a050e116189b45e96fe67045916b2fe9740009b2f16049df342aa3fc3b",
+      "destination_bytes": 429,
+      "destination_adaptations": [
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "34750f125891b8c8e2ffe6ad965a5765b339b4c90d48fa32475e1e1f70f548b2",
+          "destination_sha256": "a54ac4b062c24f35bc3b5a4bddd121bf06658b0d3b7314b10154b75e866c6e8a",
+          "destination_bytes": 430,
+          "mode": "0644"
+        },
+        {
+          "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+          "prior_destination_sha256": "a54ac4b062c24f35bc3b5a4bddd121bf06658b0d3b7314b10154b75e866c6e8a",
+          "destination_sha256": "72a5d4a050e116189b45e96fe67045916b2fe9740009b2f16049df342aa3fc3b",
+          "destination_bytes": 429,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/ethernet-up",
+      "path": "rootfs/ps4-diagnostics/ethernet-up",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "8b58a3a2386a65a38c74d6cbd63afcd7de499745d15ddbda8a5c9f3e0fd08d08",
+      "import_sha256": "8b58a3a2386a65a38c74d6cbd63afcd7de499745d15ddbda8a5c9f3e0fd08d08",
+      "bytes": 5311,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "8b58a3a2386a65a38c74d6cbd63afcd7de499745d15ddbda8a5c9f3e0fd08d08",
+      "destination_bytes": 5311
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/init",
+      "path": "rootfs/ps4-diagnostics/init",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "085fe96735294ef2a83d91abc3d1787db8e611dd5040ef8db8e7eee2347f8644",
+      "import_sha256": "085fe96735294ef2a83d91abc3d1787db8e611dd5040ef8db8e7eee2347f8644",
+      "bytes": 12295,
+      "mode": "0755",
+      "adaptations": [
+        "Extend the fixed frontend map to the two Chromium RAM-only helpers; preserve bind/rescue/hash safeguards."
+      ],
+      "destination_sha256": "949c7092d97dee15e2b48bedf1742e5bd675adeca541be82681d35ed4467a862",
+      "destination_bytes": 12504,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "3d4fd7810955ec83aaaff1d92da2e265d9799a65320e09c4da1ba6e99f272f40",
+          "destination_sha256": "949c7092d97dee15e2b48bedf1742e5bd675adeca541be82681d35ed4467a862",
+          "destination_bytes": 12504,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/psx-dhcp.service",
+      "path": "rootfs/ps4-diagnostics/psx-dhcp.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "6706659518c436e8d49f64c15020fa968ea8b9ccc7a7425af96678f8c5c1ae70",
+      "import_sha256": "6706659518c436e8d49f64c15020fa968ea8b9ccc7a7425af96678f8c5c1ae70",
+      "bytes": 441,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "6706659518c436e8d49f64c15020fa968ea8b9ccc7a7425af96678f8c5c1ae70",
+      "destination_bytes": 441
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/psx-diagnostics.service",
+      "path": "rootfs/ps4-diagnostics/psx-diagnostics.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "e7140b29445bcb56d2319646bd20a742773cec3a004b7980ea90765bd97e2745",
+      "import_sha256": "e7140b29445bcb56d2319646bd20a742773cec3a004b7980ea90765bd97e2745",
+      "bytes": 627,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "e7140b29445bcb56d2319646bd20a742773cec3a004b7980ea90765bd97e2745",
+      "destination_bytes": 627
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/psx-rescue.service",
+      "path": "rootfs/ps4-diagnostics/psx-rescue.service",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "18c324d9af82b2b5fdd29e7afe03afe5fe37fc9937aa15113e07705a1914feda",
+      "import_sha256": "18c324d9af82b2b5fdd29e7afe03afe5fe37fc9937aa15113e07705a1914feda",
+      "bytes": 348,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "18c324d9af82b2b5fdd29e7afe03afe5fe37fc9937aa15113e07705a1914feda",
+      "destination_bytes": 348
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/udhcpc-hook",
+      "path": "rootfs/ps4-diagnostics/udhcpc-hook",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "d8bdd7b902b8c9e25f32d977abd8dcad7e692d98256a8867ad07cbdab5c12736",
+      "import_sha256": "d8bdd7b902b8c9e25f32d977abd8dcad7e692d98256a8867ad07cbdab5c12736",
+      "bytes": 3146,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "d8bdd7b902b8c9e25f32d977abd8dcad7e692d98256a8867ad07cbdab5c12736",
+      "destination_bytes": 3146
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics/verify-boot-set",
+      "path": "rootfs/ps4-diagnostics/verify-boot-set",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "e54c68e718f9f25f2d5542de8049730203a33f55239b51bd697e54e0d1951e7e",
+      "import_sha256": "e54c68e718f9f25f2d5542de8049730203a33f55239b51bd697e54e0d1951e7e",
+      "bytes": 2354,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "e54c68e718f9f25f2d5542de8049730203a33f55239b51bd697e54e0d1951e7e",
+      "destination_bytes": 2354
+    },
+    {
+      "origin_path": "rootfs/ps4-wayland/client-driver-exec",
+      "path": "rootfs/ps4-wayland/client-driver-exec",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "6f299cc5dcc4e2f3d984a0f7b5a2b24e5344838315fedb9520c98b3943d81466",
+      "import_sha256": "6f299cc5dcc4e2f3d984a0f7b5a2b24e5344838315fedb9520c98b3943d81466",
+      "bytes": 277,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "6f299cc5dcc4e2f3d984a0f7b5a2b24e5344838315fedb9520c98b3943d81466",
+      "destination_bytes": 277
+    },
+    {
+      "origin_path": "rootfs/ps4-wayland/client-exec",
+      "path": "rootfs/ps4-wayland/client-exec",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "96009c5fb5ac21b6505688e04c76a4c0b76ccc850dff7a81a042cd1bc36b7c48",
+      "import_sha256": "96009c5fb5ac21b6505688e04c76a4c0b76ccc850dff7a81a042cd1bc36b7c48",
+      "bytes": 400,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "96009c5fb5ac21b6505688e04c76a4c0b76ccc850dff7a81a042cd1bc36b7c48",
+      "destination_bytes": 400
+    },
+    {
+      "origin_path": "rootfs/ps4-wayland/compositor-exec",
+      "path": "rootfs/ps4-wayland/compositor-exec",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "ff4570d0a7466557742a2f098db28b2348aca5d053c3d146559e0910b190b828",
+      "import_sha256": "ff4570d0a7466557742a2f098db28b2348aca5d053c3d146559e0910b190b828",
+      "bytes": 431,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "ff4570d0a7466557742a2f098db28b2348aca5d053c3d146559e0910b190b828",
+      "destination_bytes": 431
+    },
+    {
+      "origin_path": "rootfs/ps4-wayland/launch-wayland",
+      "path": "rootfs/ps4-wayland/launch-wayland",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "47b150f975565a0086648c2ba0a196a6896258d88f6066590f79b9fb8e418b1b",
+      "import_sha256": "47b150f975565a0086648c2ba0a196a6896258d88f6066590f79b9fb8e418b1b",
+      "bytes": 6786,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "47b150f975565a0086648c2ba0a196a6896258d88f6066590f79b9fb8e418b1b",
+      "destination_bytes": 6786
+    },
+    {
+      "origin_path": "scripts/build-ps4-diagnostics",
+      "path": "scripts/build-ps4-diagnostics",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "93cf72e60229e014399823d4e264b00c3b7f89da28643033523c653a80093111",
+      "import_sha256": "93cf72e60229e014399823d4e264b00c3b7f89da28643033523c653a80093111",
+      "bytes": 60488,
+      "mode": "0755",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
+        "Resolve kernel/Mesa inputs inside this repository and use only diagnostic seed firmware pins.",
+        "Resolve kernel and Mesa source inside the Linux psX repository.",
+        "Use the standalone diagnostic archive helper and reduced seed firmware manifest.",
+        "Add exactly two opt-in Chromium helpers to the fixed frontend map (28 assets); retain root/kernel guards and payload/RAM limits.",
+        "Allow an explicitly pinned reconstructed package snapshot while preserving exact archive/member/file pins."
+      ],
+      "destination_sha256": "c97d7bd98c88bc00960730c8c6910a49438ea0a781f7bec78a00d7425671dec9",
+      "destination_bytes": 62637,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "4be69140645512077c51ff45135d2ad2d7c1be192f1b6d324e8b9c0d604db3fe",
+          "destination_sha256": "701dcb40875331c1317471b822100afc2cd41749bf2b67cd929353346929dcfb",
+          "destination_bytes": 61626,
+          "mode": "0755"
+        },
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "701dcb40875331c1317471b822100afc2cd41749bf2b67cd929353346929dcfb",
+          "destination_sha256": "809ff3b9e879dfb2b2c239e37942134a094a12c5716692a5bf5663fb1f0664e3",
+          "destination_bytes": 62442,
+          "mode": "0755"
+        },
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "809ff3b9e879dfb2b2c239e37942134a094a12c5716692a5bf5663fb1f0664e3",
+          "destination_sha256": "c97d7bd98c88bc00960730c8c6910a49438ea0a781f7bec78a00d7425671dec9",
+          "destination_bytes": 62637,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "scripts/build-ps4-wayland-suite",
+      "path": "scripts/build-ps4-wayland-suite",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "ebe5e0de3f29db2504192567b4f01d5eb2341c3315bccfc20b92f337665b8ee8",
+      "import_sha256": "ebe5e0de3f29db2504192567b4f01d5eb2341c3315bccfc20b92f337665b8ee8",
+      "bytes": 12011,
+      "mode": "0755",
+      "adaptations": [
+        "Carry the diagnostic MIT license rather than the kernel repository GPL license."
+      ],
+      "destination_sha256": "ebcbcd8c936b9d7ed65ebbbb7a7ea7c3c533a963fc4573b96266be108e818e08",
+      "destination_bytes": 12023
+    },
+    {
+      "origin_path": "scripts/deploy-ps4-diagnostics-ftp",
+      "path": "scripts/deploy-ps4-diagnostics-ftp",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "4ba91e9aac58755d28b3d47297397305fef11b9537d872cb853f9aaac0d15ba0",
+      "import_sha256": "4ba91e9aac58755d28b3d47297397305fef11b9537d872cb853f9aaac0d15ba0",
+      "bytes": 16255,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "4ba91e9aac58755d28b3d47297397305fef11b9537d872cb853f9aaac0d15ba0",
+      "destination_bytes": 16255
+    },
+    {
+      "origin_path": "scripts/fetch-ps4-firmware",
+      "path": "scripts/fetch-ps4-firmware",
+      "origin_head_blob": "8c469ff068446f0a6743b99b26a8d846eba7fbe5",
+      "origin_pending": false,
+      "origin_sha256": "5ffc797f84710a41fb3c8fb68bf1b4d4b3dff40aebf5f59c7fde9bca313dec02",
+      "import_sha256": "5ffc797f84710a41fb3c8fb68bf1b4d4b3dff40aebf5f59c7fde9bca313dec02",
+      "bytes": 5672,
+      "mode": "0755",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
+        "Point firmware acquisition at the standalone diagnostic assembler instead of the old firmware-repacking CLI.",
+        "Use Linux diagnostic ownership/user-agent and standalone diagnostic build guidance."
+      ],
+      "destination_sha256": "aa8aa690bd846b2c9f839d245cabba8050996df9441375eca9f92ffeeed16d44",
+      "destination_bytes": 5708
+    },
+    {
+      "origin_path": "scripts/fetch-ps4-initramfs-seed",
+      "path": "scripts/fetch-ps4-initramfs-seed",
+      "origin_head_blob": "74303cb8f2c6c6442e48f9c54856034b0735f4c5",
+      "origin_pending": false,
+      "origin_sha256": "d5063a7dff2d34a8a51f8c976849863e2a08eabf0a786fe6b2b78e4c4ef6e1de",
+      "import_sha256": "d5063a7dff2d34a8a51f8c976849863e2a08eabf0a786fe6b2b78e4c4ef6e1de",
+      "bytes": 2265,
+      "mode": "0755",
+      "adaptations": [
+        "Describe the seed as diagnostic input data without an Omarchy root dependency."
+      ],
+      "destination_sha256": "144726ad45eb33def7a402aab58869f779873feef09cf76ec72494eeed82f9d5",
+      "destination_bytes": 2267
+    },
+    {
+      "origin_path": "scripts/prepare-ps4-chromium-provider",
+      "path": "scripts/prepare-ps4-chromium-provider",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "b90cf443bde7b5ffd3cf42d2c8cc3b154b0123333fa67fcc47aef5f97f25af5b",
+      "import_sha256": "b90cf443bde7b5ffd3cf42d2c8cc3b154b0123333fa67fcc47aef5f97f25af5b",
+      "bytes": 10420,
+      "mode": "0755",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency."
+      ],
+      "destination_sha256": "8634a7d5ad44156b0ff7525ccd483965c1876bd66ca1505c6a0cf610012c5b65",
+      "destination_bytes": 10423
+    },
+    {
+      "origin_path": "scripts/prepare-ps4-diagnostics-media",
+      "path": "scripts/prepare-ps4-diagnostics-media",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "c3f29c4882286e64a51d5208d81a2c670780e21128ee3252c038acddfe1eee6f",
+      "import_sha256": "c3f29c4882286e64a51d5208d81a2c670780e21128ee3252c038acddfe1eee6f",
+      "bytes": 19290,
+      "mode": "0755",
+      "adaptations": [
+        "Use the preserved diagnostic MIT license for generated synthetic media; never substitute the kernel GPL license."
+      ],
+      "destination_sha256": "81dbd6467aec2e8a28ab2d30a06e2a0cc8ced6d91e952af0c94646dce24650c0",
+      "destination_bytes": 19312
+    },
+    {
+      "origin_path": "scripts/refresh-ps4-diagnostics-frontend",
+      "path": "scripts/refresh-ps4-diagnostics-frontend",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "17e423b5b905c3f3e7a42aeae53cffbfdd29625297ab9a0b364592c8ab2b90eb",
+      "import_sha256": "17e423b5b905c3f3e7a42aeae53cffbfdd29625297ab9a0b364592c8ab2b90eb",
+      "bytes": 7874,
+      "mode": "0755",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
+        "Use the repository-local diagnostic archive helper.",
+        "Add the same two fixed Chromium RAM assets and carry the explicit snapshot receipt pin."
+      ],
+      "destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
+      "destination_bytes": 8050,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "a37f6c6cbc61e1c50c80bb0598787fa6c0255fd3a097b9108623c4bbd72b6e1b",
+          "destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
+          "destination_bytes": 8050,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "origin_path": "scripts/stage-ps4-diagnostics-usb",
+      "path": "scripts/stage-ps4-diagnostics-usb",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
+      "import_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
+      "bytes": 15242,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
+      "destination_bytes": 15242
+    },
+    {
+      "origin_path": "scripts/update-ps4-diagnostics-frontend-ftp",
+      "path": "scripts/update-ps4-diagnostics-frontend-ftp",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
+      "import_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
+      "bytes": 11868,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
+      "destination_bytes": 11868
+    },
+    {
+      "origin_path": "scripts/update-ps4-diagnostics-frontend-ssh",
+      "path": "scripts/update-ps4-diagnostics-frontend-ssh",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "f40a3bbb8a41281c1a2277437218f4d8f89da1836cfe7f2ffc268b3def0fbf1f",
+      "import_sha256": "f40a3bbb8a41281c1a2277437218f4d8f89da1836cfe7f2ffc268b3def0fbf1f",
+      "bytes": 26460,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "f40a3bbb8a41281c1a2277437218f4d8f89da1836cfe7f2ffc268b3def0fbf1f",
+      "destination_bytes": 26460
+    },
+    {
+      "origin_path": "tests/test_ps4_browser_lab.cjs",
+      "path": "tests/test_ps4_browser_lab.cjs",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "e357860af3cad7d0c2a4367fe006bb16f5315e670820c99ea627401731240d04",
+      "import_sha256": "e357860af3cad7d0c2a4367fe006bb16f5315e670820c99ea627401731240d04",
+      "bytes": 5376,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "5af55cccaa9ef8a2c82e2c78ef1bc9e4c85d0116d5003096b156bac370d0b891",
+      "destination_bytes": 13978,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "c7467943ced995c7b73c88420fa57558556cb1228b584a428b381b0c5679c6d3",
+          "prior_destination_sha256": "e357860af3cad7d0c2a4367fe006bb16f5315e670820c99ea627401731240d04",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "c7467943ced995c7b73c88420fa57558556cb1228b584a428b381b0c5679c6d3",
+          "destination_sha256": "5af55cccaa9ef8a2c82e2c78ef1bc9e4c85d0116d5003096b156bac370d0b891",
+          "destination_bytes": 13978,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_browser_reports.py",
+      "path": "tests/test_ps4_browser_reports.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "bef734b681b3a028d08051773c2a7968872663727cb010da6bd51bcf29b3df01",
+      "import_sha256": "bef734b681b3a028d08051773c2a7968872663727cb010da6bd51bcf29b3df01",
+      "bytes": 4975,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "5b5a64fbb86dd035722e373fc4592e906ec05e741e8fefa8a06daa660d639e11",
+      "destination_bytes": 6231,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "d4878b924d167f9465938b73c5f893a4e0e68634836c14bc36d6835f6b0ac988",
+          "prior_destination_sha256": "bef734b681b3a028d08051773c2a7968872663727cb010da6bd51bcf29b3df01",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "d4878b924d167f9465938b73c5f893a4e0e68634836c14bc36d6835f6b0ac988",
+          "destination_sha256": "5b5a64fbb86dd035722e373fc4592e906ec05e741e8fefa8a06daa660d639e11",
+          "destination_bytes": 6231,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_chromium_provider.py",
+      "path": "tests/test_ps4_chromium_provider.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "6db75a538b9713064b41d1daf632e37817097236209123e5401645569d9479d2",
+      "import_sha256": "6db75a538b9713064b41d1daf632e37817097236209123e5401645569d9479d2",
+      "bytes": 2026,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "6db75a538b9713064b41d1daf632e37817097236209123e5401645569d9479d2",
+      "destination_bytes": 2026
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostic_media.py",
+      "path": "tests/test_ps4_diagnostic_media.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "496cfc807634f77aff713b8f5c5ad42360ee1048f12fdd04b1281f9da0fa36a2",
+      "import_sha256": "496cfc807634f77aff713b8f5c5ad42360ee1048f12fdd04b1281f9da0fa36a2",
+      "bytes": 4444,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "496cfc807634f77aff713b8f5c5ad42360ee1048f12fdd04b1281f9da0fa36a2",
+      "destination_bytes": 4444
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics.py",
+      "path": "tests/test_ps4_diagnostics.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "e30862a152a4542c6c5b8dbd3deebe6db568f4b6e5665066ab58dae975ac6422",
+      "import_sha256": "e30862a152a4542c6c5b8dbd3deebe6db568f4b6e5665066ab58dae975ac6422",
+      "bytes": 24861,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "e30862a152a4542c6c5b8dbd3deebe6db568f4b6e5665066ab58dae975ac6422",
+      "destination_bytes": 24861
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_clock.py",
+      "path": "tests/test_ps4_diagnostics_clock.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "97df5c91355a8601e1e4c72bfe1f347dbab972e590cfda7c7c07faf17a32660d",
+      "import_sha256": "97df5c91355a8601e1e4c72bfe1f347dbab972e590cfda7c7c07faf17a32660d",
+      "bytes": 1544,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "97df5c91355a8601e1e4c72bfe1f347dbab972e590cfda7c7c07faf17a32660d",
+      "destination_bytes": 1544
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_console.py",
+      "path": "tests/test_ps4_diagnostics_console.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "6cd14bb7b4245f9d14e44fd375964b21d55a5a217a6de17cd14ca2164155ea52",
+      "import_sha256": "6cd14bb7b4245f9d14e44fd375964b21d55a5a217a6de17cd14ca2164155ea52",
+      "bytes": 9329,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "4a99ee9fd22cd4878ec5d98f3a8130f2f1ae65bfb9ac29aa743ec78b9af154bf",
+      "destination_bytes": 9483,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "4a99ee9fd22cd4878ec5d98f3a8130f2f1ae65bfb9ac29aa743ec78b9af154bf",
+          "prior_destination_sha256": "6cd14bb7b4245f9d14e44fd375964b21d55a5a217a6de17cd14ca2164155ea52",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_controller.py",
+      "path": "tests/test_ps4_diagnostics_controller.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "1057f3b22eb094a0531fec47331d770e6795b3a51af86de27669d6b879a96969",
+      "import_sha256": "1057f3b22eb094a0531fec47331d770e6795b3a51af86de27669d6b879a96969",
+      "bytes": 14618,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "e5e252c61e02044cd559cef7c212145df089af64ba3902b3667ce18638fe7b15",
+      "destination_bytes": 16384,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "f2842b45c3bfa0921c50a4447984e3ad5ac47ec43b1d8575ebc83023c1e45c56",
+          "prior_destination_sha256": "1057f3b22eb094a0531fec47331d770e6795b3a51af86de27669d6b879a96969",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "f2842b45c3bfa0921c50a4447984e3ad5ac47ec43b1d8575ebc83023c1e45c56",
+          "destination_sha256": "e5e252c61e02044cd559cef7c212145df089af64ba3902b3667ce18638fe7b15",
+          "destination_bytes": 16384,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_display.py",
+      "path": "tests/test_ps4_diagnostics_display.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "d061046999182cdbfc15f731d48e540204ecc185370d6b1f581212d974faf3f3",
+      "import_sha256": "d061046999182cdbfc15f731d48e540204ecc185370d6b1f581212d974faf3f3",
+      "bytes": 3191,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "d061046999182cdbfc15f731d48e540204ecc185370d6b1f581212d974faf3f3",
+      "destination_bytes": 3191
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_frontend_ftp.py",
+      "path": "tests/test_ps4_diagnostics_frontend_ftp.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
+      "import_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
+      "bytes": 12361,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
+      "destination_bytes": 12361
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_frontend_refresh.py",
+      "path": "tests/test_ps4_diagnostics_frontend_refresh.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "7f0ca0d3b549b6b52c1a41d5f1cfadfe1fc28d32a5642d30d1ab90c114e414de",
+      "import_sha256": "7f0ca0d3b549b6b52c1a41d5f1cfadfe1fc28d32a5642d30d1ab90c114e414de",
+      "bytes": 10361,
+      "mode": "0644",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
+        "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
+      ],
+      "destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
+      "destination_bytes": 10658,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "b9ab382c3e63d8826eea266c9d87d7355be46a1ce50a9a1be40474dcad87b3b1",
+          "destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
+          "destination_bytes": 10658,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_frontend_ssh.py",
+      "path": "tests/test_ps4_diagnostics_frontend_ssh.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "e8b49a0ea4929e134537dc4b4aa63d94620d0298a65b28ba2557ff22eb5ca72e",
+      "import_sha256": "e8b49a0ea4929e134537dc4b4aa63d94620d0298a65b28ba2557ff22eb5ca72e",
+      "bytes": 16434,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "dbb3846e459f357005a4cb335eef33fab6227ff602b8939ae1a630f9f1ac2009",
+      "destination_bytes": 16428,
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "e8b49a0ea4929e134537dc4b4aa63d94620d0298a65b28ba2557ff22eb5ca72e",
+          "destination_sha256": "dbb3846e459f357005a4cb335eef33fab6227ff602b8939ae1a630f9f1ac2009",
+          "destination_bytes": 16428,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_ftp.py",
+      "path": "tests/test_ps4_diagnostics_ftp.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "0448a8e861749b3fc536030abb9ea3e8f97918a133a7a8f6dbb489b8894a09b5",
+      "import_sha256": "0448a8e861749b3fc536030abb9ea3e8f97918a133a7a8f6dbb489b8894a09b5",
+      "bytes": 19800,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "0448a8e861749b3fc536030abb9ea3e8f97918a133a7a8f6dbb489b8894a09b5",
+      "destination_bytes": 19800
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_graphics.py",
+      "path": "tests/test_ps4_diagnostics_graphics.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "ae57b5f9db15e71928ff47eecdbd4a3c2052e28d5af619799b1d7e50e0e15669",
+      "import_sha256": "ae57b5f9db15e71928ff47eecdbd4a3c2052e28d5af619799b1d7e50e0e15669",
+      "bytes": 17589,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
+      ],
+      "destination_sha256": "f7a141a37150443ce9495c0a50f2e6ba7f8a06c5dee920a99b97160605f8a6da",
+      "destination_bytes": 19862,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "9d101ea05d4ce7c8252b8a79f8ba03c9927813c5abc7267dae5f820ba674b2a1",
+          "prior_destination_sha256": "ae57b5f9db15e71928ff47eecdbd4a3c2052e28d5af619799b1d7e50e0e15669",
+          "reason": "Final closed browser/helper/lab source delta after initial non-destructive import."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "9d101ea05d4ce7c8252b8a79f8ba03c9927813c5abc7267dae5f820ba674b2a1",
+          "destination_sha256": "f7a141a37150443ce9495c0a50f2e6ba7f8a06c5dee920a99b97160605f8a6da",
+          "destination_bytes": 19862,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_image.py",
+      "path": "tests/test_ps4_diagnostics_image.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "1183f2ebef52571b5b9ba8eb0689f28b333211ce3a67c3a23874fd5fac71c980",
+      "import_sha256": "1183f2ebef52571b5b9ba8eb0689f28b333211ce3a67c3a23874fd5fac71c980",
+      "bytes": 45964,
+      "mode": "0644",
+      "adaptations": [
+        "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
+        "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
+      ],
+      "destination_sha256": "11351c39797b13db64f34ac6d6481f95b0a076837df3c330955da45620a6b055",
+      "destination_bytes": 53144,
+      "destination_adaptations": [
+        {
+          "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+          "prior_destination_sha256": "c2b5a354cdc947f5c57bfea158c8d2807548161c5e5e4e72cc625722e1ca9d5d",
+          "destination_sha256": "58da536de41ececf75b451393158b95d5d623c9699a462f993ab5bbf375ff4f2",
+          "destination_bytes": 47406,
+          "mode": "0644"
+        },
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "58da536de41ececf75b451393158b95d5d623c9699a462f993ab5bbf375ff4f2",
+          "destination_sha256": "88a7ba3cdf9103c181e58d07a843eed160bd789e6a57a0c4d8974e1509e4bea4",
+          "destination_bytes": 52468,
+          "mode": "0644"
+        },
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "88a7ba3cdf9103c181e58d07a843eed160bd789e6a57a0c4d8974e1509e4bea4",
+          "destination_sha256": "11351c39797b13db64f34ac6d6481f95b0a076837df3c330955da45620a6b055",
+          "destination_bytes": 53144,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_network.py",
+      "path": "tests/test_ps4_diagnostics_network.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "f99cb15654709edd82990a062749d4c30b028bf08e2c3701d6d7c652c69d4aaa",
+      "import_sha256": "f99cb15654709edd82990a062749d4c30b028bf08e2c3701d6d7c652c69d4aaa",
+      "bytes": 16884,
+      "mode": "0644",
+      "adaptations": [
+        "Synchronize final browser and explicit network UI source after both agent freezes."
+      ],
+      "destination_sha256": "d6efcb2cd1b9b0b1aa78a8a9b797ad0acf7a88422a1bb81297ffbe73cf08cae1",
+      "destination_bytes": 21363,
+      "sync_history": [
+        {
+          "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
+          "origin_pending_sha256": "2bf6354a7ee2e28595dce0bb0c667f963f541f1f902113d5ee85d34ede578542",
+          "prior_destination_sha256": "f99cb15654709edd82990a062749d4c30b028bf08e2c3701d6d7c652c69d4aaa",
+          "reason": "Combined final GUI/network source freeze; preserve the initial import hashes."
+        }
+      ],
+      "destination_adaptations": [
+        {
+          "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+          "prior_destination_sha256": "2bf6354a7ee2e28595dce0bb0c667f963f541f1f902113d5ee85d34ede578542",
+          "destination_sha256": "d6efcb2cd1b9b0b1aa78a8a9b797ad0acf7a88422a1bb81297ffbe73cf08cae1",
+          "destination_bytes": 21363,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_preferences.py",
+      "path": "tests/test_ps4_diagnostics_preferences.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "75d9c708ce27960eec9192aca1009350e0a97808faca1c2bddd6018abbcc24cb",
+      "import_sha256": "75d9c708ce27960eec9192aca1009350e0a97808faca1c2bddd6018abbcc24cb",
+      "bytes": 8680,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "75d9c708ce27960eec9192aca1009350e0a97808faca1c2bddd6018abbcc24cb",
+      "destination_bytes": 8680
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_rescue.py",
+      "path": "tests/test_ps4_diagnostics_rescue.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "5413ddbf9d416d9bdf508955ef4069bb0d145ba96bd1617dd40a17e2bc009cdb",
+      "import_sha256": "5413ddbf9d416d9bdf508955ef4069bb0d145ba96bd1617dd40a17e2bc009cdb",
+      "bytes": 3474,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "5413ddbf9d416d9bdf508955ef4069bb0d145ba96bd1617dd40a17e2bc009cdb",
+      "destination_bytes": 3474
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_wayland.py",
+      "path": "tests/test_ps4_diagnostics_wayland.py",
+      "origin_head_blob": null,
+      "origin_pending": true,
+      "origin_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
+      "import_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
+      "bytes": 9863,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
+      "destination_bytes": 9863
+    },
+    {
+      "origin_path": "LICENSE",
+      "path": "diagnostics/LICENSE",
+      "origin_head_blob": "6f1923c593328129a3001ae44450e2f51aae061a",
+      "origin_pending": false,
+      "origin_sha256": "b675cd5546d49b9b0ea5b61632a33fd2b494ff71e25d8f7eed3fc1a91a54f4c4",
+      "import_sha256": "b675cd5546d49b9b0ea5b61632a33fd2b494ff71e25d8f7eed3fc1a91a54f4c4",
+      "bytes": 1066,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "b675cd5546d49b9b0ea5b61632a33fd2b494ff71e25d8f7eed3fc1a91a54f4c4",
+      "destination_bytes": 1066
+    },
+    {
+      "origin_path": null,
+      "path": "scripts/ps4-diagnostics-archive",
+      "derived_from": [
+        {
+          "path": "scripts/repack-ps4-initramfs",
+          "sha256": "9e45dccba5b5f5ed04d52072087c150d7d68ca7ede3b5de0e26d573ceb2ab23a",
+          "symbols": [
+            "ArchiveError",
+            "Entry",
+            "align4",
+            "parse_newc"
+          ]
+        },
+        {
+          "path": "scripts/add-ps4-initramfs-firmware",
+          "sha256": "678b670f1882db2136e29102f739bb47d87a2f4dcff184bd8cf9ecdb23331455",
+          "symbols": [
+            "pad4",
+            "entry"
+          ]
+        },
+        {
+          "path": "scripts/build-ps5-probe-initramfs",
+          "sha256": "7df13469359c9c8c6464992f6b48c7cf6dac9d17224368c6743e55d591f56cc6",
+          "symbols": [
+            "ProbeError",
+            "elf_header",
+            "bounded_slice",
+            "validate_busybox",
+            "validate_module"
+          ]
+        }
+      ],
+      "origin_pending": true,
+      "origin_sha256": null,
+      "import_sha256": "11f5c6a34c8aef0373784ddcba8b4cb06bdea36390f4986242bf691ed6f1a7ab",
+      "bytes": 6714,
+      "mode": "0755",
+      "adaptations": [
+        "Extract only data parsers/writer and ELF validators; no unrelated PS5 builder or historical initramfs CLI dependency."
+      ],
+      "destination_sha256": "11f5c6a34c8aef0373784ddcba8b4cb06bdea36390f4986242bf691ed6f1a7ab",
+      "destination_bytes": 6714
+    },
+    {
+      "origin_path": "manifests/ps4-initramfs.json",
+      "path": "manifests/ps4-diagnostic-seed-firmware.json",
+      "origin_pending": true,
+      "origin_sha256": "62a87174ba876fdfe793c53a364be8b5b8cf6465af5220215585f77a61be9dc9",
+      "import_sha256": "9a74e152f425adb1849d3bde360b918128bf5b0500af40043a199c1e85d9611c",
+      "bytes": 2409,
+      "mode": "0644",
+      "adaptations": [
+        "Retain only external seed firmware hashes; omit unrelated historical Omarchy root/install contract."
+      ],
+      "destination_sha256": "9a74e152f425adb1849d3bde360b918128bf5b0500af40043a199c1e85d9611c",
+      "destination_bytes": 2409
+    },
+    {
+      "origin_path": "manifests/ps4-diagnostic-media.json",
+      "path": "manifests/ps4-diagnostic-media.json",
+      "origin_pending": true,
+      "origin_sha256": "8fb4ae33db937df6922e8b118e4c9d251156e78e3c15dde8145504de44cc45c1",
+      "import_sha256": "8fb4ae33db937df6922e8b118e4c9d251156e78e3c15dde8145504de44cc45c1",
+      "destination_sha256": "8fb4ae33db937df6922e8b118e4c9d251156e78e3c15dde8145504de44cc45c1",
+      "bytes": 3044,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_bytes": 3044
+    },
+    {
+      "origin_path": "scripts/stage-ps4-diagnostics-provider-ssh",
+      "path": "scripts/stage-ps4-diagnostics-provider-ssh",
+      "origin_pending": true,
+      "origin_sha256": "458e8bfb01beaf749156c06d57643f9c18dac9d049348507a641099fdf5effac",
+      "import_sha256": "458e8bfb01beaf749156c06d57643f9c18dac9d049348507a641099fdf5effac",
+      "destination_sha256": "458e8bfb01beaf749156c06d57643f9c18dac9d049348507a641099fdf5effac",
+      "bytes": 13613,
+      "destination_bytes": 13613,
+      "mode": "0755",
+      "adaptations": []
+    },
+    {
+      "origin_path": "tests/test_ps4_diagnostics_provider_ssh.py",
+      "path": "tests/test_ps4_diagnostics_provider_ssh.py",
+      "origin_pending": true,
+      "origin_sha256": "b7aa3bc861333b3ad54bb90b3e289cc790cdc53442d1c4628e25ea0b7b47bc5c",
+      "import_sha256": "b7aa3bc861333b3ad54bb90b3e289cc790cdc53442d1c4628e25ea0b7b47bc5c",
+      "destination_sha256": "b7aa3bc861333b3ad54bb90b3e289cc790cdc53442d1c4628e25ea0b7b47bc5c",
+      "bytes": 11623,
+      "destination_bytes": 11623,
+      "mode": "0644",
+      "adaptations": []
+    },
+    {
+      "origin_path": "rootfs/ps4-diagnostics-desktop/prepare-chromium-provider",
+      "path": "rootfs/ps4-diagnostics-desktop/prepare-chromium-provider",
+      "origin_pending": true,
+      "origin_sha256": "7b3bd3a603fd0f301419380f89a31ffe238d55944c26f1f05d88dfbd404adaaa",
+      "import_sha256": "7b3bd3a603fd0f301419380f89a31ffe238d55944c26f1f05d88dfbd404adaaa",
+      "bytes": 10966,
+      "mode": "0755",
+      "adaptations": [],
+      "destination_sha256": "7b3bd3a603fd0f301419380f89a31ffe238d55944c26f1f05d88dfbd404adaaa",
+      "destination_bytes": 10966
+    },
+    {
+      "origin_path": "tests/test_ps4_browser_autorun.py",
+      "path": "tests/test_ps4_browser_autorun.py",
+      "origin_pending": true,
+      "origin_sha256": "9c3413538076c6737b9d7f6d34f454ac0607ac40134d974cdd53846a0adfd2d5",
+      "import_sha256": "9c3413538076c6737b9d7f6d34f454ac0607ac40134d974cdd53846a0adfd2d5",
+      "bytes": 4402,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "86c39bdc543dc59d43aa41cadafbb7baabb6aa6dfc7fb893ab86dcf98794da97",
+      "destination_bytes": 6539,
+      "destination_adaptations": [
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "9c3413538076c6737b9d7f6d34f454ac0607ac40134d974cdd53846a0adfd2d5",
+          "destination_sha256": "a00f8980f96cdb463ce5bb41ce77347e3d6afd42330f25181edf45a95470f234",
+          "destination_bytes": 5132,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "a00f8980f96cdb463ce5bb41ce77347e3d6afd42330f25181edf45a95470f234",
+          "destination_sha256": "86c39bdc543dc59d43aa41cadafbb7baabb6aa6dfc7fb893ab86dcf98794da97",
+          "destination_bytes": 6539,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "origin_path": "tests/test_ps4_chromium_prepare.py",
+      "path": "tests/test_ps4_chromium_prepare.py",
+      "origin_pending": true,
+      "origin_sha256": "20da46e510d1669b3035d8173c12857a436c343698c83fc3c20e0164efac1c6c",
+      "import_sha256": "20da46e510d1669b3035d8173c12857a436c343698c83fc3c20e0164efac1c6c",
+      "bytes": 6063,
+      "mode": "0644",
+      "adaptations": [],
+      "destination_sha256": "20da46e510d1669b3035d8173c12857a436c343698c83fc3c20e0164efac1c6c",
+      "destination_bytes": 6063
+    }
+  ],
+  "generated_files": [
+    {
+      "path": "diagnostics/AGENTS.md",
+      "destination_sha256": "4318449bd5335ed47880b89522ac796efe0c307b9cb537ad4b56b069d6e27265",
+      "destination_bytes": 2332,
+      "mode": "0644",
+      "purpose": "Standalone source ownership/build handoff support."
+    },
+    {
+      "path": "docs/DIAGNOSTICS.md",
+      "destination_sha256": "695a4e3bbcfb561fae7ee74a46dc12bebf51e9f0da2e73565ba211326cdf9d46",
+      "destination_bytes": 10031,
+      "mode": "0644",
+      "purpose": "Standalone source ownership/build handoff support.",
+      "destination_adaptations": [
+        {
+          "reason": "Add explicit post-import Linux source-adaptation recording; preserve initial import identities and frozen 28-asset output",
+          "prior_destination_sha256": "ec4ae6a3a35433e79bf265b585edc079156dd94126f750513905dfbb1492a3a0",
+          "destination_sha256": "41daa95008f8d9d38f3727bdad5076b16ba142e72c6f00ac057df5efd2a5fb00",
+          "destination_bytes": 8572,
+          "mode": "0644"
+        },
+        {
+          "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+          "prior_destination_sha256": "41daa95008f8d9d38f3727bdad5076b16ba142e72c6f00ac057df5efd2a5fb00",
+          "destination_sha256": "98d413ad138b9fae967e29eb355d933acdadfdb5bb47f72f1daa7b90fa2acbcc",
+          "destination_bytes": 8702,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+          "prior_destination_sha256": "98d413ad138b9fae967e29eb355d933acdadfdb5bb47f72f1daa7b90fa2acbcc",
+          "destination_sha256": "5a1c623ee35d19ac05ceca74847fa233812e97d7c92138e1124d4bd1b3835843",
+          "destination_bytes": 9535,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "5a1c623ee35d19ac05ceca74847fa233812e97d7c92138e1124d4bd1b3835843",
+          "destination_sha256": "695a4e3bbcfb561fae7ee74a46dc12bebf51e9f0da2e73565ba211326cdf9d46",
+          "destination_bytes": 10031,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "manifests/ps4-diagnostic-packages.json",
+      "destination_sha256": "ef17b8cd77501f993bba572dbd45faf171770d39836812bf2c98808a47c08d97",
+      "destination_bytes": 216419,
+      "mode": "0644",
+      "purpose": "Standalone source ownership/build handoff support."
+    },
+    {
+      "path": "scripts/check-ps4-diagnostics",
+      "destination_sha256": "546bcaa8de13de7e4329f1d494da577f32c44ce686fbdc3eb7d19d7aa26a6bfd",
+      "destination_bytes": 6829,
+      "mode": "0755",
+      "purpose": "Standalone source ownership/build handoff support.",
+      "destination_adaptations": [
+        {
+          "reason": "Add explicit post-import Linux source-adaptation recording; preserve initial import identities and frozen 28-asset output",
+          "prior_destination_sha256": "e7618c356eaf52a92c831df5345bc6a013704301ca1ae14b86b5c6b941559e78",
+          "destination_sha256": "546bcaa8de13de7e4329f1d494da577f32c44ce686fbdc3eb7d19d7aa26a6bfd",
+          "destination_bytes": 6829,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_source.py",
+      "destination_sha256": "99a1e723f381105f5183fcfb75c2bee079102cb511bf34cafcf8ec69503c1274",
+      "destination_bytes": 3420,
+      "mode": "0644",
+      "purpose": "Add explicit post-import Linux source-adaptation recording; preserve initial import identities and frozen 28-asset output",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/SESSIONS.md",
+      "destination_sha256": "1380a444374596964fb8621c60eaec67e01d0eb9bb790de2c195f7ffcdf51182",
+      "destination_bytes": 16024,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Normalize observed OpenSSH 10.5 effective directive names while keeping policy values exact; preserve EXP014 integration failure, rollback and corrective-test evidence.",
+          "prior_destination_sha256": "974d422264404267996a8edad43963f2980db54cdff89830ef3c0a25288e6c51",
+          "destination_sha256": "0a191867e5a86ba86de1bc1ba0882a134157f8e4cbe396f99975abe5b8f26f7b",
+          "destination_bytes": 8115,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+          "prior_destination_sha256": "0a191867e5a86ba86de1bc1ba0882a134157f8e4cbe396f99975abe5b8f26f7b",
+          "destination_sha256": "62e43fa4ec669d7b79f9d3c57bfc663a9a849f104cc2bb3f2200955c620a2712",
+          "destination_bytes": 12202,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add the requested vertical divider between hardware components and details; record completed EXP016 display and navigation evidence.",
+          "prior_destination_sha256": "62e43fa4ec669d7b79f9d3c57bfc663a9a849f104cc2bb3f2200955c620a2712",
+          "destination_sha256": "32613b09b3f4a746cf779848f349aee3a6f5b2bb86d97374d5f9297280747275",
+          "destination_bytes": 14407,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed EXP-20261105-001 divider deployment, framebuffer inspection and preserved rollback artifacts.",
+          "prior_destination_sha256": "32613b09b3f4a746cf779848f349aee3a6f5b2bb86d97374d5f9297280747275",
+          "destination_sha256": "1380a444374596964fb8621c60eaec67e01d0eb9bb790de2c195f7ffcdf51182",
+          "destination_bytes": 16024,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "diagnostics/ps4/ssh_access.py",
+      "destination_sha256": "3b9ea4a3b30ee12280735caf53f4ca2c29409161309d0d55bb8ad5d3e7d2d960",
+      "destination_bytes": 32381,
+      "mode": "0755",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Normalize observed OpenSSH 10.5 effective directive names while keeping policy values exact; preserve EXP014 integration failure, rollback and corrective-test evidence.",
+          "prior_destination_sha256": "483aed2e720afad78f0481154180206fad209845bbfeb93eaf15521a55c5a167",
+          "destination_sha256": "3b9ea4a3b30ee12280735caf53f4ca2c29409161309d0d55bb8ad5d3e7d2d960",
+          "destination_bytes": 32381,
+          "mode": "0755"
+        }
+      ]
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-PREREQUISITES.md",
+      "destination_sha256": "04d257d013acbf2bb8e04381d2e8277e2e4687e36854c944445c68864473b9b2",
+      "destination_bytes": 3755,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-SSH-ACCESS.md",
+      "destination_sha256": "76124dc66bf2cc7822848d0dd1d0ab6bc4ae9145d567bc1cbf1791b7fcb8964e",
+      "destination_bytes": 7034,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_browser_batches.py",
+      "destination_sha256": "c89500982d25930eb7e40935b1b6208a0b1eebf720ac206641b75e240bad04d2",
+      "destination_bytes": 8498,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_browser_runtime.py",
+      "destination_sha256": "785f1801b6a7df4f0a260525508ef1a9912ed0e6946075b8ba85c57bcd9811d5",
+      "destination_bytes": 5957,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "143718501777203071931023e79f5c63e92455b1e7a998ea458407bd4df0c954",
+          "destination_sha256": "785f1801b6a7df4f0a260525508ef1a9912ed0e6946075b8ba85c57bcd9811d5",
+          "destination_bytes": 5957,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_prerequisites.py",
+      "destination_sha256": "e4e10ad7490c28e629a8875b7034b8695dc647af96d3c30affc0abc8333bc4cd",
+      "destination_bytes": 11461,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_ssh_access.py",
+      "destination_sha256": "d5a6bb16a9c68427f1c1d657503c29b1f3b2d97a61fff1e8cc91f634e0b27e94",
+      "destination_bytes": 24921,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Normalize observed OpenSSH 10.5 effective directive names while keeping policy values exact; preserve EXP014 integration failure, rollback and corrective-test evidence.",
+          "prior_destination_sha256": "adba84acc31f951fd6ea44e450bfdc57c28ed112ffa5b182bb1aa6b868ee69b1",
+          "destination_sha256": "d5a6bb16a9c68427f1c1d657503c29b1f3b2d97a61fff1e8cc91f634e0b27e94",
+          "destination_bytes": 24921,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_ssh_ui_integration.py",
+      "destination_sha256": "d34252138aa7f8b7c5e7f6b241d7dcb6c6e354abf9c3f43fbe6ad1e368dbdf6f",
+      "destination_bytes": 5649,
+      "mode": "0644",
+      "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/tui/src/hardware.rs",
+      "destination_sha256": "c572402f41a8962fb020e14de6b48902bf03d4d45e77494bbbd3762a4b3275e8",
+      "destination_bytes": 17529,
+      "mode": "0644",
+      "purpose": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-GAMING.md",
+      "destination_sha256": "debd96d07ebb2c084dac62c35954aeb19e1af052ad14bcd55c5aac9a9674da45",
+      "destination_bytes": 3476,
+      "mode": "0644",
+      "purpose": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+          "prior_destination_sha256": "c55454ef91550a34ba281e4deef5b8666894ee5cad19ce78d47dc4249a5779d5",
+          "destination_sha256": "debd96d07ebb2c084dac62c35954aeb19e1af052ad14bcd55c5aac9a9674da45",
+          "destination_bytes": 3476,
+          "mode": "0644"
+        }
+      ]
+    }
+  ],
+  "ownership_updates": [
+    {
+      "path": "AGENTS.md",
+      "prior_pending_sha256": "72c13ff54db18113713fecf18eb894592b313ba8863d0b60107b05ed686f8fce",
+      "destination_sha256": "d8391fb01e5d244c7d127de1cd3742707b76c065547cbaa97408c6b9113c08fc",
+      "scope": "Only optional diagnostic ownership, build/check entry point, notices or generated-path exclusions; preserve prior pending work."
+    },
+    {
+      "path": "README.md",
+      "prior_pending_sha256": "b5aff34dbf73430e8132615fc65cff6a17faa92c65d1e8364a13b43e47fb7e3f",
+      "destination_sha256": "c398b855ba4e415c1102f24c4c503af1cc880334a2a07f3f432db1ce2c2b07dc",
+      "scope": "Only optional diagnostic ownership, build/check entry point, notices or generated-path exclusions; preserve prior pending work."
+    },
+    {
+      "path": "CREDITS.md",
+      "prior_pending_sha256": "58c74f238476d3cbf045bcd81eec0624127a4c561999123d06de8f97746c3ca5",
+      "destination_sha256": "e25981736e31b1c05b9958645bc8d3dc700eeff2f83525f6b3e98768ae1197db",
+      "scope": "Only optional diagnostic ownership, build/check entry point, notices or generated-path exclusions; preserve prior pending work."
+    },
+    {
+      "path": ".gitignore",
+      "prior_pending_sha256": "d6e29a88aa3b606a4827403df2281dbf5233f3ec6ebd46b015caf571f589df48",
+      "destination_sha256": "8c6e7ae8bb237a641148a88641a3b38e3922cf58b63103ef8893e2cfcad90464",
+      "scope": "Only optional diagnostic ownership, build/check entry point, notices or generated-path exclusions; preserve prior pending work."
+    },
+    {
+      "path": "Makefile",
+      "prior_pending_sha256": "b26cd0bc997424944e5e7ba4d08257f96a62bf348f679f25b5e2d3fb9ae7cd06",
+      "destination_sha256": "fc1e5c6c33ddc5e337e0d7f357dcb2b6accc5a71a914f9b75d2430232ca3ae29",
+      "scope": "Only optional diagnostic ownership, build/check entry point, notices or generated-path exclusions; preserve prior pending work."
+    }
+  ],
+  "verification": {
+    "date": "2026-11-04",
+    "standalone_cli_help": 14,
+    "python_host_tests": 279,
+    "node_browser_tests": 11,
+    "rust_locked_offline_tests": 28,
+    "source_receipt_text_files": 108,
+    "default_kernel_check_body_unchanged": true,
+    "root_kernel_gpl_license_unchanged": true,
+    "diagnostic_mit_license_sha256": "b675cd5546d49b9b0ea5b61632a33fd2b494ff71e25d8f7eed3fc1a91a54f4c4",
+    "hardware_actions": false,
+    "full_root_image_build": false,
+    "offline_frontend_refresh": {
+      "status": "PASS",
+      "boot_set_bytes": 1065928109,
+      "initramfs_bytes": 5038832,
+      "initramfs_sha256": "adaac28e7190318757499bcd57cbfaef8ec17633fac1617624b4df802b0b9706",
+      "frontend_bytes": 5505843,
+      "frontend_ram_limit_bytes": 16777216,
+      "rootfs_sha256": "2c357c871d6422218935c0250d1282b90d2c4bdaae5b20b95b4cac621fdea424",
+      "root_image_unchanged": true,
+      "kernel_unchanged": true,
+      "frontend_assets": 28,
+      "changed_files": [
+        "initramfs.cpio.gz",
+        "psx-diagnostics/boot-set.json"
+      ],
+      "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
+      "omarchy_source_checkout_required": false,
+      "hardware_acceptance": false,
+      "base_boot_set_sha256": "ba412e6e4d6bf8d12a4a680ff22b3a5014a029c257de856729789a37a425680f",
+      "new_boot_set_sha256": "920257c9563e605c4c7a6a0b7d1dc402d577842b79557d8767d32d7c696e6c9b",
+      "tui_sha256": "3d41728f77c6d7d60a6ff9ee1ce0220a5957034d8187c595a97f02429bd48d47",
+      "builder_sha256": "4be69140645512077c51ff45135d2ad2d7c1be192f1b6d324e8b9c0d604db3fe",
+      "output_policy": "Generated artifacts remain outside versioned source; input boot set/runtime files were explicit binary data."
+    }
+  },
+  "compatibility_redirect": {
+    "repository": "https://github.com/meerzulee/omarchy-psx",
+    "path": "docs/DIAGNOSTICS-MOVED.md",
+    "sha256": "0874f1c6648cd9800230d88328edb80bf088c3547d683e68700db5a7e8f0ccf3",
+    "original_source_retained": true
+  },
+  "source_working_copy_updates": [
+    {
+      "reason": "Add explicit post-import Linux source-adaptation recording; preserve initial import identities and frozen 28-asset output",
+      "paths": [
+        "scripts/check-ps4-diagnostics",
+        "tests/test_ps4_diagnostics_source.py",
+        "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
+      "paths": [
+        "scripts/build-ps4-diagnostics",
+        "scripts/refresh-ps4-diagnostics-frontend",
+        "rootfs/ps4-diagnostics/init",
+        "tests/test_ps4_diagnostics_image.py",
+        "tests/test_ps4_diagnostics_frontend_refresh.py",
+        "docs/PS4-DIAGNOSTIC-IMAGE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Allow public diagnostic images without a baked owner key: persistent unique host identity, dormant key-only SSH until local enrollment, optional seeded owner behavior preserved; validated 57 image and 33 network/host-key tests, including keyless plan",
+      "paths": [
+        "scripts/build-ps4-diagnostics",
+        "manifests/ps4-diagnostics-console.json",
+        "rootfs/ps4-diagnostics-gui/prepare-ssh-host-key",
+        "rootfs/ps4-diagnostics-gui/psx-ssh-host-key.service",
+        "rootfs/ps4-diagnostics-gui/sshd-psx.conf",
+        "tests/test_ps4_diagnostics_image.py",
+        "tests/test_ps4_diagnostics_network.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/lab/index.html",
+        "diagnostics/ps4/lab/lab.js",
+        "diagnostics/ps4/lab/style.css",
+        "diagnostics/ps4/preferences.py",
+        "diagnostics/ps4/tui/src/ipc.rs",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/model.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "docs/DIAGNOSTICS.md",
+        "docs/PS4-DIAGNOSTIC-IMAGE.md",
+        "rootfs/ps4-diagnostics-desktop/launch-graphics",
+        "scripts/build-ps4-diagnostics",
+        "tests/test_ps4_browser_autorun.py",
+        "tests/test_ps4_browser_lab.cjs",
+        "tests/test_ps4_browser_reports.py",
+        "tests/test_ps4_diagnostics_controller.py",
+        "tests/test_ps4_diagnostics_image.py",
+        "diagnostics/SESSIONS.md",
+        "diagnostics/ps4/ssh_access.py",
+        "docs/PS4-DIAGNOSTIC-PREREQUISITES.md",
+        "docs/PS4-DIAGNOSTIC-SSH-ACCESS.md",
+        "tests/test_ps4_browser_batches.py",
+        "tests/test_ps4_browser_runtime.py",
+        "tests/test_ps4_diagnostics_prerequisites.py",
+        "tests/test_ps4_diagnostics_ssh_access.py",
+        "tests/test_ps4_ssh_ui_integration.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Final GUI source freeze: rustfmt and stale audio-group fixture index reconciliation after category reordering; preserve all earlier import and adaptation hashes",
+      "paths": [
+        "diagnostics/ps4/tui/src/main.rs"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Normalize observed OpenSSH 10.5 effective directive names while keeping policy values exact; preserve EXP014 integration failure, rollback and corrective-test evidence.",
+      "paths": [
+        "diagnostics/ps4/ssh_access.py",
+        "tests/test_ps4_diagnostics_ssh_access.py",
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add cached hardware overview and component drilldown with explicit raw data, record EXP014/015 and the optional gaming compatibility design; preserve existing SSH/report behavior.",
+      "paths": [
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/model.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "diagnostics/ps4/tui/src/hardware.rs",
+        "diagnostics/SESSIONS.md",
+        "docs/DIAGNOSTICS.md",
+        "docs/PS4-DIAGNOSTIC-GAMING.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add the requested vertical divider between hardware components and details; record completed EXP016 display and navigation evidence.",
+      "paths": [
+        "diagnostics/ps4/tui/src/ui.rs",
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed EXP-20261105-001 divider deployment, framebuffer inspection and preserved rollback artifacts.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add manual ProtonDB browsing, grouped Theme/Font/About settings, persistent creator footers, and anonymized synthetic USB identities; preserve hardware and browser acceptance scope.",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/lab/index.html",
+        "diagnostics/ps4/lab/style.css",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/model.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "rootfs/ps4-diagnostics-desktop/graphics-client",
+        "rootfs/ps4-diagnostics-desktop/graphics-session",
+        "rootfs/ps4-diagnostics-desktop/graphics-start",
+        "rootfs/ps4-diagnostics-desktop/graphics-window",
+        "rootfs/ps4-diagnostics-desktop/launch-graphics",
+        "tests/test_ps4_diagnostics_frontend_ssh.py",
+        "tests/test_ps4_diagnostics_graphics.py",
+        "tests/test_ps4_browser_autorun.py",
+        "docs/DIAGNOSTICS.md",
+        "tests/test_ps4_browser_runtime.py",
+        "docs/PS4-DIAGNOSTIC-GAMING.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Remove extra final blank lines from imported text configuration for a clean source diff; preserve original import hashes and all configuration values.",
+      "paths": [
+        "rootfs/ps4-diagnostics-gui/20-psx-diagnostics.conf",
+        "rootfs/ps4-diagnostics-gui/psx-ssh-host-key.service",
+        "rootfs/ps4-diagnostics-gui/psx-wired.nmconnection",
+        "rootfs/ps4-diagnostics-gui/sshd-psx-host-key.conf",
+        "rootfs/ps4-diagnostics-gui/sshd-psx.conf"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    }
+  ],
+  "validation_runs": [
+    {
+      "timestamp_utc": "2026-11-04T17:17:20.176078+00:00",
+      "result": "PASS",
+      "source_files": 118,
+      "source_manifest_sha256": "98b1b2fc07bd4712ade1e55fd698d71b962910013a42b902e5e207e175e08c2b",
+      "source_manifest_encoding": "Sorted path/mode/bytes/sha256 records encoded as compact sorted-key JSON; excludes this receipt.",
+      "python_host_tests": 354,
+      "node_browser_tests": 15,
+      "rust_locked_offline_tests": 33,
+      "commands": [
+        "TMPDIR=/var/tmp make check-diagnostics",
+        "TMPDIR=/var/tmp cargo test --locked --offline --manifest-path diagnostics/ps4/tui/Cargo.toml (external target/toolchain)"
+      ],
+      "late_rust_freeze": "Final formatted main.rs and audio-group fixture index validated independently after the unchanged Python/Node source run.",
+      "scope": "Optional diagnostic host/source validation only; no kernel/default checks, image construction or hardware actions.",
+      "future_full_root_mit_notice": "usr/share/licenses/psx-diagnostics/LICENSE, tested through pruning",
+      "frozen_28_asset_initramfs_sha256": "adaac28e7190318757499bcd57cbfaef8ec17633fac1617624b4df802b0b9706",
+      "frozen_28_asset_boot_receipt_sha256": "920257c9563e605c4c7a6a0b7d1dc402d577842b79557d8767d32d7c696e6c9b",
+      "original_import_identities_preserved": 104
+    }
+  ]
+}

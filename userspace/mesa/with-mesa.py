@@ -9,6 +9,36 @@ import os
 from pathlib import Path
 import stat
 import sys
+import tempfile
+
+
+def selection_directory(root: Path, requested: Path | None) -> Path:
+    """Keep mutable selection/cache files outside the verified driver tree."""
+    runtime = requested if requested is not None else root / 'selection'
+    if not runtime.is_absolute():
+        raise ValueError('Runtime directory must be an absolute path')
+    if runtime.is_symlink():
+        raise ValueError('Runtime directory must not be a symlink')
+    resolved = runtime.resolve()
+    if resolved == root or resolved.is_relative_to((root / 'usr').resolve(strict=True)):
+        raise ValueError('Runtime directory must be outside the verified usr tree')
+    runtime.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = runtime.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) & 0o077):
+        raise ValueError('Runtime directory must be private and owned by the current user')
+    return runtime.resolve(strict=True)
+
+
+def write_selection(path: Path, value: dict) -> None:
+    # Atomic replacement also avoids following a preexisting output symlink.
+    fd, temporary = tempfile.mkstemp(prefix='.selection-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(json.dumps(value) + '\n')
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 def verify(root: Path) -> dict:
@@ -59,6 +89,8 @@ def main() -> int:
                     help='Bind verification to the separately recorded build RESULT.json')
     ap.add_argument('--verify-only', action='store_true')
     ap.add_argument('--print-env', action='store_true')
+    ap.add_argument('--runtime-dir', type=Path,
+                    help='Absolute private writable directory for selection JSON/cache; defaults to ROOT/selection')
     ap.add_argument('command', nargs=argparse.REMAINDER)
     args = ap.parse_args()
     root = args.root.resolve(strict=True)
@@ -73,18 +105,17 @@ def main() -> int:
         print(json.dumps({'verified': True, 'mesa': manifest['mesa_version'],
                           'files': len(manifest['files']), 'hardware_acceptance': False}))
         return 0
-    runtime = root / 'selection'
-    runtime.mkdir(mode=0o700, exist_ok=True)
+    runtime = selection_directory(root, args.runtime_dir)
     egl = runtime / 'egl.json'
-    egl.write_text(json.dumps({'file_format_version': '1.0.0',
-                              'ICD': {'library_path': str(root / 'usr/lib/libEGL_mesa.so.0')}}) + '\n')
+    write_selection(egl, {'file_format_version': '1.0.0',
+                         'ICD': {'library_path': str(root / 'usr/lib/libEGL_mesa.so.0')}})
     vk = runtime / 'vulkan.json'
     manifests = list((root / 'usr/share/vulkan/icd.d').glob('radeon_icd*.json'))
     if len(manifests) != 1:
         raise ValueError('Expected exactly one Radeon Vulkan ICD manifest')
     vk_data = json.loads(manifests[0].read_text())
     vk_data['ICD']['library_path'] = str(root / 'usr/lib/libvulkan_radeon.so')
-    vk.write_text(json.dumps(vk_data) + '\n')
+    write_selection(vk, vk_data)
     selection = {
         'LD_LIBRARY_PATH': str(root / 'usr/lib'),
         'LIBGL_DRIVERS_PATH': str(root / 'usr/lib/dri'),

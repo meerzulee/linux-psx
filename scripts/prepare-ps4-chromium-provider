@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Build a pinned optional RO ext4 browser provider; never mount or run Chromium."""
+import argparse
+import gzip
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import runpy
+import shutil
+import stat
+import struct
+import subprocess
+import sys
+import tarfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""): h.update(chunk)
+    return h.hexdigest()
+
+
+def pinned(path, pin, size=None):
+    if Path(path).is_symlink() or not Path(path).is_file() or (size is not None and Path(path).stat().st_size != size) or sha(path) != pin:
+        raise ValueError("Pinned input differs: " + str(path))
+
+
+def run(command, **kwargs):
+    return subprocess.run(list(map(str, command)), check=True, capture_output=True, timeout=180, **kwargs)
+
+
+def unpack(archive, root):
+    omitted = []
+    process = subprocess.Popen(["zstd", "-dc", str(archive)], stdout=subprocess.PIPE)
+    try:
+        with tarfile.open(fileobj=process.stdout, mode="r|") as stream:
+            for item in stream:
+                name = PurePosixPath(item.name)
+                if name.is_absolute() or ".." in name.parts:
+                    raise ValueError("Unsafe package path")
+                if item.name.startswith("."):
+                    continue
+                if (item.name == "usr/bin/chromedriver" or
+                    item.name.startswith("usr/lib/chromium/locales/") and not name.name.startswith("en-US")):
+                    omitted.append(item.name); continue
+                target = root / str(name)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if not target.parent.resolve().is_relative_to(root):
+                    raise ValueError("Package parent escapes provider")
+                if item.isdir(): target.mkdir(exist_ok=True)
+                elif item.isfile():
+                    with stream.extractfile(item) as source, target.open("xb") as out:
+                        shutil.copyfileobj(source, out, 1024 * 1024)
+                elif item.issym(): target.symlink_to(item.linkname)
+                elif item.islnk():
+                    source = root / item.linkname
+                    if not source.resolve().is_relative_to(root): raise ValueError("Unsafe hardlink")
+                    os.link(source, target)
+                else: raise ValueError("Package contains a special file")
+                os.chown(target, 0, 0, follow_symlinks=False)
+                if not item.issym(): target.chmod(item.mode)
+        if process.wait() != 0: raise ValueError("Package decompression failed")
+    finally:
+        if process.poll() is None: process.kill(); process.wait()
+        process.stdout.close()
+    return omitted
+
+
+def needed(path):
+    data = Path(path).read_bytes()
+    if data[:7] != b"\x7fELF\x02\x01\x01": return []
+    off = struct.unpack_from("<Q", data, 32)[0]
+    size, count = struct.unpack_from("<HH", data, 54)
+    headers = [struct.unpack_from("<IIQQQQQQ", data, off + i * size) for i in range(count)]
+    dynamic = next((h for h in headers if h[0] == 2), None)
+    if dynamic is None: return []
+    entries = [struct.unpack_from("<qQ", data, i) for i in range(dynamic[2], dynamic[2] + dynamic[5], 16)]
+    address = next(v for k, v in entries if k == 5)
+    segment = next(h for h in headers if h[0] == 1 and h[3] <= address < h[3] + h[5])
+    start = segment[2] + address - segment[3]
+    return [data[start + value:data.index(b"\0", start + value)].decode() for tag, value in entries if tag == 1]
+
+
+def closure(root, base, mesa, frontend, image):
+    locations = [("chromium", root / "usr/lib/chromium"), ("mesa", mesa / "usr/lib"),
+                 ("frontend", frontend), ("provider", root / "usr/lib"),
+                 ("base", base / "usr/lib"), ("base", base / "usr/lib/pulseaudio")]
+    initial = [root / "usr/lib/chromium" / name for name in
+               ("chromium", "chrome-sandbox", "chrome_crashpad_handler", "libEGL.so", "libGLESv2.so")]
+    pending = [("provider", path) for path in initial]
+    for name in ("libgtk-3.so.0", "libGL.so.1", "libGLX.so.0", "libEGL.so.1", "libGLESv2.so.2"):
+        found = next(((kind, d / name) for kind, d in locations if (d / name).is_file()), None)
+        if found is None: raise ValueError("Missing runtime library: " + name)
+        pending.append(found)
+    seen = set(); records = []
+    while pending:
+        kind, path = pending.pop()
+        path = path.resolve()
+        if path in seen: continue
+        seen.add(path)
+        dependencies = needed(path)
+        pin = sha(path)
+        if kind == "base":
+            logical = "/" + str(path.relative_to(base))
+            observed = run(["debugfs", "-R", "cat " + logical, image]).stdout
+            if hashlib.sha256(observed).hexdigest() != pin:
+                raise ValueError("Staged base ELF differs from the frozen image: " + logical)
+        records.append({"provider": kind, "path": str(path), "sha256": pin, "needed": dependencies})
+        for name in dependencies:
+            found = next(((k, d / name) for k, d in locations if (d / name).is_file()), None)
+            if found is None: raise ValueError("Missing ELF dependency: " + name + " from " + str(path))
+            pending.append(found)
+    return records
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--snapshot", type=Path, required=True)
+    parser.add_argument("--base-root", type=Path, required=True)
+    parser.add_argument("--mesa-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--base-image", type=Path, default=ROOT / "output/ps4-diagnostics-console1/boot-set/psx-diagnostics/rootfs.ext4")
+    parser.add_argument("--frontend", type=Path, default=ROOT / "output/ps4-diagnostics-glamor1/boot-set/initramfs.cpio.gz")
+    args = parser.parse_args()
+    if not os.environ.get("FAKEROOTKEY"):
+        os.execvp("fakeroot", ["fakeroot", "--", sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]])
+    output = args.output.resolve()
+    if output.exists() or not output.is_relative_to((ROOT / "output").resolve()) or output == (ROOT / "output").resolve():
+        raise ValueError("Provider output must be a new directory below repository output/")
+    manifest = ROOT / "manifests/ps4-chromium-provider.json"
+    spec = json.loads(manifest.read_text())
+    snapshot, base, mesa = (p.resolve(strict=True) for p in (args.snapshot, args.base_root, args.mesa_root))
+    pinned(snapshot / "SHA256SUMS", spec["snapshot_sums_sha256"])
+    pinned(args.base_image, spec["base_rootfs_sha256"])
+    pinned(args.frontend, spec["frontend_initramfs_sha256"])
+    pinned(mesa / "MESA-PSX-CANDIDATE.json", spec["mesa_manifest_sha256"])
+    for package in spec["packages"]:
+        pinned(snapshot / "repo" / package["filename"], package["sha256"], package["bytes"])
+    output.mkdir(parents=True)
+    root = output / "tree"; root.mkdir()
+    omitted = []
+    for package in spec["packages"]:
+        print("Staging " + package["name"], flush=True)
+        omitted.extend(unpack(snapshot / "repo" / package["filename"], root))
+    frontend = output / "frontend-reference"; frontend.mkdir()
+    parse = runpy.run_path(str(ROOT / "scripts/ps4-diagnostics-archive"))["parse_newc"]
+    for entry in parse(gzip.decompress(args.frontend.read_bytes()))[0]:
+        name = entry.name.decode()
+        if name.startswith("psx-frontend/lib") and stat.S_ISREG(entry.mode):
+            (frontend / Path(name).name).write_bytes(entry.data)
+    print("Checking recursive ELF dependency closure against the frozen base image", flush=True)
+    dependencies = closure(root, base, mesa, frontend, args.base_image)
+    files = []
+    for path in sorted(root.rglob("*")):
+        name = str(path.relative_to(root)); info = path.lstat()
+        if path.is_symlink(): files.append({"path": name, "symlink": os.readlink(path)})
+        elif path.is_file(): files.append({"path": name, "bytes": info.st_size, "sha256": sha(path), "mode": oct(stat.S_IMODE(info.st_mode))})
+        os.chown(path, 0, 0, follow_symlinks=False)
+    provider = dict(spec, files=files, omitted=omitted, builder_sha256=sha(Path(__file__)), recipe_sha256=sha(manifest),
+                    qualification="Host package/hash/ELF/filesystem checks only; Chromium has not been launched")
+    (root / "PROVIDER.json").write_text(json.dumps(provider, indent=2) + "\n")
+    os.chown(root / "PROVIDER.json", 0, 0)
+    (output / "dependency-closure.json").write_text(json.dumps(dependencies, indent=2) + "\n")
+    image = output / (spec["provider_id"] + ".ext4")
+    with image.open("xb") as stream: stream.truncate(spec["image_bytes"])
+    run(["mkfs.ext4", "-q", "-F", "-b", "4096", "-m", "0", "-N", "4096", "-O", "^has_journal",
+         "-E", "lazy_itable_init=0", "-L", "PSXCHROMIUM", "-d", root, image])
+    check = run(["e2fsck", "-fn", image])
+    (output / "filesystem-check.txt").write_bytes(check.stdout + check.stderr)
+    sandbox = run(["debugfs", "-R", "stat /usr/lib/chromium/chrome-sandbox", image]).stdout.decode()
+    if "User:     0" not in sandbox or "Mode:  04755" not in sandbox:
+        raise ValueError("Sandbox helper owner/mode did not survive image creation: " + sandbox)
+    (output / "sandbox-inode.txt").write_text(sandbox)
+    receipt = {"provider_id": spec["provider_id"], "image": image.name, "image_bytes": image.stat().st_size,
+               "image_sha256": sha(image), "provider_manifest_sha256": sha(root / "PROVIDER.json"),
+               "regular_payload_bytes": sum(x.get("bytes", 0) for x in files), "elf_closure_files": len(dependencies),
+               "kernel_root_unchanged": True, "hardware_acceptance": False,
+               "launcher_config": {"schema_version": 1, "provider_manifest_sha256": sha(root / "PROVIDER.json")}}
+    (output / "provider-manifest.json").write_text(json.dumps(receipt, indent=2) + "\n")
+    (output / "chromium-provider.json").write_text(json.dumps(receipt["launcher_config"], indent=2) + "\n")
+    print(json.dumps(receipt, indent=2), flush=True)
+
+
+if __name__ == "__main__":
+    try: main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        raise SystemExit("Chromium provider: " + str(error))

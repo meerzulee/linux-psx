@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Publish small frontend boot files; retain the previously verified USB root.
+
+Default is a read-only plan. Only initramfs, boot metadata and boot arguments
+may change. Every changed byte is backed up and read back; unchanged files are
+retained under their existing verified ownership receipt, without retransfers.
+"""
+import argparse
+import ftplib
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import sys
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader('psx_frontend_ftp_base', str(ROOT / 'deploy-ps4-diagnostics-ftp'))
+spec = importlib.util.spec_from_loader('psx_frontend_ftp_base', loader)
+DEPLOY = importlib.util.module_from_spec(spec)
+loader.exec_module(DEPLOY)
+ALLOWED = {'initramfs.cpio.gz', 'bootargs.txt', 'psx-diagnostics/boot-set.json'}
+
+
+def pin(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def verbose_uart_arguments(bootargs):
+    tokens = bootargs.decode().split()
+    retained = [token for token in tokens
+                if not token.startswith('loglevel=') and token != 'ignore_loglevel']
+    return (' '.join(retained + ['loglevel=7', 'ignore_loglevel']) + '\n').encode()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--host', required=True)
+    parser.add_argument('--port', type=int, default=2121)
+    parser.add_argument('--remote-root', choices=('/mnt/usb0', '/mnt/usb1'), default='/mnt/usb0')
+    parser.add_argument('--expect-serial', required=True)
+    parser.add_argument('--expect-bytes', type=int, required=True)
+    parser.add_argument('--expect-uuid', required=True)
+    parser.add_argument('--backup', type=Path, required=True)
+    parser.add_argument('--receipt', type=Path, required=True)
+    parser.add_argument('--verbose-uart', action='store_true',
+                        help='Retain detailed kernel UART output; the frontend redirects video-console logs')
+    parser.add_argument('--apply', action='store_true')
+    args = parser.parse_args()
+    source = args.source.resolve(strict=True)
+    files, metadata = DEPLOY.STAGE.source_files(source)
+    if (metadata.get('root_format') != 'ext4-ro-loop' or not metadata.get('frontend_overrides')
+            or metadata.get('frontend_refresh', {}).get('root_image_unchanged') is not True):
+        raise ValueError('Source is not a pinned frontend-only refresh')
+    expected = {name: value for name, value in files.items() if name != 'bootargs.template.txt'}
+    root = args.remote_root
+    with ftplib.FTP(timeout=20) as ftp:
+        ftp.connect(args.host, args.port); ftp.login()
+        raw = DEPLOY.read_file(ftp, root + '/psx-diagnostics/installed.json', maximum=1024**2, collect=True)[2]
+        previous = json.loads(raw)
+        DEPLOY.verify_receipt(previous, args.expect_serial, args.expect_bytes, args.expect_uuid)
+        sums = DEPLOY.read_file(ftp, root + '/psx-diagnostics/USB-SHA256SUMS', maximum=1024**2, collect=True)[2]
+        if sums.decode() != DEPLOY.STAGE.installed_sums(previous['files']):
+            raise ValueError('USB checksum list differs from its ownership receipt')
+        # A frontend patch must not reset working kernel arguments to defaults.
+        old_bootargs = DEPLOY.read_file(ftp, root + '/bootargs.txt', maximum=65536, collect=True)[2]
+        if pin(old_bootargs) != previous['files'].get('bootargs.txt'):
+            raise ValueError('Previous boot arguments changed')
+        identities = [token for token in old_bootargs.decode().split() if token.startswith('psx.diag_uuid=')]
+        if identities != ['psx.diag_uuid=' + args.expect_uuid]:
+            raise ValueError('Previous boot arguments do not bind the selected USB')
+        bootargs = verbose_uart_arguments(old_bootargs) if args.verbose_uart else old_bootargs
+        expected['bootargs.txt'] = pin(bootargs)
+        if (previous.get('profile') != metadata['profile'] or previous.get('kernel_release') != metadata['kernel_release']
+                or set(previous['files']) != set(expected)):
+            raise ValueError('Frontend refresh must preserve the existing complete file set/profile')
+        changed = sorted(name for name in expected if previous['files'][name] != expected[name])
+        if set(changed) - ALLOWED:
+            raise ValueError('Frontend update would change an unrelated payload file')
+        total = sum((source / name).stat().st_size for name in files if name != 'bootargs.template.txt') + len(bootargs)
+        if total + 1024**2 > metadata['maximum_boot_set_bytes']:
+            raise ValueError('Complete payload exceeds cap plus receipt reserve')
+        previous_meta_bytes = DEPLOY.read_file(ftp, root + '/psx-diagnostics/boot-set.json', maximum=1024**2, collect=True)[2]
+        if pin(previous_meta_bytes) != previous['files']['psx-diagnostics/boot-set.json']:
+            raise ValueError('Existing boot metadata changed')
+        previous_meta = json.loads(previous_meta_bytes)
+        frontend_fields = {'initramfs_sha256', 'tui_sha256', 'builder_sha256',
+                           'frontend_overrides', 'frontend_revision', 'frontend_theme',
+                           'rootfs_tui_sha256', 'frontend_refresh'}
+        if any(previous_meta.get(key) != metadata.get(key)
+               for key in (set(previous_meta) | set(metadata)) - frontend_fields):
+            raise ValueError('Frontend update must retain kernel/config/modules and other root metadata pins')
+        if (previous_meta.get('rootfs_sha256') != metadata['rootfs_sha256']
+                or expected.get(metadata['rootfs_file']) != metadata['rootfs_sha256']):
+            raise ValueError('Frontend update must retain the exact existing root image')
+        plan = {'profile': metadata['profile'], 'frontend_revision': metadata['frontend_revision'],
+                'changed_files': changed, 'root_image_unchanged': True, 'kernel_unchanged': True,
+                'total_os_payload_bytes': total, 'apply': args.apply, 'hardware_acceptance': False,
+                'verbose_uart': args.verbose_uart,
+                'verification_scope': 'Full SHA256 readback of changed files; unchanged files retained from previous verified USB receipt'}
+        print(json.dumps(plan, indent=2), flush=True)
+        if not args.apply:
+            return
+        backup = args.backup.resolve()
+        if backup.is_relative_to(source) or source.is_relative_to(backup):
+            raise ValueError('Backup must be outside the source boot set')
+        backup.mkdir(mode=0o700, parents=True, exist_ok=False)
+        (backup / 'installed.json').write_bytes(raw)
+        (backup / 'USB-SHA256SUMS').write_bytes(sums)
+        old = {}
+        for name in changed:
+            data = DEPLOY.read_file(ftp, root + '/' + name, maximum=16*1024**2, collect=True)[2]
+            if pin(data) != previous['files'][name]:
+                raise ValueError('Previous small boot file changed: ' + name)
+            old[name] = data
+            path = backup / name; path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            with path.open('xb') as file:
+                file.write(data); file.flush(); os.fsync(file.fileno())
+            if path.read_bytes() != data:
+                raise ValueError('Recovery copy differs: ' + name)
+        staging = root + '/.psx-frontend-' + uuid.uuid4().hex
+        committed = False
+        def journal(event, **fields):
+            with (backup / 'journal.jsonl').open('a') as file:
+                file.write(json.dumps(dict(event=event, unix=time.time(), **fields)) + '\n')
+                file.flush(); os.fsync(file.fileno())
+        short_previous = {'files': {name: previous['files'][name] for name in changed}}
+        short_expected = {name: expected[name] for name in changed}
+        try:
+            for name in changed:
+                target = staging + '/new/' + name
+                DEPLOY.make_dirs(ftp, str(PurePosixPath(target).parent))
+                stream = io.BytesIO(bootargs) if name == 'bootargs.txt' else (source / name).open('rb')
+                with stream:
+                    ftp.storbinary('STOR ' + target, stream, blocksize=256*1024)
+                if DEPLOY.read_file(ftp, target, maximum=16*1024**2)[1] != expected[name]:
+                    raise ValueError('Staged file differs: ' + name)
+            for name in ('initramfs.cpio.gz', 'psx-diagnostics/boot-set.json', 'bootargs.txt'):
+                if name not in changed:
+                    continue
+                target = root + '/' + name
+                if DEPLOY.read_file(ftp, target, maximum=16*1024**2)[1] != previous['files'][name]:
+                    raise ValueError('Old boot file drifted before publication')
+                saved = staging + '/old/' + name
+                DEPLOY.make_dirs(ftp, str(PurePosixPath(saved).parent))
+                ftp.rename(target, saved)
+                ftp.rename(staging + '/new/' + name, target)
+            for name in changed:
+                if DEPLOY.read_file(ftp, root + '/' + name, maximum=16*1024**2)[1] != expected[name]:
+                    raise ValueError('Published file differs: ' + name)
+            clock = next((int(token[5:]) for token in bootargs.decode().split() if token.startswith('time=')),
+                         previous.get('clock_seed_epoch'))
+            marker = dict(previous, files=expected, frontend_revision=metadata['frontend_revision'],
+                          verified_readback=True, clock_seed_epoch=clock, time_sync_requested=True,
+                          boot_logging={'configuration': 'menu tty1; journal tty12; raw kernel tty11; UART retained',
+                                        'arguments_preserved': not args.verbose_uart,
+                                        'verbose_uart_requested': args.verbose_uart},
+                          verification_scope=plan['verification_scope'], staged_unix=time.time(),
+                          hardware_acceptance=False, backup=str(backup))
+            generated = {'installed.json': (json.dumps(marker, indent=2) + '\n').encode(),
+                         'USB-SHA256SUMS': DEPLOY.STAGE.installed_sums(expected).encode()}
+            for name, data in generated.items():
+                path = root + '/psx-diagnostics/' + name
+                ftp.storbinary('STOR ' + path, io.BytesIO(data))
+                if DEPLOY.read_file(ftp, path, maximum=1024**2, collect=True)[2] != data:
+                    raise ValueError('Generated receipt readback differs')
+            committed = True
+            result = dict(plan, status='PASS', verified_readback=True, files=expected, backup=str(backup))
+            args.receipt.parent.mkdir(parents=True, exist_ok=True)
+            args.receipt.write_text(json.dumps(result, indent=2) + '\n')
+            journal('frontend_update_verified', changed=changed)
+            for name in changed:
+                saved = staging + '/old/' + name
+                if DEPLOY.read_file(ftp, saved, maximum=16*1024**2)[1] != previous['files'][name]:
+                    raise ValueError('Old staging bytes differ; retained for review')
+                ftp.delete(saved)
+            print('PASS: small frontend update verified; kernel and root image retained', flush=True)
+        except Exception as error:
+            journal('frontend_update_failed', error=str(error), committed=committed)
+            if not committed:
+                DEPLOY.rollback(ftp, root, staging, short_previous, short_expected, backup, journal)
+            raise
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, StopIteration, ftplib.Error) as error:
+        raise SystemExit('Frontend FTP update: ' + str(error))

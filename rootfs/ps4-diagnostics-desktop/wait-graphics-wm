@@ -1,0 +1,150 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Wait briefly for the fixed local display's EWMH window manager."""
+import ctypes as C
+import json
+import os
+import sys
+import time
+
+ERROR_HANDLER = C.CFUNCTYPE(C.c_int, C.c_void_p, C.c_void_p)
+WINDOW = 33  # XA_WINDOW; Xlib represents format-32 properties as native longs.
+
+
+class XConnection:
+    def __init__(self):
+        self.x = C.CDLL('libX11.so.6')
+        signatures = {
+            'XOpenDisplay': ([C.c_char_p], C.c_void_p),
+            'XCloseDisplay': ([C.c_void_p], C.c_int),
+            'XDefaultRootWindow': ([C.c_void_p], C.c_ulong),
+            'XInternAtom': ([C.c_void_p, C.c_char_p, C.c_int], C.c_ulong),
+            'XGetWindowProperty': ([C.c_void_p, C.c_ulong, C.c_ulong, C.c_long, C.c_long,
+                                    C.c_int, C.c_ulong, C.POINTER(C.c_ulong), C.POINTER(C.c_int),
+                                    C.POINTER(C.c_ulong), C.POINTER(C.c_ulong),
+                                    C.POINTER(C.POINTER(C.c_ubyte))], C.c_int),
+            'XFree': ([C.c_void_p], C.c_int),
+            'XSync': ([C.c_void_p, C.c_int], C.c_int),
+            'XSetErrorHandler': ([ERROR_HANDLER], ERROR_HANDLER),
+        }
+        for name, (arguments, result) in signatures.items():
+            function = getattr(self.x, name)
+            function.argtypes, function.restype = arguments, result
+
+    def __enter__(self):
+        self.display = self.x.XOpenDisplay(b':0')
+        if not self.display:
+            raise RuntimeError('Cannot connect to the diagnostic X display :0')
+        self.error = False
+        self.callback = ERROR_HANDLER(self.record_error)
+        self.previous_handler = self.x.XSetErrorHandler(self.callback)
+        try:
+            self.root = self.x.XDefaultRootWindow(self.display)
+            self.atom = self.x.XInternAtom(self.display, b'_NET_SUPPORTING_WM_CHECK', 0)
+            return self
+        except Exception:
+            self.__exit__(None, None, None)
+            raise
+
+    def record_error(self, _display, _event):
+        # A stale WM-check window may disappear between the two property reads.
+        self.error = True
+        return 0
+
+    def property_window(self, window):
+        actual_type, actual_format = C.c_ulong(), C.c_int()
+        count, remaining = C.c_ulong(), C.c_ulong()
+        data = C.POINTER(C.c_ubyte)()
+        self.error = False
+        status = self.x.XGetWindowProperty(self.display, window, self.atom, 0, 1, 0, WINDOW,
+                    C.byref(actual_type), C.byref(actual_format), C.byref(count),
+                    C.byref(remaining), C.byref(data))
+        self.x.XSync(self.display, 0)
+        try:
+            if (status != 0 or self.error or actual_type.value != WINDOW
+                    or actual_format.value != 32 or count.value != 1 or remaining.value != 0 or not data):
+                return 0
+            return C.cast(data, C.POINTER(C.c_ulong))[0]
+        finally:
+            if data:
+                self.x.XFree(data)
+
+    def ready(self):
+        window = self.property_window(self.root)
+        return bool(window and self.property_window(window) == window)
+
+    def __exit__(self, *_):
+        try:
+            self.x.XCloseDisplay(self.display)
+        finally:
+            self.x.XSetErrorHandler(self.previous_handler)
+
+
+def wait_for_wm(factory=XConnection, clock=time.monotonic, sleep=time.sleep):
+    deadline = clock() + 10
+    with factory() as connection:
+        while True:
+            if connection.ready():
+                return
+            remaining = deadline - clock()
+            if remaining <= 0:
+                raise RuntimeError('Window manager did not become ready on :0 within 10 seconds')
+            sleep(min(0.1, remaining))
+
+
+class ScreenSize(C.Structure):
+    _fields_ = [('width', C.c_int), ('height', C.c_int),
+                ('width_mm', C.c_int), ('height_mm', C.c_int)]
+
+
+def display_info(factory=XConnection, library=C.CDLL):
+    """Query the current mode; never request a display configuration change.
+
+    RandR's legacy screen configuration supplies an integer nominal rate.
+    Browser rAF timing and physical scanout are separate measurements.
+    """
+    randr = library('libXrandr.so.2')
+    signatures = {
+        'XRRGetScreenInfo': ([C.c_void_p, C.c_ulong], C.c_void_p),
+        'XRRFreeScreenConfigInfo': ([C.c_void_p], None),
+        'XRRConfigCurrentConfiguration': ([C.c_void_p, C.POINTER(C.c_ushort)], C.c_ushort),
+        'XRRConfigSizes': ([C.c_void_p, C.POINTER(C.c_int)], C.POINTER(ScreenSize)),
+        'XRRConfigCurrentRate': ([C.c_void_p], C.c_short),
+    }
+    for name, (arguments, result) in signatures.items():
+        function = getattr(randr, name)
+        function.argtypes, function.restype = arguments, result
+    with factory() as connection:
+        config = randr.XRRGetScreenInfo(connection.display, connection.root)
+        if not config:
+            raise RuntimeError('The diagnostic display has no RandR configuration')
+        try:
+            rotation, count = C.c_ushort(), C.c_int()
+            index = randr.XRRConfigCurrentConfiguration(config, C.byref(rotation))
+            sizes = randr.XRRConfigSizes(config, C.byref(count))
+            if not sizes or not 0 <= index < count.value <= 4096:
+                raise RuntimeError('Invalid RandR current-size index')
+            size = sizes[index]
+            if not 0 < size.width <= 65536 or not 0 < size.height <= 65536:
+                raise RuntimeError('Invalid RandR dimensions')
+            rate = randr.XRRConfigCurrentRate(config)
+            return {'available': True, 'source': 'X11 RandR screen configuration',
+                    'width': size.width, 'height': size.height,
+                    'configured_refresh_hz': rate if rate > 0 else None,
+                    'rotation_flags': rotation.value,
+                    'scope': 'Integer nominal configured rate; not measured physical refresh or browser FPS'}
+        finally:
+            randr.XRRFreeScreenConfigInfo(config)
+
+
+if __name__ == '__main__':
+    try:
+        if sys.argv[1:] not in ([], ['--display-info']) or os.environ.get('DISPLAY') != ':0':
+            raise ValueError('Expected no arguments or --display-info and the fixed diagnostic DISPLAY=:0')
+        if sys.argv[1:] == ['--display-info']:
+            print(json.dumps(display_info()))
+        else:
+            wait_for_wm()
+    except (OSError, RuntimeError, ValueError) as error:
+        print('Diagnostic window manager: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)

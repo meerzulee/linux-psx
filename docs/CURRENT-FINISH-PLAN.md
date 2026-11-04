@@ -1,6 +1,6 @@
 # Finish the current PS4 Baikal candidate
 
-Updated: 2026-11-03. Scope: the current Linux 7.2.11 native dev3 work,
+Updated: 2026-11-05. Scope: the current Linux 7.2.11 native dev3 work,
 before the separate Linux 7.3 port. This is a plan with explicit gates;
 unchecked gates are not hardware results.
 
@@ -18,6 +18,13 @@ logs and `build-package-receipt.json` are retained under the ignored
 complete-source archive are in its `checkout/dist/runtime/` and
 `checkout/dist/source/` directories. No hardware boot or acceptance follows
 from this build.
+
+Later diagnostic work booted the local build pinned by
+`manifests/ps4-diagnostics-console.json` and observed wired networking and
+short graphics/browser checks on the owner's Baikal console. The
+[diagnostic ledger](../diagnostics/SESSIONS.md) preserves the exact scope and
+negative findings. Its many frontend updates share one boot; they do not
+complete the cold-boot, sustained-traffic, lifecycle or UVD gates below.
 
 Finish the complete kernel and whole matching module archive, resolved config,
 corresponding source and checksums. Freeze one complete boot set before its
@@ -189,11 +196,12 @@ ownership/response-length handling, bounded ICC status processing, and AHCI
 IRQ-allocation failure bookkeeping. These are source findings in
 `provenance/rmux-audit-2026-11-03.json`, not hardware diagnoses.
 
-The proposed diagnostic image belongs to Omarchy psX at
-`docs/PS4-DIAGNOSTIC-IMAGE.md`; reusable kernel probes/results belong here.
-It should automate evidence collection and the defined gates, show untested
-and deferred cases honestly, and use a UI that can survive GPU-test failure.
-Its implementation must not delay completing this kernel's frozen build.
+The owner assigned the diagnostic source and image builds to Linux psX on
+2026-11-04; production distribution/desktop policy remains in Omarchy psX.
+See [the standalone appliance](DIAGNOSTICS.md) and
+[image notes](PS4-DIAGNOSTIC-IMAGE.md). It collects finite evidence, keeps
+untested/deferred cases explicit and retains a text recovery interface.
+Diagnostics and its package/UI dependencies remain optional to kernel builds.
 
 Apply [HARDWARE-TESTING.md](HARDWARE-TESTING.md): one coherent objective per
 bounded session, one active hardware experiment, explicit timeout/rollback,

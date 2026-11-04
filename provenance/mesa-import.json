@@ -211,9 +211,11 @@
       "source": "platforms/ps4/experiments/mesa-uvd/with-mesa.py",
       "source_sha256": "d29670bd5add135097ae9428219998fd539bf3e26a33ea0b20b6407b1af667b6",
       "destination": "userspace/mesa/with-mesa.py",
-      "destination_sha256": "d29670bd5add135097ae9428219998fd539bf3e26a33ea0b20b6407b1af667b6",
+      "destination_sha256": "55269c07b36b22507d3748a1074c1311b5172a491c62163098017dd913fc6b22",
       "mode": "0o644",
-      "adaptations": []
+      "adaptations": [
+        "2026-11-04: add optional private per-user runtime directory for mutable selection JSON and shader cache outside a read-only verified driver tree; preserve legacy default and data-only verification. Atomic JSON replacement prevents following output symlinks; original source identity and attribution remain unchanged."
+      ]
     }
   ],
   "license": "Original per-file licenses preserved, including Mesa/AMD MIT notices.",

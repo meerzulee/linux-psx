@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "purpose": "Explicit acquisition of the historical public component seed for the standalone optional PS4 diagnostic appliance.",
+  "repository": "https://github.com/meerzulee/linux-ps4.git",
+  "commit": "386df1ad97d92defee1794bf961a0e2f5dc85a1b",
+  "source_path": "checkpoint/initramfs/initramfs-v26-with-edid.cpio.gz",
+  "url": "https://raw.githubusercontent.com/meerzulee/linux-ps4/386df1ad97d92defee1794bf961a0e2f5dc85a1b/checkpoint/initramfs/initramfs-v26-with-edid.cpio.gz",
+  "bytes": 4082183,
+  "sha256": "245df0d98133fd14efc09ab2c5a309b065f9668d5a07b0887bee4fcf1237f113",
+  "cache_path": "cache/ps4/initramfs-v26-with-edid.cpio.gz",
+  "contents_policy": "External BusyBox/firmware seed; component rights remain with their respective owners. No redistribution or license grant is implied by downloading. Keep the archive out of this source repository.",
+  "reconstruction": "scripts/build-ps4-diagnostics consumes this seed as data with its pinned static BusyBox/GPU firmware. The assembled diagnostic initramfs is a new candidate, not the historical Omarchy root contract."
+}

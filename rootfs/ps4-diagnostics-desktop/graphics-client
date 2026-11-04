@@ -1,0 +1,20 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+case "${PSX_GRAPHICS_MODE:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics) ;; *) exit 2 ;; esac
+. /etc/psx-diagnostics/mesa.env
+if [ "${PSX_GRAPHICS_WINDOWED:-0}" = 1 ]; then
+    export XAUTHORITY=/run/psx-graphics-user/Xauthority
+fi
+if [ "${PSX_GRAPHICS_MODE:-}" = diagnostics ]; then
+    export HOME=/root USER=root LOGNAME=root XDG_RUNTIME_DIR=/run/user/0
+    exec /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+        --runtime-dir /run/psx-mesa/0 \
+        --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" \
+        -- /usr/bin/dbus-run-session /usr/lib/psx-diagnostics/graphics-session
+fi
+export HOME=/home/psx USER=psx LOGNAME=psx
+exec /usr/bin/setpriv --reuid=psx --regid=psx --init-groups \
+    /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
+    --runtime-dir "/run/psx-mesa/$(id -u psx)" \
+    --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" \
+    -- /usr/bin/dbus-run-session /usr/lib/psx-diagnostics/graphics-session

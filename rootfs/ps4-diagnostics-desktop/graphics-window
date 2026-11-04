@@ -1,0 +1,12 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# One fixed unprivileged app on the existing diagnostic display; never Xorg/WM.
+set -euo pipefail
+[[ $# == 1 && "$(id -u)" == 0 ]] || exit 2
+case "$1" in browser|chromium|protondb|opengl|vulkan) ;; *) exit 2 ;; esac
+systemctl is-active --quiet psx-diagnostics-graphics@diagnostics.service || exit 1
+export PSX_GRAPHICS_MODE=$1 PSX_GRAPHICS_WINDOWED=1 DISPLAY=:0
+export XAUTHORITY=/run/psx-graphics-user/Xauthority XDG_RUNTIME_DIR=/run/user/1000
+install -d -o psx -g psx -m 0700 /run/psx-graphics-user "$XDG_RUNTIME_DIR"
+install -o psx -g psx -m 0600 /run/psx-desktop/Xauthority "$XAUTHORITY"
+exec /usr/lib/psx-diagnostics/graphics-client

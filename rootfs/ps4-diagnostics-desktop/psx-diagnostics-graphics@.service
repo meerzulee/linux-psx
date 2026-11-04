@@ -1,0 +1,19 @@
+[Unit]
+Description=Selected psX graphical diagnostic (%i)
+After=local-fs.target systemd-user-sessions.service psx-diagnostics-control.service
+Conflicts=getty@tty3.service
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/psx-diagnostics/graphics-start %i
+ExecStopPost=-/usr/bin/chvt 1
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+TTYPath=/dev/tty3
+TTYReset=yes
+TTYVHangup=yes
+KillMode=control-group
+TimeoutStopSec=8
+Environment=PATH=/usr/local/bin:/usr/bin:/usr/sbin
+# Deliberately no [Install] section: graphical sessions are explicit actions.

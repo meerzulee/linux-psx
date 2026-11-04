@@ -1,0 +1,83 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Manage only this diagnostic DHCP client's labelled address and route."""
+import ipaddress
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+STATE = Path("/run/psx-dhcp-lease.json")
+RESOLV = Path("/etc/resolv.conf")
+LABEL = "psx0:psxdiag"
+
+
+def lease(env):
+    if env.get("interface") != "psx0":
+        raise ValueError("DHCP hook is restricted to psx0")
+    address = str(ipaddress.IPv4Address(env["ip"]))
+    prefix = ipaddress.IPv4Network("0.0.0.0/" + env["subnet"]).prefixlen
+    duration = int(env["lease"])
+    if not 1 <= duration <= 0xffffffff:
+        raise ValueError("invalid DHCP lifetime")
+    routers = env.get("router", "").split()
+    gateway = str(ipaddress.IPv4Address(routers[0])) if routers else None
+    servers = [str(ipaddress.ip_address(value)) for value in env.get("dns", "").split()]
+    return {"address": address, "prefix": prefix, "gateway": gateway, "duration": duration,
+            "resolv": "".join(f"nameserver {value}\n" for value in servers)}
+
+
+def ip(*args, check=True):
+    return subprocess.run(["/usr/bin/ip", *args], text=True, capture_output=True,
+                          timeout=10, check=check)
+
+
+def deconfigure():
+    if not STATE.exists():
+        return
+    old = json.loads(STATE.read_text())
+    links = json.loads(ip("-json", "-4", "address", "show", "dev", "psx0").stdout)
+    for link in links:
+        for address in link.get("addr_info", []):
+            if (address.get("local") == old["address"] and address.get("prefixlen") == old["prefix"]
+                    and address.get("label") == LABEL):
+                ip("address", "del", f"{old['address']}/{old['prefix']}", "dev", "psx0")
+    if old["gateway"]:
+        ip("route", "del", "default", "via", old["gateway"], "dev", "psx0", "proto", "dhcp", check=False)
+    if RESOLV.exists() and RESOLV.read_text() == old["resolv"]:
+        RESOLV.write_text("")
+    STATE.unlink()
+
+
+def configure(env):
+    current = lease(env)
+    deconfigure()
+    # Record ownership before mutation so a partial failure can be cleaned up.
+    STATE.write_text(json.dumps(current) + "\n")
+    try:
+        ip("address", "replace", f"{current['address']}/{current['prefix']}", "dev", "psx0",
+           "label", LABEL, "valid_lft", str(current["duration"]), "preferred_lft", str(current["duration"]))
+        if current["gateway"]:
+            ip("route", "replace", "default", "via", current["gateway"], "dev", "psx0", "proto", "dhcp")
+        RESOLV.write_text(current["resolv"])
+    except (OSError, subprocess.SubprocessError):
+        deconfigure()
+        raise
+
+
+def main():
+    if os.geteuid() != 0 or os.environ.get("interface") != "psx0" or len(sys.argv) != 2:
+        raise ValueError("expected root psx0 DHCP event")
+    if sys.argv[1] == "deconfig":
+        deconfigure()
+    elif sys.argv[1] in ("bound", "renew"):
+        configure(os.environ)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        print(f"DHCP hook: {error}", file=sys.stderr)
+        raise SystemExit(1)
