@@ -2259,8 +2259,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
-      "destination_bytes": 19904,
+      "destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
+      "destination_bytes": 22299,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2305,6 +2305,13 @@
           "prior_destination_sha256": "5c4634cc834c5a9223a00f1582cf6179de314251b0857051e36b17ee53919230",
           "destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
           "destination_bytes": 19904,
+          "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
+          "destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
+          "destination_bytes": 22299,
           "mode": "0644"
         }
       ]
@@ -2443,8 +2450,8 @@
     },
     {
       "path": "diagnostics/ps4/uvd.py",
-      "destination_sha256": "79e68383cf3cedd4fa64484b54c904b5821fd07c6aa88cce5598cfb56e05671c",
-      "destination_bytes": 19911,
+      "destination_sha256": "1f4c3e626599dda9e8d32a25f2e6ea4ab74cb71fe755810a7fce7330c7ca3e27",
+      "destination_bytes": 20881,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2462,13 +2469,20 @@
           "destination_sha256": "79e68383cf3cedd4fa64484b54c904b5821fd07c6aa88cce5598cfb56e05671c",
           "destination_bytes": 19911,
           "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "79e68383cf3cedd4fa64484b54c904b5821fd07c6aa88cce5598cfb56e05671c",
+          "destination_sha256": "1f4c3e626599dda9e8d32a25f2e6ea4ab74cb71fe755810a7fce7330c7ca3e27",
+          "destination_bytes": 20881,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "docs/PS4-DIAGNOSTIC-ALPHA.md",
-      "destination_sha256": "c0f3ab18853399fb355db5527d9b17c81b4e50eb8f80ea2093422434bf314928",
-      "destination_bytes": 8135,
+      "destination_sha256": "a9236348a6bb013638becd79323980528a43aa1a5af39a5e42dea55224fe27a0",
+      "destination_bytes": 9479,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2486,6 +2500,13 @@
           "destination_sha256": "c0f3ab18853399fb355db5527d9b17c81b4e50eb8f80ea2093422434bf314928",
           "destination_bytes": 8135,
           "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "c0f3ab18853399fb355db5527d9b17c81b4e50eb8f80ea2093422434bf314928",
+          "destination_sha256": "a9236348a6bb013638becd79323980528a43aa1a5af39a5e42dea55224fe27a0",
+          "destination_bytes": 9479,
+          "mode": "0644"
         }
       ]
     },
@@ -2499,8 +2520,8 @@
     },
     {
       "path": "scripts/build-ps4-diagnostics-alpha",
-      "destination_sha256": "95a95e17ae9734a0f019ca49d8054c8365b127d2865c4af1c99e97c5ec3531b7",
-      "destination_bytes": 47621,
+      "destination_sha256": "488ddd9df5e95067cf0df8a649ac0ce7cdf2202df08e489bebbe040b703cad0b",
+      "destination_bytes": 52788,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2511,13 +2532,20 @@
           "destination_sha256": "95a95e17ae9734a0f019ca49d8054c8365b127d2865c4af1c99e97c5ec3531b7",
           "destination_bytes": 47621,
           "mode": "0755"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "95a95e17ae9734a0f019ca49d8054c8365b127d2865c4af1c99e97c5ec3531b7",
+          "destination_sha256": "488ddd9df5e95067cf0df8a649ac0ce7cdf2202df08e489bebbe040b703cad0b",
+          "destination_bytes": 52788,
+          "mode": "0755"
         }
       ]
     },
     {
       "path": "scripts/prepare-ps4-diagnostics-alpha-extras",
-      "destination_sha256": "661b7c6644a33984404f153f2dd045c4a119d4fcb762958a329cc2337f24366b",
-      "destination_bytes": 20274,
+      "destination_sha256": "2492f61a7fbd53ed01ced77dc84fb386e9cd4cf11d9b31d1cccb7691d394b1ed",
+      "destination_bytes": 20349,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2528,13 +2556,20 @@
           "destination_sha256": "661b7c6644a33984404f153f2dd045c4a119d4fcb762958a329cc2337f24366b",
           "destination_bytes": 20274,
           "mode": "0755"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "661b7c6644a33984404f153f2dd045c4a119d4fcb762958a329cc2337f24366b",
+          "destination_sha256": "2492f61a7fbd53ed01ced77dc84fb386e9cd4cf11d9b31d1cccb7691d394b1ed",
+          "destination_bytes": 20349,
+          "mode": "0755"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha.py",
-      "destination_sha256": "bdf04706a435950b914d57fb6631be0c31984d9cfa559dd1b3fa4ba5b58852b3",
-      "destination_bytes": 20709,
+      "destination_sha256": "0d8fdb4d8f0bbbc4b73f888e3b09778b191a1dbd14fd358faf9024d1e5df7b8a",
+      "destination_bytes": 23881,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2545,13 +2580,20 @@
           "destination_sha256": "bdf04706a435950b914d57fb6631be0c31984d9cfa559dd1b3fa4ba5b58852b3",
           "destination_bytes": 20709,
           "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "bdf04706a435950b914d57fb6631be0c31984d9cfa559dd1b3fa4ba5b58852b3",
+          "destination_sha256": "0d8fdb4d8f0bbbc4b73f888e3b09778b191a1dbd14fd358faf9024d1e5df7b8a",
+          "destination_bytes": 23881,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha_extras.py",
-      "destination_sha256": "abe4cc5c93213ec4ce80086ad09484e3d5061b726856648747714765184fb53b",
-      "destination_bytes": 7126,
+      "destination_sha256": "666c2708908ec324c0bf3e30bb0092c42c1136a1ef369dd309480d4d9132a0f7",
+      "destination_bytes": 8630,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2561,6 +2603,13 @@
           "prior_destination_sha256": "7d12fb3d8bab27e41f9a9a38ff26f3b9a52181a2409752851262cc082c81bdd8",
           "destination_sha256": "abe4cc5c93213ec4ce80086ad09484e3d5061b726856648747714765184fb53b",
           "destination_bytes": 7126,
+          "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "abe4cc5c93213ec4ce80086ad09484e3d5061b726856648747714765184fb53b",
+          "destination_sha256": "666c2708908ec324c0bf3e30bb0092c42c1136a1ef369dd309480d4d9132a0f7",
+          "destination_bytes": 8630,
           "mode": "0644"
         }
       ]
@@ -2575,8 +2624,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
-      "destination_sha256": "9c2438e070f3fef447824935defcba4fb76afebd43f0210b8edaaa7b37172920",
-      "destination_bytes": 23921,
+      "destination_sha256": "e26e9b6cbfa7ac80967ce1557e1c9c603add81a2504c7df9be82accd52430761",
+      "destination_bytes": 26441,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2593,6 +2642,13 @@
           "prior_destination_sha256": "b2485562a2d79f36eb44c71bca6d8ddaedb4042dae63a2a3aa69b1470a029258",
           "destination_sha256": "9c2438e070f3fef447824935defcba4fb76afebd43f0210b8edaaa7b37172920",
           "destination_bytes": 23921,
+          "mode": "0644"
+        },
+        {
+          "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+          "prior_destination_sha256": "9c2438e070f3fef447824935defcba4fb76afebd43f0210b8edaaa7b37172920",
+          "destination_sha256": "e26e9b6cbfa7ac80967ce1557e1c9c603add81a2504c7df9be82accd52430761",
+          "destination_bytes": 26441,
           "mode": "0644"
         }
       ]
@@ -2619,6 +2675,30 @@
       "destination_bytes": 15898,
       "mode": "0644",
       "purpose": "Add Diagnostix branding and nonexecuting Power guidance; freeze the complete native3 plus UVD dev2 profile, exact runtime guards, variant-safe optional providers and a separate all-three-gates-off power-test boot derivative. Preserve oldalpha1 and kernel-only checks.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha3.json",
+      "destination_sha256": "a3cb8388141c71ba362643efc2b875840237be67bfc0db1ce3ab51cfd6513283",
+      "destination_bytes": 12105,
+      "mode": "0644",
+      "purpose": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/update-ps4-diagnostics-alpha-ftp",
+      "destination_sha256": "416f93f56a13e7ff544dc94c7a8e8b0d4b0cc7631f25a182ebb095a205f5d2d9",
+      "destination_bytes": 26962,
+      "mode": "0755",
+      "purpose": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_alpha_ftp.py",
+      "destination_sha256": "e751f0aca274f050949fe69a427498746014f4de813478b17044df96d9c44cd9",
+      "destination_bytes": 24952,
+      "mode": "0644",
+      "purpose": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
       "origin": "New Linux psX source after diagnostic import"
     }
   ],
@@ -2915,6 +2995,23 @@
         "diagnostics/SESSIONS.md",
         "scripts/update-ps4-diagnostics-frontend-ftp",
         "tests/test_ps4_diagnostics_frontend_ftp.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Correct the experimentally proven stock/runtime UVD firmware mismatch with explicit314168-byte header CRC and SHA-validated external input in root and actual CPIO; preserve frozen historical profiles and kernel/lifecycle guards. Add exact five-file alpha2-to-alpha3 FTP updates with one new-root readback, verified host rollback, prepared-root reuse and fail-closed recovery. Record completed verbose boot localization.",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "diagnostics/ps4/uvd.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "scripts/build-ps4-diagnostics-alpha",
+        "scripts/prepare-ps4-diagnostics-alpha-extras",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_alpha_extras.py",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "manifests/ps4-diagnostics-uvd-alpha3.json",
+        "scripts/update-ps4-diagnostics-alpha-ftp",
+        "tests/test_ps4_diagnostics_alpha_ftp.py"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

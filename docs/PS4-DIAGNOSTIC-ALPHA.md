@@ -9,6 +9,10 @@ The ordinary diagnostic boot set remains the rollback. The core retains its
 1 GiB cap; optional browser providers and media have separate explicit budgets.
 No public binary release or hardware qualification follows from assembly.
 
+Use the corrected **alpha3** firmware profile for new UVD assembly. Alpha1 and
+alpha2 are preserved historical inputs; their stock firmware pin does not fit
+the experimental runtime and must not be treated as a boot-ready UVD package.
+
 Diagnostix is the visible appliance name. Source and image builds remain in
 Linux psX, preserving the existing `psx-diagnostics` service, path and protocol
 identities. The Power tab explains the current restrictions; its Shutdown and
@@ -31,6 +35,23 @@ Disabled or candidate patches are not activated. The builder verifies the
 whole source and active-patch inventory and packages a new kernel, matching
 modules, resolved configuration and full corresponding source. A pending
 profile cannot be used until its actual build hashes have been frozen.
+
+[`ps4-diagnostics-uvd-alpha3.json`](../manifests/ps4-diagnostics-uvd-alpha3.json)
+retains the same dev2 kernel, complete module set, configuration and platform
+fixes, and corrects the firmware packaging defect found by EXP-20261105-004.
+Its explicit external `--uvd-firmware` input must be 314,168 bytes with SHA256
+`62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb`.
+The builder checks header 1.0, IP 4.2, version `0x012a6509`, payload 313,912
+bytes at offset 256 and CRC `0xa465ba07`, then verifies the corrected member
+in both the actual root and initramfs. The ordinary base's 232,752-byte stock
+firmware remains a separate original-input anchor. Firmware stays external
+and private; its binary is not added to this source repository.
+
+The original stock member cannot pass the driver's existing checks. The
+verbose boot recorded an initialization rejection and retained-state park
+that prevented GPU initialization from completing.
+The corrected package preserves those checks, all three UVD gates and every
+VMID, clock and retained-DMA restriction. Assembly is not boot qualification.
 
 The ICC fix does not remove the UVD shutdown park. Power-off validation uses
 a separate boot of this combined kernel with all three UVD gates disabled;

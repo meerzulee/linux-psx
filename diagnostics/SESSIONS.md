@@ -288,3 +288,39 @@ outside Git; one completed test is not stability qualification.
   `20261105_014044_417313-exp-20261105-003-matched-diagnostix-alpha2-usb-deployment-and-si-54a8ab1d.md`
   in sibling `ps4-uart/sessions/`. Private receipts and failure record:
   `output/ps4-diagnostix-alpha2-complete/`.
+
+## EXP-20261105-004 — verbose trace localizes UVD startup rejection
+
+- Following physical recovery to Orbis, changed only boot logging to
+  `loglevel=7 ignore_loglevel`. The 500-byte argument file and generated
+  ownership/checksum receipts passed transactional backup and readback;
+  kernel, initramfs, root, modules and all three enabled UVD gates were retained.
+  Host checks passed 439 Python and 15 browser tests. The corrected updater
+  reads only changed USB files, preserving the verified large-image pins.
+- One fresh boot found the UVD firmware and reached the cache-VMID preflight
+  with `before=0000000e`, matching its expected initial selector 14. At
+  8.506288 s it logged `PS4_UVD_RUNTIME CLOSED error=-22`, failed the UVD IP
+  hardware init and then GPU init. At 8.538510 s it entered
+  `RETAINED reason=unload-kms`. This terminal safety park explains why this
+  boot cannot provide the diagnostic display or SSH. No recovery/reset/unload
+  or further active test was attempted on the parked kernel.
+- Source and independent review found a definite packaging defect: alpha2's
+  232,752-byte stock firmware, SHA256
+  `30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9`,
+  cannot pass this runtime's 314,168-byte firmware guard. The preserved matching
+  variant has SHA256
+  `62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb`,
+  header version `0x012a6509`, payload 313,912 bytes at offset 256 and calculated
+  CRC `0xa465ba07`; each matches the frozen source contract. Firmware stays a
+  private external input. Clock preflight precedes firmware validation and can
+  also return `-EINVAL`, so the log alone does not prove which returned first.
+  The wrong firmware is independently sufficient to prevent startup.
+- Verdict: trace **PASS** for localization; alpha2 boot **FAIL** from a package
+  with an incompatible firmware input. UVD playback/power tests are **NOT RUN**.
+  Correct both root and initramfs firmware identities, preserve every driver
+  guard and verify the replacement package before another captured cold boot.
+  Completed UART continuity: 251,803 bytes, same generation/epoch,
+  02:12:07–02:24:02 local. Compact context:
+  `20261105_021207_447500-exp-20261105-004-logging-only-alpha2-cold-boot-trace-same-artifa-a6f091c9.md`
+  in sibling `ps4-uart/sessions/`; private receipts:
+  `output/ps4-diagnostix-alpha2-boot-trace1/`.

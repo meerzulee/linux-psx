@@ -16,8 +16,10 @@ import os
 from pathlib import Path
 import re
 import stat
+import struct
 import types
 import uuid
+import zlib
 
 
 ALPHA = {
@@ -55,6 +57,7 @@ ALPHA2 = dict(ALPHA, profile="ps4-baikal-diagnostics-uvd-alpha2",
                   "uvd_shutdown_park_unchanged": True,
                   "hardware_acceptance": False,
               })
+ALPHA3 = dict(ALPHA2, profile="ps4-baikal-diagnostics-uvd-alpha3", image_version="alpha3")
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -68,8 +71,9 @@ DIAGNOSTIC = {
     "timeout_seconds": 60,
     "maximum_attempts_per_boot": 1,
 }
-FIRMWARE = {"path": "/usr/lib/firmware/amdgpu/liverpool_uvd.bin", "bytes": 232752,
-            "sha256": "30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9"}
+FIRMWARE = {"path": "/usr/lib/firmware/amdgpu/liverpool_uvd.bin", "bytes": 314168,
+            "sha256": "62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb"}
+FIRMWARE_CRC = 0xa465ba07
 BOOT_ARGUMENTS = ["amdgpu.ps4_uvd_runtime=1", "amdgpu.ps4_uvd_ready=1",
                   "amdgpu.ps4_uvd_poll_state=1"]
 SESSION = "/run/psx-diagnostics/uvd-session.json"
@@ -89,6 +93,20 @@ def require(condition, message):
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def validate_firmware(data):
+    """Mirror the frozen kernel's input-only firmware contract; never execute it."""
+    require(len(data) == 314168, "UVD firmware must be the 314168-byte runtime image")
+    fields = struct.unpack_from("<IIHHHHIIII", data)
+    require(fields[:9] == (314168, 32, 1, 0, 4, 2, 0x012a6509, 313912, 256),
+            "UVD firmware header/version/payload contract differs")
+    require(fields[9] == FIRMWARE_CRC and zlib.crc32(data[256:]) & 0xffffffff == FIRMWARE_CRC,
+            "UVD firmware payload CRC differs")
+    require(sha(data) == FIRMWARE["sha256"], "UVD firmware SHA256 differs")
+    return {"bytes": len(data), "sha256": sha(data), "header_bytes": 32,
+            "header_version": [1, 0], "ip_version": [4, 2], "ucode_version": "0x012a6509",
+            "payload_bytes": 313912, "payload_offset": 256, "payload_crc32": f"{FIRMWARE_CRC:08x}"}
 
 
 def read(path, limit=1024 * 1024, *, private=False, owner=0):
@@ -176,7 +194,7 @@ def sync(path):
 
 def select_contract(manifest):
     require(isinstance(manifest, dict), "UVD manifest must be an object")
-    selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2}.get(manifest.get("profile"))
+    selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3}.get(manifest.get("profile"))
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -226,7 +244,7 @@ def preflight(runner):
         contents[key] = read(path, 64 * 1024 * 1024, owner=owner(runner))
         require(sha(contents[key]) == DIAGNOSTIC[key + "_sha256"], "Pinned UVD input differs: " + key)
     firmware = read(local(runner, FIRMWARE["path"]), FIRMWARE["bytes"], owner=owner(runner))
-    require(len(firmware) == FIRMWARE["bytes"] and sha(firmware) == FIRMWARE["sha256"], "UVD firmware pin differs")
+    validate_firmware(firmware)
     harness = types.ModuleType("psx_pinned_uvd_playback")
     harness.__file__ = str(paths["playback"])
     exec(compile(contents["playback"], str(paths["playback"]), "exec"), harness.__dict__)

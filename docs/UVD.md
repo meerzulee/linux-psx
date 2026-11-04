@@ -58,6 +58,17 @@ Its kernel SHA256 is
 Compilation and archive readbacks passed; the earlier dev1 hardware results
 do not qualify this new build.
 
+EXP-20261105-004 found that the diagnostic alpha had retained the ordinary
+232,752-byte firmware even though this backend requires the preserved
+314,168-byte variant. The verbose boot recorded startup error `-22`, GPU-init
+failure and retained-state parking. The corrected
+[alpha3 profile](../manifests/ps4-diagnostics-uvd-alpha3.json) keeps the kernel
+unchanged and supplies the matching external firmware to both root and
+initramfs, with complete header/CRC/SHA256 checks. See the
+[diagnostic ledger](../diagnostics/SESSIONS.md) and
+[firmware packaging contract](PS4-DIAGNOSTIC-ALPHA.md). This fixes a package
+input; it does not relax the driver or establish hardware acceptance.
+
 The UVD runtime still parks during shutdown after entry, before ordinary ICC
 power-off can run. The host-only
 [`prepare-ps4-diagnostix-power-test`](../scripts/prepare-ps4-diagnostix-power-test)

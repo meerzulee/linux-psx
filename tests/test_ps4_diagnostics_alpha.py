@@ -1,5 +1,6 @@
 """Host-only alpha adapter guards and real rootless ext4 readback; no hardware."""
 import copy
+import gzip
 import hashlib
 import importlib.machinery
 import importlib.util
@@ -23,6 +24,52 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def test_actual_cpio_readback_rejects_stock_missing_or_symlink_firmware(self):
+        parser=APP.load('alpha3_cpio_fixture',ROOT/'scripts/ps4-diagnostics-archive')
+        expected=b'synthetic corrected payload'
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
+            archive=Path(temp)/'initramfs.gz'
+            for payload,mode,good in ((expected,stat.S_IFREG|0o644,True),
+                                      (b'old stock payload',stat.S_IFREG|0o644,False),
+                                      (expected,stat.S_IFLNK|0o777,False)):
+                data=parser.entry(1,mode,1,0,APP.UVD_FIRMWARE_MEMBER,payload)+parser.entry(2,0,1,0,'TRAILER!!!')
+                archive.write_bytes(gzip.compress(data))
+                if good:
+                    self.assertEqual(APP.verify_initramfs_firmware(archive,parser,expected)['sha256'],APP.sha(expected))
+                else:
+                    with self.assertRaisesRegex(ValueError,'firmware readback'):
+                        APP.verify_initramfs_firmware(archive,parser,expected)
+            archive.write_bytes(gzip.compress(parser.entry(1,0,1,0,'TRAILER!!!')))
+            with self.assertRaisesRegex(ValueError,'firmware readback'):
+                APP.verify_initramfs_firmware(archive,parser,expected)
+
+    def test_alpha3_has_distinct_stock_anchor_and_target_firmware_and_preserves_kernel(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        self.assertEqual(APP.validate_profile(profile)['image_version'],'alpha3')
+        previous=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha2.json').read_text())
+        for key in ('kernel_release','kernel_sha256','config_sha256','modules_sha256','native3_baseline'):
+            self.assertEqual(profile[key],previous[key])
+        for key in ('root_firmware','base_root_firmware'):
+            changed=copy.deepcopy(profile)
+            changed['alpha_inputs'][key]=APP.BASE_FIRMWARE if key=='root_firmware' else APP.UVD_FIRMWARE
+            with self.assertRaisesRegex(ValueError,'distinct stock-base'):
+                APP.validate_profile(changed)
+
+    def test_stock_firmware_is_rejected_before_any_other_input_or_output(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
+            root=Path(temp); manifest=root/'profile.json'; manifest.write_bytes(APP.encoded(profile))
+            stock=root/'stock.bin';stock.write_bytes(bytes(232752))
+            with mock.patch.object(APP,'validate_paths',side_effect=AssertionError('must reject before image inputs')):
+                with self.assertRaises(ValueError):
+                    APP.prepare(root/'base',root/'package',root/'fixture',manifest,root/'output',uvd_firmware=stock)
+            self.assertFalse((root/'output').exists())
+
+    def test_explicit_external_firmware_is_required(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        with self.assertRaisesRegex(ValueError,'--uvd-firmware'):
+            APP.prepare_firmware(profile,None)
+
     def profile(self, version=1):
         value=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha1.json').read_text())
         if version==2:

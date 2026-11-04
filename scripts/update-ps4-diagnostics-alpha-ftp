@@ -1,0 +1,468 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Publish the frozen alpha2 -> alpha3 userspace correction through Orbis FTP.
+
+Default: read-only plan. Kernel, config, all modules, names and current arguments
+must remain exact. Delta mode probes REST+STOR on disposable nonzero data first;
+--full-upload stages a complete new root instead. A verified host rollback copy
+is mandatory; use --backup /var/tmp/... to avoid filling the source filesystem.
+No payload, boot, driver, mount, power or recovery command is executed.
+"""
+from __future__ import annotations
+
+import argparse
+import ftplib
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import stat
+import sys
+import time
+import uuid
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+loader = importlib.machinery.SourceFileLoader('psx_alpha_ftp_deploy', str(HERE/'deploy-ps4-diagnostics-ftp'))
+spec = importlib.util.spec_from_loader(loader.name, loader)
+DEPLOY = importlib.util.module_from_spec(spec)
+loader.exec_module(DEPLOY)
+MIB = 1024**2
+ROOT_BYTES = 1000*MIB
+CAP = 1024*MIB
+BLOCK = 4096
+MERGE_GAP = 4*BLOCK
+MAX_RANGE = 4*MIB
+MAX_RANGES = 4096
+SMALL_MAX = 16*MIB
+ROOT_FILE = 'psx-diagnostics/rootfs.ext4'
+METADATA = 'psx-diagnostics/boot-set.json'
+SMALL = ('psx-diagnostics/README.txt', 'psx-diagnostics/alpha-build-receipt.json', 'initramfs.cpio.gz', METADATA)
+ALLOWED = {ROOT_FILE, *SMALL}
+RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev2'
+GATES = ['amdgpu.ps4_uvd_runtime=1', 'amdgpu.ps4_uvd_ready=1', 'amdgpu.ps4_uvd_poll_state=1']
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def encoded(value):
+    return (json.dumps(value, indent=2, sort_keys=True)+'\n').encode()
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def small_bytes(ftp, path):
+    return DEPLOY.read_file(ftp, path, maximum=SMALL_MAX, collect=True)[2]
+
+
+def store_bytes(ftp, path, data):
+    ftp.storbinary('STOR '+path, io.BytesIO(data), blocksize=256*1024)
+    require(small_bytes(ftp, path) == data, 'Small-file readback differs: '+path)
+
+
+def full_root_verify(ftp, path, expected):
+    class Progress:
+        def __init__(self):
+            self.count, self.last = 0, time.monotonic()
+        def write(self, data):
+            self.count += len(data)
+            if time.monotonic()-self.last >= 8:
+                print(f'ROOT VERIFYING {self.count//MIB} MiB', flush=True)
+                self.last = time.monotonic()
+    size, digest, _ = DEPLOY.read_file(ftp, path, destination=Progress(), maximum=ROOT_BYTES)
+    require((size, digest) == (ROOT_BYTES, expected), 'Full root size/SHA256 readback differs: '+path)
+
+
+def local_range(path, offset, length):
+    require(0 <= offset < ROOT_BYTES and 0 < length <= MAX_RANGE and offset+length <= ROOT_BYTES,
+            'Root range exceeds fixed bounds')
+    with path.open('rb') as stream:
+        stream.seek(offset)
+        value = stream.read(length)
+    require(len(value) == length, 'Local root range is truncated')
+    return value
+
+
+def changed_ranges(old, new):
+    merged = []
+    with old.open('rb') as left, new.open('rb') as right:
+        for offset in range(0, ROOT_BYTES, BLOCK):
+            a, b = left.read(BLOCK), right.read(BLOCK)
+            require(len(a) == len(b) == min(BLOCK, ROOT_BYTES-offset), 'Root diff input size changed')
+            if a == b:
+                continue
+            end = offset+len(a)
+            if merged and offset-merged[-1][1] <= MERGE_GAP:
+                merged[-1][1] = end
+            else:
+                merged.append([offset, end])
+    ranges = []
+    for start, end in merged:
+        while start < end:
+            length = min(MAX_RANGE, end-start)
+            ranges.append((start, length))
+            start += length
+    return ranges
+
+
+def write_range(ftp, path, offset, data):
+    # Explicit REST=0 matters: the disposable probe checks zero too.
+    ftp.storbinary('STOR '+path, io.BytesIO(data), blocksize=256*1024, rest=offset)
+
+
+def prove_rest(ftp, staging, journal):
+    path = staging+'/rest-probe.bin'
+    original = bytes((index*73+index//251) % 251+1 for index in range(128*1024))
+    try:
+        store_bytes(ftp, path, original)
+        expected = original
+        for offset, data in ((3*BLOCK, b'PSX-REST-OVERWRITE'*512), (0, b'PSX-REST-ZERO'*256)):
+            require(offset+len(data) < len(expected), 'Probe must retain a nonempty tail')
+            journal('probe_rest_attempt', offset=offset, bytes=len(data))
+            write_range(ftp, path, offset, data)
+            expected = expected[:offset]+data+expected[offset+len(data):]
+            require(small_bytes(ftp, path) == expected, 'REST altered prefix, tail or length')
+        journal('probe_rest_verified', bytes=len(original), tested_offsets=[3*BLOCK, 0])
+    except Exception as error:
+        raise ValueError('REST overwrite probe failed; actual boot payload untouched. '
+                         'An explicit --full-upload fallback is allowed: '+str(error)) from error
+    finally:
+        # Only this newly created disposable path belongs to the probe.
+        try:
+            if DEPLOY.exists(ftp, path):
+                ftp.delete(path)
+        except Exception:
+            journal('probe_cleanup_pending', path=path)
+
+
+def validate_sources(source, previous_source):
+    roots = [Path(value).absolute() for value in (source, previous_source)]
+    require(all(root.is_dir() and root.resolve() == root for root in roots), 'Sources must be canonical host directories')
+    source, previous_source = roots
+    require(not source.is_relative_to(previous_source) and not previous_source.is_relative_to(source), 'Source directories overlap')
+    new_files, new = DEPLOY.STAGE.source_files(source)
+    old_files, old = DEPLOY.STAGE.source_files(previous_source)
+    for root, files in ((source, new_files), (previous_source, old_files)):
+        require(not (root/'SHA256SUMS').is_symlink(), 'Source checksum list is a symlink')
+        for name in files:
+            require((root/name).resolve() == root/name, 'Source member contains a symlink')
+    require(set(new_files) == set(old_files) and len(new_files) == 19, 'Both complete 19-file boot sets must have identical names')
+    for value, version in ((old, 'alpha2'), (new, 'alpha3')):
+        require(value.get('profile') == 'ps4-baikal-diagnostics-uvd-'+version and value.get('image_version') == version
+                and value.get('build_status') == 'frozen' and value.get('kernel_release') == RELEASE,
+                'Expected frozen alpha2 -> alpha3 with the same runtime-dev2 kernel')
+        require(value.get('root_format') == 'ext4-ro-loop' and value.get('rootfs_file') == ROOT_FILE
+                and value.get('rootfs_image_bytes') == ROOT_BYTES and value.get('uvd_runtime') is True
+                and value.get('required_boot_arguments') == GATES and value.get('maximum_boot_set_bytes') == CAP
+                and value.get('hardware_acceptance') is False and value.get('frontend_overrides'),
+                'Frozen alpha userspace/root/UVD policy differs')
+        require((source if version == 'alpha3' else previous_source).joinpath(ROOT_FILE).stat().st_size == ROOT_BYTES,
+                'Root image must retain the exact 1000 MiB size')
+    for key in ('kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256', 'module_count',
+                'source_commit', 'kernel', 'native3_baseline', 'poweroff_fix', 'mesa_manifest_sha256', 'snapshot_sums_sha256'):
+        require((key in new) == (key in old) and new.get(key) == old.get(key),
+                'Immutable kernel/config/modules/policy metadata differs: '+key)
+    require(new.get('alpha_inputs', {}).get('legacy_package') == old.get('alpha_inputs', {}).get('legacy_package'),
+            'Frozen kernel package receipts differ')
+    require(old.get('module_count') == 41 and old.get('poweroff_fix', {}).get('uvd_shutdown_park_unchanged') is True,
+            'Complete module set and unchanged UVD shutdown park are required')
+    for name, key in (('bzImage', 'kernel_sha256'), ('psx-diagnostics/config', 'config_sha256'),
+                      (f'psx-diagnostics/modules-{RELEASE}.tar.zst', 'modules_sha256')):
+        require(old_files.get(name) == old.get(key) == new.get(key) == new_files.get(name), 'Exact kernel/config/all-module file pin differs')
+    changed = {name for name in new_files if old_files[name] != new_files[name]}
+    require(changed == ALLOWED, 'Only the fixed root/init/boot files and reviewed alpha text/build receipts may change')
+    require(all((source/name).stat().st_size <= SMALL_MAX for name in SMALL), 'Small boot file exceeds its fixed bound')
+    return source, previous_source, new_files, old_files, new, old
+
+
+def local_copy(source, destination, expected):
+    require(source.is_file() and not source.is_symlink() and stat.S_ISREG(source.stat().st_mode), 'Expected a regular host recovery input')
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with source.open('rb') as incoming, destination.open('xb') as outgoing:
+        os.fchmod(outgoing.fileno(), 0o600)
+        shutil.copyfileobj(incoming, outgoing, 4*MIB)
+        outgoing.flush(); os.fsync(outgoing.fileno())
+    require(DEPLOY.STAGE.digest(destination) == expected, 'Host rollback copy differs: '+str(destination))
+
+
+def restore_small(ftp, root, staging, backup, old_files, new_files, journal):
+    errors = []
+    for name in reversed(SMALL):
+        path = root+'/'+name
+        try:
+            if DEPLOY.exists(ftp, path):
+                actual = sha(small_bytes(ftp, path))
+                if actual == old_files[name]:
+                    continue
+                require(actual == new_files[name], 'Rollback found unknown small-file bytes')
+                journal('rollback_remove_new_small', name=name)
+                ftp.delete(path)
+            saved = staging+'/old/'+name
+            journal('rollback_restore_small', name=name)
+            if DEPLOY.exists(ftp, saved):
+                require(sha(small_bytes(ftp, saved)) == old_files[name], 'Old staged header changed')
+                ftp.rename(saved, path)
+            else:
+                data = (backup/name).read_bytes()
+                require(sha(data) == old_files[name], 'Host small-file recovery copy changed')
+                store_bytes(ftp, path, data)
+            require(sha(small_bytes(ftp, path)) == old_files[name], 'Restored small file differs')
+        except Exception as error:
+            errors.append(str(error))
+    require(not errors, 'Small-file rollback incomplete: '+'; '.join(errors))
+
+
+def update(args):
+    source, previous_source, new_files, old_files, metadata, old_metadata = validate_sources(args.source, args.previous_source)
+    backup = Path(args.backup).absolute()
+    receipt = Path(args.receipt).absolute()
+    for path in (backup, receipt):
+        require(path.resolve() == path and not path.exists() and not path.is_symlink(), 'Backup/receipt must be new canonical host paths')
+        require(not any(path.is_relative_to(base) or base.is_relative_to(path) for base in (source, previous_source)), 'Backup/receipt overlaps source')
+    require(backup.parent.is_dir() and not receipt.is_relative_to(backup), 'Use an existing backup parent and separate receipt')
+    mode = 'full-upload' if args.full_upload else 'delta'
+    prepared_root = getattr(args, 'prepared_root', None)
+    if prepared_root is not None:
+        require(args.full_upload, '--prepared-root is only legal with --full-upload')
+        require(isinstance(prepared_root, str) and re.fullmatch(re.escape(args.remote_root)
+                +r'/\.psx-alpha3-preload-[0-9a-f]{32}/rootfs\.ext4', prepared_root),
+                'Prepared root must be the exact canonical selected-USB preload path')
+    ranges = [] if args.full_upload else changed_ranges(previous_source/ROOT_FILE, source/ROOT_FILE)
+    require(args.full_upload or 0 < len(ranges) <= MAX_RANGES, 'Delta is empty or has too many ranges; choose explicit --full-upload')
+    root = args.remote_root
+    with ftplib.FTP(timeout=30) as ftp:
+        ftp.connect(args.host, args.port); ftp.login()
+        raw = small_bytes(ftp, root+'/psx-diagnostics/installed.json')
+        previous = json.loads(raw)
+        DEPLOY.verify_receipt(previous, args.expect_serial, args.expect_bytes, args.expect_uuid)
+        sums = small_bytes(ftp, root+'/psx-diagnostics/USB-SHA256SUMS')
+        require(sums == DEPLOY.STAGE.installed_sums(previous['files']).encode(), 'USB checksum list differs from verified ownership')
+        bootargs = small_bytes(ftp, root+'/bootargs.txt')
+        require(sha(bootargs) == previous['files'].get('bootargs.txt'), 'Current boot arguments changed')
+        tokens = bootargs.decode().split()
+        require([token for token in tokens if token.startswith('psx.diag_uuid=')] == ['psx.diag_uuid='+args.expect_uuid]
+                and [token for token in tokens if token.startswith('amdgpu.ps4_uvd_')] == GATES,
+                'Current USB identity/UVD gates differ; arguments will not be reset')
+        expected_old = {name:value for name,value in old_files.items() if name != 'bootargs.template.txt'}
+        expected_old['bootargs.txt'] = sha(bootargs)
+        expected = {name:value for name,value in new_files.items() if name != 'bootargs.template.txt'}
+        expected['bootargs.txt'] = sha(bootargs)
+        require(previous.get('profile') == old_metadata['profile'] and previous.get('kernel_release') == RELEASE
+                and previous['files'] == expected_old, 'Remote verified 19-file set differs from previous-source')
+        old_contract = small_bytes(ftp, root+'/'+METADATA)
+        require(old_contract == (previous_source/METADATA).read_bytes(), 'Remote full boot metadata differs from previous-source')
+        total = sum((source/name).stat().st_size for name in new_files if name != 'bootargs.template.txt') + len(bootargs)
+        require(total+MIB <= CAP, 'New core payload plus 1 MiB reserve exceeds 1 GiB')
+        plan = {'profile':metadata['profile'], 'previous_profile':old_metadata['profile'], 'kernel_release':RELEASE,
+                'mode':mode, 'root_bytes':ROOT_BYTES, 'root_delta_ranges':len(ranges),
+                'root_upload_bytes':ROOT_BYTES if args.full_upload else sum(length for _,length in ranges),
+                'changed_files':sorted(ALLOWED), 'bootargs_preserved':True, 'kernel_modules_unchanged':True,
+                'total_os_payload_bytes':total, 'apply':args.apply, 'hardware_acceptance':False,
+                'prepared_root':prepared_root,
+                'verification_scope':'Changed small files and one full new-root readback; other files retained from the verified ownership receipt'}
+        print(json.dumps(plan, indent=2), flush=True)
+        if not args.apply:
+            return plan
+        require(shutil.disk_usage(backup.parent).free > sum((previous_source/name).stat().st_size for name in old_files)+MIB,
+                'Insufficient host space for independent rollback copies; use /var/tmp')
+        backup.mkdir(mode=0o700)
+        def journal(event, **fields):
+            with (backup/'journal.jsonl').open('a') as stream:
+                stream.write(json.dumps(dict(event=event, unix=time.time(), **fields))+'\n')
+                stream.flush(); os.fsync(stream.fileno())
+        def save_bytes(name, data):
+            target = backup/name; target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            with target.open('xb') as stream:
+                os.fchmod(stream.fileno(), 0o600)
+                stream.write(data); stream.flush(); os.fsync(stream.fileno())
+            require(target.read_bytes() == data, 'Host recovery bytes differ')
+        save_bytes('installed.json', raw); save_bytes('USB-SHA256SUMS', sums)
+        save_bytes('bootargs.txt', bootargs)
+        for name in old_files:
+            if name == 'bootargs.template.txt':
+                continue
+            if name in SMALL:
+                data = small_bytes(ftp, root+'/'+name)
+                require(sha(data) == old_files[name], 'Old remote header drifted: '+name)
+                save_bytes(name, data)
+            else:
+                local_copy(previous_source/name, backup/name, old_files[name])
+        save_bytes('backup-verified.json', encoded({'status':'PASS', 'target':previous['target'], 'files':expected_old,
+                    'root_network_read':False, 'root_backup_sha256':old_metadata['rootfs_sha256']}))
+        journal('backup_verified', root_sha256=old_metadata['rootfs_sha256'], mode=mode)
+        staging = root+'/.psx-alpha3-'+uuid.uuid4().hex
+        require(not DEPLOY.exists(ftp, staging), 'Fresh remote staging directory required')
+        DEPLOY.make_dirs(ftp, staging)
+        attempted = []
+        mutation_started = False
+        full_root_attempted = False
+        committed = False
+        incomplete = dict(previous, verified_readback=False, recovery_required=True,
+                          alpha_update={'mode':mode, 'staging':staging, 'backup':str(backup)})
+        try:
+            for name in SMALL:
+                target = staging+'/new/'+name
+                DEPLOY.make_dirs(ftp, str(PurePosixPath(target).parent))
+                data = (source/name).read_bytes()
+                require(sha(data) == new_files[name], 'New small source changed')
+                store_bytes(ftp, target, data)
+            if args.full_upload:
+                staged_root = prepared_root or staging+'/new/'+ROOT_FILE
+                if prepared_root is None:
+                    DEPLOY.make_dirs(ftp, str(PurePosixPath(staged_root).parent))
+                    journal('full_root_stage_attempt', path=staged_root)
+                    sent, last = 0, time.monotonic()
+                    def progress(data):
+                        nonlocal sent, last
+                        sent += len(data)
+                        if time.monotonic()-last >= 8:
+                            print(f'ROOT UPLOADING {sent//MIB} MiB', flush=True)
+                            last = time.monotonic()
+                    with (source/ROOT_FILE).open('rb') as stream:
+                        ftp.storbinary('STOR '+staged_root, stream, blocksize=256*1024, callback=progress)
+                full_root_verify(ftp, staged_root, metadata['rootfs_sha256'])
+                journal('new_root_verified', path=staged_root)
+            else:
+                prove_rest(ftp, staging, journal)
+            for name, value in (('psx-diagnostics/installed.json',raw), ('psx-diagnostics/USB-SHA256SUMS',sums),
+                                 (METADATA,old_contract), ('bootargs.txt',bootargs)):
+                require(small_bytes(ftp, root+'/'+name) == value, 'Remote snapshot changed during staging: '+name)
+            journal('before_invalidate_receipt')
+            mutation_started = True
+            store_bytes(ftp, root+'/psx-diagnostics/installed.json', encoded(incomplete))
+            if args.full_upload:
+                saved = staging+'/old/'+ROOT_FILE
+                DEPLOY.make_dirs(ftp, str(PurePosixPath(saved).parent))
+                journal('before_root_rename', old=root+'/'+ROOT_FILE, saved=saved)
+                full_root_attempted = True
+                ftp.rename(root+'/'+ROOT_FILE, saved)
+                ftp.rename(staged_root, root+'/'+ROOT_FILE)
+            else:
+                for offset, length in ranges:
+                    data = local_range(source/ROOT_FILE, offset, length)
+                    journal('root_range_attempt', offset=offset, bytes=length,
+                            old_sha256=sha(local_range(backup/ROOT_FILE, offset, length)), new_sha256=sha(data))
+                    attempted.append((offset,length))
+                    write_range(ftp, root+'/'+ROOT_FILE, offset, data)
+                    journal('root_range_sent', offset=offset, bytes=length)
+                full_root_verify(ftp, root+'/'+ROOT_FILE, metadata['rootfs_sha256'])
+                journal('new_root_verified', path=root+'/'+ROOT_FILE)
+            for name in SMALL:
+                require(sha(small_bytes(ftp, root+'/'+name)) == old_files[name], 'Old boot header changed before publication')
+                saved = staging+'/old/'+name
+                DEPLOY.make_dirs(ftp, str(PurePosixPath(saved).parent))
+                journal('before_small_publish', name=name)
+                ftp.rename(root+'/'+name, saved)
+                ftp.rename(staging+'/new/'+name, root+'/'+name)
+                require(sha(small_bytes(ftp, root+'/'+name)) == new_files[name], 'Published header differs')
+            marker = dict(previous, profile=metadata['profile'], kernel_release=RELEASE, files=expected,
+                          verified_readback=True, staged_unix=time.time(), backup=str(backup),
+                          hardware_acceptance=False, payload_executed=False,
+                          alpha_update={'mode':mode, 'root_verified':True, 'bootargs_preserved':True,
+                                        'verification_scope':plan['verification_scope']})
+            marker.pop('recovery_required', None)
+            store_bytes(ftp, root+'/psx-diagnostics/USB-SHA256SUMS', DEPLOY.STAGE.installed_sums(expected).encode())
+            store_bytes(ftp, root+'/psx-diagnostics/installed.json', encoded(marker))
+            committed = True
+            journal('alpha3_committed', root_sha256=metadata['rootfs_sha256'])
+            result = dict(plan, status='PASS', verified_readback=True, files=expected,
+                          backup=str(backup), remote_staging=staging, usb_state_preserved=True)
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            with receipt.open('x') as stream:
+                stream.write(json.dumps(result, indent=2)+'\n'); stream.flush(); os.fsync(stream.fileno())
+            for name in (*SMALL, *((ROOT_FILE,) if args.full_upload else ())):
+                saved = staging+'/old/'+name
+                if name != ROOT_FILE:
+                    require(sha(small_bytes(ftp, saved)) == old_files[name], 'Old small staging bytes changed; retained')
+                # The old full root is retained by rename until commit and backed
+                # up locally. Do not re-read its entire GiB merely to delete it.
+                ftp.delete(saved)
+            print('PASS: alpha3 userspace update verified; kernel/modules/arguments retained', flush=True)
+            return result
+        except Exception as error:
+            journal('update_failed', error=str(error), committed=committed, attempted_root_ranges=attempted)
+            if committed:
+                print('New alpha3 set is verified; host receipt or old staging cleanup needs review.', file=sys.stderr, flush=True)
+                raise
+            if not mutation_started:
+                print('Active boot payload untouched; only new staging files may remain.', file=sys.stderr, flush=True)
+                raise
+            rollback_errors = []
+            try:
+                if args.full_upload and full_root_attempted:
+                    saved = staging+'/old/'+ROOT_FILE
+                    if DEPLOY.exists(ftp, saved):
+                        if DEPLOY.exists(ftp, root+'/'+ROOT_FILE):
+                            ftp.rename(root+'/'+ROOT_FILE, staging+'/failed-root.ext4')
+                        journal('rollback_root_rename', saved=saved)
+                        ftp.rename(saved, root+'/'+ROOT_FILE)
+                    full_root_verify(ftp, root+'/'+ROOT_FILE, old_metadata['rootfs_sha256'])
+                elif attempted:
+                    for offset, length in reversed(attempted):
+                        try:
+                            data = local_range(backup/ROOT_FILE, offset, length)
+                            journal('rollback_range_attempt', offset=offset, bytes=length, sha256=sha(data))
+                            write_range(ftp, root+'/'+ROOT_FILE, offset, data)
+                        except Exception as rollback_error:
+                            journal('rollback_range_error', offset=offset, error=str(rollback_error))
+                    full_root_verify(ftp, root+'/'+ROOT_FILE, old_metadata['rootfs_sha256'])
+                journal('old_root_retained_or_verified')
+            except Exception as rollback_error:
+                rollback_errors.append(str(rollback_error))
+            try:
+                restore_small(ftp, root, staging, backup, old_files, new_files, journal)
+            except Exception as rollback_error:
+                rollback_errors.append(str(rollback_error))
+            if not rollback_errors:
+                try:
+                    store_bytes(ftp, root+'/psx-diagnostics/USB-SHA256SUMS', sums)
+                    store_bytes(ftp, root+'/psx-diagnostics/installed.json', raw)
+                    journal('rollback_verified')
+                    print('Previous alpha2 payload and receipts restored; update not applied.', file=sys.stderr, flush=True)
+                except Exception as rollback_error:
+                    rollback_errors.append(str(rollback_error))
+            if rollback_errors:
+                try:
+                    store_bytes(ftp, root+'/psx-diagnostics/installed.json', encoded(incomplete))
+                except Exception:
+                    pass
+                journal('rollback_incomplete', errors=rollback_errors)
+                print('STOP: rollback incomplete; DO NOT BOOT. Host recovery copy: '+str(backup), file=sys.stderr, flush=True)
+                raise RuntimeError('Rollback incomplete; DO NOT BOOT: '+'; '.join(rollback_errors)) from error
+            raise
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--previous-source', type=Path, required=True)
+    parser.add_argument('--host', required=True)
+    parser.add_argument('--port', type=int, default=2121)
+    parser.add_argument('--remote-root', choices=('/mnt/usb0','/mnt/usb1'), default='/mnt/usb0')
+    parser.add_argument('--expect-serial', required=True)
+    parser.add_argument('--expect-bytes', type=int, required=True)
+    parser.add_argument('--expect-uuid', required=True)
+    parser.add_argument('--backup', type=Path, required=True)
+    parser.add_argument('--receipt', type=Path, required=True)
+    parser.add_argument('--apply', action='store_true')
+    parser.add_argument('--full-upload', action='store_true', help='Explicit fallback: stage/read back whole root, then rename')
+    parser.add_argument('--prepared-root', help='Only with --full-upload: verify/reuse /mnt/usbX/.psx-alpha3-preload-<32hex>/rootfs.ext4')
+    args = parser.parse_args()
+    update(args)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, EOFError, ftplib.Error) as error:
+        raise SystemExit('Alpha FTP update: '+str(error))

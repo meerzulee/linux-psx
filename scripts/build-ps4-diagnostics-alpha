@@ -42,7 +42,17 @@ VARIANTS = {
         'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
         'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
     },
+    'ps4-baikal-diagnostics-uvd-alpha3': {
+        'kernel_release': '7.2.11-psx-ps4-baikal-uvd-runtime-dev2', 'image_version': 'alpha3',
+        'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
+        'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
+    },
 }
+BASE_FIRMWARE = {'path': '/usr/lib/firmware/amdgpu/liverpool_uvd.bin', 'bytes': 232752,
+                 'sha256': '30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9'}
+UVD_FIRMWARE = {'path': BASE_FIRMWARE['path'], 'bytes': 314168,
+                'sha256': '62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb'}
+UVD_FIRMWARE_MEMBER = 'lib/firmware/amdgpu/liverpool_uvd.bin'
 BASE_IDENTITY = {
     'profile': 'ps4-baikal-diagnostics-console1', 'kernel_release': BASE_RELEASE,
     'kernel_sha256': '82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0',
@@ -96,7 +106,7 @@ def validate_profile(profile):
     variant = VARIANTS.get(profile.get('profile'))
     require(variant is not None and profile.get('kernel_release') == variant['kernel_release']
             and profile.get('image_version') == variant['image_version'], 'Unknown or mismatched frozen alpha profile/release')
-    if variant['image_version'] == 'alpha2':
+    if variant['image_version'] in ('alpha2', 'alpha3'):
         require(profile.get('build_status') == 'frozen', 'Alpha2 kernel inputs are pending; freeze reviewed artifact pins before assembly')
         require(profile.get('product_name') == 'Diagnostix', 'Alpha2 product_name must be Diagnostix')
         fix = profile.get('poweroff_fix', {})
@@ -122,6 +132,9 @@ def validate_profile(profile):
         require(profile[key] == BASE_IDENTITY[key], 'Alpha must preserve the ordinary base Mesa/snapshot')
     inputs = profile.get('alpha_inputs', {})
     require(isinstance(inputs, dict) and isinstance(inputs.get('legacy_package'), dict), 'Missing frozen package inputs')
+    if variant['image_version'] == 'alpha3':
+        require(inputs.get('base_root_firmware') == BASE_FIRMWARE and inputs.get('root_firmware') == UVD_FIRMWARE,
+                'Alpha3 requires distinct stock-base and corrected runtime firmware pins')
     package = inputs['legacy_package']; release = variant['kernel_release']
     needed = {'bzImage', 'config', f'modules-{release}.tar.zst', f'source-{release}.tar.zst',
               'MODULES.json', 'RUNTIME-IDENTITY.json', 'PACKAGE.json', variant['source_receipt'], variant['link_receipt']}
@@ -455,10 +468,33 @@ def copy_regular(source, destination):
     require(source.stat().st_ino != destination.stat().st_ino or source.stat().st_dev != destination.stat().st_dev, 'Copy aliases immutable input')
 
 
-def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_suite=None, wayland_sha256=None):
+def prepare_firmware(profile, source):
+    require(profile['alpha_inputs'].get('root_firmware') == UVD_FIRMWARE and
+            profile['alpha_inputs'].get('base_root_firmware') == BASE_FIRMWARE,
+            'Historical alpha firmware is incompatible; select the corrected alpha3 profile')
+    require(source is not None, 'Supply the explicit private external --uvd-firmware file')
+    source = regular(source).resolve()
+    pinned(source, UVD_FIRMWARE)
+    data = source.read_bytes()
+    policy = load('psx_alpha_uvd_policy', REPO / 'diagnostics/ps4/uvd.py')
+    require(policy.FIRMWARE == UVD_FIRMWARE, 'Builder/runtime firmware pins differ')
+    facts = policy.validate_firmware(data)
+    return source, data, facts
+
+
+def verify_initramfs_firmware(path, parser, expected):
+    entries, _ = parser.parse_newc(gzip.decompress(path.read_bytes()))
+    found = [entry for entry in entries if entry.name.decode() == UVD_FIRMWARE_MEMBER]
+    require(len(found) == 1 and stat.S_ISREG(found[0].mode) and found[0].data == expected,
+            'Corrected initramfs firmware readback differs')
+    return {'path': UVD_FIRMWARE_MEMBER, 'bytes': len(found[0].data), 'sha256': sha(found[0].data)}
+
+
+def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_suite=None, wayland_sha256=None, uvd_firmware=None):
     profile_path = regular(profile_path).resolve()
     profile = json.loads(profile_path.read_text())
     variant = validate_profile(profile)
+    firmware_input, firmware_data, firmware_facts = prepare_firmware(profile, uvd_firmware)
     base, package, fixture_dir, output = validate_paths(base, package, fixture_dir, output)
     if 'poweroff_fix' in profile:
         pinned(REPO / profile['poweroff_fix']['patch'], {'sha256': profile['poweroff_fix']['sha256']})
@@ -471,6 +507,8 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     entries, _ = parser.parse_newc(gzip.decompress((base / 'initramfs.cpio.gz').read_bytes()))
     seed = {e.name.decode(): e for e in entries}
     require(len(seed) == len(entries), 'Duplicate initramfs paths')
+    require(UVD_FIRMWARE_MEMBER in seed and sha(seed[UVD_FIRMWARE_MEMBER].data) == BASE_FIRMWARE['sha256']
+            and len(seed[UVD_FIRMWARE_MEMBER].data) == BASE_FIRMWARE['bytes'], 'Base initramfs firmware anchor differs')
     expected = dict(original); expected.pop('initramfs_sha256')
     require(json.loads(seed['etc/psx-diagnostics-expected.json'].data) == expected, 'Base embedded/external contracts differ')
     frontend = {name: seed['psx-frontend/' + name].data for name in image.FRONTEND_FILES}
@@ -516,8 +554,10 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     require({p.removeprefix('/usr/share/psx-diagnostics/uvd/') for p in fixtures} == declared_fixture_names | {'FIXTURE.json', 'SHA256SUMS'}, 'Unexpected or missing fixture assets')
     require(len(fixtures) <= 256 and sum(len(d) for d, _ in fixtures.values()) <= 16*MIB, 'Fixture exceeds bounded alpha payload')
     root = base / original['rootfs_file']; before_fsck = fsck(root); reader = RootImage(root)
+    require(root.stat().st_size == profile.get('ext4_maximum_bytes') == 1000*MIB,
+            'Alpha3 must preserve the exact1000 MiB ordinary root-image size')
     anchors = {}
-    anchor_specs = [profile['alpha_inputs']['root_firmware'],
+    anchor_specs = [profile['alpha_inputs']['base_root_firmware'],
                     {'path': spec['ffmpeg'], 'sha256': spec['ffmpeg_sha256']}, {'path': spec['driver'], 'sha256': spec['driver_sha256']},
                     {'path': '/opt/psx-mesa/MESA-PSX-CANDIDATE.json', 'sha256': profile['mesa_manifest_sha256']}]
     for item in anchor_specs:
@@ -530,6 +570,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     old_tree = verify_tree(reader, '/usr/lib/modules/' + BASE_RELEASE, old_modules)
     require(set(reader.entries('/usr/lib/modules')) == {BASE_RELEASE}, 'Base contains unexpected module releases')
     replacements, source_facts = {}, {}
+    replacements[UVD_FIRMWARE['path']] = (firmware_data, 0o644)
     sources = {'runner.py': '/opt/psx-diagnostics/runner.py', 'controller.py': '/opt/psx-diagnostics/controller.py',
                'uvd.py': '/opt/psx-diagnostics/uvd.py', 'qualification.py': '/opt/psx-diagnostics/qualification.py',
                'qualification.json': '/opt/psx-diagnostics/qualification.json', 'network.py': '/opt/psx-diagnostics/network.py',
@@ -590,7 +631,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256', 'source_commit', 'module_count',
                 'image_version', 'uvd_runtime', 'uvd_diagnostic', 'alpha_policy', 'alpha_inputs', 'required_boot_arguments'):
         metadata[key] = copy.deepcopy(profile[key])
-    for key in ('product_name', 'poweroff_fix', 'build_status', 'native3_baseline'):
+    for key in ('product_name', 'poweroff_fix', 'build_status', 'native3_baseline', 'uvd_firmware_contract', 'firmware_correction'):
         if key in profile:
             metadata[key] = copy.deepcopy(profile[key])
     imported = {'schema_version': 1, 'origin': 'Frozen experimental package imported without rebuilding or changing its receipts',
@@ -605,7 +646,9 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
                         'base_kernel_release': BASE_RELEASE, 'base_kernel_sha256': original['kernel_sha256'],
                         'profile_sha256': digest(profile_path), 'method': 'Unprivileged debugfs edits of a new ordinary-file copy; no mounts or package execution',
                         'sources': source_facts, 'fixture_files': len(fixtures), 'fixture_bytes': sum(len(d) for d, _ in fixtures.values()),
-                        'runtime_anchors': anchors, 'browser_hardware_video_decode': False, 'browser_disabled_preferences': list(BROWSER_PREFS)})
+                        'runtime_anchors': anchors, 'browser_hardware_video_decode': False, 'browser_disabled_preferences': list(BROWSER_PREFS),
+                        'uvd_firmware_override': {'base': BASE_FIRMWARE, 'target': UVD_FIRMWARE,
+                            'validated_contract': firmware_facts, 'scope': 'Owner-provided private external firmware; not a kernel-source or public-binary input'}})
     if wayland_facts:
         metadata['alpha_derivation']['wayland_suite'] = dict(wayland_facts, path='/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz')
     return dict(base=base, package=package, fixture_dir=fixture_dir, output=output, profile=profile, files=files, original=original,
@@ -613,7 +656,8 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
                 anchors=anchors, before_fsck=before_fsck, old_tree=old_tree, bootargs=bootargs, stage=stage, image=image,
                 archive_name=archive_name, source_name=source_name, source_facts=source_facts, profile_path=profile_path,
                 fixture_identity=fixture_identity, wayland_suite=wayland_suite, wayland_facts=wayland_facts,
-                tui_input=Path(tui).resolve() if tui is not None else None, variant=variant)
+                tui_input=Path(tui).resolve() if tui is not None else None, variant=variant,
+                firmware_input=firmware_input, firmware_data=firmware_data, firmware_facts=firmware_facts, parser=parser)
 
 
 def build(prepared, *, plan_only=False):
@@ -632,7 +676,14 @@ def build(prepared, *, plan_only=False):
     root = output / p['original']['rootfs_file']
     copy_regular(p['base'] / p['original']['rootfs_file'], root)
     editor = RootImage(root, writable=True, immutable_base=p['base'] / p['original']['rootfs_file'])
-    changes = editor.apply(p['replacements'], remove_tree='/usr/lib/modules/' + BASE_RELEASE)
+    replacements = p['replacements']
+    if p.get('firmware_data') is not None:
+        replacements = {path: value for path, value in replacements.items() if path != UVD_FIRMWARE['path']}
+    changes = editor.apply(replacements, remove_tree='/usr/lib/modules/' + BASE_RELEASE)
+    if p.get('firmware_data') is not None:
+        # Keep the existing deterministic module/fixture allocation order, then
+        # replace the single firmware member after those ordinary edits.
+        changes.extend(editor.apply({UVD_FIRMWARE['path']: (p['firmware_data'], 0o644)}))
     new_tree = verify_tree(editor, '/usr/lib/modules/' + release, p['modules'])
     require(set(editor.entries('/usr/lib/modules')) == {release}, 'Alpha module release set differs')
     metadata = p['metadata']
@@ -642,8 +693,17 @@ def build(prepared, *, plan_only=False):
     inner = editor.apply({'/etc/psx-diagnostics/boot-set.json': (encoded(metadata), 0o644),
                           '/usr/share/psx-diagnostics/alpha-base-boot-set.json': (encoded(p['original']), 0o644)})
     for path, pin in p['anchors'].items():
+        if p.get('firmware_data') is not None and path == UVD_FIRMWARE['path']:
+            continue  # Deliberate alpha3 replacement; the stock anchor remains recorded.
         require(sha(editor.read(path, resolve=True)) == pin['sha256'], 'Preserved runtime anchor changed')
+    root_firmware = None
+    if p.get('firmware_data') is not None:
+        data = editor.read(UVD_FIRMWARE['path'])
+        require(data == p['firmware_data'], 'Corrected root firmware readback differs')
+        root_firmware = {'path': UVD_FIRMWARE['path'], 'bytes': len(data), 'sha256': sha(data)}
     after_fsck = fsck(root)
+    require(root.stat().st_size == (p['base'] / p['original']['rootfs_file']).stat().st_size,
+            'Alpha assembly changed the fixed root-image size')
     metadata.update(rootfs_sha256=digest(root), rootfs_image_bytes=root.stat().st_size)
     # Immutable base must remain exact after the copy/edit path, including its root.
     current_files, _ = p['stage'].source_files(p['base'])
@@ -654,6 +714,8 @@ def build(prepared, *, plan_only=False):
     require(digest(p['profile_path']) == metadata['alpha_derivation']['profile_sha256'], 'Alpha profile changed during assembly')
     if p.get('wayland_suite') is not None:
         require(digest(p['wayland_suite']) == p['wayland_facts']['sha256'], 'Wayland input changed during assembly')
+    if p.get('firmware_input') is not None:
+        pinned(p['firmware_input'], UVD_FIRMWARE)
     # Copy only still-relevant immutable base members; kernel identity files are new below.
     replaced = {'bzImage', 'initramfs.cpio.gz', 'bootargs.template.txt', 'psx-diagnostics/boot-set.json', p['original']['rootfs_file'],
                 'psx-diagnostics/config', 'psx-diagnostics/manifest.txt', 'psx-diagnostics/version.txt', 'psx-diagnostics/artifacts.json',
@@ -688,14 +750,22 @@ def build(prepared, *, plan_only=False):
         'Test plan: psx-qualify. No qualification command starts tests automatically.\n'
         'The complete corresponding-source archive is identified in source-pins.json and retained separately.\n')
     firmware = {name: item.data for name, item in p['seed'].items() if name.startswith('lib/firmware/') and stat.S_ISREG(item.mode)}
+    if p.get('firmware_data') is not None:
+        firmware[UVD_FIRMWARE_MEMBER] = p['firmware_data']
     p['image'].initramfs(p['profile'], p['seed'], p['seed']['bin/busybox'].data, firmware, metadata['rootfs_sha256'],
                         output / 'initramfs.cpio.gz', int(time.time()), expected=metadata, frontend=p['frontend'])
+    initramfs_firmware = None
+    if p.get('firmware_data') is not None:
+        initramfs_firmware = verify_initramfs_firmware(output / 'initramfs.cpio.gz', p['parser'], p['firmware_data'])
     external = dict(metadata, initramfs_sha256=digest(output / 'initramfs.cpio.gz'))
     (payload / 'boot-set.json').write_bytes(encoded(external))
     receipt = {'schema_version': 1, 'verification': 'offline-readback', 'hardware_acceptance': False,
                'before_fsck': p['before_fsck'], 'after_fsck': after_fsck, 'old_module_tree': p['old_tree'], 'new_module_tree': new_tree,
                'root_metadata_readback': inner, 'debugfs_commands_sha256': sha(('\n'.join(editor.commands)+'\n').encode()),
-               'changed_files': changes, 'preserved_anchors': p['anchors'], 'base_unchanged': True}
+               'changed_files': changes, 'preserved_anchors': {path: pin for path, pin in p['anchors'].items()
+                    if not (p.get('firmware_data') is not None and path == UVD_FIRMWARE['path'])}, 'base_unchanged': True,
+               'uvd_firmware_readback': {'root': root_firmware, 'initramfs': initramfs_firmware,
+                    'contract': p.get('firmware_facts'), 'original_base': BASE_FIRMWARE if root_firmware else None}}
     (payload / 'alpha-build-receipt.json').write_bytes(encoded(receipt))
     sums = {str(path.relative_to(output)): digest(path) for path in output.rglob('*') if path.is_file()}
     (output / 'SHA256SUMS').write_text(p['stage'].installed_sums(sums))
@@ -713,14 +783,15 @@ def main():
     parser.add_argument('--uvd-package', type=Path, required=True)
     parser.add_argument('--fixture', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--profile', type=Path, default=REPO / 'manifests/ps4-diagnostics-uvd-alpha1.json')
+    parser.add_argument('--profile', type=Path, default=REPO / 'manifests/ps4-diagnostics-uvd-alpha3.json')
+    parser.add_argument('--uvd-firmware', type=Path, required=True, help='Pinned owner-provided 314168-byte UVD runtime firmware; never acquired or published by this builder')
     parser.add_argument('--tui-binary', type=Path, help='Optional newly built alpha TUI; otherwise retain the verified base frontend')
     parser.add_argument('--wayland-suite', type=Path, help='Optional separately prepared, matched alpha Wayland archive')
     parser.add_argument('--wayland-sha256', help='Reviewed SHA256 of the optional alpha Wayland archive')
     parser.add_argument('--plan', action='store_true', help='Read-only verification; create no work or output files')
     args = parser.parse_args()
     prepared = prepare(args.base, args.uvd_package, args.fixture, args.profile, args.output, args.tui_binary,
-                       args.wayland_suite, args.wayland_sha256)
+                       args.wayland_suite, args.wayland_sha256, args.uvd_firmware)
     print(json.dumps(build(prepared, plan_only=args.plan), indent=2))
 
 

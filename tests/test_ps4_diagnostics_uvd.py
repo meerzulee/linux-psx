@@ -3,8 +3,10 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import struct
 import unittest
 from unittest import mock
+import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,6 +23,49 @@ CORE = load("uvd_core_fixture", ROOT / "tests/test_ps4_diagnostics_prerequisites
 UVD = load("uvd_adapter_fixture", ROOT / "diagnostics/ps4/uvd.py")
 HARNESS = load("uvd_playback_fixture", ROOT / "experiments/ps4-uvd-driver/runtime/playback.py")
 BOOT = "616aaa3f-28bf-48bf-bdf5-a98560a0ec94"
+
+
+def synthetic_firmware():
+    payload = bytes(313912)
+    crc = zlib.crc32(payload) & 0xffffffff
+    header = struct.pack('<IIHHHHIIII', 314168, 32, 1, 0, 4, 2, 0x012a6509, 313912, 256, crc)
+    return header + bytes(256 - len(header)) + payload, crc
+
+
+class FirmwareContractTests(unittest.TestCase):
+    def test_exact_header_and_computed_crc_are_required_in_addition_to_hash(self):
+        data, crc = synthetic_firmware()
+        with mock.patch.object(UVD, 'FIRMWARE', dict(UVD.FIRMWARE, sha256=UVD.sha(data))), \
+             mock.patch.object(UVD, 'FIRMWARE_CRC', crc):
+            value = UVD.validate_firmware(data)
+            self.assertEqual(value['bytes'], 314168)
+            self.assertEqual(value['payload_offset'], 256)
+            for offset, fmt, value in ((0, '<I', 232752), (4, '<I', 64), (8, '<H', 2),
+                                       (10, '<H', 1), (12, '<H', 5), (14, '<H', 1),
+                                       (16, '<I', 0x012a6508), (20, '<I', 313911), (24, '<I', 32),
+                                       (28, '<I', crc ^ 1)):
+                changed = bytearray(data); struct.pack_into(fmt, changed, offset, value)
+                with self.subTest(offset=offset), self.assertRaises(ValueError):
+                    UVD.validate_firmware(changed)
+            changed = bytearray(data); changed[-1] = 1
+            with self.assertRaisesRegex(ValueError, 'CRC'):
+                UVD.validate_firmware(changed)
+
+    def test_stock_length_and_unpinned_payload_are_refused(self):
+        with self.assertRaisesRegex(ValueError, '314168'):
+            UVD.validate_firmware(bytes(232752))
+        data, crc = synthetic_firmware()
+        with mock.patch.object(UVD, 'FIRMWARE_CRC', crc), self.assertRaisesRegex(ValueError, 'SHA256'):
+            UVD.validate_firmware(data)
+
+    def test_alpha3_keeps_dev2_kernel_and_requires_the_correct_firmware_pin(self):
+        profile = json.loads((ROOT / 'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        self.assertEqual(UVD.select_contract(profile), UVD.ALPHA3)
+        for key in ('kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256'):
+            self.assertEqual(UVD.ALPHA3[key], UVD.ALPHA2[key])
+        self.assertEqual(profile['alpha_inputs']['root_firmware'], UVD.FIRMWARE)
+        self.assertEqual(UVD.FIRMWARE['bytes'], 314168)
+        self.assertEqual(UVD.FIRMWARE_CRC, 0xa465ba07)
 
 
 class UVDTests(unittest.TestCase):
@@ -70,7 +115,7 @@ class UVDTests(unittest.TestCase):
                           ("playback", (ROOT / "experiments/ps4-uvd-driver/runtime/playback.py").read_bytes())):
             self.write(self.contract[key], data)
             self.contract[key + "_sha256"] = UVD.sha(data)
-        firmware = b"synthetic non-firmware data"
+        firmware, self.firmware_crc = synthetic_firmware()
         self.write(self.firmware["path"], firmware)
         self.firmware.update(bytes=len(firmware), sha256=UVD.sha(firmware))
         self.manifest = json.loads((ROOT / "manifests/ps4-diagnostics-uvd-alpha1.json").read_text())
@@ -85,6 +130,7 @@ class UVDTests(unittest.TestCase):
         self.runner.catalogue["expected_kernel_release"] = UVD.ALPHA["kernel_release"]
         self.runner.tests["uvd.avc"] = dict(self.runner.tests["uvd.avc"], kind="functional", timeout_seconds=120)
         for patch in (mock.patch.object(UVD, "DIAGNOSTIC", self.contract), mock.patch.object(UVD, "FIRMWARE", self.firmware),
+                      mock.patch.object(UVD, "FIRMWARE_CRC", self.firmware_crc),
                       mock.patch.object(BASE.diag.Runner, "uvd_adapter", return_value=UVD)):
             patch.start(); self.addCleanup(patch.stop)
 
