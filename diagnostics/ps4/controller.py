@@ -222,6 +222,9 @@ class Controller:
         identity = self.runner.identity()
         if not identity["release_matches"] or not identity["boot_id"]:
             raise ValueError("This action requires the matching PS4 diagnostic kernel and boot manifest.")
+        uvd_stop = self.runner.uvd_stop_reason()
+        if uvd_stop:
+            raise ValueError(uvd_stop)
         batch = self._browser_batch
         if (batch and batch['record'].get('stop_required')
                 and batch['record'].get('identity', {}).get('boot_id') == identity['boot_id']):
@@ -448,7 +451,8 @@ class Controller:
         return None
 
     def catalogue_test(self, test_id, parameters, retry_reason=""):
-        if test_id in ("memory.pattern", "audio.44100", "ethernet.https") or test_id.startswith(("gpu.", "wayland.")):
+        alpha_uvd = test_id == "uvd.avc" and self.runner.identity().get("declared_artifacts", {}).get("uvd_runtime") is True
+        if alpha_uvd or test_id in ("memory.pattern", "audio.44100", "ethernet.https") or test_id.startswith(("gpu.", "wayland.")):
             blocked = self.core_prerequisites(test_id, cpu_only=test_id == "memory.pattern")
             if blocked: return blocked
         return self.runner.run(test_id, parameters, retry_reason)

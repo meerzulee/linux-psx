@@ -20,6 +20,13 @@ original source was retained during review. [Detailed image notes](PS4-DIAGNOSTI
 preserve historical test scope; [Chromium notes](PS4-DIAGNOSTIC-CHROMIUM.md)
 describe the separate opt-in provider.
 
+The separate [UVD alpha](PS4-DIAGNOSTIC-ALPHA.md) adds a matched experimental
+kernel, exact AVC reference comparison and the full **Test plan** checklist.
+The checklist covers 45 scoped gates: 6 automated, 8 assisted, 22 manual,
+6 unimplemented and 3 deferred. It lists the unfinished work explicitly and
+does not start tests or award stability. Ordinary frontend refreshes reject
+UVD alpha images so native-dev3 helper guards cannot overwrite alpha guards.
+
 ## Source checks
 
 Use a native Linux x86-64 host for diagnostic image assembly. The builder uses

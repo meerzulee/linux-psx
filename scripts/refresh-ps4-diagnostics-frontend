@@ -49,6 +49,8 @@ def refresh(base, tui, output, revision='olive1', plan_only=False, snapshot=None
     files, metadata = stage.source_files(base)
     if metadata.get('root_format') != 'ext4-ro-loop' or not image.console_profile(metadata):
         raise ValueError('Frontend refresh requires the verified read-only console profile')
+    if metadata.get('uvd_runtime') is True:
+        raise ValueError('Experimental UVD images require their alpha assembler; ordinary frontend sources carry native-dev3 release guards')
     frontend = {
         'psx-diagnostics-tui': image.executable_input(tui),
         'start-console': (REPO / 'rootfs/ps4-diagnostics-desktop/start-console').read_bytes(),

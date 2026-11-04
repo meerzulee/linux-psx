@@ -1,0 +1,626 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Build one frozen UVD alpha from a verified ordinary boot set, offline and rootless.
+
+Only new ordinary output files are written. No mounts, devices, package installs,
+console connections or hardware tests. The 29-file frontend contract is unchanged.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import posixpath
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+import time
+
+sys.dont_write_bytecode = True
+REPO = Path(__file__).resolve().parents[1]
+BASE_RELEASE = '7.2.11-psx-ps4-baikal-native-dev3'
+ALPHA_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev1'
+MIB = 1024 * 1024
+CAP = 1024 * MIB
+UVD_ARGS = ('amdgpu.ps4_uvd_runtime=1', 'amdgpu.ps4_uvd_ready=1', 'amdgpu.ps4_uvd_poll_state=1')
+BROWSER_PREFS = ('media.hardware-video-decoding.enabled', 'media.hardware-video-decoding.force-enabled', 'media.ffmpeg.vaapi.enabled')
+PATH_RE = re.compile(r'/[A-Za-z0-9._+/-]+\Z')
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def encoded(value):
+    return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode()
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    result = importlib.util.module_from_spec(spec)
+    sys.modules[name] = result
+    loader.exec_module(result)
+    return result
+
+
+def image_path(value):
+    require(isinstance(value, str) and PATH_RE.fullmatch(value) and value != '/', 'Unsafe image path')
+    require(posixpath.normpath(value) == value and '..' not in PurePosixPath(value).parts, 'Noncanonical image path')
+    return value
+
+
+def regular(path):
+    path = Path(path)
+    require(not path.is_symlink() and path.is_file() and stat.S_ISREG(path.stat().st_mode), f'Expected regular input: {path}')
+    return path
+
+
+def pinned(path, pin):
+    path = regular(path)
+    require(re.fullmatch(r'[a-f0-9]{64}', pin.get('sha256', '')), 'Invalid input digest')
+    require(path.stat().st_size < CAP, 'Oversized alpha input')
+    if 'bytes' in pin:
+        require(path.stat().st_size == pin['bytes'], f'Input size differs: {path.name}')
+    require(digest(path) == pin['sha256'], f'Input checksum differs: {path.name}')
+    return {'bytes': path.stat().st_size, 'sha256': pin['sha256']}
+
+
+def contained(root, name):
+    require(isinstance(name, str) and not PurePosixPath(name).is_absolute(), 'Expected relative input name')
+    image_path('/' + name)
+    path = root / name
+    require(path.resolve() == path and path.is_relative_to(root), 'Input symlink or escape')
+    return path
+
+
+def validate_paths(base, package, fixture, output):
+    inputs = []
+    for path in (base, package, fixture):
+        path = Path(path).absolute()
+        require(path.is_dir() and not path.is_symlink(), 'Input must be an existing directory')
+        inputs.append(path.resolve(strict=True))
+    requested = Path(output).absolute()
+    require(not requested.exists() and not requested.is_symlink(), 'Output must not already exist')
+    output = requested.resolve()
+    require(output == requested and output.parent.is_dir(), 'Output needs an existing canonical parent')
+    require(not any(output == p or output.is_relative_to(p) or p.is_relative_to(output) for p in inputs), 'Output overlaps an input')
+    require(not any(output == p or output.is_relative_to(p) for p in (Path('/dev'), Path('/sys'), Path('/proc'))), 'Output cannot be a device or virtual filesystem')
+    require(output not in (REPO, REPO.parent, Path('/')), 'Unsafe output directory')
+    for name in ('scripts', 'diagnostics', 'rootfs', 'manifests', 'experiments'):
+        require(not output.is_relative_to(REPO / name), 'Output overlaps versioned source')
+    return (*inputs, output)
+
+
+def run(argv, **kwargs):
+    return subprocess.run([str(x) for x in argv], check=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=180, **kwargs)
+
+
+def fsck(path):
+    regular(path)
+    result = subprocess.run(['e2fsck', '-f', '-n', str(path)], stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, timeout=180)
+    require(result.returncode == 0, 'Read-only e2fsck failed: ' + result.stdout.decode(errors='replace')[-2000:])
+    return {'command': ['e2fsck', '-f', '-n'], 'returncode': 0, 'output_sha256': sha(result.stdout)}
+
+
+class RootImage:
+    """Strict debugfs reader/writer for an owned COPY, never a block device.
+
+    API for other offline assemblers: read(path, resolve=False), entries(path),
+    walk(path), and apply({absolute_target: (bytes, octal_mode)}, remove_tree=None).
+    writable=True requires immutable_base and rejects shared inodes/hardlinks.
+    Each apply returns per-file before/after hashes and checks root uid/gid/mode.
+    """
+    def __init__(self, path, *, writable=False, immutable_base=None):
+        self.path = regular(Path(path).absolute())
+        self.writable = writable
+        self.cache = {}
+        self.commands = []
+        if writable:
+            require(immutable_base is not None, 'Writer requires immutable base identity')
+            base = regular(immutable_base)
+            current, original = self.path.stat(), base.stat()
+            require((current.st_dev, current.st_ino) != (original.st_dev, original.st_ino), 'Refusing original image inode')
+            require(current.st_nlink == 1 and current.st_uid == os.geteuid(), 'Image copy must be exclusively owned, without hardlinks')
+
+    def debug(self, command, *, write=False):
+        require(not write or self.writable, 'Read-only image handle')
+        argv = ['debugfs', *(['-w'] if write else []), '-f', '-', str(self.path)]
+        # The batch parser is not a shell. Every image path is restricted above;
+        # host write inputs are fresh numbered files under our /var/tmp directory.
+        result = run(argv, input=(command + '\n').encode())
+        errors = [line for line in result.stderr.decode(errors='replace').splitlines()
+                  if line and not re.fullmatch(r'debugfs [0-9].*', line)]
+        require(not errors, 'debugfs rejected operation: ' + '\n'.join(errors)[:2000])
+        if write:
+            self.commands.extend(command.splitlines())
+            self.cache.clear()
+        return result.stdout
+
+    def query(self, command):
+        result = run(['debugfs', '-R', command, str(self.path)])
+        errors = [line for line in result.stderr.decode(errors='replace').splitlines()
+                  if line and not re.fullmatch(r'debugfs [0-9].*', line)]
+        require(not errors, 'debugfs read failed: ' + '\n'.join(errors)[:2000])
+        return result.stdout
+
+    def entries(self, directory):
+        require(directory == '/' or image_path(directory), 'Unsafe directory')
+        if directory in self.cache:
+            return self.cache[directory]
+        if directory != '/':
+            parent, name = posixpath.split(directory)
+            entry = self.entries(parent or '/').get(name)
+            require(entry is not None and stat.S_ISDIR(entry['mode']), f'Image parent is not a directory: {directory}')
+        data = self.query('ls -p ' + directory).decode()
+        result = {}
+        for line in data.splitlines():
+            if not line:
+                continue
+            fields = line.split('/')
+            require(len(fields) >= 8 and fields[0] == '', 'Unexpected debugfs directory output')
+            inode, mode, uid, gid, name, size = fields[1:7]
+            if name in ('.', '..') or int(inode) == 0:
+                continue
+            require(name not in result and '/' not in name, 'Duplicate image directory entry')
+            result[name] = {'inode': int(inode), 'mode': int(mode, 8), 'uid': int(uid), 'gid': int(gid), 'bytes': int(size or 0)}
+        self.cache[directory] = result
+        return result
+
+    def entry(self, path):
+        path = image_path(path)
+        parent, name = posixpath.split(path)
+        return self.entries(parent or '/').get(name)
+
+    def resolve(self, path):
+        path = image_path(path)
+        for _ in range(16):
+            entry = self.entry(path)
+            require(entry is not None, f'Image input absent: {path}')
+            if not stat.S_ISLNK(entry['mode']):
+                require(stat.S_ISREG(entry['mode']), 'Image input is not a regular file')
+                return path
+            info = self.query('stat ' + path).decode()
+            match = re.search(r'^Fast link dest: "([^"\r\n]+)"$', info, re.MULTILINE)
+            require(match is not None, 'Only bounded in-image fast symlinks are accepted')
+            target = match[1]
+            path = image_path(posixpath.normpath(target if target.startswith('/') else posixpath.join(posixpath.dirname(path), target)))
+        raise ValueError('Image symlink cycle')
+
+    def read(self, path, *, resolve=False):
+        path = self.resolve(path) if resolve else image_path(path)
+        entry = self.entry(path)
+        require(entry is not None and stat.S_ISREG(entry['mode']), f'Image file absent/nonregular: {path}')
+        require(entry['bytes'] <= 64 * MIB, 'Image file exceeds read bound')
+        data = self.query('cat ' + path)
+        require(len(data) == entry['bytes'], 'Image read length differs')
+        return data
+
+    def walk(self, directory):
+        image_path(directory)
+        result = {}
+        pending = [directory]
+        while pending:
+            parent = pending.pop()
+            for name, entry in self.entries(parent).items():
+                path = image_path(parent + '/' + name)
+                require(len(result) < 2048, 'Module tree exceeds entry bound')
+                result[path] = entry
+                if stat.S_ISDIR(entry['mode']):
+                    pending.append(path)
+                else:
+                    require(stat.S_ISREG(entry['mode']), 'Module tree contains nonregular entries')
+        return result
+
+    def apply(self, replacements, *, remove_tree=None):
+        require(self.writable, 'Read-only image handle')
+        require(isinstance(replacements, dict) and len(replacements) <= 1024, 'Unbounded image replacements')
+        commands, changes, directories = [], [], set()
+        if remove_tree is not None:
+            require(re.fullmatch(r'/usr/lib/modules/[A-Za-z0-9._+-]+', remove_tree), 'Only a complete named module tree may be removed')
+            tree = self.walk(remove_tree)
+            for path, info in sorted(tree.items(), key=lambda item: (-item[0].count('/'), item[0])):
+                commands.append(('rmdir ' if stat.S_ISDIR(info['mode']) else 'rm ') + path)
+            commands.append('rmdir ' + remove_tree)
+        with tempfile.TemporaryDirectory(prefix='psx-alpha-write-', dir='/var/tmp') as temporary:
+            for index, (path, (data, mode)) in enumerate(sorted(replacements.items())):
+                image_path(path)
+                require(isinstance(data, bytes) and 0 <= len(data) <= 64*MIB and mode in (0o644, 0o755), 'Invalid replacement data/mode')
+                parents = list(PurePosixPath(path).parents)[:-1]
+                for parent in reversed(parents):
+                    name = str(parent)
+                    if name in directories:
+                        continue
+                    grandparent, leaf = posixpath.split(name)
+                    if grandparent in directories:
+                        exists = None
+                    else:
+                        exists = self.entries(grandparent or '/').get(leaf)
+                    if exists is None:
+                        commands += ['mkdir ' + name, 'set_inode_field ' + name + ' mode 040755',
+                                     'set_inode_field ' + name + ' uid 0', 'set_inode_field ' + name + ' gid 0']
+                        directories.add(name)
+                    else:
+                        require(stat.S_ISDIR(exists['mode']), 'Replacement parent is not a directory')
+                before = None if posixpath.dirname(path) in directories else self.entry(path)
+                if before is not None:
+                    require(stat.S_ISREG(before['mode']), 'Replacement target is not a regular file')
+                    before = sha(self.read(path))
+                    commands.append('rm ' + path)
+                source = Path(temporary) / f'{index:04d}'
+                source.write_bytes(data)
+                commands += [f'write {source} {path}', f'set_inode_field {path} mode 0{stat.S_IFREG | mode:o}',
+                             f'set_inode_field {path} uid 0', f'set_inode_field {path} gid 0']
+                changes.append({'path': path, 'before_sha256': before, 'sha256': sha(data), 'bytes': len(data), 'mode': f'{mode:04o}'})
+            self.debug('\n'.join(commands), write=True)
+        for item in changes:
+            info = self.entry(item['path'])
+            require(info is not None and info['uid'] == info['gid'] == 0 and info['mode'] == stat.S_IFREG | int(item['mode'], 8), 'Replacement metadata readback differs')
+            require(sha(self.read(item['path'])) == item['sha256'], 'Replacement bytes readback differs')
+        if remove_tree:
+            require(self.entry(remove_tree) is None, 'Old module release survived replacement')
+        return changes
+
+
+def module_files(path, release, validator, count):
+    raw = run(['zstd', '-q', '-d', '-c', regular(path)]).stdout
+    require(len(raw) <= 32*MIB, 'Module archive exceeds uncompressed bound')
+    prefix = PurePosixPath('lib/modules') / release
+    files = {}
+    with tarfile.open(fileobj=io.BytesIO(raw), mode='r:') as archive:
+        for item in archive:
+            require(len(files) <= 512, 'Module archive exceeds file bound')
+            name = PurePosixPath(item.name)
+            if item.isdir() and name in (PurePosixPath('lib'), PurePosixPath('lib/modules')):
+                continue
+            require(name.is_relative_to(prefix) and '..' not in name.parts, 'Module archive escapes its release')
+            target = image_path('/usr/' + str(name))
+            if item.isdir():
+                continue
+            require(item.isfile() and item.size <= 32*MIB and target not in files, 'Invalid/duplicate module archive member')
+            data = archive.extractfile(item).read()
+            if item.name.endswith('.ko'):
+                validator.validate_module(data, release)
+            files[target] = data
+    require(sum(p.endswith('.ko') for p in files) == count, 'Whole module count differs')
+    require(all('/usr/' + str(prefix / name) in files for name in ('modules.dep', 'modules.dep.bin', 'modules.alias', 'modules.alias.bin', 'modules.builtin', 'modules.order')), 'Module metadata incomplete')
+    return files
+
+
+def verify_tree(image, prefix, expected):
+    actual = {p for p, info in image.walk(prefix).items() if stat.S_ISREG(info['mode'])}
+    require(actual == set(expected), 'Image module tree has missing or extra files')
+    for path, data in expected.items():
+        require(sha(image.read(path)) == sha(data), 'Module file readback differs: ' + path)
+    return {'regular_files': len(actual), 'modules': sum(p.endswith('.ko') for p in actual),
+            'tree_sha256': sha(encoded({p: sha(expected[p]) for p in sorted(expected)}))}
+
+
+def rewrite_release(data):
+    old = ('RELEASE = "' + BASE_RELEASE + '"').encode()
+    require(data.count(old) == 1 and data.count(BASE_RELEASE.encode()) == 1, 'Expected one exact native release constant')
+    return data.replace(old, ('RELEASE = "' + ALPHA_RELEASE + '"').encode())
+
+
+def alpha_catalogue(data):
+    value = json.loads(data)
+    require(value.get('expected_kernel_release') == BASE_RELEASE, 'Unexpected catalogue release')
+    value['expected_kernel_release'] = ALPHA_RELEASE
+    tests = [x for x in value['tests'] if x.get('id') == 'uvd.avc']
+    require(len(tests) == 1, 'Expected one UVD catalogue entry')
+    tests[0].update(version=2, kind='functional', timeout_seconds=120,
+                    description='Experimental gated AVC decode; one explicit attempt per boot. Terminal fault requires physical power-off and rollback.')
+    return encoded(value)
+
+
+def alpha_bootargs(data):
+    text = data.decode()
+    require(not any(token.startswith(('amdgpu.ps4_uvd_', 'amdgpu.ps4_uvd_runtime')) for token in text.split()), 'Base already contains UVD arguments')
+    for exact in ('libata.force=1.00:disable', 'psx_mts_net.autoarm=1', 'psx.diag_uuid=@USB_UUID@'):
+        require(text.split().count(exact) == 1, 'Base boot policy differs')
+    return (text.rstrip() + ' ' + ' '.join(UVD_ARGS) + '\n').encode()
+
+
+def copy_regular(source, destination):
+    regular(source)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with source.open('rb') as incoming, destination.open('xb') as outgoing:
+        shutil.copyfileobj(incoming, outgoing, 4*MIB)
+    destination.chmod(0o644)
+    require(source.stat().st_ino != destination.stat().st_ino or source.stat().st_dev != destination.stat().st_dev, 'Copy aliases immutable input')
+
+
+def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_suite=None, wayland_sha256=None):
+    base, package, fixture_dir, output = validate_paths(base, package, fixture_dir, output)
+    profile_path = regular(profile_path).resolve()
+    profile = json.loads(profile_path.read_text())
+    require(profile['profile'] == 'ps4-baikal-diagnostics-uvd-alpha1' and profile['kernel_release'] == ALPHA_RELEASE
+            and profile['alpha_base']['kernel_release'] == BASE_RELEASE, 'Only the frozen alpha1 pair is supported')
+    require(profile['root_format'] == 'ext4-ro-loop' and profile['ui_backend'] == 'ratatui'
+            and profile['hardware_acceptance'] is False and profile['uvd_runtime'] is True
+            and profile['maximum_boot_set_bytes'] == CAP and profile['vram_mib'] == 1024
+            and profile['mts_autoarm'] == 1 and tuple(profile['required_boot_arguments']) == UVD_ARGS, 'Alpha policy differs')
+    stage = load('psx_alpha_stage', REPO / 'scripts/stage-ps4-diagnostics-usb')
+    image = load('psx_alpha_image', REPO / 'scripts/build-ps4-diagnostics')
+    parser = load('psx_alpha_archive', REPO / 'scripts/ps4-diagnostics-archive')
+    files, original = stage.source_files(base)
+    require(all(original.get(k) == v for k, v in profile['alpha_base'].items()), 'Base does not match frozen alpha lineage')
+    require(original.get('source_payload') == 'receipt-only' and original.get('rootfs_file') == 'psx-diagnostics/rootfs.ext4', 'Unexpected base source/root policy')
+    entries, _ = parser.parse_newc(gzip.decompress((base / 'initramfs.cpio.gz').read_bytes()))
+    seed = {e.name.decode(): e for e in entries}
+    require(len(seed) == len(entries), 'Duplicate initramfs paths')
+    expected = dict(original); expected.pop('initramfs_sha256')
+    require(json.loads(seed['etc/psx-diagnostics-expected.json'].data) == expected, 'Base embedded/external contracts differ')
+    frontend = {name: seed['psx-frontend/' + name].data for name in image.FRONTEND_FILES}
+    require(image.frontend_manifest(frontend, original['snapshot_sums_sha256']) == original['frontend_overrides'], 'Base frontend contract differs')
+    parser.validate_busybox(seed['bin/busybox'].data)
+    package_pins = {name: pinned(contained(package, name), pin) for name, pin in profile['alpha_inputs']['legacy_package'].items()}
+    release = profile['kernel_release']; archive_name = f'modules-{release}.tar.zst'; source_name = f'source-{release}.tar.zst'
+    require(package_pins['bzImage']['sha256'] == profile['kernel_sha256'] and package_pins['config']['sha256'] == profile['config_sha256']
+            and package_pins[archive_name]['sha256'] == profile['modules_sha256'], 'Profile/package pins disagree')
+    config = (package / 'config').read_text()
+    for item in ('CONFIG_EXTRA_FIRMWARE=""', 'CONFIG_DEVTMPFS=y', 'CONFIG_VFAT_FS=y', 'CONFIG_EXT4_FS=y', 'CONFIG_BLK_DEV_LOOP=y', 'CONFIG_TMPFS=y', f'CONFIG_LOCALVERSION="-{release.split("-",1)[1]}"'):
+        require(item + '\n' in config, 'Required frozen kernel setting absent: ' + item)
+    runtime = json.loads((package / 'RUNTIME-IDENTITY.json').read_text())
+    require(runtime['release'] == release and runtime['kernel_sha256'] == profile['kernel_sha256']
+            and runtime['config_sha256'] == profile['config_sha256'] and runtime['module_count'] == profile['module_count']
+            and runtime['source_archive']['sha256'] == package_pins[source_name]['sha256'], 'Legacy runtime receipt disagrees')
+    modules = module_files(package / archive_name, release, parser, profile['module_count'])
+    module_pins = json.loads((package / 'MODULES.json').read_text())
+    ko = {p.removeprefix('/usr/'): data for p, data in modules.items() if p.endswith('.ko')}
+    require(set(ko) == set(module_pins), 'Legacy module manifest set differs')
+    for path, data in ko.items():
+        require(sha(data) == module_pins[path]['sha256'] and len(data) == module_pins[path]['bytes'], 'Legacy module manifest checksum differs')
+    playback_path = REPO / 'experiments/ps4-uvd-driver/runtime/playback.py'
+    pinned(playback_path, {'sha256': profile['uvd_diagnostic']['playback_sha256']})
+    playback = load('psx_alpha_playback', playback_path)
+    spec = profile['uvd_diagnostic']
+    require(spec['fixture'] == '/usr/share/psx-diagnostics/uvd/FIXTURE.json' and spec['playback'] == '/opt/psx-diagnostics/uvd-playback.py'
+            and spec['ffmpeg'] == '/usr/bin/ffmpeg' and spec['driver'] == '/opt/psx-mesa/usr/lib/dri/radeonsi_drv_video.so'
+            and spec['render_node'] == '/dev/dri/renderD128' and spec['maximum_attempts_per_boot'] == 1, 'Unexpected UVD paths/policy')
+    fixture_manifest, fixture_identity = playback.verify_fixture(fixture_dir / 'FIXTURE.json', spec['fixture_sha256'])
+    declared_fixture_names = {item['path'] for item in [fixture_manifest['clip'], fixture_manifest['reference'],
+                              *fixture_manifest['frames'], *fixture_manifest['evidence']]}
+    fixtures = {}
+    for path in fixture_dir.rglob('*'):
+        require(not path.is_symlink(), 'Fixture symlinks are forbidden')
+        require(path.is_file() or path.is_dir(), 'Fixture contains a special file')
+        if path.is_file():
+            name = str(path.relative_to(fixture_dir)); image_path('/' + name)
+            fixtures['/usr/share/psx-diagnostics/uvd/' + name] = (path.read_bytes(), 0o644)
+    require({p.removeprefix('/usr/share/psx-diagnostics/uvd/') for p in fixtures} == declared_fixture_names | {'FIXTURE.json', 'SHA256SUMS'}, 'Unexpected or missing fixture assets')
+    require(len(fixtures) <= 256 and sum(len(d) for d, _ in fixtures.values()) <= 16*MIB, 'Fixture exceeds bounded alpha payload')
+    root = base / original['rootfs_file']; before_fsck = fsck(root); reader = RootImage(root)
+    anchors = {}
+    anchor_specs = [profile['alpha_inputs']['root_firmware'],
+                    {'path': spec['ffmpeg'], 'sha256': spec['ffmpeg_sha256']}, {'path': spec['driver'], 'sha256': spec['driver_sha256']},
+                    {'path': '/opt/psx-mesa/MESA-PSX-CANDIDATE.json', 'sha256': profile['mesa_manifest_sha256']}]
+    for item in anchor_specs:
+        data = reader.read(item['path'], resolve=True)
+        require(sha(data) == item['sha256'] and ('bytes' not in item or len(data) == item['bytes']), 'Base runtime anchor differs: ' + item['path'])
+        anchors[item['path']] = {'sha256': sha(data), 'bytes': len(data), 'resolved_path': reader.resolve(item['path'])}
+    old_archive = f'modules-{BASE_RELEASE}.tar.zst'
+    require(files['psx-diagnostics/' + old_archive] == original['modules_sha256'], 'Base module receipt differs')
+    old_modules = module_files(base / 'psx-diagnostics' / old_archive, BASE_RELEASE, parser, original['module_count'])
+    old_tree = verify_tree(reader, '/usr/lib/modules/' + BASE_RELEASE, old_modules)
+    require(set(reader.entries('/usr/lib/modules')) == {BASE_RELEASE}, 'Base contains unexpected module releases')
+    replacements, source_facts = {}, {}
+    sources = {'runner.py': '/opt/psx-diagnostics/runner.py', 'controller.py': '/opt/psx-diagnostics/controller.py',
+               'uvd.py': '/opt/psx-diagnostics/uvd.py', 'qualification.py': '/opt/psx-diagnostics/qualification.py',
+               'qualification.json': '/opt/psx-diagnostics/qualification.json', 'network.py': '/opt/psx-diagnostics/network.py',
+               'ssh_access.py': '/opt/psx-diagnostics/ssh_access.py'}
+    for name, target in sources.items():
+        source = regular(REPO / 'diagnostics/ps4' / name); data = source.read_bytes(); before = sha(data)
+        if name in ('network.py', 'ssh_access.py'):
+            data = rewrite_release(data)
+        if name.endswith('.py'):
+            compile(data, str(source), 'exec')
+        else:
+            json.loads(data)
+        replacements[target] = (data, 0o755 if name.endswith('.py') else 0o644)
+        source_facts[str(source.relative_to(REPO))] = {'source_sha256': before, 'installed_sha256': sha(data), 'path': target}
+        if name in frontend:
+            frontend[name] = data
+    for source_name_, target in [('rootfs/ps4-diagnostics/ethernet-up', '/usr/lib/psx-diagnostics/ethernet-up'),
+                                ('rootfs/ps4-diagnostics-gui/prepare-ssh-host-key', '/usr/lib/psx-diagnostics/prepare-ssh-host-key')]:
+        data = (REPO / source_name_).read_bytes(); changed = rewrite_release(data); compile(changed, target, 'exec')
+        replacements[target] = (changed, 0o755)
+        source_facts[source_name_] = {'source_sha256': sha(data), 'installed_sha256': sha(changed), 'path': target}
+    catalogue = (REPO / 'diagnostics/ps4/catalogue.json').read_bytes()
+    replacements['/opt/psx-diagnostics/catalogue.json'] = (alpha_catalogue(catalogue), 0o644)
+    source_facts['diagnostics/ps4/catalogue.json'] = {'source_sha256': sha(catalogue), 'installed_sha256': sha(replacements['/opt/psx-diagnostics/catalogue.json'][0])}
+    replacements[spec['playback']] = (playback_path.read_bytes(), 0o755)
+    source_facts[str(playback_path.relative_to(REPO))] = {'source_sha256': sha(playback_path.read_bytes()), 'installed_sha256': spec['playback_sha256'], 'path': spec['playback']}
+    replacements['/usr/bin/psx-qualify'] = (b'#!/bin/sh\nexec /usr/bin/python3 /opt/psx-diagnostics/qualification.py "$@"\n', 0o755)
+    replacements['/usr/lib/os-release'] = (b'NAME="psX Diagnostics"\nID=psx-diagnostics\nID_LIKE=arch\n'
+        b'PRETTY_NAME="psX Diagnostics UVD alpha1"\nIMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION=alpha1\n', 0o644)
+    wayland_path = REPO / 'rootfs/ps4-wayland/launch-wayland'
+    if wayland_path.is_file():
+        data = wayland_path.read_bytes(); replacements['/usr/lib/psx-diagnostics/launch-wayland'] = (data, 0o755)
+        source_facts[str(wayland_path.relative_to(REPO))] = {'source_sha256': sha(data), 'installed_sha256': sha(data)}
+    wayland_facts = None
+    require((wayland_suite is None) == (wayland_sha256 is None), 'Supply both --wayland-suite and --wayland-sha256')
+    if wayland_suite is not None:
+        wayland_suite = regular(wayland_suite).resolve()
+        wayland_facts = pinned(wayland_suite, {'sha256': wayland_sha256})
+        wayland = load('psx_alpha_wayland', wayland_path)
+        manifest, _ = wayland.inspect_archive(wayland_suite, wayland_sha256)
+        require(manifest.get('kernel_release') == ALPHA_RELEASE and manifest.get('kernel_sha256') == profile['kernel_sha256']
+                and manifest.get('mesa_manifest_sha256') == profile['mesa_manifest_sha256'], 'Wayland suite is not matched to the alpha kernel/Mesa')
+        wayland_facts['suite_manifest_sha256'] = sha(encoded(manifest))
+        replacements['/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz'] = (wayland_suite.read_bytes(), 0o644)
+    prefs_path = '/etc/psx-diagnostics/firefox-user.js'
+    prefs = reader.read(prefs_path)
+    replacements[prefs_path] = (prefs.rstrip() + b'\n// Experimental alpha: decoder is reserved for one explicit UVD action.\n' +
+                                ''.join(f'user_pref("{key}", false);\n' for key in BROWSER_PREFS).encode(), 0o644)
+    replacements.update(fixtures)
+    replacements.update({path: (data, 0o644) for path, data in modules.items()})
+    if tui is not None:
+        frontend['psx-diagnostics-tui'] = image.executable_input(regular(tui))
+        source_facts['tui-binary'] = {'source_sha256': sha(frontend['psx-diagnostics-tui']), 'path': '/usr/bin/psx-diagnostics-tui'}
+    frontend_facts = image.frontend_manifest(frontend, original['snapshot_sums_sha256'])
+    bootargs = alpha_bootargs((base / 'bootargs.template.txt').read_bytes())
+    metadata = copy.deepcopy(original)
+    for key in ('initramfs_sha256', 'rootfs_sha256', 'frontend_refresh', 'rootfs_unpacked_bytes'):
+        metadata.pop(key, None)
+    for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256', 'source_commit', 'module_count',
+                'image_version', 'uvd_runtime', 'uvd_diagnostic', 'alpha_policy', 'alpha_inputs', 'required_boot_arguments'):
+        metadata[key] = copy.deepcopy(profile[key])
+    imported = {'schema_version': 1, 'origin': 'Frozen experimental package imported without rebuilding or changing its receipts',
+                'kernel_release': release, 'kernel_sha256': profile['kernel_sha256'], 'config_sha256': profile['config_sha256'],
+                'modules_sha256': profile['modules_sha256'], 'module_count': profile['module_count'], 'source_commit': profile['source_commit'],
+                'legacy_receipts': package_pins, 'hardware_acceptance': False}
+    metadata.update(kernel=imported, frontend_overrides=frontend_facts, frontend_revision='uvd-alpha1',
+                    rootfs_tui_sha256=original.get('rootfs_tui_sha256', original['tui_sha256']), tui_sha256=sha(frontend['psx-diagnostics-tui']),
+                    builder_sha256=digest(Path(__file__)), hardware_acceptance=False,
+                    alpha_derivation={'base_profile': original['profile'], 'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
+                        'base_initramfs_sha256': files['initramfs.cpio.gz'], 'base_rootfs_sha256': original['rootfs_sha256'],
+                        'base_kernel_release': BASE_RELEASE, 'base_kernel_sha256': original['kernel_sha256'],
+                        'profile_sha256': digest(profile_path), 'method': 'Unprivileged debugfs edits of a new ordinary-file copy; no mounts or package execution',
+                        'sources': source_facts, 'fixture_files': len(fixtures), 'fixture_bytes': sum(len(d) for d, _ in fixtures.values()),
+                        'runtime_anchors': anchors, 'browser_hardware_video_decode': False, 'browser_disabled_preferences': list(BROWSER_PREFS)})
+    if wayland_facts:
+        metadata['alpha_derivation']['wayland_suite'] = dict(wayland_facts, path='/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz')
+    return dict(base=base, package=package, fixture_dir=fixture_dir, output=output, profile=profile, files=files, original=original,
+                seed=seed, frontend=frontend, replacements=replacements, metadata=metadata, imported=imported, modules=modules,
+                anchors=anchors, before_fsck=before_fsck, old_tree=old_tree, bootargs=bootargs, stage=stage, image=image,
+                archive_name=archive_name, source_name=source_name, source_facts=source_facts, profile_path=profile_path,
+                fixture_identity=fixture_identity, wayland_suite=wayland_suite, wayland_facts=wayland_facts,
+                tui_input=Path(tui).resolve() if tui is not None else None)
+
+
+def build(prepared, *, plan_only=False):
+    p = prepared
+    plan = {'profile': p['profile']['profile'], 'kernel_release': ALPHA_RELEASE, 'base_rootfs_sha256': p['original']['rootfs_sha256'],
+            'output': str(p['output']), 'root_image_bytes': (p['base'] / p['original']['rootfs_file']).stat().st_size,
+            'frontend_assets': len(p['frontend']), 'frontend_bytes': p['metadata']['frontend_overrides']['total_bytes'],
+            'replacement_files': len(p['replacements']), 'module_files': len(p['modules']), 'module_count': p['profile']['module_count'],
+            'fixture_files': p['metadata']['alpha_derivation']['fixture_files'], 'fixture_bytes': p['metadata']['alpha_derivation']['fixture_bytes'],
+            'maximum_boot_set_bytes': CAP, 'reserve_bytes': MIB, 'hardware_acceptance': False, 'plan_only': plan_only}
+    if plan_only:
+        return plan
+    output = p['output']; output.mkdir(mode=0o755)
+    payload = output / 'psx-diagnostics'; payload.mkdir()
+    root = output / p['original']['rootfs_file']
+    copy_regular(p['base'] / p['original']['rootfs_file'], root)
+    editor = RootImage(root, writable=True, immutable_base=p['base'] / p['original']['rootfs_file'])
+    changes = editor.apply(p['replacements'], remove_tree='/usr/lib/modules/' + BASE_RELEASE)
+    new_tree = verify_tree(editor, '/usr/lib/modules/' + ALPHA_RELEASE, p['modules'])
+    require(set(editor.entries('/usr/lib/modules')) == {ALPHA_RELEASE}, 'Alpha module release set differs')
+    metadata = p['metadata']
+    metadata['alpha_derivation']['root_changes'] = changes
+    metadata['alpha_derivation']['module_readback'] = new_tree
+    # This pre-image receipt omits final root/initramfs hashes, as in the normal builder.
+    inner = editor.apply({'/etc/psx-diagnostics/boot-set.json': (encoded(metadata), 0o644),
+                          '/usr/share/psx-diagnostics/alpha-base-boot-set.json': (encoded(p['original']), 0o644)})
+    for path, pin in p['anchors'].items():
+        require(sha(editor.read(path, resolve=True)) == pin['sha256'], 'Preserved runtime anchor changed')
+    after_fsck = fsck(root)
+    metadata.update(rootfs_sha256=digest(root), rootfs_image_bytes=root.stat().st_size)
+    # Immutable base must remain exact after the copy/edit path, including its root.
+    current_files, _ = p['stage'].source_files(p['base'])
+    require(current_files == p['files'], 'Immutable base changed during alpha assembly')
+    for name, info in p['source_facts'].items():
+        source = p['tui_input'] if name == 'tui-binary' else REPO / name
+        require(digest(source) == info['source_sha256'], 'Source changed during assembly: ' + name)
+    require(digest(p['profile_path']) == metadata['alpha_derivation']['profile_sha256'], 'Alpha profile changed during assembly')
+    if p.get('wayland_suite') is not None:
+        require(digest(p['wayland_suite']) == p['wayland_facts']['sha256'], 'Wayland input changed during assembly')
+    # Copy only still-relevant immutable base members; kernel identity files are new below.
+    replaced = {'bzImage', 'initramfs.cpio.gz', 'bootargs.template.txt', 'psx-diagnostics/boot-set.json', p['original']['rootfs_file'],
+                'psx-diagnostics/config', 'psx-diagnostics/manifest.txt', 'psx-diagnostics/version.txt', 'psx-diagnostics/artifacts.json',
+                'psx-diagnostics/source-pins.json', 'psx-diagnostics/README.txt', f'psx-diagnostics/modules-{BASE_RELEASE}.tar.zst'}
+    for name in p['files']:
+        if name not in replaced:
+            require(not name.startswith('psx-diagnostics/source/'), 'Unexpected bundled old source')
+            copy_regular(p['base'] / name, output / name)
+    copy_regular(p['package'] / 'bzImage', output / 'bzImage')
+    copy_regular(p['package'] / 'config', payload / 'config')
+    copy_regular(p['package'] / p['archive_name'], payload / p['archive_name'])
+    require(digest(payload / 'config') == p['profile']['config_sha256']
+            and digest(payload / p['archive_name']) == p['profile']['modules_sha256'], 'Copied kernel metadata/archive differs from frozen pins')
+    (payload / 'version.txt').write_text(ALPHA_RELEASE + '\n')
+    (payload / 'artifacts.json').write_bytes(encoded(p['imported']))
+    (payload / 'manifest.txt').write_text('Frozen UVD alpha adapter; original kernel/modules/source receipts preserved under alpha-inputs.\nNo compilation or hardware qualification performed by this assembler.\n')
+    source_pin = p['profile']['alpha_inputs']['legacy_package'][p['source_name']]
+    (payload / 'source-pins.json').write_bytes(encoded({'source_archive': p['source_name'], **source_pin,
+        'source_commit': p['profile']['source_commit'], 'repository': 'https://github.com/meerzulee/linux-psx',
+        'availability': 'Complete patched corresponding-source archive retained unchanged in the verified host UVD package; distribute separately with any binary release.',
+        'legacy_source_receipt': p['profile']['alpha_inputs']['legacy_package']['build-inputs/runtime/SOURCE-RECEIPT.json']}))
+    for name in p['profile']['alpha_inputs']['legacy_package']:
+        pinned(contained(p['package'], name), p['profile']['alpha_inputs']['legacy_package'][name])
+        if name not in ('bzImage', 'config', p['archive_name'], p['source_name']):
+            copy_regular(p['package'] / name, payload / 'alpha-inputs' / name)
+    (output / 'bootargs.template.txt').write_bytes(p['bootargs'])
+    (payload / 'README.txt').write_text('psX Diagnostics UVD alpha1 — frozen experimental kernel, not hardware-qualified.\n'
+        'Complete matched kernel/modules and a verified derivative of the ordinary USB root.\n'
+        'Internal SATA remains disabled; no automatic reset/power/storage tests.\n'
+        'UVD runtime is enabled; one explicit bounded AVC attempt per boot. Terminal faults require physical power-off and rollback.\n'
+        'Firefox hardware video decoding is disabled. Chromium/Wayland providers require separately matched alpha identities.\n'
+        'Test plan: psx-qualify. No qualification command starts tests automatically.\n'
+        'The complete corresponding-source archive is identified in source-pins.json and retained separately.\n')
+    firmware = {name: item.data for name, item in p['seed'].items() if name.startswith('lib/firmware/') and stat.S_ISREG(item.mode)}
+    p['image'].initramfs(p['profile'], p['seed'], p['seed']['bin/busybox'].data, firmware, metadata['rootfs_sha256'],
+                        output / 'initramfs.cpio.gz', int(time.time()), expected=metadata, frontend=p['frontend'])
+    external = dict(metadata, initramfs_sha256=digest(output / 'initramfs.cpio.gz'))
+    (payload / 'boot-set.json').write_bytes(encoded(external))
+    receipt = {'schema_version': 1, 'verification': 'offline-readback', 'hardware_acceptance': False,
+               'before_fsck': p['before_fsck'], 'after_fsck': after_fsck, 'old_module_tree': p['old_tree'], 'new_module_tree': new_tree,
+               'root_metadata_readback': inner, 'debugfs_commands_sha256': sha(('\n'.join(editor.commands)+'\n').encode()),
+               'changed_files': changes, 'preserved_anchors': p['anchors'], 'base_unchanged': True}
+    (payload / 'alpha-build-receipt.json').write_bytes(encoded(receipt))
+    sums = {str(path.relative_to(output)): digest(path) for path in output.rglob('*') if path.is_file()}
+    (output / 'SHA256SUMS').write_text(p['stage'].installed_sums(sums))
+    files, verified = p['stage'].source_files(output)
+    total = sum((output / name).stat().st_size for name in files) + (output / 'SHA256SUMS').stat().st_size
+    require(total + MIB <= CAP, 'Alpha boot set exceeds 1 GiB cap plus receipt reserve')
+    plan.update(status='PASS', plan_only=False, boot_set_bytes=total, rootfs_sha256=verified['rootfs_sha256'],
+                initramfs_sha256=verified['initramfs_sha256'], kernel_sha256=verified['kernel_sha256'], module_readback=new_tree)
+    return plan
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--base', type=Path, required=True)
+    parser.add_argument('--uvd-package', type=Path, required=True)
+    parser.add_argument('--fixture', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--profile', type=Path, default=REPO / 'manifests/ps4-diagnostics-uvd-alpha1.json')
+    parser.add_argument('--tui-binary', type=Path, help='Optional newly built alpha TUI; otherwise retain the verified base frontend')
+    parser.add_argument('--wayland-suite', type=Path, help='Optional separately prepared, matched alpha Wayland archive')
+    parser.add_argument('--wayland-sha256', help='Reviewed SHA256 of the optional alpha Wayland archive')
+    parser.add_argument('--plan', action='store_true', help='Read-only verification; create no work or output files')
+    args = parser.parse_args()
+    prepared = prepare(args.base, args.uvd_package, args.fixture, args.profile, args.output, args.tui_binary,
+                       args.wayland_suite, args.wayland_sha256)
+    print(json.dumps(build(prepared, plan_only=args.plan), indent=2))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+        raise SystemExit('Alpha assembly: ' + str(error))

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import fcntl
 import hashlib
+import importlib.util
 import ipaddress
 import json
 import os
@@ -336,6 +337,24 @@ class Runner:
                 continue
         return sorted(records, key=lambda record: str(record.get("started_at", "")), reverse=True)
 
+    def uvd_adapter(self):
+        # Optional alpha dependency: ordinary images never import this module.
+        path = HERE / "uvd.py"
+        if not path.is_file():
+            path = self.fs.local("/opt/psx-diagnostics/uvd.py")
+        spec = importlib.util.spec_from_file_location("psx_uvd_diagnostic", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def uvd_stop_reason(self):
+        if self.identity().get("declared_artifacts", {}).get("uvd_runtime") is not True:
+            return None
+        try:
+            return self.uvd_adapter().stop_reason(self)
+        except (OSError, ValueError, ImportError):
+            return "The alpha UVD attempt guard is unavailable; inspect the saved evidence."
+
     def validate(self, test_id, params):
         if test_id not in self.tests:
             raise ValueError("Unknown immutable test ID")
@@ -429,6 +448,8 @@ class Runner:
                 kind = self.tests[test_id]["kind"]
                 active = kind in ("functional", "operator") or test_id.startswith("gpu.")
                 stopped = any(r.get("stop_required") or r.get("phase") == "running" for r in previous)
+                if active and self.uvd_stop_reason():
+                    stopped = True
                 prior = next((r for r in previous if r.get("test_id") == test_id and
                               r.get("parameters") == params and r.get("commands")), {})
                 failed_command = any(c.get("returncode") != 0 or c.get("timed_out") or
@@ -501,6 +522,8 @@ class Runner:
             return outcome("BLOCKED", "Power commands are not implemented here; the external UART/observer and operator stage must conduct this test",
                            {"uart_receipt": self.identity()["uart"]})
         if test_id == "uvd.avc":
+            if self.identity().get("declared_artifacts", {}).get("uvd_runtime") is True:
+                return self.uvd_adapter().decode(self)
             return outcome("UNSUPPORTED", "Ordinary native kernel has no experimental UVD runtime; this runner does not initialize or switch decoder variants")
         if self.tests[test_id]["kind"] == "deferred":
             return outcome("DEFERRED", self.tests[test_id]["description"])

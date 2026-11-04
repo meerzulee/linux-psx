@@ -36,6 +36,22 @@ def sha(data):
 
 
 class FrontendRefreshTests(unittest.TestCase):
+    def test_uvd_alpha_cannot_receive_ordinary_release_guard_sources(self):
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
+            base = Path(temporary)
+            output = base.parent / (base.name + '-unused-alpha-refresh')
+            stage = SimpleNamespace(source_files=mock.Mock(return_value=({}, {
+                'root_format': 'ext4-ro-loop', 'ui_backend': 'ratatui', 'uvd_runtime': True,
+            })))
+            image = SimpleNamespace(console_profile=lambda _: True)
+            modules = {'psx_frontend_stage': stage, 'psx_frontend_image': image,
+                       'psx_frontend_cpio': None}
+            with mock.patch.object(REFRESH, 'load', side_effect=lambda name, _: modules[name]):
+                with self.assertRaisesRegex(ValueError, 'alpha assembler'):
+                    REFRESH.refresh(base, base / 'not-opened', output)
+            self.assertFalse(output.exists())
+            stage.source_files.assert_called_once_with(base)
+
     def test_old_four_asset_bundle_gains_current_network_helper_without_root_or_kernel_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

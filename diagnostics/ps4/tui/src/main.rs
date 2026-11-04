@@ -49,7 +49,10 @@ pub struct Job {
 }
 
 pub struct HardwareDialog {
+    pub title: &'static str,
+    pub subtitle: &'static str,
     pub inventory: Value,
+    pub raw_sources: Option<Vec<Value>>,
     pub pages: Vec<hardware::Page>,
     pub selected: usize,
     pub detail: bool,
@@ -64,6 +67,9 @@ impl HardwareDialog {
             .map(|section| hardware::page(*section, &inventory))
             .collect();
         Self {
+            title: "Hardware",
+            subtitle: "Cached hardware metadata",
+            raw_sources: None,
             inventory,
             pages,
             selected: hardware::SECTIONS
@@ -75,6 +81,154 @@ impl HardwareDialog {
             scroll: 0,
             detail_scroll: 0,
         }
+    }
+    fn qualification() -> Result<Self, String> {
+        let plan: Value = serde_json::from_str(include_str!("../../qualification.json"))
+            .map_err(|_| "The embedded test plan is invalid.".to_owned())?;
+        let checks = model::array(&plan, "/checks");
+        if checks.is_empty() {
+            return Err("The embedded test plan has no definitions.".into());
+        }
+        let required = model::array(&plan, "/profiles/kernel-baseline/required")
+            .iter()
+            .map(model::text)
+            .collect::<std::collections::HashSet<_>>();
+        let groups: [(&'static str, &[&str]); 12] = [
+            ("Prerequisites", &["Boot", "Source"]),
+            ("CPU & RAM", &["CPU", "Memory"]),
+            ("Thermal", &["Thermal"]),
+            ("Ethernet", &["Ethernet"]),
+            ("Wireless", &["Wireless"]),
+            ("USB / Storage", &["USB", "Storage"]),
+            ("Graphics / HDMI", &["Graphics", "Display"]),
+            ("Browsers", &["Browser"]),
+            ("Audio", &["Audio"]),
+            ("UVD", &["UVD"]),
+            ("Input / Controls", &["HID", "Controls"]),
+            ("Clock / Power", &["RTC", "Power"]),
+        ];
+        let mut pages = Vec::new();
+        let mut raw_sources = Vec::new();
+        for (title, areas) in groups {
+            let items = checks
+                .iter()
+                .filter(|item| areas.contains(&model::at(item, "/area").as_str()))
+                .collect::<Vec<_>>();
+            let mandatory = items
+                .iter()
+                .filter(|item| required.contains(&model::at(item, "/id")))
+                .count();
+            let mut rows = Vec::new();
+            for item in &items {
+                rows.push(hardware::Row::Heading(model::at(item, "/title")));
+                let mode = model::at(item, "/mode");
+                let status = match mode.as_str() {
+                    "unimplemented" => "Blocked · implementation missing",
+                    "deferred" => "Deferred",
+                    _ => "Not run",
+                };
+                for (label, value) in [
+                    ("Plan status", status.to_owned()),
+                    ("Execution", mode),
+                    (
+                        "Baseline gate",
+                        if required.contains(&model::at(item, "/id")) {
+                            "Required".into()
+                        } else {
+                            "Optional / separate scope".into()
+                        },
+                    ),
+                    ("Scope", model::at(item, "/scope")),
+                    (
+                        "Repetition",
+                        format!(
+                            "{} runs / {} cold boots",
+                            model::at(item, "/acceptance/runs"),
+                            model::at(item, "/acceptance/cold_boots")
+                        ),
+                    ),
+                    (
+                        "Duration",
+                        format!(
+                            "{} s per run",
+                            model::at(item, "/acceptance/seconds_per_run")
+                        ),
+                    ),
+                    (
+                        "After",
+                        model::array(item, "/depends_on")
+                            .iter()
+                            .map(model::text)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                    (
+                        "Oracles",
+                        model::array(item, "/acceptance/oracles")
+                            .iter()
+                            .map(|v| model::text(v).replace('_', " "))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                    ),
+                    ("Evidence", model::at(item, "/evidence")),
+                    ("Basis", model::at(item, "/basis")),
+                    ("Source", model::at(item, "/source")),
+                ] {
+                    if !value.is_empty() {
+                        rows.push(hardware::Row::Field(label.into(), value));
+                    }
+                }
+                for (key, label) in [
+                    ("metrics_minimum", "Minimum"),
+                    ("metrics_maximum", "Maximum"),
+                ] {
+                    if let Some(metrics) = item["acceptance"][key].as_object() {
+                        if !metrics.is_empty() {
+                            rows.push(hardware::Row::Field(
+                                label.into(),
+                                metrics
+                                    .iter()
+                                    .map(|(k, v)| {
+                                        format!("{}: {}", k.replace('_', " "), model::text(v))
+                                    })
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
+                            ));
+                        }
+                    }
+                }
+            }
+            pages.push(hardware::Page {
+                title,
+                summary: format!(
+                    "{} planned checks · {} baseline gates",
+                    items.len(),
+                    mandatory
+                ),
+                rows,
+            });
+            raw_sources.push(Value::Array(items.into_iter().cloned().collect()));
+        }
+        if raw_sources
+            .iter()
+            .map(|items| model::array(items, "").len())
+            .sum::<usize>()
+            != checks.len()
+        {
+            return Err("The embedded plan contains an unknown area.".into());
+        }
+        Ok(Self {
+            title: "Test plan",
+            subtitle: "Proposed gates · not executed test results",
+            inventory: Value::Null,
+            raw_sources: Some(raw_sources),
+            pages,
+            selected: 0,
+            detail: false,
+            raw: None,
+            scroll: 0,
+            detail_scroll: 0,
+        })
     }
 }
 
@@ -638,6 +792,10 @@ impl App {
             return;
         };
         match action.kind {
+            ActionKind::Qualification => match HardwareDialog::qualification() {
+                Ok(dialog) => self.hardware = Some(dialog),
+                Err(message) => self.error = message,
+            },
             ActionKind::SettingsGroup(group) => {
                 if self.settings_expanded[group.index()] {
                     self.collapse_settings(group);
@@ -1022,12 +1180,14 @@ impl App {
                     dialog.detail = true;
                     dialog.detail_scroll = dialog.scroll;
                     dialog.scroll = 0;
+                    let value = if let Some(sources) = &dialog.raw_sources {
+                        sources[dialog.selected].clone()
+                    } else {
+                        hardware::raw(hardware::SECTIONS[dialog.selected], &dialog.inventory)
+                    };
                     dialog.raw = Some(
-                        serde_json::to_string_pretty(&hardware::raw(
-                            hardware::SECTIONS[dialog.selected],
-                            &dialog.inventory,
-                        ))
-                        .unwrap_or_else(|_| "Unavailable".into()),
+                        serde_json::to_string_pretty(&value)
+                            .unwrap_or_else(|_| "Unavailable".into()),
                     );
                 }
             }
@@ -1951,5 +2111,54 @@ mod tests {
         };
         assert_eq!(params, &json!({"font_size":16}));
         assert_eq!(app.selected, 4);
+    }
+    #[test]
+    fn embedded_test_plan_is_grouped_local_and_preserves_runtime_reports() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.onboarding = false;
+        app.category = 0;
+        app.last_report = Some(json!({"run_id":"saved"}));
+        app.report_expanded[0] = true;
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|item| matches!(item.kind, ActionKind::Qualification))
+            .unwrap();
+        app.key(key(KeyCode::Enter));
+        let dialog = app.hardware.as_ref().unwrap();
+        assert_eq!(dialog.title, "Test plan");
+        assert_eq!(dialog.pages.len(), 12);
+        let count = dialog
+            .raw_sources
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|items| model::array(items, "").len())
+            .sum::<usize>();
+        assert_eq!(count, 45);
+        assert!(dialog.raw_sources.as_ref().unwrap().iter().any(|items| {
+            model::array(items, "")
+                .iter()
+                .any(|item| item["id"] == "uvd.lifecycle" && item["mode"] == "unimplemented")
+        }));
+        app.key(key(KeyCode::Down));
+        app.key(key(KeyCode::Enter));
+        app.key(key(KeyCode::Char('a')));
+        assert!(
+            app.hardware
+                .as_ref()
+                .unwrap()
+                .raw
+                .as_ref()
+                .unwrap()
+                .contains("cpu.bounded")
+        );
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Esc));
+        assert!(app.hardware.is_none());
+        assert_eq!(app.next_id, 0);
+        assert!(app.report_expanded[0]);
+        assert_eq!(app.last_report.as_ref().unwrap()["run_id"], "saved");
     }
 }

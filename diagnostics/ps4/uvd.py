@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""One explicit alpha AVC attempt; never initialize, reset, unload or rearm UVD.
+
+The immutable playback harness owns the forced-VAAPI decoder and exact NV12
+oracle. This adapter verifies its inputs, requires an operator's active UART
+session assertion, and retains an immutable per-boot attempt/stop intent outside
+the bounded report listing. UVD is the final active test of an alpha boot, even
+when its oracle passes. An assertion is not authenticated UART continuity.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import types
+import uuid
+
+
+ALPHA = {
+    "schema_version": 1,
+    "profile": "ps4-baikal-diagnostics-uvd-alpha1",
+    "kernel_release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev1",
+    "kernel_sha256": "9c3ec7d27fdfdebfee137684a635301e8dfa259b50e2f5d98ee33cf5f91e6153",
+    "config_sha256": "e97f456d3bd55f7c0b28948c1cc09a395ce9e17383512e844c6415f744d030a0",
+    "modules_sha256": "38767e5450dc4a136f07003d36edc71cf09f512d6b238255f8edf2fc1ce43987",
+    "source_commit": "35b9f37960ba2fbfc8e2fa0ad5077656ceb1dbc2",
+    "module_count": 41,
+    "root_format": "ext4-ro-loop",
+    "image_version": "alpha1",
+    "snapshot_sums_sha256": "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57",
+    "mesa_archive_sha256": "5c397d86a769ed55dd35798c32bfcedea5c4e3ce6eee5147dd282a04c9385fe9",
+    "mesa_manifest_sha256": "687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964",
+    "uvd_runtime": True,
+    "hardware_acceptance": False,
+}
+DIAGNOSTIC = {
+    "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
+    "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
+    "playback": "/opt/psx-diagnostics/uvd-playback.py",
+    "playback_sha256": "5c738a6ae099bad4a15aab94f90128d8cbff34cc92dcd55654f94bf738e03ebd",
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "ffmpeg_sha256": "2e37495139c8cee4711b7e1475dac11ce54633431c4a025b7b70fa2e6d7ca3c3",
+    "driver": "/opt/psx-mesa/usr/lib/dri/radeonsi_drv_video.so",
+    "driver_sha256": "16d87fdff0011054eeba34e2dff9067519d8756de788c4970cecf4a7038ce4a3",
+    "render_node": "/dev/dri/renderD128",
+    "timeout_seconds": 60,
+    "maximum_attempts_per_boot": 1,
+}
+FIRMWARE = {"path": "/usr/lib/firmware/amdgpu/liverpool_uvd.bin", "bytes": 232752,
+            "sha256": "30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9"}
+BOOT_ARGUMENTS = ["amdgpu.ps4_uvd_runtime=1", "amdgpu.ps4_uvd_ready=1",
+                  "amdgpu.ps4_uvd_poll_state=1"]
+SESSION = "/run/psx-diagnostics/uvd-session.json"
+OUTER_TIMEOUT = 120  # 60s decode plus four bounded 10s identity queries and I/O.
+KERNEL_FAULT = re.compile(
+    r"PS4_UVD_RUNTIME\s+(?:CLOSED|RETAINED)|GPU fault detected|\bVM fault\b|"
+    r"GPU reset|ring\s+[^\n]*timeout|ring\s+[^\n]*test failed|IH[^\n]*overflow|"
+    r"amdgpu_job_timedout|Kernel panic|Oops:", re.I)
+RECOVERY = "No retry/reset/rearm/unload; inspect evidence and use physical power-off and the known-good rollback."
+FINISH = "UVD is the final active test on this boot; finish the evidence session, then use physical power-off and the known-good rollback."
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def read(path, limit=1024 * 1024, *, private=False, owner=0):
+    """Bounded, protected regular files only; never follow a final symlink."""
+    require(path.resolve() == path, "UVD evidence/input path contains a symlink")
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == owner and
+                not info.st_mode & (0o077 if private else 0o022), "UVD file ownership or permissions differ")
+        data = stream.read(limit + 1)
+    require(len(data) <= limit, "UVD file exceeds its bound")
+    return data
+
+
+def local(runner, name, *, mesa_link=False):
+    path = runner.fs.root / str(name).lstrip("/")
+    if mesa_link:
+        resolved = path.resolve(strict=True)
+        require(resolved.is_relative_to(runner.fs.root / "opt/psx-mesa"), "Private Mesa path escaped")
+        return resolved
+    require(path.resolve() == path, "UVD input path contains a symlink")
+    return path
+
+
+def owner(runner):
+    return os.geteuid() if runner.fs.fixture else 0
+
+
+def document(path, runner, *, private=False):
+    value = json.loads(read(path, private=private, owner=owner(runner)))
+    require(isinstance(value, dict), "UVD receipt must be an object")
+    return value
+
+
+def marker_path(runner, boot):
+    require(isinstance(boot, str) and str(uuid.UUID(boot)) == boot, "UVD needs a canonical boot UUID")
+    path = runner.results_dir / "uvd-attempts" / (boot + ".json")
+    require(path.resolve() == path, "UVD attempt path contains a symlink")
+    return path
+
+
+def stop_reason(runner):
+    """Every current-boot intent permanently closes active work, including PASS.
+
+    This is deliberately independent of completion reports and their retention.
+    No fallible completion write can turn the durable intent into permission.
+    """
+    try:
+        boot = runner.identity()["boot_id"]
+        path = marker_path(runner, boot)
+        try:
+            path.lstat()
+        except FileNotFoundError:
+            return None
+        return "A UVD attempt has already been reserved. " + FINISH
+    except (OSError, ValueError, TypeError, KeyError):
+        return "UVD attempt state cannot be verified. " + RECOVERY
+
+
+def create_marker(runner, identity, session):
+    path = marker_path(runner, identity["boot_id"])
+    path.parent.mkdir(mode=0o700, exist_ok=True)
+    info = path.parent.stat()
+    require(info.st_uid == owner(runner) and not info.st_mode & 0o077, "UVD attempt directory is not private")
+    value = {"schema_version": 1, "boot_id": identity["boot_id"],
+             "manifest_sha256": identity["manifest_sha256"], "run_id": runner.log.directory.name,
+             "phase": "reserved", "status": "INCONCLUSIVE", "stop_required": True,
+             "experiment_id": session["experiment_id"], "session_id": session["session_id"]}
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        json.dump(value, stream, sort_keys=True); stream.write("\n")
+        stream.flush(); os.fsync(stream.fileno())
+    sync(path.parent); sync(path.parent.parent)
+    return path, value
+
+
+def sync(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def preflight(runner):
+    identity = runner.identity()
+    require(identity["release_matches"], "Alpha kernel/catalogue release mismatch")
+    require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
+    manifest = document(local(runner, runner.manifest_path), runner)
+    require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in ALPHA.items()),
+            "This is not the exact frozen UVD alpha artifact profile")
+    alpha_inputs = manifest.get("alpha_inputs")
+    require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
+            manifest.get("required_boot_arguments") == BOOT_ARGUMENTS and
+            alpha_inputs.get("root_firmware") == FIRMWARE,
+            "Alpha UVD inputs/boot policy differ")
+    validation = manifest.get("manifest_validation", {})
+    require(isinstance(validation, dict) and validation.get("embedded_root_contract_verified") is True and
+            validation.get("observed_kernel_release") == ALPHA["kernel_release"] and
+            validation.get("observed_media_initramfs_sha256") == manifest.get("initramfs_sha256") and
+            all(re.fullmatch(r"[0-9a-f]{64}", str(manifest.get(key, ""))) for key in
+                ("initramfs_sha256", "rootfs_sha256")), "Verified root/boot-set contract is missing")
+    cmdline = runner.fs.text("/proc/cmdline") or ""
+    for argument in BOOT_ARGUMENTS:
+        key = argument.split("=", 1)[0]
+        require([token for token in cmdline.split() if token.split("=", 1)[0] == key] == [argument],
+                "Required UVD boot gate is missing or duplicated: " + key)
+        require(runner.fs.text("/sys/module/amdgpu/parameters/" + key.split(".")[1]) in ("1", "Y"),
+                "Effective UVD module gate differs: " + key)
+    session = document(local(runner, SESSION), runner, private=True)
+    require(session.get("schema_version") == 1 and session.get("boot_id") == identity["boot_id"] and
+            session.get("state") == "active" and
+            re.fullmatch(r"EXP-[0-9]{8}-[0-9]{3}", str(session.get("experiment_id", ""))) and
+            isinstance(session.get("session_id"), str) and 0 < len(session["session_id"]) <= 256 and
+            all(32 <= ord(c) != 127 for c in session["session_id"]), "Active same-boot UART session assertion required")
+    session = {key: session[key] for key in ("boot_id", "experiment_id", "session_id", "state")}
+    session.update(continuity="unverified", authenticated=False)
+    paths = {key: local(runner, DIAGNOSTIC[key], mesa_link=key == "driver")
+             for key in ("fixture", "playback", "ffmpeg", "driver")}
+    contents = {}
+    for key, path in paths.items():
+        contents[key] = read(path, 64 * 1024 * 1024, owner=owner(runner))
+        require(sha(contents[key]) == DIAGNOSTIC[key + "_sha256"], "Pinned UVD input differs: " + key)
+    firmware = read(local(runner, FIRMWARE["path"]), FIRMWARE["bytes"], owner=owner(runner))
+    require(len(firmware) == FIRMWARE["bytes"] and sha(firmware) == FIRMWARE["sha256"], "UVD firmware pin differs")
+    harness = types.ModuleType("psx_pinned_uvd_playback")
+    harness.__file__ = str(paths["playback"])
+    exec(compile(contents["playback"], str(paths["playback"]), "exec"), harness.__dict__)
+    fixture, _ = harness.verify_fixture(paths["fixture"], DIAGNOSTIC["fixture_sha256"])
+    require(runner.fs.tool("python3") and runner.fs.tool("journalctl"), "Python or kernel journal reader is absent")
+    require(not marker_path(runner, identity["boot_id"]).exists(), "One UVD attempt is already recorded for this boot; no retry")
+    return identity, session, paths, harness, fixture
+
+
+def kernel_snapshot(runner):
+    result = runner.command([runner.fs.tool("journalctl"), "-k", "-b", "--no-pager", "-o", "short-monotonic"], 5,
+                            env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"})
+    require(result.returncode == 0 and not any((result.timed_out, result.output_limited, result.interrupted)),
+            "Current-boot kernel evidence is incomplete")
+    # CommandResult.stdout is only the runner's 128 KiB preview. Inspect the full
+    # bounded saved journal so a later terminal fault cannot be truncated away.
+    saved = runner.log.directory / runner.commands[-1]["stdout"]
+    text = read(saved, 1024 * 1024, owner=owner(runner)).decode("utf-8", "replace")
+    require(not KERNEL_FAULT.search(text), "Current-boot UVD/GPU terminal evidence requires recovery")
+    require(all("PS4_UVD_RUNTIME " + marker in text for marker in ("STARTED", "QUEUE_READY")),
+            "Experimental UVD queue is not confirmed ready on this boot")
+
+
+def decode(runner):
+    """Called only by an explicit selected run after controller core checks."""
+    try:
+        identity, session, paths, harness, fixture = preflight(runner)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        return {"status": "BLOCKED", "message": "UVD preflight blocked: " + str(error), "hardware_acceptance": False}
+    try:
+        marker, _ = create_marker(runner, identity, session)
+    except (OSError, ValueError) as error:
+        return {"status": "BLOCKED", "message": "UVD attempt could not be reserved: " + str(error), "hardware_acceptance": False}
+    evidence = {"uart": session, "attempt_receipt": str(marker), "decoder_timeout_seconds": 60,
+                "harness_timeout_seconds": OUTER_TIMEOUT, "playback_sha256": DIAGNOSTIC["playback_sha256"]}
+    result = {"status": "INCONCLUSIVE", "message": "UVD attempt did not establish a complete oracle. " + RECOVERY,
+              "stop_required": True, "hardware_acceptance": False, "evidence": evidence}
+    try:
+        kernel_snapshot(runner)
+        output = runner.log.directory / "uvd-reference"
+        argv = [runner.fs.tool("python3"), "-I", "-B", str(paths["playback"])]
+        for key in ("fixture", "ffmpeg", "driver"):
+            # Preserve the selected radeonsi alias; the harness pins its resolved bytes.
+            selected = runner.fs.root / DIAGNOSTIC[key].lstrip("/")
+            argv += ["--" + key, str(selected), "--" + key + "-sha256", DIAGNOSTIC[key + "_sha256"]]
+        argv += ["--render-node", str(runner.fs.root / DIAGNOSTIC["render_node"].lstrip("/")),
+                 "--release", ALPHA["kernel_release"], "--boot-id", identity["boot_id"],
+                 "--run", "--output", str(output), "--experiment", session["experiment_id"],
+                 "--uart-session", session["session_id"], "--timeout", "60"]
+        command = runner.command(argv, OUTER_TIMEOUT, env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"})
+        evidence["command_returncode"] = command.returncode
+        evidence["command_timed_out"] = command.timed_out
+        require(not any((command.timed_out, command.output_limited, command.interrupted)) and
+                command.returncode in (0, 1), "Decoder process did not finish normally")
+        child = document(output / "RESULT.json", runner)
+        evidence["playback_status"] = child.get("status")
+        if isinstance(child.get("execution"), dict):
+            evidence["execution"] = child["execution"]
+        require(child.get("hardware_decode_invoked") is True and child.get("inputs_unchanged") is True and
+                child.get("runner_sha256") == DIAGNOSTIC["playback_sha256"] and
+                child.get("experiment") == session["experiment_id"] and
+                child.get("uart_session_assertion") == session["session_id"], "Incomplete playback/input identity receipt")
+        before = child.get("preflight", {})
+        require(isinstance(before, dict) and before.get("boot_id") == identity["boot_id"] and
+                before.get("kernel_release") == ALPHA["kernel_release"] and
+                isinstance(before.get("ffmpeg"), dict) and isinstance(before.get("driver"), dict) and
+                before["ffmpeg"].get("sha256") == DIAGNOSTIC["ffmpeg_sha256"] and
+                before["driver"].get("sha256") == DIAGNOSTIC["driver_sha256"], "Playback identity differs")
+        expected_command = harness.decode_command(paths["ffmpeg"], runner.fs.root / DIAGNOSTIC["render_node"].lstrip("/"),
+                                                   paths["fixture"].parent / fixture["clip"]["path"])
+        selected_driver = runner.fs.root / DIAGNOSTIC["driver"].lstrip("/")
+        require(before.get("command") == expected_command and before.get("environment") == harness.environment(selected_driver),
+                "Playback did not use the fixed forced-VAAPI command/environment")
+        execution = child.get("execution", {})
+        require(isinstance(execution, dict) and execution.get("returncode") == 0 and execution.get("failure") is None and
+                execution.get("timeout_seconds") == 60, "Decoder failed or exceeded a bound")
+        evidence["execution"] = execution
+        artifacts = child.get("artifacts", {})
+        require(isinstance(artifacts, dict), "Missing playback artifact table")
+        for name in ("decoded.nv12", "ffmpeg.stderr.txt", "PREFLIGHT.json", "EXECUTION.json", "COMPARISON.json"):
+            limit = fixture["reference"]["bytes"] + fixture["frame_bytes"] if name == "decoded.nv12" else 1024 * 1024
+            data = read(output / name, limit, owner=owner(runner))
+            require(artifacts.get(name) == {"bytes": len(data), "sha256": sha(data)}, "Playback artifact hash/size differs")
+            with (output / name).open("rb") as stream:
+                os.fsync(stream.fileno())
+        comparison = harness.compare(fixture, paths["fixture"].parent, output / "decoded.nv12")
+        require(document(output / "COMPARISON.json", runner) == comparison, "Saved/computed NV12 oracle differs")
+        evidence["comparison"] = comparison
+        evidence["playback_result_sha256"] = sha(read(output / "RESULT.json", owner=owner(runner)))
+        with (output / "RESULT.json").open("rb") as stream:
+            os.fsync(stream.fileno())
+        require(runner.identity() == identity, "Boot/artifact identity changed during UVD attempt")
+        kernel_snapshot(runner)
+        sync(output)
+        if comparison["pass"] and child.get("status") == "PASS_EXACT_NV12" and command.returncode == 0:
+            result.update(status="PASS", message="All 120 forced-VAAPI NV12 frames exactly matched the pinned reference; experimental single-run evidence only. " + FINISH)
+        elif not comparison["pass"] and child.get("status") == "FAIL_COMPARISON" and command.returncode == 1:
+            result.update(status="FAIL", message="Decoded NV12 frames differ from the pinned reference. " + RECOVERY)
+        else:
+            raise ValueError("Playback status and independently computed oracle disagree")
+    except (OSError, ValueError, KeyError, TypeError, KeyboardInterrupt) as error:
+        result.update(status="INCONCLUSIVE", stop_required=True,
+                      message="UVD attempt did not establish a complete durable oracle. " + RECOVERY)
+        evidence["incomplete_reason"] = str(error) or type(error).__name__
+    # The original fsynced intent is never updated or removed, even on PASS.
+    # Completion belongs only in this run's normal durable report/artifacts.
+    return result

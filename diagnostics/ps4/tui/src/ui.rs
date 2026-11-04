@@ -881,7 +881,7 @@ fn hardware_view(frame: &mut Frame, app: &App, t: Theme) {
     let page = &dialog.pages[dialog.selected];
     let area = hardware_area(frame.area());
     frame.render_widget(Clear, area);
-    let block = panel("Hardware", t);
+    let block = panel(dialog.title, t);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let rows = Layout::default()
@@ -893,11 +893,11 @@ fn hardware_view(frame: &mut Frame, app: &App, t: Theme) {
         ])
         .split(inner);
     let title = if dialog.raw.is_some() {
-        format!("Hardware / {} / Advanced", page.title)
+        format!("{} / {} / Advanced", dialog.title, page.title)
     } else if dialog.detail {
-        format!("Hardware / {}", page.title)
+        format!("{} / {}", dialog.title, page.title)
     } else {
-        "Hardware overview".into()
+        format!("{} overview", dialog.title)
     };
     frame.render_widget(
         Paragraph::new(vec![
@@ -905,7 +905,7 @@ fn hardware_view(frame: &mut Frame, app: &App, t: Theme) {
                 title,
                 Style::default().fg(t.text).add_modifier(Modifier::BOLD),
             ),
-            Line::styled("Cached hardware metadata", Style::default().fg(t.muted)),
+            Line::styled(dialog.subtitle, Style::default().fg(t.muted)),
         ]),
         rows[0],
     );
@@ -1787,5 +1787,45 @@ mod tests {
         }
         assert_eq!(app.selected, 0);
         assert_eq!(app.settings_offset.get(), 0);
+    }
+    #[test]
+    fn test_plan_at_minimum_size_shows_planning_scope_counts_and_explicit_raw_only() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+        app.hardware = Some(crate::HardwareDialog::qualification().unwrap());
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|frame| draw(frame, &app)).unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        for value in [
+            "Test plan overview",
+            "Proposed gates",
+            "Ethernet",
+            "UVD",
+            "Clock / Power",
+            "Enter Details",
+            "made by meerzulee",
+        ] {
+            assert!(text.contains(value), "missing {value}");
+        }
+        assert!(!text.contains("\"acceptance\""));
+        app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        terminal.draw(|frame| draw(frame, &app)).unwrap();
+        let text: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(text.contains("Not run"));
+        assert!(text.contains("Repetition"));
+        assert!(text.contains("3 runs / 3 cold boots"));
+        assert!(text.contains("Esc Back"));
     }
 }

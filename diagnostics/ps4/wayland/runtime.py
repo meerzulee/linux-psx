@@ -70,6 +70,10 @@ def preflight(suite, root_prefix='/', operations=None, allow_own_service=False, 
             or loaded.get('kernel_release') != manifest['kernel_release']
             or loaded.get('mesa_manifest_sha256') != manifest['mesa_manifest_sha256']):
         raise ValueError('Wayland test requires root and the matching PS4 kernel/Mesa build')
+    for field in ('kernel_sha256', 'rootfs_sha256'):
+        if field in manifest and (not re.fullmatch(r'[a-f0-9]{64}', str(manifest[field]))
+                                  or loaded.get(field) != manifest[field]):
+            raise ValueError('Wayland test artifact identity differs: ' + field)
     boot_id = (root / 'proc/sys/kernel/random/boot_id').read_text().strip()
     if not re.fullmatch(r'[a-f0-9-]{36}', boot_id):
         raise ValueError('Missing current kernel boot identity')

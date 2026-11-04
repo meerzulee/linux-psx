@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "profile": "ps4-baikal-diagnostics-uvd-alpha1",
+  "kernel_release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev1",
+  "kernel_sha256": "9c3ec7d27fdfdebfee137684a635301e8dfa259b50e2f5d98ee33cf5f91e6153",
+  "config_sha256": "e97f456d3bd55f7c0b28948c1cc09a395ce9e17383512e844c6415f744d030a0",
+  "modules_sha256": "38767e5450dc4a136f07003d36edc71cf09f512d6b238255f8edf2fc1ce43987",
+  "source_commit": "35b9f37960ba2fbfc8e2fa0ad5077656ceb1dbc2",
+  "module_count": 41,
+  "mesa_archive_sha256": "5c397d86a769ed55dd35798c32bfcedea5c4e3ce6eee5147dd282a04c9385fe9",
+  "mesa_manifest_sha256": "687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964",
+  "seed_manifest": "manifests/ps4-initramfs-seed.json",
+  "snapshot_sums_sha256": "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57",
+  "snapshot_policy": "existing checksum-pinned development package snapshot; not a signed production release",
+  "packages": [
+    "filesystem",
+    "bash",
+    "coreutils",
+    "systemd",
+    "systemd-sysvcompat",
+    "python",
+    "iproute2",
+    "iputils",
+    "curl",
+    "alsa-utils",
+    "pciutils",
+    "usbutils",
+    "kmod",
+    "mesa-utils",
+    "vulkan-tools",
+    "xcb-util-keysyms",
+    "libdisplay-info",
+    "nano",
+    "less",
+    "pacman",
+    "archlinux-keyring",
+    "ca-certificates",
+    "networkmanager",
+    "wpa_supplicant",
+    "iw",
+    "openssh",
+    "firefox",
+    "xfwm4",
+    "xfce4-terminal",
+    "ttf-jetbrains-mono-nerd-basic",
+    "xfconf",
+    "xorg-server",
+    "xorg-xinit",
+    "xorg-xauth",
+    "xf86-input-libinput",
+    "ttf-dejavu",
+    "dbus-broker-units",
+    "kbd"
+  ],
+  "ram_root_mib": 0,
+  "vram_mib": 1024,
+  "maximum_root_bytes": 1200000000,
+  "source_date_epoch": 1792195200,
+  "root_format": "ext4-ro-loop",
+  "ui_backend": "ratatui",
+  "uvd_runtime": true,
+  "ethernet_policy": "native autoarm=1; NetworkManager wired DHCP; one retained generation",
+  "sata_policy": "disabled-first-boot",
+  "native_48khz": "deferred",
+  "wireless": "NetworkManager controls; pinned external MT7668 firmware; no automatic pairing",
+  "hardware_acceptance": false,
+  "image_version": "alpha1",
+  "writable_root_mib": 512,
+  "mts_autoarm": 1,
+  "firmware_manifest": "manifests/ps4-firmware.json",
+  "firmware_manifest_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
+  "ssh_policy": "optional owner public-key seed; public images start with sshd inactive and passwords disabled; explicit local GitHub-key enrollment or temporary-password opt-in; persistent unique host identity on root-only diagnostic USB",
+  "desktop_policy": "Xorg, xfwm4 and Firefox start only on explicit graphical-test selection",
+  "maximum_boot_set_bytes": 1073741824,
+  "source_payload": "receipt-only",
+  "prune_paths": [
+    "usr/include",
+    "usr/share/locale",
+    "usr/share/man",
+    "usr/share/doc",
+    "usr/share/info",
+    "usr/share/gtk-doc",
+    "usr/share/gir-1.0",
+    "usr/share/i18n",
+    "usr/share/vala",
+    "usr/share/pkgconfig",
+    "usr/lib/pkgconfig",
+    "usr/lib/cmake",
+    "usr/lib/dri",
+    "usr/lib/gbm",
+    "usr/share/glvnd/egl_vendor.d/50_mesa.json",
+    "usr/share/fonts/Adwaita",
+    "usr/bin/xgettext",
+    "usr/bin/rsvg-convert",
+    "usr/bin/rav1e",
+    "usr/bin/eapol_test",
+    "usr/bin/ld.gold",
+    "usr/bin/sqlite3",
+    "usr/bin/sqldiff",
+    "usr/bin/sqlite3_expert",
+    "usr/bin/showdb",
+    "usr/bin/dbdump",
+    "usr/bin/dbhash",
+    "usr/share/icons/AdwaitaLegacy",
+    "usr/share/model"
+  ],
+  "prune_globs": [
+    "usr/lib/python*/test",
+    "usr/lib/python*/**/tests",
+    "usr/lib/python*/**/__pycache__",
+    "usr/lib/**/*.a",
+    "usr/lib/libLLVM*.so*",
+    "usr/lib/libLTO.so*",
+    "usr/lib/LLVMgold.so",
+    "usr/lib/bfd-plugins/LLVMgold.so",
+    "usr/lib/libgallium*.so*",
+    "usr/lib/libEGL_mesa.so*",
+    "usr/lib/libGLX_mesa.so*",
+    "usr/share/fonts/**/*.ttf",
+    "usr/share/fonts/**/*.otf"
+  ],
+  "console_loglevel": 3,
+  "retain_paths": [
+    "usr/share/fonts/TTF/DejaVuSans.ttf",
+    "usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    "usr/share/fonts/TTF/DejaVuSansMono.ttf",
+    "usr/share/fonts/TTF/DejaVuSerif.ttf",
+    "usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf"
+  ],
+  "pruning_basis": {
+    "stock_graphics": "all supported graphical sessions and probes explicitly use pinned LLVM-free private Mesa; GLVND and libgbm frontends retained",
+    "reference_audit": "output/ps4-diagnostics-console1/stock-library-reference-audit.json",
+    "reference_audit_sha256": "1663ceb60919464d7f5954129f0d8bb8646c2115c9845b9c91ff5659aa8526a6",
+    "font_policy": "retain Sans, Sans Bold, Sans Mono and Serif plus console fonts and license notices",
+    "cli_policy": "remove unused developer/encoder command frontends while retaining their runtime libraries",
+    "additional_resources": "retain common cursors and their data/aliases; retain Adwaita symbolic and hicolor; drop unused legacy icon theme and VMAF quality models"
+  },
+  "ext4_block_size": 1024,
+  "prune_directory_except": {
+    "usr/share/icons/Adwaita/cursors": [
+      "left_ptr",
+      "hand2",
+      "xterm",
+      "sb_h_double_arrow",
+      "sb_v_double_arrow"
+    ]
+  },
+  "ext4_maximum_bytes": 1048576000,
+  "alpha_base": {
+    "profile": "ps4-baikal-diagnostics-console1",
+    "kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+    "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
+    "rootfs_sha256": "2c357c871d6422218935c0250d1282b90d2c4bdaae5b20b95b4cac621fdea424",
+    "mesa_manifest_sha256": "687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964",
+    "snapshot_sums_sha256": "6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57"
+  },
+  "alpha_inputs": {
+    "legacy_package": {
+      "bzImage": {
+        "bytes": 11269120,
+        "sha256": "9c3ec7d27fdfdebfee137684a635301e8dfa259b50e2f5d98ee33cf5f91e6153"
+      },
+      "config": {
+        "bytes": 129979,
+        "sha256": "e97f456d3bd55f7c0b28948c1cc09a395ce9e17383512e844c6415f744d030a0"
+      },
+      "modules-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst": {
+        "bytes": 832658,
+        "sha256": "38767e5450dc4a136f07003d36edc71cf09f512d6b238255f8edf2fc1ce43987"
+      },
+      "MODULES.json": {
+        "bytes": 13227,
+        "sha256": "03ff90145e42200e933d20b7a371e87b9ce772c57c1dd7f50b1020e2fa9372b0"
+      },
+      "source-7.2.11-psx-ps4-baikal-uvd-runtime-dev1.tar.zst": {
+        "bytes": 270649379,
+        "sha256": "36fa0d0119281503b456e3532080afabe2ea7b5c7bc7b05af08685d295f7a3a4"
+      },
+      "RUNTIME-IDENTITY.json": {
+        "sha256": "4d5c576d93e0f84c9bb5a58ca8dd3918472f8744241e889ed1b83a88c4a5068b"
+      },
+      "PACKAGE.json": {
+        "sha256": "9c40f863c4255372c9a74008268b3b22a56a231618ae140aceaa92895838584c"
+      },
+      "build-inputs/runtime/SOURCE-RECEIPT.json": {
+        "sha256": "6477b996fc28f7d270ba72c10208dc9e1e9fa792504d93ce79ab1c5ae8f0ff1b"
+      },
+      "build-inputs/runtime/LINK-ATTEMPT-06.json": {
+        "sha256": "feb74149ef3bfcbea88230004d7b35e2cb26e20a86d65cec7bd8dadf9e93c6a9"
+      }
+    },
+    "root_firmware": {
+      "path": "/usr/lib/firmware/amdgpu/liverpool_uvd.bin",
+      "bytes": 232752,
+      "sha256": "30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9"
+    },
+    "wayland_suite": {
+      "bytes": 751681,
+      "sha256": "08480cce48b03a776e3154af6c03bc7cf862f0bb80bc37346004458e7f4584ed"
+    },
+    "chromium_provider": {
+      "image": "chromium-151.0.7922.169-psx1.ext4",
+      "image_bytes": 402653184,
+      "image_sha256": "8fbff1558ca522b4834e022449f4ea33d08738b90b7187eacaa794fb9bfe15a4",
+      "provider_manifest_sha256": "e38814eb6cd59ff4e04cb7ea67059fba8cdab232e866d82127e0482c7172d0e8"
+    }
+  },
+  "uvd_diagnostic": {
+    "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
+    "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
+    "playback": "/opt/psx-diagnostics/uvd-playback.py",
+    "playback_sha256": "5c738a6ae099bad4a15aab94f90128d8cbff34cc92dcd55654f94bf738e03ebd",
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "ffmpeg_sha256": "2e37495139c8cee4711b7e1475dac11ce54633431c4a025b7b70fa2e6d7ca3c3",
+    "driver": "/opt/psx-mesa/usr/lib/dri/radeonsi_drv_video.so",
+    "driver_sha256": "16d87fdff0011054eeba34e2dff9067519d8756de788c4970cecf4a7038ce4a3",
+    "render_node": "/dev/dri/renderD128",
+    "timeout_seconds": 60,
+    "maximum_attempts_per_boot": 1
+  },
+  "required_boot_arguments": [
+    "amdgpu.ps4_uvd_runtime=1",
+    "amdgpu.ps4_uvd_ready=1",
+    "amdgpu.ps4_uvd_poll_state=1"
+  ],
+  "alpha_policy": {
+    "assembly": "Offline derivative of the exact ordinary ext4 root; replace the entire matching module tree and declared alpha source assets. Not a fresh package rebuild or frontend-only refresh.",
+    "kernel_source": "Preserved complete patched UVD source archive based on the recorded project commit, not the later native-dev3 source. Original legacy receipts remain unchanged.",
+    "qualification": "Experimental Baikal alpha; no stability promotion; no automatic power/storage/reset/rearm tests.",
+    "uvd_lifecycle": "One explicit bounded AVC decode attempt per boot, no browser hardware decode auto-start; terminal fault requires operator physical power-off and known-good rollback.",
+    "optional_providers": "Existing Chromium/Wayland providers require separate alpha identity manifests; do not reuse native-dev3 pins."
+  }
+}

@@ -1,0 +1,1606 @@
+{
+  "schema_version": 1,
+  "title": "PS4 Baikal qualification checklist — alpha proposals, not hardware results",
+  "target": {
+    "platform": "PS4",
+    "southbridge": "Baikal",
+    "default_kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+    "other_models": "Require their own scoped plan and evidence; no inherited qualification."
+  },
+  "safety_policy": [
+    "This source CLI never invokes tests, commands, network, driver recovery, power or storage operations.",
+    "A later hardware experiment needs explicit task authority, one coherent bounded completed UART session, declared timeout and rollback.",
+    "No automatic retry, reset, unload, unbind, rearm, DMA cleanup, fan/clock writes, disk mounts/writes/format or image growth.",
+    "Unimplemented/deferred/skipped/unsupported is never PASS. No report or complete checklist automatically means STABLE.",
+    "Ordinary uvd_runtime=false means decode unsupported/not tested, not decode failure. Browser video is not proof of UVD.",
+    "Evidence input is a human-reviewed summary, not raw runner JSON. The CLI checks declared identities/counts/oracles, not authenticity or the underlying private logs."
+  ],
+  "limitations": [
+    "The default profile is a proposed frozen-build Baikal baseline, not every PS4 model or every Linux feature.",
+    "Historical two-boot Ethernet autoload evidence is preserved; the current ordinary-use stability proposal requires three cold boots.",
+    "Wireless remains working in its recorded firmware-equipped scopes; broad reinvestigation is deferred pending detailed reproducible bugs.",
+    "Native 48 kHz, suspend/hibernate, unqualified controls and UVD lifecycle gaps remain visible even when outside a selected mandatory profile.",
+    "Internal-root installation, raw-disk I/O, encrypted extent-map activation, Orbis writes and autoexpand are outside this checklist; inventory is not storage support.",
+    "UVD scope is experimental Liverpool 8-bit NV12 AVC 1080p30 / one handle; no HEVC, VCE, 4K or ordinary PM/cleanup claim.",
+    "Additional CPU/RAM/display/browser/USB/HID/RTC counts are alpha proposals requiring review before any hardware sequence."
+  ],
+  "profiles": {
+    "kernel-baseline": {
+      "title": "Ordinary Baikal kernel baseline; excludes experimental UVD/native48/suspend/internal installation",
+      "required": [
+        "artifacts.identity",
+        "source.audit",
+        "recovery.external",
+        "boot.cold",
+        "boot.arguments",
+        "inventory.baseline",
+        "thermal.preflight",
+        "cpu.bounded",
+        "memory.bounded",
+        "cpu.sustained",
+        "memory.sustained",
+        "thermal.sustained",
+        "ethernet.autoload",
+        "ethernet.transfer",
+        "ethernet.endurance",
+        "ethernet.lifecycle",
+        "power.off",
+        "ethernet.orbis",
+        "usb.readonly",
+        "sata.inventory",
+        "graphics.xorg",
+        "display.hdmi",
+        "gpu.opengl",
+        "gpu.vulkan",
+        "gpu.sustained",
+        "audio.output",
+        "hid.controls",
+        "rtc.clock",
+        "power.reboot"
+      ],
+      "uvd_runtime": false
+    },
+    "desktop-integration": {
+      "title": "Baseline plus native Wayland and both browser integration suites",
+      "required": [
+        "artifacts.identity",
+        "source.audit",
+        "recovery.external",
+        "boot.cold",
+        "boot.arguments",
+        "inventory.baseline",
+        "thermal.preflight",
+        "cpu.bounded",
+        "memory.bounded",
+        "cpu.sustained",
+        "memory.sustained",
+        "thermal.sustained",
+        "ethernet.autoload",
+        "ethernet.transfer",
+        "ethernet.endurance",
+        "ethernet.lifecycle",
+        "power.off",
+        "ethernet.orbis",
+        "usb.readonly",
+        "sata.inventory",
+        "graphics.xorg",
+        "display.hdmi",
+        "gpu.opengl",
+        "gpu.vulkan",
+        "gpu.sustained",
+        "audio.output",
+        "hid.controls",
+        "rtc.clock",
+        "power.reboot",
+        "wayland.integration",
+        "browser.firefox",
+        "browser.chromium"
+      ],
+      "uvd_runtime": false
+    },
+    "uvd-experimental": {
+      "title": "Separate experimental AVC scope; no ordinary PM, reset or teardown claim",
+      "required": [
+        "artifacts.identity",
+        "source.audit",
+        "recovery.external",
+        "boot.cold",
+        "inventory.baseline",
+        "thermal.preflight",
+        "cpu.bounded",
+        "memory.bounded",
+        "graphics.xorg",
+        "display.hdmi",
+        "gpu.opengl",
+        "audio.output",
+        "uvd.variant",
+        "uvd.avc.exact",
+        "uvd.playback",
+        "uvd.lifecycle",
+        "uvd.admission",
+        "uvd.quiescence"
+      ],
+      "uvd_runtime": true
+    }
+  },
+  "checks": [
+    {
+      "id": "artifacts.identity",
+      "title": "Freeze the complete model/build identity",
+      "area": "Boot",
+      "mode": "assisted",
+      "depends_on": [],
+      "scope": "One identified Baikal console, loader/payload, kernel/config/modules/initramfs/rootfs; actual loaded Mesa and external firmware pins.",
+      "basis": "existing artifact/evidence contract",
+      "source": "docs/HARDWARE-TESTING.md",
+      "evidence": "Boot-set and source receipts plus observed identities. A manifest declaration is not a hash of the running kernel.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "inventory.readonly"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "full_hashes",
+          "model_boot_chain",
+          "actual_libraries",
+          "no_mixed_modules"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "source.audit",
+      "title": "Resolve remaining source blockers",
+      "area": "Source",
+      "mode": "unimplemented",
+      "depends_on": [
+        "artifacts.identity"
+      ],
+      "scope": "ICC transaction ownership/response lengths, bounded ICC status processing and AHCI IRQ-allocation failure bookkeeping remain listed as open.",
+      "basis": "current finish-plan source gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 1,
+        "cold_boots": 0,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "source_review",
+          "focused_regressions",
+          "complete_build"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "recovery.external",
+      "title": "Verify the external rescue/rollback entrance",
+      "area": "Boot",
+      "mode": "manual",
+      "depends_on": [
+        "artifacts.identity"
+      ],
+      "scope": "Known external boot set, usable text recovery/SSH and operator recovery instructions; no automatic recovery action.",
+      "basis": "existing recovery requirement; proposed repetition",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "rollback_hashes",
+          "external_rescue",
+          "operator_access"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "boot.cold",
+      "title": "Repeat cold boot to usable Linux",
+      "area": "Boot",
+      "mode": "manual",
+      "depends_on": [
+        "artifacts.identity",
+        "recovery.external"
+      ],
+      "scope": "Three cold boots of one frozen set; stable console identity, usable display/input/root, no unexplained boot fault.",
+      "basis": "current finish plan repetition",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "same_artifacts",
+          "cold_not_warm",
+          "complete_boot",
+          "no_terminal_faults"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "boot.arguments",
+      "title": "Verify default and explicitly overridden boot policy",
+      "area": "Boot",
+      "mode": "manual",
+      "depends_on": [
+        "boot.cold"
+      ],
+      "scope": "Declared loader: no supplied arguments, individual override retaining omitted defaults, and explicit full override; root/recovery remain valid.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/PS4-BOOTARGS.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "default_arguments",
+          "individual_override",
+          "explicit_override"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "inventory.baseline",
+      "title": "Record complete read-only inventory",
+      "area": "Boot",
+      "mode": "automated",
+      "depends_on": [
+        "boot.cold"
+      ],
+      "scope": "CPU/RAM, PCI/DRM/USB/input/thermal/block metadata, firmware availability and configuration. Enumeration alone is not functionality.",
+      "basis": "proposed alpha criterion",
+      "source": "diagnostics/ps4/catalogue.json",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "inventory.readonly"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "identified_devices",
+          "missing_data_explicit",
+          "privacy_review"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "thermal.preflight",
+      "title": "Establish monitored cooling limits before load",
+      "area": "Thermal",
+      "mode": "manual",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Read-only sensors and independent cooling/fan observation; declare an approved temperature ceiling and stop plan before sustained load. Baikal fan RPM/PWM is not qualified.",
+      "basis": "proposed alpha criterion",
+      "source": "platforms/ps4/docs/CAPABILITIES.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 300,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "credible_sensors",
+          "approved_thermal_limit",
+          "cooling_observer",
+          "stop_plan"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "cpu.bounded",
+      "title": "Check the known computation oracle",
+      "area": "CPU",
+      "mode": "automated",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Existing 1-worker SHA-256 oracle, 2-second setting. This is a bounded computation check, not all-core stress.",
+      "basis": "proposed alpha criterion",
+      "source": "diagnostics/ps4/catalogue.json",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "cpu.compute"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 2,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "computation_errors": 0
+        },
+        "oracles": [
+          "known_digest",
+          "finite_completion"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "memory.bounded",
+      "title": "Check owned RAM patterns",
+      "area": "Memory",
+      "mode": "automated",
+      "depends_on": [
+        "cpu.bounded"
+      ],
+      "scope": "32 MiB owned buffers, patterns 0/85/170/255, existing reserve and allocation caps; no physical-memory or VRAM access.",
+      "basis": "proposed alpha criterion",
+      "source": "diagnostics/ps4/catalogue.json",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "memory.pattern"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "verified_mib": 32
+        },
+        "metrics_maximum": {
+          "pattern_errors": 0
+        },
+        "oracles": [
+          "all_patterns",
+          "owned_buffer",
+          "reserve_preserved"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "cpu.sustained",
+      "title": "Qualify per-core computation under monitored load",
+      "area": "CPU",
+      "mode": "manual",
+      "depends_on": [
+        "cpu.bounded",
+        "memory.bounded",
+        "thermal.preflight"
+      ],
+      "scope": "All reported logical CPUs exercised with a reviewed finite workload; stop at the declared thermal limit; no clock/voltage/fan writes.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "computation_errors": 0
+        },
+        "oracles": [
+          "each_logical_cpu",
+          "known_outputs",
+          "no_throttling_fault",
+          "approved_thermal_limit"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "memory.sustained",
+      "title": "Qualify repeated safe RAM allocations",
+      "area": "Memory",
+      "mode": "manual",
+      "depends_on": [
+        "memory.bounded",
+        "thermal.preflight"
+      ],
+      "scope": "Multiple owned buffers and allocation/exit cycles within the declared safe reserve; cover a documented amount, never claim all physical RAM.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 10,
+        "cold_boots": 3,
+        "seconds_per_run": 120,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "pattern_errors": 0
+        },
+        "oracles": [
+          "documented_coverage",
+          "safe_reserve",
+          "no_oom",
+          "no_corruption"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "thermal.sustained",
+      "title": "Observe cooling during bounded CPU/GPU work",
+      "area": "Thermal",
+      "mode": "manual",
+      "depends_on": [
+        "thermal.preflight",
+        "cpu.bounded",
+        "memory.bounded"
+      ],
+      "scope": "At least 30 minutes per boot of reviewed load/idle observation, with credible temperature sampling and an external stop operator.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "approved_thermal_limit",
+          "sensor_continuity",
+          "cooling_observer",
+          "no_thermal_fault"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "ethernet.autoload",
+      "title": "Qualify native first publication on cold boots",
+      "area": "Ethernet",
+      "mode": "assisted",
+      "depends_on": [
+        "boot.cold",
+        "inventory.baseline"
+      ],
+      "scope": "Three cold boots, cable present and absent at launch. Normal network manager opens psx0, MTU 1500 polling; exactly one retained DMA generation.",
+      "basis": "current finish-plan gate; historical autoload gate remains two boots",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "ethernet.status"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "published_generations": 1
+        },
+        "metrics_maximum": {
+          "published_generations": 1
+        },
+        "oracles": [
+          "normal_manager_no_manual_arm",
+          "single_generation",
+          "dhcp",
+          "route",
+          "carrier"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "ethernet.transfer",
+      "title": "Verify bidirectional peer transfers and HTTPS",
+      "area": "Ethernet",
+      "mode": "assisted",
+      "depends_on": [
+        "ethernet.autoload",
+        "cpu.bounded",
+        "memory.bounded"
+      ],
+      "scope": "Each boot: independently hash-checked 1 GiB in each direction, bound HTTPS, actual throughput and CPU cost. Use an explicit external peer.",
+      "basis": "current finish-plan gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "ethernet.https"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "tx_verified_bytes": 1073741824,
+          "rx_verified_bytes": 1073741824
+        },
+        "metrics_maximum": {
+          "hash_mismatches": 0
+        },
+        "oracles": [
+          "peer_hashes",
+          "verified_tls",
+          "bound_interface",
+          "cpu_throughput"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "ethernet.endurance",
+      "title": "Sustain mixed wired traffic and idle/resume",
+      "area": "Ethernet",
+      "mode": "manual",
+      "depends_on": [
+        "ethernet.transfer",
+        "thermal.preflight"
+      ],
+      "scope": "At least 60 minutes mixed TX/RX/simultaneous traffic and idle on one healthy retained generation; compare loss with a control NIC/RJ45 path.",
+      "basis": "current finish-plan gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 1,
+        "cold_boots": 1,
+        "seconds_per_run": 3600,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "hash_mismatches": 0,
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "control_nic_comparison",
+          "no_stuck_queue",
+          "no_persistent_loss",
+          "same_generation"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "ethernet.lifecycle",
+      "title": "Recover healthy cable/admin cycles",
+      "area": "Ethernet",
+      "mode": "manual",
+      "depends_on": [
+        "ethernet.transfer"
+      ],
+      "scope": "Five unplug/replug and five healthy down/up cycles within a declared recovery deadline; retain the original DMA. No unload/reset/unbind/rearm.",
+      "basis": "current finish-plan gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 1,
+        "cold_boots": 1,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "cable_cycles": 5,
+          "admin_cycles": 5
+        },
+        "metrics_maximum": {
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "deadline_declared",
+          "dhcp_traffic_recovered",
+          "same_generation"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "power.off",
+      "title": "Observe ordinary clean power-off externally",
+      "area": "Power",
+      "mode": "manual",
+      "depends_on": [
+        "boot.cold",
+        "inventory.baseline"
+      ],
+      "scope": "Ordinary native kernel only: three clean power-off cycles, actual power state and sync/unmount evidence, healthy next Linux/Orbis startup. CLI never powers off.",
+      "basis": "current finish-plan three-cycle gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "physical_poweroff",
+          "filesystems_synced",
+          "subsequent_boot_healthy"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "ethernet.orbis",
+      "title": "Verify Orbis networking after Linux",
+      "area": "Ethernet",
+      "mode": "manual",
+      "depends_on": [
+        "ethernet.transfer",
+        "power.off"
+      ],
+      "scope": "After a clean ordinary Linux power-off, a normal Orbis boot retains working networking. No Linux driver reset or unload.",
+      "basis": "current finish-plan gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 1,
+        "cold_boots": 1,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "orbis_link",
+          "orbis_traffic",
+          "operator_observation"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "wireless.wifi",
+      "title": "Recorded Wi-Fi scope / detailed regression gate",
+      "area": "Wireless",
+      "mode": "deferred",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Working on recorded firmware-equipped setups. Reopen only for a reproducible bug with model, chip/USB/SDIO IDs, exact firmware, operation and logs.",
+      "basis": "deferred priority; proposed future per-device gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 600,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "chip_firmware_pins",
+          "association",
+          "reconnect",
+          "peer_hashes"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "wireless.bluetooth",
+      "title": "Recorded Bluetooth scope / detailed regression gate",
+      "area": "Wireless",
+      "mode": "deferred",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Preserve recorded successes. New pairing/reconnect investigation needs a specific device/chip/firmware report; no automatic pairing or radio changes.",
+      "basis": "deferred priority; proposed future per-device gate",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 600,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "chip_firmware_pins",
+          "pairing",
+          "reconnect",
+          "input_or_audio"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "usb.readonly",
+      "title": "Qualify selected external USB devices/read paths",
+      "area": "USB",
+      "mode": "assisted",
+      "depends_on": [
+        "inventory.baseline",
+        "recovery.external"
+      ],
+      "scope": "Identify selected root/data devices and controller paths across boots; checksum 10 reads of a disposable reference on an already-mounted read-only data source. Never unplug a mounted root.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "inventory.readonly"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "verified_reads": 10
+        },
+        "metrics_maximum": {
+          "hash_mismatches": 0
+        },
+        "oracles": [
+          "stable_device_identity",
+          "readonly_source",
+          "reference_hashes",
+          "no_usb_fault"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "sata.inventory",
+      "title": "Record internal SATA inventory without I/O",
+      "area": "Storage",
+      "mode": "automated",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Stable PCI/sysfs identity, model, size, completion/PHY profile and node presence only; no disk open, mapping/mount, repair, Orbis mutation or image growth.",
+      "basis": "current read-only inventory boundary",
+      "source": "platforms/ps4/docs/INTERNAL-STORAGE.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "storage.inventory"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "stable_controller_device",
+          "readonly_inventory",
+          "no_storage_write"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "graphics.xorg",
+      "title": "Qualify the declared Xorg display/input session",
+      "area": "Graphics",
+      "mode": "manual",
+      "depends_on": [
+        "cpu.bounded",
+        "memory.bounded",
+        "inventory.baseline"
+      ],
+      "scope": "Three launches/cold boots of the exact Mesa/Xorg stack; visible desktop/menu/input for 30 minutes, correct geometry, no crash/freeze.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "actual_library_pins",
+          "visible_output",
+          "input_responsive",
+          "no_gpu_fault"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "display.hdmi",
+      "title": "Verify declared HDMI mode, picture and cadence",
+      "area": "Display",
+      "mode": "manual",
+      "depends_on": [
+        "graphics.xorg"
+      ],
+      "scope": "Exact display/cable/mode/VRAM configuration: visible color/geometry patterns and30minutes output. Configured refresh and browser rAF are distinct from physical refresh measurement.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "monitor_mode_record",
+          "visible_pattern",
+          "correct_geometry",
+          "external_observation"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "gpu.opengl",
+      "title": "Match hardware OpenGL reference pixels",
+      "area": "Graphics",
+      "mode": "automated",
+      "depends_on": [
+        "cpu.bounded",
+        "memory.bounded",
+        "inventory.baseline"
+      ],
+      "scope": "Pinned loaded Mesa/radeonsi hardware renderer, known rendered pixels and exact download oracle; eglinfo alone is insufficient.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "controller",
+          "test_id": "gpu.opengl.render"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "pixel_mismatches": 0,
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "actual_hardware_renderer",
+          "loaded_library_pins",
+          "exact_pixels"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "gpu.vulkan",
+      "title": "Match hardware Vulkan reference pixels",
+      "area": "Graphics",
+      "mode": "automated",
+      "depends_on": [
+        "cpu.bounded",
+        "memory.bounded",
+        "inventory.baseline"
+      ],
+      "scope": "Pinned loaded Mesa/RADV hardware renderer and known reference image. Vulkan enumeration or vkcube alone is not an oracle.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "controller",
+          "test_id": "gpu.vulkan.render"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "pixel_mismatches": 0,
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "actual_hardware_renderer",
+          "loaded_library_pins",
+          "exact_pixels"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "gpu.sustained",
+      "title": "Qualify bounded graphics load and session reuse",
+      "area": "Graphics",
+      "mode": "manual",
+      "depends_on": [
+        "gpu.opengl",
+        "gpu.vulkan",
+        "graphics.xorg",
+        "thermal.preflight"
+      ],
+      "scope": "30minutes per boot with reviewed scene/window changes and responsive SSH/input/display. Terminal faults stop the session; no automatic reset or driver teardown.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "correct_frames",
+          "responsive_ui",
+          "approved_thermal_limit",
+          "no_gpu_fault"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "wayland.integration",
+      "title": "Qualify native Wayland as its own stack",
+      "area": "Graphics",
+      "mode": "manual",
+      "depends_on": [
+        "gpu.opengl",
+        "gpu.vulkan",
+        "display.hdmi"
+      ],
+      "scope": "Optional pinned Wayland provider/compositor: real EGL/output/input for 30 minutes on 3 cold boots. Package closure or Xwayland output does not establish native Wayland.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 1800,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "native_wayland",
+          "actual_library_pins",
+          "visible_output",
+          "responsive_input"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "browser.firefox",
+      "title": "Qualify Firefox baseline and frame pacing",
+      "area": "Browser",
+      "mode": "assisted",
+      "depends_on": [
+        "graphics.xorg",
+        "display.hdmi",
+        "gpu.opengl"
+      ],
+      "scope": "Exact browser/version/profile and actual renderer; capabilities, Canvas2D, WebGL known pixels,10 s rAF pacing and video counter deltas. Chromium needs its separately pinned optional provider.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Per-test saved records, UA/renderer, median/p95/p99 intervals, missed-frame estimate, configured mode and per-run video counters. rAF is not physical refresh; browser playback is not UVD proof.",
+      "automation": [
+        {
+          "api": "browser",
+          "test_id": "browser.capabilities"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.canvas2d"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.webgl"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.animation"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.video"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 10,
+        "metrics_minimum": {
+          "raf_samples": 300
+        },
+        "metrics_maximum": {
+          "pixel_mismatches": 0,
+          "hidden_samples": 0,
+          "p99_frame_interval_ms": 50,
+          "dropped_frame_ratio": 0.01
+        },
+        "oracles": [
+          "same_browser_identity",
+          "durable_ordered_reports",
+          "known_pixels",
+          "context_intact",
+          "visible_unthrottled",
+          "playback_quality_review"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "browser.chromium",
+      "title": "Qualify Chromium baseline and frame pacing",
+      "area": "Browser",
+      "mode": "assisted",
+      "depends_on": [
+        "graphics.xorg",
+        "display.hdmi",
+        "gpu.opengl"
+      ],
+      "scope": "Exact browser/version/profile and actual renderer; capabilities, Canvas2D, WebGL known pixels,10 s rAF pacing and video counter deltas. Chromium needs its separately pinned optional provider.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Per-test saved records, UA/renderer, median/p95/p99 intervals, missed-frame estimate, configured mode and per-run video counters. rAF is not physical refresh; browser playback is not UVD proof.",
+      "automation": [
+        {
+          "api": "browser",
+          "test_id": "browser.capabilities"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.canvas2d"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.webgl"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.animation"
+        },
+        {
+          "api": "browser",
+          "test_id": "browser.video"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 10,
+        "metrics_minimum": {
+          "raf_samples": 300
+        },
+        "metrics_maximum": {
+          "pixel_mismatches": 0,
+          "hidden_samples": 0,
+          "p99_frame_interval_ms": 50,
+          "dropped_frame_ratio": 0.01
+        },
+        "oracles": [
+          "same_browser_identity",
+          "durable_ordered_reports",
+          "known_pixels",
+          "context_intact",
+          "visible_unthrottled",
+          "playback_quality_review"
+        ]
+      },
+      "requires_uvd": false,
+      "requires_mesa": true
+    },
+    {
+      "id": "audio.output",
+      "title": "Qualify supported 44.1 kHz HDMI output",
+      "area": "Audio",
+      "mode": "assisted",
+      "depends_on": [
+        "inventory.baseline",
+        "display.hdmi"
+      ],
+      "scope": "44.1 kHz output: hashed44.1 and48 kHz source material through the supported/resampled path, with audible channel/pitch/duration checks and no persistent underruns.",
+      "basis": "current supported audio scope",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "audio.44100"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "source_sample_rates_tested": 2
+        },
+        "metrics_maximum": {
+          "persistent_underruns": 0
+        },
+        "oracles": [
+          "audible_channels",
+          "correct_pitch",
+          "correct_duration",
+          "resampled48_distinguished"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "audio.native48",
+      "title": "Native 48 kHz remains a separate gap",
+      "area": "Audio",
+      "mode": "deferred",
+      "depends_on": [
+        "audio.output"
+      ],
+      "scope": "No verified native 48 kHz fix; resampling48 kHz content to44.1 kHz is not this gate. New work needs a discriminating bridge/HDA reference.",
+      "basis": "explicit deferred gap",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "native48000",
+          "measured_pitch",
+          "measured_duration",
+          "clean_audio"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "hid.controls",
+      "title": "Verify keyboard/mouse/controller input",
+      "area": "HID",
+      "mode": "manual",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Exact USB/Bluetooth HID identities: all selected keys/buttons/axes, sustained input and5 supported reconnect cycles. Device nodes alone do not prove events.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 300,
+        "metrics_minimum": {
+          "reconnect_cycles": 5
+        },
+        "metrics_maximum": {},
+        "oracles": [
+          "device_ids",
+          "input_events",
+          "axes_buttons",
+          "reconnect"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "usb.audio",
+      "title": "Qualify a selected USB audio device separately",
+      "area": "USB",
+      "mode": "manual",
+      "depends_on": [
+        "usb.readonly"
+      ],
+      "scope": "If claimed: exact USB device, selected playback/capture formats and actual audible/recorded oracle; HDMI results do not cover it.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 300,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "device_pins",
+          "audible_or_recorded_reference",
+          "channels_pitch_duration"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "rtc.clock",
+      "title": "Verify RTC/timekeeping without setting the clock",
+      "area": "RTC",
+      "mode": "manual",
+      "depends_on": [
+        "boot.cold"
+      ],
+      "scope": "Read-only comparison with an independent reference over 10 minutes and across declared cold/warm boots; report drift and RTC retention. No clock writes.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 600,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "drift_seconds": 2
+        },
+        "oracles": [
+          "independent_reference",
+          "monotonic_continuity",
+          "rtc_retention"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "power.reboot",
+      "title": "Review and separately observe native reboot",
+      "area": "Power",
+      "mode": "manual",
+      "depends_on": [
+        "power.off",
+        "recovery.external"
+      ],
+      "scope": "Source-reviewed reboot path, then 3 externally observed warm reboot cycles, sync/unmount and usable next boot. Power-off does not qualify reboot; CLI never reboots.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 0,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "reboot_source_review",
+          "actual_restart",
+          "filesystems_synced",
+          "subsequent_boot_healthy"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "power.suspend",
+      "title": "Suspend/hibernate source gap",
+      "area": "Power",
+      "mode": "unimplemented",
+      "depends_on": [
+        "power.reboot"
+      ],
+      "scope": "Retained-DMA quiescence/restore is not established. Excluded from the ordinary scope; no suspend attempt until source/lifecycle work is ready.",
+      "basis": "unsupported retained-DMA transition",
+      "source": "docs/ETHERNET.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "dma_quiescence",
+          "state_restore",
+          "no_corruption",
+          "wake_input"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "uvd.variant",
+      "title": "Verify the separate UVD artifact and session prerequisites",
+      "area": "UVD",
+      "mode": "manual",
+      "depends_on": [
+        "artifacts.identity",
+        "boot.cold",
+        "cpu.bounded",
+        "memory.bounded"
+      ],
+      "scope": "Experimental Liverpool AVC variant only: exact kernel/modules/Mesa/external firmware, explicit runtime enablement, boot-bound UART assertion and cold-boot/recovery limits.",
+      "basis": "existing UVD scope",
+      "source": "docs/UVD.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "uvd_variant_pins",
+          "firmware_hash",
+          "explicit_runtime_gate",
+          "completed_uart",
+          "one_session"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "uvd.avc.exact",
+      "title": "Match canonical 120 and native 900 AVC frames",
+      "area": "UVD",
+      "mode": "manual",
+      "depends_on": [
+        "uvd.variant",
+        "gpu.opengl"
+      ],
+      "scope": "Forced VAAPI hardware decoding, software fallback disabled; every NV12 byte/hash for canonical 120-frame and 1920x1080p30 native 900-frame references, one active handle.",
+      "basis": "current finish-plan three-boot UVD gate",
+      "source": "docs/UVD.md",
+      "evidence": "The alpha uvd.avc action supplies one bounded canonical reference component. Full qualification also needs native 900-frame output, all three frozen-set cold boots, actual loaded libraries and lifecycle evidence. A smoke report alone cannot meet this gate.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "canonical_frames": 120,
+          "native_frames": 900
+        },
+        "metrics_maximum": {
+          "pixel_mismatches": 0,
+          "software_frames": 0,
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "forced_hardware",
+          "no_software_fallback",
+          "exact_nv12",
+          "fixture_hashes",
+          "actual_loaded_libraries"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "uvd.playback",
+      "title": "Qualify paced AVC picture/audio and seeking",
+      "area": "UVD",
+      "mode": "manual",
+      "depends_on": [
+        "uvd.avc.exact",
+        "display.hdmi",
+        "audio.output"
+      ],
+      "scope": "One active 8-bit NV12 AVC session, 1080p30 scope: 60 minutes per boot, measured PTS/wall speed, visible picture/audio and source-approved seek/flush/clip changes.",
+      "basis": "current finish-plan proposed 60-minute window",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 3600,
+        "metrics_minimum": {},
+        "metrics_maximum": {
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "correct_picture_audio",
+          "measured_speed",
+          "pacing",
+          "seek_flush_source_ready",
+          "no_terminal_fault"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "uvd.lifecycle",
+      "title": "Fix then qualify close/reopen and resource exhaustion",
+      "area": "UVD",
+      "mode": "unimplemented",
+      "depends_on": [
+        "uvd.avc.exact"
+      ],
+      "scope": "Observed exhaustion/command-rejection path must be fixed at its source. Only then qualify20 sequential close/reopen/clip changes per boot without leaked admission/resources; no quota-only workaround.",
+      "basis": "open source gate; proposed repetition",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "sequential_reopens": 20
+        },
+        "metrics_maximum": {
+          "leaked_handles": 0,
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "lifecycle_source_review",
+          "resources_bounded",
+          "handles_reusable",
+          "no_terminal_fault"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "uvd.admission",
+      "title": "Fix then verify unsupported concurrency rejection",
+      "area": "UVD",
+      "mode": "unimplemented",
+      "depends_on": [
+        "uvd.lifecycle"
+      ],
+      "scope": "One active handle: an unsupported second decoder/tab must reject safely without closing the valid runtime. Do not run until admission/source safety is reviewed.",
+      "basis": "open source gate; proposed repetition",
+      "source": "docs/CURRENT-FINISH-PLAN.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {
+          "rejected_second_sessions": 5
+        },
+        "metrics_maximum": {
+          "terminal_faults": 0
+        },
+        "oracles": [
+          "safe_second_rejection",
+          "first_session_preserved",
+          "resources_bounded"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "uvd.quiescence",
+      "title": "Establish DMA ownership and supported shutdown lifecycle",
+      "area": "UVD",
+      "mode": "unimplemented",
+      "depends_on": [
+        "uvd.lifecycle"
+      ],
+      "scope": "Prove ownership, quiescence and safe supported transitions before ordinary cleanup/reset/PM is enabled. Current retained-DMA restrictions remain; fence counts are insufficient.",
+      "basis": "open retained-DMA source gate",
+      "source": "docs/UVD.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "dma_ownership",
+          "quiescence_proof",
+          "approved_lifecycle",
+          "no_use_after_free"
+        ]
+      },
+      "requires_uvd": true,
+      "requires_mesa": true
+    },
+    {
+      "id": "controls.optional",
+      "title": "LED/buzzer/fan/clock control gap inventory",
+      "area": "Controls",
+      "mode": "unimplemented",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Only explicitly supported controls may be claimed after per-model source review and external observation. This CLI never writes ICC/PWM/clock/LED/buzzer state.",
+      "basis": "unqualified controls remain disabled",
+      "source": "platforms/ps4/docs/CAPABILITIES.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "per_model_protocol",
+          "source_review",
+          "external_observation"
+        ]
+      },
+      "requires_uvd": false
+    },
+    {
+      "id": "optical.inventory",
+      "title": "Record optional optical/other device identities",
+      "area": "Storage",
+      "mode": "assisted",
+      "depends_on": [
+        "inventory.baseline"
+      ],
+      "scope": "Read-only PCI/sysfs inventory for present devices; absent, untested and unsupported stay distinct. No media mounts, ejects or device commands.",
+      "basis": "proposed alpha criterion",
+      "source": "docs/PS4-DIAGNOSTIC-IMAGE.md",
+      "evidence": "Exact artifact pins, per-run records, completed UART and reviewed operator observations.",
+      "automation": [
+        {
+          "api": "runner",
+          "test_id": "inventory.readonly"
+        }
+      ],
+      "acceptance": {
+        "runs": 3,
+        "cold_boots": 3,
+        "seconds_per_run": 0,
+        "metrics_minimum": {},
+        "metrics_maximum": {},
+        "oracles": [
+          "actual_device_identity",
+          "missing_data_explicit"
+        ]
+      },
+      "requires_uvd": false
+    }
+  ]
+}

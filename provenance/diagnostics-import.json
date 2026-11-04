@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
-      "destination_bytes": 62126,
+      "destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
+      "destination_bytes": 62373,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -71,6 +71,13 @@
           "prior_destination_sha256": "50b6f3eff8a870b3d7ddebcfb4a78bac7d42650703bac18492cd39e0c168adc7",
           "destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
           "destination_bytes": 62126,
+          "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
+          "destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
+          "destination_bytes": 62373,
           "mode": "0644"
         }
       ]
@@ -233,8 +240,17 @@
       "bytes": 53810,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
-      "destination_bytes": 53810
+      "destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
+      "destination_bytes": 54855,
+      "destination_adaptations": [
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
+          "destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
+          "destination_bytes": 54855,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "origin_path": "diagnostics/ps4/themes-LICENSE",
@@ -348,8 +364,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "617f88113df45433f2baf44be69e79335c7879d26e11276f9b0b4638f3941f2c",
-      "destination_bytes": 73474,
+      "destination_sha256": "1bdcfb9a3d298b13069ff27976acea8059f87434b8b54945d5d3cf4b3f3e4881",
+      "destination_bytes": 81881,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -386,6 +402,13 @@
           "destination_sha256": "617f88113df45433f2baf44be69e79335c7879d26e11276f9b0b4638f3941f2c",
           "destination_bytes": 73474,
           "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "617f88113df45433f2baf44be69e79335c7879d26e11276f9b0b4638f3941f2c",
+          "destination_sha256": "1bdcfb9a3d298b13069ff27976acea8059f87434b8b54945d5d3cf4b3f3e4881",
+          "destination_bytes": 81881,
+          "mode": "0644"
         }
       ]
     },
@@ -401,8 +424,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "d1efa8480aebdbf6fd6e2a5665e0aa607297b68afaa314ec5d9deecd145011be",
-      "destination_bytes": 33679,
+      "destination_sha256": "61b239ffab06a14ca3893540de567549d9fd23e99a3936bf95daad53c0fff181",
+      "destination_bytes": 34745,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -432,6 +455,13 @@
           "destination_sha256": "d1efa8480aebdbf6fd6e2a5665e0aa607297b68afaa314ec5d9deecd145011be",
           "destination_bytes": 33679,
           "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "d1efa8480aebdbf6fd6e2a5665e0aa607297b68afaa314ec5d9deecd145011be",
+          "destination_sha256": "61b239ffab06a14ca3893540de567549d9fd23e99a3936bf95daad53c0fff181",
+          "destination_bytes": 34745,
+          "mode": "0644"
         }
       ]
     },
@@ -445,8 +475,8 @@
       "bytes": 39080,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "0092d9190702ba0a4a6e70181fec5e7c3f639b7e3c2155b6c35151d23e60fe0f",
-      "destination_bytes": 64561,
+      "destination_sha256": "49e19182de9200c70f60af1e507aee823dc9c0a10f481171ce42c11aefdeea50",
+      "destination_bytes": 66085,
       "destination_adaptations": [
         {
           "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
@@ -475,6 +505,13 @@
           "destination_sha256": "0092d9190702ba0a4a6e70181fec5e7c3f639b7e3c2155b6c35151d23e60fe0f",
           "destination_bytes": 64561,
           "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "0092d9190702ba0a4a6e70181fec5e7c3f639b7e3c2155b6c35151d23e60fe0f",
+          "destination_sha256": "49e19182de9200c70f60af1e507aee823dc9c0a10f481171ce42c11aefdeea50",
+          "destination_bytes": 66085,
+          "mode": "0644"
         }
       ]
     },
@@ -501,8 +538,17 @@
       "bytes": 10471,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
-      "destination_bytes": 10471
+      "destination_sha256": "2613555088d6b4b7e3605f961cfda3a64ad33372fa82d99776d496646a63b97f",
+      "destination_bytes": 10771,
+      "destination_adaptations": [
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
+          "destination_sha256": "2613555088d6b4b7e3605f961cfda3a64ad33372fa82d99776d496646a63b97f",
+          "destination_bytes": 10771,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "diagnostics/ps4/web/app.css",
@@ -1425,14 +1471,21 @@
         "Use the repository-local diagnostic archive helper.",
         "Add the same two fixed Chromium RAM assets and carry the explicit snapshot receipt pin."
       ],
-      "destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
-      "destination_bytes": 8050,
+      "destination_sha256": "ea89327ebba32d3ef98a1d31ae769a6dcd7e97615ffb7bbd5716b37e09ba4175",
+      "destination_bytes": 8236,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
           "prior_destination_sha256": "a37f6c6cbc61e1c50c80bb0598787fa6c0255fd3a097b9108623c4bbd72b6e1b",
           "destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
           "destination_bytes": 8050,
+          "mode": "0755"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
+          "destination_sha256": "ea89327ebba32d3ef98a1d31ae769a6dcd7e97615ffb7bbd5716b37e09ba4175",
+          "destination_bytes": 8236,
           "mode": "0755"
         }
       ]
@@ -1686,14 +1739,21 @@
         "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
         "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
       ],
-      "destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
-      "destination_bytes": 10658,
+      "destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
+      "destination_bytes": 11652,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
           "prior_destination_sha256": "b9ab382c3e63d8826eea266c9d87d7355be46a1ce50a9a1be40474dcad87b3b1",
           "destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
           "destination_bytes": 10658,
+          "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
+          "destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
+          "destination_bytes": 11652,
           "mode": "0644"
         }
       ]
@@ -1872,8 +1932,17 @@
       "bytes": 9863,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
-      "destination_bytes": 9863
+      "destination_sha256": "522f2452a61bdb03a1a43ccceb3931256070b2e8ce4b8d3a628ee29567c11c79",
+      "destination_bytes": 10699,
+      "destination_adaptations": [
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
+          "destination_sha256": "522f2452a61bdb03a1a43ccceb3931256070b2e8ce4b8d3a628ee29567c11c79",
+          "destination_bytes": 10699,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "LICENSE",
@@ -2046,8 +2115,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "695a4e3bbcfb561fae7ee74a46dc12bebf51e9f0da2e73565ba211326cdf9d46",
-      "destination_bytes": 10031,
+      "destination_sha256": "421595c1cf29558ca1bcd09c49c255a96c3a1558f120f0ae3e968246322f5833",
+      "destination_bytes": 10490,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -2077,6 +2146,13 @@
           "prior_destination_sha256": "5a1c623ee35d19ac05ceca74847fa233812e97d7c92138e1124d4bd1b3835843",
           "destination_sha256": "695a4e3bbcfb561fae7ee74a46dc12bebf51e9f0da2e73565ba211326cdf9d46",
           "destination_bytes": 10031,
+          "mode": "0644"
+        },
+        {
+          "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+          "prior_destination_sha256": "695a4e3bbcfb561fae7ee74a46dc12bebf51e9f0da2e73565ba211326cdf9d46",
+          "destination_sha256": "421595c1cf29558ca1bcd09c49c255a96c3a1558f120f0ae3e968246322f5833",
+          "destination_bytes": 10490,
           "mode": "0644"
         }
       ]
@@ -2262,6 +2338,121 @@
           "prior_destination_sha256": "c55454ef91550a34ba281e4deef5b8666894ee5cad19ce78d47dc4249a5779d5",
           "destination_sha256": "debd96d07ebb2c084dac62c35954aeb19e1af052ad14bcd55c5aac9a9674da45",
           "destination_bytes": 3476,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "diagnostics/ps4/qualification.py",
+      "destination_sha256": "c28846fa53f75f3671efac85f0377d5ff46c8b8cc1326b111832e21993b889cd",
+      "destination_bytes": 17095,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/qualification.json",
+      "destination_sha256": "51b45cd93a8c7f63ed5f1fb9d5f63795f5638af780ed37847e14220a055e0aa4",
+      "destination_bytes": 52940,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/uvd.py",
+      "destination_sha256": "2bca6627578b841e931cfafb03019591ba9ed484147d0853ba1aa25af51f9215",
+      "destination_bytes": 17948,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Fix independently reviewed completion durability: sync decoder evidence before PASS and retain an immutable per-boot stop intent even after an exact match. UVD is the final active test; sync failures remain inconclusive and no marker rewrite can reopen hardware work.",
+          "prior_destination_sha256": "3973db9d7c53ec376d09d2510c955140679d46e4c355790bd827828ea2851cf6",
+          "destination_sha256": "2bca6627578b841e931cfafb03019591ba9ed484147d0853ba1aa25af51f9215",
+          "destination_bytes": 17948,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-ALPHA.md",
+      "destination_sha256": "5e52458a1b0a9135f39705e853e5eef2f985873dcd248e8dcd9b83a94557bc7a",
+      "destination_bytes": 6786,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Document native alpha assembly, optional matching providers, and the reviewed final-active-UVD-action policy with immutable stop intent and evidence-only PASS.",
+          "prior_destination_sha256": "0fb873e60fce902feb4046c9a4e2350eb75438443b561f214a2c0b952e0a9483",
+          "destination_sha256": "5e52458a1b0a9135f39705e853e5eef2f985873dcd248e8dcd9b83a94557bc7a",
+          "destination_bytes": 6786,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha1.json",
+      "destination_sha256": "a8f3a062a4a253a86bf4996424ded92658ad25f48cfe5d3bd16d9a09d270fe7b",
+      "destination_bytes": 9429,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/build-ps4-diagnostics-alpha",
+      "destination_sha256": "a8512d67c3a4f203acae2190f94fc2beef4197c15d7ef71109e860a664a8f9fa",
+      "destination_bytes": 41295,
+      "mode": "0755",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/prepare-ps4-diagnostics-alpha-extras",
+      "destination_sha256": "75a9d94fe6a914e46017a72e8ddd76da09c857a8d73ec29d7831ce80db1c51f2",
+      "destination_bytes": 19206,
+      "mode": "0755",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_alpha.py",
+      "destination_sha256": "f09edc4c6ee9041a6978513b18609067dd54c68509834d0e016d71df672c4598",
+      "destination_bytes": 14929,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_alpha_extras.py",
+      "destination_sha256": "7d12fb3d8bab27e41f9a9a38ff26f3b9a52181a2409752851262cc082c81bdd8",
+      "destination_bytes": 4895,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_qualification.py",
+      "destination_sha256": "c100f51d49520f31f359bdb3d241e880e1763d7788436af797346ece29c2ac73",
+      "destination_bytes": 9410,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_uvd.py",
+      "destination_sha256": "b2485562a2d79f36eb44c71bca6d8ddaedb4042dae63a2a3aa69b1470a029258",
+      "destination_bytes": 22509,
+      "mode": "0644",
+      "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Fix independently reviewed completion durability: sync decoder evidence before PASS and retain an immutable per-boot stop intent even after an exact match. UVD is the final active test; sync failures remain inconclusive and no marker rewrite can reopen hardware work.",
+          "prior_destination_sha256": "f3a6e07704ae506cda09a89cc56a30f6e2b8928695b8c56421c7479ce7df97f2",
+          "destination_sha256": "b2485562a2d79f36eb44c71bca6d8ddaedb4042dae63a2a3aa69b1470a029258",
+          "destination_bytes": 22509,
           "mode": "0644"
         }
       ]
@@ -2485,6 +2676,48 @@
         "rootfs/ps4-diagnostics-gui/psx-wired.nmconnection",
         "rootfs/ps4-diagnostics-gui/sshd-psx-host-key.conf",
         "rootfs/ps4-diagnostics-gui/sshd-psx.conf"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/runner.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/model.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "diagnostics/ps4/wayland/runtime.py",
+        "scripts/refresh-ps4-diagnostics-frontend",
+        "tests/test_ps4_diagnostics_frontend_refresh.py",
+        "tests/test_ps4_diagnostics_wayland.py",
+        "docs/DIAGNOSTICS.md",
+        "diagnostics/ps4/qualification.py",
+        "diagnostics/ps4/qualification.json",
+        "diagnostics/ps4/uvd.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "manifests/ps4-diagnostics-uvd-alpha1.json",
+        "scripts/build-ps4-diagnostics-alpha",
+        "scripts/prepare-ps4-diagnostics-alpha-extras",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_alpha_extras.py",
+        "tests/test_ps4_diagnostics_qualification.py",
+        "tests/test_ps4_diagnostics_uvd.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Fix independently reviewed completion durability: sync decoder evidence before PASS and retain an immutable per-boot stop intent even after an exact match. UVD is the final active test; sync failures remain inconclusive and no marker rewrite can reopen hardware work.",
+      "paths": [
+        "diagnostics/ps4/uvd.py",
+        "tests/test_ps4_diagnostics_uvd.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Document native alpha assembly, optional matching providers, and the reviewed final-active-UVD-action policy with immutable stop intent and evidence-only PASS.",
+      "paths": [
+        "docs/PS4-DIAGNOSTIC-ALPHA.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

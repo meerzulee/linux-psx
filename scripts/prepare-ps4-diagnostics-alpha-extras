@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Rebind verified optional test packs to the frozen UVD alpha, offline.
+
+Preserves provider executables and licenses. Writes only a new host output
+directory; no mount, package installation, console connection or device access.
+"""
+import argparse
+import ast
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path, PurePosixPath
+import pprint
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+REPO = Path(__file__).resolve().parents[1]
+ALPHA_PROFILE = 'ps4-baikal-diagnostics-uvd-alpha1'
+ALPHA_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev1'
+ALPHA_KERNEL = '9c3ec7d27fdfdebfee137684a635301e8dfa259b50e2f5d98ee33cf5f91e6153'
+VIDEO_FLAG = '--disable-accelerated-video-decode'
+
+
+def load(name, relative):
+    loader = importlib.machinery.SourceFileLoader(name, str(REPO/relative))
+    spec = importlib.util.spec_from_loader(name, loader)
+    app = importlib.util.module_from_spec(spec)
+    sys.modules[name] = app
+    loader.exec_module(app)
+    return app
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def pin(path, expected, size=None):
+    path = Path(path)
+    if (path.is_symlink() or not path.is_file() or digest(path) != expected
+            or size is not None and path.stat().st_size != size):
+        raise ValueError('Optional alpha input differs from its pin: '+str(path))
+
+
+def profile(path):
+    value = json.loads(Path(path).read_text())
+    if (value.get('profile') != ALPHA_PROFILE or value.get('kernel_release') != ALPHA_RELEASE
+            or value.get('kernel_sha256') != ALPHA_KERNEL or value.get('uvd_runtime') is not True):
+        raise ValueError('Expected the separately frozen UVD alpha profile')
+    return value
+
+
+def new_output(path, inputs=()):
+    path = Path(path)
+    target = path.resolve()
+    allowed = (REPO/'output').resolve(), Path('/var/tmp')
+    if (path.is_symlink() or path.exists() or not any(target != p and target.is_relative_to(p) for p in allowed)):
+        raise ValueError('Use a new ordinary directory below output/ or /var/tmp')
+    for source in inputs:
+        original = Path(source).resolve(strict=True)
+        if target == original or target.is_relative_to(original) or original.is_relative_to(target):
+            raise ValueError('Optional output overlaps an input')
+    target.mkdir(parents=True, exist_ok=False)
+    return target
+
+
+def json_bytes(value):
+    return (json.dumps(value, indent=2, sort_keys=True)+'\n').encode()
+
+
+def wayland_members(alpha, old, members):
+    if (old.get('kernel_release') != alpha['alpha_base']['kernel_release']
+            or old.get('mesa_manifest_sha256') != alpha['mesa_manifest_sha256']):
+        raise ValueError('Original Wayland kernel/Mesa identity differs')
+    result = dict(members)
+    runtime = (REPO/'diagnostics/ps4/wayland/runtime.py').read_bytes()
+    result['runtime.py'] = (runtime, 0o755)
+    manifest = dict(old, profile='ps4-uvd-alpha1-native-wayland-egl1',
+                    kernel_release=alpha['kernel_release'], kernel_sha256=alpha['kernel_sha256'],
+                    hardware_acceptance=False, hardware_run=False,
+                    qualification='Original pinned provider binaries and host ELF closure; alpha identity guards; no hardware execution')
+    manifest['files'] = {name: {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest(),
+                               'mode': f'{mode:04o}'} for name, (data, mode) in result.items() if name != 'suite.json'}
+    result['suite.json'] = (json_bytes(manifest), 0o644)
+    if sum(len(data) for data, _ in result.values()) > manifest['maximum_unpacked_bytes']:
+        raise ValueError('Alpha Wayland suite exceeds its RAM budget')
+    return manifest, result
+
+
+def prepare_wayland(args, alpha):
+    expected = alpha['alpha_inputs']['wayland_suite']
+    pin(args.source, expected['sha256'], expected['bytes'])
+    launch = load('psx_alpha_wayland_launch', 'rootfs/ps4-wayland/launch-wayland')
+    old, members = launch.inspect_archive(args.source, expected['sha256'])
+    manifest, members = wayland_members(alpha, old, members)
+    manifest['derived_from_archive_sha256'] = expected['sha256']
+    members['suite.json'] = (json_bytes(manifest), 0o644)
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode='w', format=tarfile.USTAR_FORMAT) as archive:
+        for name, (data, mode) in sorted(members.items()):
+            item = tarfile.TarInfo(name)
+            item.size, item.mode, item.mtime = len(data), mode, alpha['source_date_epoch']
+            archive.addfile(item, io.BytesIO(data))
+    packed = gzip.compress(raw.getvalue(), compresslevel=9, mtime=0)
+    if len(packed) > manifest['maximum_archive_bytes']:
+        raise ValueError('Alpha Wayland archive exceeds its separate budget')
+    output = new_output(args.output, (args.source,))
+    path = output/'psx-wayland-suite.tar.gz'
+    path.write_bytes(packed)
+    launch.inspect_archive(path, digest(path))
+    helper = output/'launch-wayland'
+    helper.write_bytes((REPO/'rootfs/ps4-wayland/launch-wayland').read_bytes())
+    helper.chmod(0o755)
+    receipt = {'status': 'HOST_VALIDATED', 'profile': manifest['profile'], 'archive': path.name,
+               'archive_sha256': digest(path), 'archive_bytes': len(packed),
+               'launcher_sha256': digest(helper), 'source_archive_sha256': expected['sha256'],
+               'kernel_release': alpha['kernel_release'], 'kernel_sha256': alpha['kernel_sha256'],
+               'hardware_acceptance': False, 'hardware_run': False}
+    (output/'build-receipt.json').write_bytes(json_bytes(receipt))
+    return receipt
+
+
+def replace_assignment(source, name, expected, replacement):
+    """Replace one module-level literal, preserving the remaining source text."""
+    tree = ast.parse(source)
+    matches = [n for n in tree.body if isinstance(n, ast.Assign) and len(n.targets) == 1
+               and isinstance(n.targets[0], ast.Name) and n.targets[0].id == name]
+    if len(matches) != 1 or ast.literal_eval(matches[0].value) != expected:
+        raise ValueError('Original launcher literal differs: '+name)
+    node = matches[0]
+    lines = source.splitlines(keepends=True)
+    lines[node.lineno-1:node.end_lineno] = [name+' = '+pprint.pformat(replacement, sort_dicts=True)+'\n']
+    changed = ''.join(lines)
+    compile(changed, '<alpha provider helper>', 'exec')
+    return changed
+
+
+def debugfs(image, command, write=False):
+    info = Path(image).lstat()
+    if not stat.S_ISREG(info.st_mode) or write and (info.st_nlink != 1 or info.st_uid != os.geteuid()):
+        raise ValueError('Offline filesystem edits require a new owned regular image')
+    return subprocess.run(['debugfs', *(['-w'] if write else []), '-R', command, str(image)],
+                          check=True, capture_output=True, timeout=30).stdout
+
+
+def filesystem_check(image):
+    return subprocess.run(['e2fsck', '-fn', str(image)], check=True, capture_output=True, timeout=90)
+
+
+def verify_provider_payload(image, records):
+    files = links = 0
+    with tempfile.TemporaryDirectory(dir='/var/tmp', prefix='psx-alpha-provider-readback-') as temporary:
+        destination = Path(temporary)/'asset'
+        for item in records:
+            name = item['path']
+            path = PurePosixPath(name)
+            if (path.is_absolute() or '..' in path.parts or str(path) != name
+                    or not re.fullmatch(r'[A-Za-z0-9._+:/-]+', name)):
+                raise ValueError('Unexpected pinned provider asset path')
+            info = debugfs(image, 'stat /'+name).decode()
+            if 'symlink' in item:
+                if ('Fast link dest: '+json.dumps(item['symlink'])) not in info:
+                    raise ValueError('Provider symlink changed: '+name)
+                links += 1
+                continue
+            debugfs(image, 'dump /'+name+' '+str(destination))
+            pin(destination, item['sha256'], item['bytes'])
+            destination.unlink()
+            mode = re.search(r'Mode:\s+([0-7]+)', info)
+            if (mode is None or int(mode[1], 8) != int(item['mode'], 8)
+                    or not re.search(r'User:\s+0\s+Group:\s+0\b', info)):
+                raise ValueError('Provider asset ownership/mode changed: '+name)
+            files += 1
+    return {'regular_files': files, 'symlinks': links, 'all_original_payload_bytes_and_modes_preserved': True}
+
+
+def finalize_frontend(base, destination, helpers, provider):
+    """Bind two alpha-only provider helpers above the unchanged alpha root."""
+    stage = load('psx_alpha_extras_stage', 'scripts/stage-ps4-diagnostics-usb')
+    image = load('psx_alpha_extras_image', 'scripts/build-ps4-diagnostics')
+    parser = load('psx_alpha_extras_cpio', 'scripts/ps4-diagnostics-archive')
+    files, metadata = stage.source_files(base)
+    if metadata.get('profile') != ALPHA_PROFILE or metadata.get('kernel_sha256') != ALPHA_KERNEL:
+        raise ValueError('Frontend rebinding requires the frozen alpha boot set')
+    entries, _ = parser.parse_newc(gzip.decompress((base/'initramfs.cpio.gz').read_bytes()))
+    seed = {e.name.decode(): e for e in entries}
+    if len(seed) != len(entries):
+        raise ValueError('Duplicate alpha CPIO entries')
+    expected = dict(metadata); expected.pop('initramfs_sha256')
+    if json.loads(seed['etc/psx-diagnostics-expected.json'].data) != expected:
+        raise ValueError('Alpha embedded/external receipts differ')
+    frontend = {name: seed['psx-frontend/'+name].data for name in image.FRONTEND_FILES}
+    if image.frontend_manifest(frontend, metadata['snapshot_sums_sha256']) != metadata['frontend_overrides']:
+        raise ValueError('Alpha frontend differs from its fixed contract')
+    parser.validate_busybox(seed['bin/busybox'].data)
+    for name in ('prepare-chromium-provider', 'launch-chromium-provider'):
+        path = helpers/name
+        if path.is_symlink() or not path.is_file() or stat.S_IMODE(path.stat().st_mode) != 0o755:
+            raise ValueError('Expected a regular fixed alpha provider helper')
+        frontend[name] = path.read_bytes()
+    expected.update(frontend_overrides=image.frontend_manifest(frontend, metadata['snapshot_sums_sha256']),
+                    frontend_revision='uvd-alpha1-extras1',
+                    alpha_optional_chromium={
+                        **{key: provider[key] for key in ('provider_id', 'image', 'image_bytes', 'image_sha256', 'provider_manifest_sha256')},
+                        'usb_directory': 'psx-diagnostics/providers', 'included_in_core': False,
+                        'kernel_root_unchanged': True, 'hardware_video_decoding': False,
+                        'helper_sha256': {name: hashlib.sha256(frontend[name]).hexdigest()
+                                          for name in ('prepare-chromium-provider', 'launch-chromium-provider')},
+                        'tool_sha256': digest(Path(__file__)),
+                        'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
+                    })
+    destination.mkdir(exist_ok=False)
+    for name in files:
+        if name in ('initramfs.cpio.gz', 'psx-diagnostics/boot-set.json'):
+            continue
+        target = destination/name; target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.link(base/name, target)
+        except OSError:
+            shutil.copyfile(base/name, target)
+    firmware = {name: entry.data for name, entry in seed.items()
+                if name.startswith('lib/firmware/') and stat.S_ISREG(entry.mode)}
+    image.initramfs(metadata, seed, seed['bin/busybox'].data, firmware, metadata['rootfs_sha256'],
+                    destination/'initramfs.cpio.gz', metadata['source_date_epoch'], expected=expected, frontend=frontend)
+    external = dict(expected, initramfs_sha256=digest(destination/'initramfs.cpio.gz'))
+    (destination/'psx-diagnostics/boot-set.json').write_bytes(json_bytes(external))
+    sums = {name: digest(destination/name) for name in files}
+    (destination/'SHA256SUMS').write_text(stage.installed_sums(sums))
+    verified_files, final = stage.source_files(destination)
+    total = sum((destination/name).stat().st_size for name in verified_files)+(destination/'SHA256SUMS').stat().st_size
+    if total+1024**2 > final['maximum_boot_set_bytes']:
+        raise ValueError('Alpha frontend and metadata reserve exceed the 1 GiB core cap')
+    current, _ = stage.source_files(base)
+    if current != files:
+        raise ValueError('Original alpha boot set changed during optional-provider preparation')
+    return {'boot_set_bytes': total, 'rootfs_sha256': final['rootfs_sha256'],
+            'initramfs_sha256': final['initramfs_sha256'], 'frontend_assets': len(frontend),
+            'kernel_root_unchanged': True, 'hardware_acceptance': False}
+
+
+def prepare_chromium(args, alpha):
+    stage = load('psx_alpha_chromium_stage', 'scripts/stage-ps4-diagnostics-usb')
+    _, boot = stage.source_files(args.boot_set.resolve(strict=True))
+    for field in ('profile', 'kernel_release', 'kernel_sha256', 'mesa_manifest_sha256'):
+        if boot.get(field) != alpha[field]:
+            raise ValueError('Boot set does not match the frozen alpha: '+field)
+    expected = alpha['alpha_inputs']['chromium_provider']
+    original = args.source/expected['image']
+    pin(original, expected['image_sha256'], expected['image_bytes'])
+    raw = debugfs(original, 'cat /PROVIDER.json')
+    if hashlib.sha256(raw).hexdigest() != expected['provider_manifest_sha256']:
+        raise ValueError('Original Chromium embedded manifest differs')
+    old = json.loads(raw)
+    launcher = load('psx_alpha_chromium_launcher', 'rootfs/ps4-diagnostics-desktop/launch-chromium-provider')
+    preparer = load('psx_alpha_chromium_preparer', 'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider')
+    if old.get('browser_flags') != launcher.FLAGS or old.get('kernel_release') != launcher.RELEASE:
+        raise ValueError('Original Chromium fixed launch policy differs')
+    flags = [*launcher.FLAGS, VIDEO_FLAG]
+    provider_id = 'chromium-151.0.7922.169-psx-uvd-alpha1'
+    provider = dict(old, provider_id=provider_id, kernel_release=alpha['kernel_release'],
+                    kernel_sha256=alpha['kernel_sha256'], base_rootfs_sha256=boot['rootfs_sha256'],
+                    frontend_initramfs_sha256=boot['initramfs_sha256'], browser_flags=flags,
+                    derived_from_image_sha256=expected['image_sha256'], hardware_acceptance=False,
+                    qualification='Original pinned package executables/licenses; rebound alpha kernel/root; hardware video decoding disabled; no browser execution')
+    embedded = json_bytes(provider)
+    output = new_output(args.output, (args.source, args.boot_set))
+    image = output/(provider_id+'.ext4')
+    shutil.copyfile(original, image)
+    before = filesystem_check(image)
+    with tempfile.TemporaryDirectory(dir='/var/tmp', prefix='psx-alpha-chromium-') as temporary:
+        replacement = Path(temporary)/'PROVIDER.json'
+        replacement.write_bytes(embedded)
+        debugfs(image, 'rm /PROVIDER.json', write=True)
+        debugfs(image, 'write '+str(replacement)+' /PROVIDER.json', write=True)
+        for field, value in (('uid', '0'), ('gid', '0'), ('mode', '0100644')):
+            debugfs(image, 'set_inode_field /PROVIDER.json '+field+' '+value, write=True)
+    if debugfs(image, 'cat /PROVIDER.json') != embedded:
+        raise ValueError('Alpha provider manifest readback differs')
+    sandbox_before = debugfs(original, 'stat /usr/lib/chromium/chrome-sandbox')
+    sandbox_after = debugfs(image, 'stat /usr/lib/chromium/chrome-sandbox')
+    for text in (sandbox_before, sandbox_after):
+        if b'User:     0' not in text or b'Mode:  04755' not in text:
+            raise ValueError('Sandbox helper ownership/mode is not preserved')
+    after = filesystem_check(image)
+    payload_readback = verify_provider_payload(image, old['files'])
+    (output/'filesystem-check.txt').write_bytes(before.stdout+before.stderr+after.stdout+after.stderr)
+    manifest_sha = hashlib.sha256(embedded).hexdigest()
+    config = {'schema_version': 1, 'provider_manifest_sha256': manifest_sha}
+    receipt = {'provider_id': provider_id, 'image': image.name, 'image_bytes': image.stat().st_size,
+               'image_sha256': digest(image), 'provider_manifest_sha256': manifest_sha,
+               'launcher_config': config, 'kernel_root_unchanged': True, 'hardware_acceptance': False,
+               'kernel_release': alpha['kernel_release'], 'kernel_sha256': alpha['kernel_sha256'],
+               'base_rootfs_sha256': boot['rootfs_sha256'], 'source_image_sha256': expected['image_sha256'],
+               'payload_readback': payload_readback}
+    (output/'provider-manifest.json').write_bytes(json_bytes(receipt))
+    (output/'chromium-provider.json').write_bytes(json_bytes(config))
+    fixed = {key: receipt[key] for key in ('provider_id', 'image', 'image_bytes', 'image_sha256', 'provider_manifest_sha256')}
+    fixed.update(kernel_release=alpha['kernel_release'], base_rootfs_sha256=boot['rootfs_sha256'],
+                 mesa_manifest_sha256=alpha['mesa_manifest_sha256'])
+    frontend = output/'frontend'; frontend.mkdir()
+    source = (REPO/'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider').read_text()
+    (frontend/'prepare-chromium-provider').write_text(replace_assignment(source, 'EXPECTED', preparer.EXPECTED, fixed))
+    source = (REPO/'rootfs/ps4-diagnostics-desktop/launch-chromium-provider').read_text()
+    source = replace_assignment(source, 'RELEASE', launcher.RELEASE, alpha['kernel_release'])
+    (frontend/'launch-chromium-provider').write_text(replace_assignment(source, 'FLAGS', launcher.FLAGS, flags))
+    for path in frontend.iterdir():
+        path.chmod(0o755)
+    receipt['frontend_helpers'] = {p.name: {'sha256': digest(p), 'bytes': p.stat().st_size} for p in frontend.iterdir()}
+    receipt['boot_set'] = finalize_frontend(args.boot_set.resolve(strict=True), output/'boot-set', frontend, receipt)
+    (output/'build-receipt.json').write_bytes(json_bytes(receipt))
+    return receipt
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('kind', choices=('wayland', 'chromium'))
+    parser.add_argument('--profile', type=Path, default=REPO/'manifests/ps4-diagnostics-uvd-alpha1.json')
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--boot-set', type=Path, help='Required alpha boot set for the Chromium root binding')
+    args = parser.parse_args()
+    if args.kind == 'chromium' and args.boot_set is None:
+        parser.error('chromium requires --boot-set')
+    receipt = (prepare_wayland if args.kind == 'wayland' else prepare_chromium)(args, profile(args.profile))
+    print(json.dumps(receipt, indent=2))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        raise SystemExit('Alpha extras: '+str(error))

@@ -93,6 +93,21 @@ class WaylandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'injected'):
             RUNTIME.preflight(self.suite, self.root)
 
+    def test_alpha_artifact_pins_cannot_be_satisfied_by_a_matching_release_alone(self):
+        boot_path = self.root/'etc/psx-diagnostics/boot-set.json'
+        boot = json.loads(boot_path.read_text())
+        for field in ('kernel_sha256', 'rootfs_sha256'):
+            with self.subTest(field=field):
+                self.manifest[field] = 'a'*64
+                self.write_manifest()
+                self.ops.commands.clear()
+                with self.assertRaisesRegex(ValueError, 'artifact identity'):
+                    RUNTIME.preflight(self.suite, self.root, self.ops)
+                self.assertEqual(self.ops.commands, [])
+                boot[field] = 'a'*64
+                boot_path.write_text(json.dumps(boot))
+                self.assertFalse(RUNTIME.preflight(self.suite, self.root, self.ops)['hardware_acceptance'])
+
     def test_valid_preflight_is_data_only_and_selects_one_amd_card(self):
         result = RUNTIME.preflight(self.suite, self.root, self.ops)
         self.assertEqual(result['drm_device'], '/dev/dri/card0')

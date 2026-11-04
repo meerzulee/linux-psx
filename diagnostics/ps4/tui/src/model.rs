@@ -78,6 +78,7 @@ pub enum ActionKind {
     Continue,
     Information(Value),
     Hardware(crate::hardware::Section),
+    Qualification,
     Credits,
     SettingsGroup(SettingsGroup),
     SshSetup,
@@ -313,6 +314,7 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
                     .into(),
                 kind: ActionKind::Hardware(crate::hardware::Section::System),
             },
+            Action {title:"Test plan".into(),detail:"Read qualification gates, dependencies and proposed acceptance counts. No tests are started.".into(),kind:ActionKind::Qualification},
             request(
                 "Graphical menu",
                 "Open the high-resolution diagnostics menu.",
@@ -510,6 +512,7 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
                 "graphics.launch",
                 json!({"app":"vulkan"}),
             ),
+            test("UVD AVC reference · alpha","One bounded AVC reference decode; experimental alpha only, UART session required. Cold-boot and retained-DMA lifecycle limits apply.","uvd.avc",json!({})),
         ],
         Category::Browser => vec![
             request(
@@ -902,5 +905,20 @@ mod tests {
                 "protondb"
             ]
         );
+    }
+    #[test]
+    fn alpha_uvd_action_is_explicit_and_uses_the_existing_typed_test() {
+        let actions = actions(Category::Graphics, &demo_state(), false);
+        let action = actions
+            .iter()
+            .find(|item| item.title.contains("UVD AVC"))
+            .unwrap();
+        let ActionKind::Request("test.run", params) = &action.kind else {
+            panic!("UVD must use typed test dispatch");
+        };
+        assert_eq!(params["test_id"], "uvd.avc");
+        assert_eq!(params["parameters"], json!({}));
+        assert!(action.detail.contains("UART session required"));
+        assert!(action.detail.contains("Cold-boot"));
     }
 }

@@ -1,0 +1,112 @@
+# PS4 diagnostics alpha with UVD
+
+This is a local engineering candidate for the recorded Baikal PS4. It combines
+the diagnostic interface with a separately pinned experimental UVD kernel and
+its whole matching module tree. It does not turn the ordinary native-dev3
+kernel into a UVD build, and results from the two kernels stay separate.
+
+The ordinary diagnostic boot set remains the rollback. The core retains its
+1 GiB cap; optional browser providers and media have separate explicit budgets.
+No public binary release or hardware qualification follows from assembly.
+
+## Frozen inputs
+
+[`ps4-diagnostics-uvd-alpha1.json`](../manifests/ps4-diagnostics-uvd-alpha1.json)
+pins the kernel, config, all 41 matching modules, complete corresponding source,
+private Mesa, package snapshot, firmware and exact AVC fixture. Its release is
+`7.2.11-psx-ps4-baikal-uvd-runtime-dev1`. The preserved patched source snapshot
+records project base `35b9f37960ba2fbfc8e2fa0ad5077656ceb1dbc2`; it is not
+native-dev3's later source commit. Original package receipts remain unchanged.
+
+The alpha assembler creates a new regular ext4 image offline from the exact
+ordinary root, replaces its entire kernel-module tree, and installs the alpha
+runner and checklist. It uses no host mount, container, physical device or
+privileged package installation. Filesystem checks and data readback verify the
+result; they cannot establish that it will boot. The regenerated initramfs and
+external receipt bind the new root, kernel and fixed 29 frontend assets.
+
+Inspect the native assembly commands before supplying explicit artifact paths:
+
+```sh
+python3 scripts/build-ps4-diagnostics-alpha --help
+python3 scripts/prepare-ps4-diagnostics-alpha-extras --help
+```
+
+The alpha builder's `--plan` verifies real inputs without creating output.
+Ordinary assembly writes a new host boot-set directory, never the USB. A
+matched Wayland archive can be installed inside the read-only root with
+`--wayland-suite` and its reviewed `--wayland-sha256`. Chromium preparation
+then creates a separate 384 MiB provider and a complete final boot set with
+two matching fixed frontend helpers; its provider image remains outside the
+1 GiB core cap. Original executables, libraries, licenses, sandbox ownership
+and modes are preserved and read back. Neither pack is executed on the host.
+
+## What to test
+
+Open **Test plan** in the diagnostic interface, or inspect the source checklist:
+
+```sh
+python3 diagnostics/ps4/qualification.py
+python3 diagnostics/ps4/qualification.py --json
+```
+
+The plan distinguishes available automated probes, operator observations,
+separate experiments and deferred work. Run CPU and owned-memory checks before
+advanced tests. Keep these evidence boundaries:
+
+| Area | Evidence needed beyond a short successful run |
+| --- | --- |
+| Boot and recovery | Repeated cold boots of the exact build, artifact/module identity, readable console, SSH enrollment and a verified rollback |
+| CPU, RAM and thermal | Correct computation and memory patterns, bounded longer load, temperature observations and no kernel faults |
+| Ethernet | Three cold boots; verified 1 GiB transfers each way per boot; 60 minutes mixed traffic; healthy cable/admin recovery and Orbis networking afterward |
+| Wi-Fi and Bluetooth | Record adapter/firmware, bands or peer, connection and actual traffic/input; investigate a new defect when a reproducible report identifies it |
+| USB and storage | Identify every device; preserve reports and check their readback; internal SATA/root installation stays a separate storage experiment |
+| Graphics and display | Hardware renderer plus reference pixels, finite repeated workloads, Xorg/Wayland separately, mode/cursor/TTY recovery and no GPU faults |
+| Browsers | Firefox/Chromium separately, saved canvas/WebGL/animation/video results, configured display mode and measured callback cadence, bounded automatic close/error reporting |
+| Audio and input | Listen to the 44.1 kHz channels, verify controls/HID; native 48 kHz remains deferred and cannot be inferred from resampling |
+| UVD | Forced VAAPI decode and exact frame comparison, then separately qualify sustained decoding and resource/lifecycle behavior |
+| Power | Externally observed power-off, reboot and return to Orbis under a reviewed kernel-specific lifecycle plan; suspend remains excluded |
+
+Skipped, unsupported, deferred and inconclusive checks are not passes. The
+checklist does not certify stability. A reviewer must evaluate completed UART
+sessions, exact build identities, repetitions and model scope against
+[the finish gates](CURRENT-FINISH-PLAN.md). Another PS4 model needs its own
+report and qualification; success on one Baikal console does not cover it.
+
+## First UVD experiment
+
+Only the explicit AVC action may start a decoder. It reuses the existing
+[`playback.py`](../experiments/ps4-uvd-driver/runtime/playback.py) harness and
+its pinned 120-frame H.264/NV12 fixture. It compares every frame and the whole
+decoded output with the software reference. Software fallback cannot pass.
+The result does not qualify browser decoding, other codecs, encoding or 4K.
+
+The runtime requires these three boot arguments:
+
+```text
+amdgpu.ps4_uvd_runtime=1 amdgpu.ps4_uvd_ready=1 amdgpu.ps4_uvd_poll_state=1
+```
+
+A current bounded UART session and a root-private assertion tied to the live
+boot are required before the action starts. The assertion is an operator
+declaration, not proof of completed capture continuity. The runner permits one
+decode attempt per boot and preserves the attempt record across controller
+restarts. The UVD attempt is the final active test for that boot, including
+when every frame matches. Its immutable stop intent prevents a controller
+restart or an incomplete report save from reopening active tests. Reports
+and SSH remain available for evidence collection. A timeout, mismatch or
+terminal fault remains a stop and cannot count as a pass.
+
+Firefox's alpha profile disables hardware video decoding while retaining the
+explicit WebGL tests. Mozilla documents the
+[hardware-decoding preference](https://searchfox.org/firefox-main/source/modules/libpref/init/StaticPrefList.yaml)
+and the [separate VAAPI force-enable behavior](https://bugzilla.mozilla.org/show_bug.cgi?id=1801054).
+This keeps ordinary browser tests separate from the experimental decoder's
+resource lifecycle. Optional providers must have alpha-specific kernel/root
+identities before use.
+
+After UVD runtime entry, follow the preserved retained-DMA restrictions: no
+driver unload, reset, unbind, rearm, suspend or automatic reboot/power recovery.
+The first alpha experiment ends with captured results and the operator's
+physical power-off/known-good rollback sequence. Broad lifecycle acceptance
+remains open in [the UVD guide](UVD.md).
