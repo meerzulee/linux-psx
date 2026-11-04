@@ -377,3 +377,43 @@ outside Git; one completed test is not stability qualification.
   in sibling `ps4-uart/sessions/`. Private report, decoded-output readback,
   provider receipts and screen captures:
   `output/ps4-diagnostix-alpha3-preparation/`.
+
+## EXP-20261105-006 — new menu persists; cold boot and reference decode pass
+
+- Published only the new initramfs and boot metadata, with changed-file SHA256
+  readback and a private small-file rollback. Kernel, root, matching modules,
+  firmware and enabled UVD gates stayed fixed. Preserved the working verbose
+  argument file and USB SSH/preferences/reports/providers. Frozen frontend:
+  `alpha3-scenarios1`, source `bc4c463`; initramfs SHA256
+  `8741e0459347809460b095905b2f981297979e1e7558eadca03c51661187678a`,
+  TUI SHA256
+  `14ded3f1873fc11145cbbfccf2d00e33337d155ab201c21a4538fc6179f96cee`.
+- The operator confirmed full physical power-off before this launch. The
+  intended kernel reached UVD STARTED/QUEUE_READY at 8.622933/8.635617 s,
+  verified the read-only root, and reached the native TUI and pinned-key SSH.
+  The installed TUI and firmware hashes matched. X11 stayed inactive; there
+  were no failed systemd units. The operator confirmed menu response, filled
+  Reports selection and Up-to-navbar navigation. The FAT dirty-volume warning
+  remains; filesystem integrity and ordinary shutdown are not qualified.
+- Current-boot CPU computation and the owned 32 MiB memory-pattern check passed.
+  One final `uvd.avc` action produced all 120 128x96 Constrained Baseline AVC
+  frames through forced VAAPI, with no software fallback. All 2,211,840 NV12
+  bytes matched SHA256
+  `d99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491`.
+  The short unpaced decoder took about 0.58 s. Host readback compared every
+  frame directly against the pinned fixture manifest and verified saved
+  artifact hashes; post-run evidence contained no terminal UVD/GPU fault.
+- Verdict: **single cold boot, menu navigation and canonical AVC decode PASS**.
+  This is the first canonical component on this exact new initramfs/TUI set.
+  EXP005 retains its different frontend scope and cannot silently fill this
+  cohort's three-boot count. Native 900-frame/high-resolution, sustained
+  playback, lifecycle/admission/quiescence and power gates remain open; the
+  six scenario descriptions do not make unfinished harnesses executable.
+  The immutable stop intent remained; no further active hardware work followed.
+- Completed UART continuity: 120,437 bytes, same generation/epoch,
+  03:41:45–03:50:45 local. Compact context:
+  `20261105_034145_665347-exp-20261105-006-alpha3-tui-scenarios-update-and-fresh-boot-same-c4f70499.md`
+  in sibling `ps4-uart/sessions/`. Private exact output, fixture comparison,
+  boot-health checks and operator observations:
+  `output/ps4-diagnostix-alpha3-scenarios1/`. Continuous UART capture remains
+  running; physical power-off recovery is required before another UVD run.

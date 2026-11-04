@@ -2301,8 +2301,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
-      "destination_bytes": 25983,
+      "destination_sha256": "3e8b075bd6a2d8bae835a82f53c08bcfd44f2cc1efae5134219bdfc249894baa",
+      "destination_bytes": 28695,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2361,6 +2361,13 @@
           "prior_destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
           "destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
           "destination_bytes": 25983,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed EXP006 with operator-confirmed cold boot and native-menu fixes, current-boot CPU/RAM and one exact UVD reference pass; keep exact frontend cohorts and unfinished qualification gates separate.",
+          "prior_destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
+          "destination_sha256": "3e8b075bd6a2d8bae835a82f53c08bcfd44f2cc1efae5134219bdfc249894baa",
+          "destination_bytes": 28695,
           "mode": "0644"
         }
       ]
@@ -3124,6 +3131,13 @@
         "diagnostics/ps4/tui/src/main.rs",
         "tests/test_ps4_diagnostics_qualification.py",
         "docs/PS4-DIAGNOSTIC-ALPHA.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed EXP006 with operator-confirmed cold boot and native-menu fixes, current-boot CPU/RAM and one exact UVD reference pass; keep exact frontend cohorts and unfinished qualification gates separate.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }
