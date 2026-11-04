@@ -16,6 +16,9 @@ HERE = Path(__file__).resolve().parent
 PLAN = HERE / 'qualification.json'
 STATUSES = {'PASS', 'FAIL', 'DEGRADED', 'NOT_RUN', 'UNSUPPORTED', 'DEFERRED', 'BLOCKED', 'INCONCLUSIVE'}
 MODES = {'automated', 'assisted', 'manual', 'unimplemented', 'deferred'}
+SCENARIO_FIELDS = {'id', 'title', 'availability', 'existing_test_id', 'fixture', 'preparation', 'sequence', 'evidence', 'limits'}
+SCENARIO_LABELS = {'available-alpha': 'Available alpha action; not a result',
+                   'unimplemented': 'Unimplemented; no runnable fixture/harness'}
 EXTRA_IDS = {'controller': {'gpu.opengl.render', 'gpu.vulkan.render'},
              'browser': {'browser.capabilities', 'browser.canvas2d', 'browser.webgl', 'browser.animation', 'browser.video'}}
 HASH_FIELDS = ('kernel_sha256', 'config_sha256', 'modules_sha256', 'initramfs_sha256', 'rootfs_sha256')
@@ -70,6 +73,7 @@ def validate(plan):
     ids = [item.get('id') for item in checks]
     require(all(isinstance(key, str) and re.fullmatch(r'[a-z][a-z0-9_.-]+', key) for key in ids), 'Invalid check ID')
     require(len(ids) == len(set(ids)), 'Duplicate check ID')
+    scenario_ids = set()
     for item in checks:
         require(all(isinstance(item.get(key), str) and item[key] for key in ('title', 'area', 'scope', 'basis', 'source', 'evidence')), 'Missing check explanation')
         require(item.get('mode') in MODES, 'Invalid execution mode')
@@ -93,6 +97,26 @@ def validate(plan):
         require(isinstance(acceptance['metrics_maximum'], dict) and all(numeric(v) for v in acceptance['metrics_maximum'].values()), 'Invalid metric ceilings')
         require(isinstance(acceptance['oracles'], list) and acceptance['oracles']
                 and all(isinstance(key, str) and key for key in acceptance['oracles']), 'Missing acceptance oracles')
+        if 'scenarios' in item:
+            scenarios = item['scenarios']
+            require(item['area'] == 'UVD' and item.get('requires_uvd') is True
+                    and isinstance(scenarios, list) and 1 <= len(scenarios) <= 8,
+                    'Scenario details require an experimental UVD card')
+            for scenario in scenarios:
+                require(isinstance(scenario, dict) and set(scenario) == SCENARIO_FIELDS, 'Invalid scenario fields; executable commands are forbidden')
+                require(all(isinstance(scenario[key], str) and 0 < len(scenario[key]) <= 4096
+                            for key in SCENARIO_FIELDS - {'existing_test_id'}), 'Missing or oversized scenario explanation')
+                key = scenario['id']
+                require(re.fullmatch(r'uvd\.scenario\.[a-z0-9_.-]+', key) and key not in scenario_ids
+                        and key not in ids, 'Invalid or duplicate scenario ID')
+                scenario_ids.add(key)
+                require(scenario['availability'] in SCENARIO_LABELS, 'Invalid scenario availability')
+                if scenario['availability'] == 'available-alpha':
+                    require(key == 'uvd.scenario.baseline128' and item['id'] == 'uvd.avc.exact'
+                            and scenario['existing_test_id'] == 'uvd.avc',
+                            'Only the existing alpha baseline action is available')
+                else:
+                    require(scenario['existing_test_id'] is None, 'An unimplemented scenario cannot advertise an executable test')
     ordered(plan)
     profiles = plan.get('profiles', {})
     require(isinstance(profiles, dict) and profiles, 'Missing qualification profiles')
@@ -219,6 +243,16 @@ def render(plan, report):
         if definition['depends_on']: details.append('After: ' + ', '.join(definition['depends_on']))
         details.extend(item['reasons'])
         for detail in details: lines.extend(textwrap.wrap(detail, width=96, initial_indent='  ', subsequent_indent='  '))
+        for scenario in definition.get('scenarios', []):
+            lines.append('  Scenario: ' + scenario['title'])
+            values = [('Availability', SCENARIO_LABELS[scenario['availability']])]
+            if scenario['existing_test_id']:
+                values.append(('Existing action', scenario['existing_test_id'] + ' (not invoked)'))
+            values.extend((label, scenario[key]) for key, label in (
+                ('fixture', 'Fixture'), ('preparation', 'Prepare'), ('sequence', 'Sequence'),
+                ('evidence', 'Evidence'), ('limits', 'Limits')))
+            for label, value in values:
+                lines.extend(textwrap.wrap(label+': '+value, width=96, initial_indent='    ', subsequent_indent='    '))
         lines.append('')
     lines.append(f"Mandatory blockers: {len(report['mandatory_blockers'])}. " + ('Evidence is ready for human review; no stability claim.' if report['ready_for_human_review'] else 'Qualification is incomplete.'))
     lines.extend('Scope limit: ' + limit for limit in plan['limitations'])

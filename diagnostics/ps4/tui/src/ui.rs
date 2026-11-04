@@ -546,18 +546,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 c.title()
             })
         });
-        let highlight = if app.focus == Focus::Categories {
-            t.selected()
-        } else {
-            Style::default().fg(t.text).add_modifier(Modifier::BOLD)
-        };
         let tabs =
             Tabs::new(titles)
                 .select(app.category)
                 .divider("  ")
                 .padding("", "")
                 .style(Style::default().fg(t.muted))
-                .highlight_style(highlight)
+                .highlight_style(t.selected())
                 .block(Block::default().borders(Borders::BOTTOM).border_style(
                     Style::default().fg(if app.focus == Focus::Categories {
                         t.text
@@ -701,7 +696,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let keys = if app.onboarding {
         "↑↓ Choose   Enter Select   Esc Continue offline   F1 Help   Q Exit"
     } else if app.category() == Category::Reports && app.focus == Focus::Actions {
-        "↑↓ Select   Enter Open/toggle   ← Collapse   → Expand   Tab Areas   F4 Refresh   Q Exit"
+        "↑↓ Select   Up at top: Areas   Enter Open/toggle\n← Collapse   → Expand   Tab Areas   F4 Refresh   Q Exit"
     } else if app.category() == Category::Power {
         "←→ Area   ↑↓ Select   Enter Read guidance   Esc Areas   F4 Reports   Q Exit"
     } else if app.settings_tree_focused() {

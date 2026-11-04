@@ -371,8 +371,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "79c27a6e417e0d9ed887211d8607687854ca6be19aa5d98387acf36303ad450a",
-      "destination_bytes": 84259,
+      "destination_sha256": "c271733a64291348dc5d8e9f450d65466a4f703a42860bd4ed0387d9b18542e8",
+      "destination_bytes": 93011,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -422,6 +422,20 @@
           "prior_destination_sha256": "1bdcfb9a3d298b13069ff27976acea8059f87434b8b54945d5d3cf4b3f3e4881",
           "destination_sha256": "79c27a6e417e0d9ed887211d8607687854ca6be19aa5d98387acf36303ad450a",
           "destination_bytes": 84259,
+          "mode": "0644"
+        },
+        {
+          "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+          "prior_destination_sha256": "79c27a6e417e0d9ed887211d8607687854ca6be19aa5d98387acf36303ad450a",
+          "destination_sha256": "71a8b554f68ebc08f861ef76f153a7ee15926e85f4b3c5b6fc580d36b14e3d9a",
+          "destination_bytes": 88114,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+          "prior_destination_sha256": "71a8b554f68ebc08f861ef76f153a7ee15926e85f4b3c5b6fc580d36b14e3d9a",
+          "destination_sha256": "c271733a64291348dc5d8e9f450d65466a4f703a42860bd4ed0387d9b18542e8",
+          "destination_bytes": 93011,
           "mode": "0644"
         }
       ]
@@ -496,8 +510,8 @@
       "bytes": 39080,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "3830e0e22554838686bb5d097cc206fe382261f05db3ce94fee06461a917a3a1",
-      "destination_bytes": 71026,
+      "destination_sha256": "0e9fc8d76645fff73115293c7dab619425d3fabb9e066eddb4b3ac1267fa8281",
+      "destination_bytes": 70865,
       "destination_adaptations": [
         {
           "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
@@ -539,6 +553,13 @@
           "prior_destination_sha256": "49e19182de9200c70f60af1e507aee823dc9c0a10f481171ce42c11aefdeea50",
           "destination_sha256": "3830e0e22554838686bb5d097cc206fe382261f05db3ce94fee06461a917a3a1",
           "destination_bytes": 71026,
+          "mode": "0644"
+        },
+        {
+          "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+          "prior_destination_sha256": "3830e0e22554838686bb5d097cc206fe382261f05db3ce94fee06461a917a3a1",
+          "destination_sha256": "0e9fc8d76645fff73115293c7dab619425d3fabb9e066eddb4b3ac1267fa8281",
+          "destination_bytes": 70865,
           "mode": "0644"
         }
       ]
@@ -1515,8 +1536,8 @@
         "Use the repository-local diagnostic archive helper.",
         "Add the same two fixed Chromium RAM assets and carry the explicit snapshot receipt pin."
       ],
-      "destination_sha256": "ea89327ebba32d3ef98a1d31ae769a6dcd7e97615ffb7bbd5716b37e09ba4175",
-      "destination_bytes": 8236,
+      "destination_sha256": "1846acb50ca9e065c84389a3e6c6ad07c194216772ac9f7a70277bcc0a6ee5a5",
+      "destination_bytes": 17298,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1530,6 +1551,13 @@
           "prior_destination_sha256": "399599d99b6ceb6f0db5f5bdb5bdcabbd00b4271aaa01375009acdbcfd487582",
           "destination_sha256": "ea89327ebba32d3ef98a1d31ae769a6dcd7e97615ffb7bbd5716b37e09ba4175",
           "destination_bytes": 8236,
+          "mode": "0755"
+        },
+        {
+          "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+          "prior_destination_sha256": "ea89327ebba32d3ef98a1d31ae769a6dcd7e97615ffb7bbd5716b37e09ba4175",
+          "destination_sha256": "1846acb50ca9e065c84389a3e6c6ad07c194216772ac9f7a70277bcc0a6ee5a5",
+          "destination_bytes": 17298,
           "mode": "0755"
         }
       ]
@@ -1801,8 +1829,8 @@
         "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
         "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
       ],
-      "destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
-      "destination_bytes": 11652,
+      "destination_sha256": "74fa502ee174c9f30165ef4a5fdd1ce63b16172040c9a05938e7ad44548de83b",
+      "destination_bytes": 20581,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1816,6 +1844,13 @@
           "prior_destination_sha256": "f1d8dce9bd47163712f3e911ea33db3dc47cdef3bc78746ac5e01c6f09a02862",
           "destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
           "destination_bytes": 11652,
+          "mode": "0644"
+        },
+        {
+          "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+          "prior_destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
+          "destination_sha256": "74fa502ee174c9f30165ef4a5fdd1ce63b16172040c9a05938e7ad44548de83b",
+          "destination_bytes": 20581,
           "mode": "0644"
         }
       ]
@@ -2177,8 +2212,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "e280d62bf1b0acb96e93309e02a34c169e11704e8f173073409d2d775f993fa8",
-      "destination_bytes": 10496,
+      "destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
+      "destination_bytes": 10707,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -2223,6 +2258,13 @@
           "destination_sha256": "e280d62bf1b0acb96e93309e02a34c169e11704e8f173073409d2d775f993fa8",
           "destination_bytes": 10496,
           "mode": "0644"
+        },
+        {
+          "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+          "prior_destination_sha256": "e280d62bf1b0acb96e93309e02a34c169e11704e8f173073409d2d775f993fa8",
+          "destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
+          "destination_bytes": 10707,
+          "mode": "0644"
         }
       ]
     },
@@ -2259,8 +2301,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
-      "destination_bytes": 22299,
+      "destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
+      "destination_bytes": 25983,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2312,6 +2354,13 @@
           "prior_destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
           "destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
           "destination_bytes": 22299,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record the completed corrected-alpha3 boot, qualified scope of one exact forced-VAAPI120-frame decode, independent host readback, browser and live UI evidence; preserve unresolved lifecycle, FAT and Ethernet gates.",
+          "prior_destination_sha256": "c414b6108fbcfe9f647fdf05d8a570c73e6555cda31b8f5f4f8cd207c5932c55",
+          "destination_sha256": "6d14e9d91340839f963518ec4bb9eb4dbbe5d061c09a009db463631e3cb5d833",
+          "destination_bytes": 25983,
           "mode": "0644"
         }
       ]
@@ -2434,19 +2483,37 @@
     },
     {
       "path": "diagnostics/ps4/qualification.py",
-      "destination_sha256": "c28846fa53f75f3671efac85f0377d5ff46c8b8cc1326b111832e21993b889cd",
-      "destination_bytes": 17095,
+      "destination_sha256": "1bb001a999b7e7743837d2865cfae9a8ca8fa626646d7e76625401ec01a98a03",
+      "destination_bytes": 19695,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+          "prior_destination_sha256": "c28846fa53f75f3671efac85f0377d5ff46c8b8cc1326b111832e21993b889cd",
+          "destination_sha256": "1bb001a999b7e7743837d2865cfae9a8ca8fa626646d7e76625401ec01a98a03",
+          "destination_bytes": 19695,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "diagnostics/ps4/qualification.json",
-      "destination_sha256": "51b45cd93a8c7f63ed5f1fb9d5f63795f5638af780ed37847e14220a055e0aa4",
-      "destination_bytes": 52940,
+      "destination_sha256": "4581b571b30edad7dfcf36551ea847843dc7f46a8173f033416f24a3af8d3c95",
+      "destination_bytes": 61854,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+          "prior_destination_sha256": "51b45cd93a8c7f63ed5f1fb9d5f63795f5638af780ed37847e14220a055e0aa4",
+          "destination_sha256": "4581b571b30edad7dfcf36551ea847843dc7f46a8173f033416f24a3af8d3c95",
+          "destination_bytes": 61854,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "diagnostics/ps4/uvd.py",
@@ -2481,8 +2548,8 @@
     },
     {
       "path": "docs/PS4-DIAGNOSTIC-ALPHA.md",
-      "destination_sha256": "a9236348a6bb013638becd79323980528a43aa1a5af39a5e42dea55224fe27a0",
-      "destination_bytes": 9479,
+      "destination_sha256": "83402a2e04fd57bde2b1d1036194a5cc85c1a5e2747fab2029e4a7b133a36f64",
+      "destination_bytes": 11722,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2506,6 +2573,13 @@
           "prior_destination_sha256": "c0f3ab18853399fb355db5527d9b17c81b4e50eb8f80ea2093422434bf314928",
           "destination_sha256": "a9236348a6bb013638becd79323980528a43aa1a5af39a5e42dea55224fe27a0",
           "destination_bytes": 9479,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+          "prior_destination_sha256": "a9236348a6bb013638becd79323980528a43aa1a5af39a5e42dea55224fe27a0",
+          "destination_sha256": "83402a2e04fd57bde2b1d1036194a5cc85c1a5e2747fab2029e4a7b133a36f64",
+          "destination_bytes": 11722,
           "mode": "0644"
         }
       ]
@@ -2616,11 +2690,20 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_qualification.py",
-      "destination_sha256": "c100f51d49520f31f359bdb3d241e880e1763d7788436af797346ece29c2ac73",
-      "destination_bytes": 9410,
+      "destination_sha256": "622d9ad3f37a6c3987ed1df9d4c283449b0b3d8f8f81e12e932efa92bb1fdd57",
+      "destination_bytes": 12659,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+          "prior_destination_sha256": "c100f51d49520f31f359bdb3d241e880e1763d7788436af797346ece29c2ac73",
+          "destination_sha256": "622d9ad3f37a6c3987ed1df9d4c283449b0b3d8f8f81e12e932efa92bb1fdd57",
+          "destination_bytes": 12659,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
@@ -3014,6 +3097,35 @@
         "tests/test_ps4_diagnostics_alpha_ftp.py"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Keep the active navbar tab filled when reports have focus and return Up at the top of Reports to navigation; add an explicit alpha3 TUI-only refresh preserving all kernel, firmware, root and non-UI CPIO bytes.",
+      "paths": [
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "scripts/refresh-ps4-diagnostics-frontend",
+        "tests/test_ps4_diagnostics_frontend_refresh.py",
+        "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record the completed corrected-alpha3 boot, qualified scope of one exact forced-VAAPI120-frame decode, independent host readback, browser and live UI evidence; preserve unresolved lifecycle, FAT and Ethernet gates.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add six descriptive UVD qualification scenarios to the existing45-card plan and TUI details: installed128x96 reference action, unimplemented720p/1080p/profile/endurance/lifecycle work, explicit bounded storage and cold-boot limits. Preserve every existing profile, gate, runtime contract and stop intent.",
+      "paths": [
+        "diagnostics/ps4/qualification.json",
+        "diagnostics/ps4/qualification.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "tests/test_ps4_diagnostics_qualification.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }
   ],
   "validation_runs": [
@@ -3036,6 +3148,23 @@
       "frozen_28_asset_initramfs_sha256": "adaac28e7190318757499bcd57cbfaef8ec17633fac1617624b4df802b0b9706",
       "frozen_28_asset_boot_receipt_sha256": "920257c9563e605c4c7a6a0b7d1dc402d577842b79557d8767d32d7c696e6c9b",
       "original_import_identities_preserved": 104
+    },
+    {
+      "timestamp_utc": "2026-11-04T21:40:11.993813+00:00",
+      "result": "PASS",
+      "source_files": 137,
+      "source_manifest_sha256": "afe29bd443b63a83480b3f84acbaad4c4924d954b0d4b9e180b7b17dfa3e0c0b",
+      "source_manifest_encoding": "Sorted path/mode/bytes/sha256 records encoded as compact sorted-key JSON; excludes this receipt.",
+      "python_host_tests": 473,
+      "node_browser_tests": 15,
+      "rust_locked_offline_tests": 51,
+      "commands": [
+        "TMPDIR=/var/tmp python3 scripts/check-ps4-diagnostics",
+        "cargo test --locked --offline --manifest-path diagnostics/ps4/tui/Cargo.toml --jobs 2 (recorded external Rust1.98.1 toolchain and target)"
+      ],
+      "scope": "Optional diagnostic source/host checks for filled navigation, Reports focus, unchanged45-card qualification gates, six descriptive UVD scenarios and explicit alpha3 TUI-only packaging. No hardware acceptance follows from these tests.",
+      "hardware_evidence_reference": "diagnostics/SESSIONS.md EXP-20261105-005 records the separately completed, bounded single-boot/single-decode hardware experiment.",
+      "initial_rust_invocation_note": "The earlier combined --rust invocation completed469Python/15Node but could not find cargo on PATH. The explicit installed toolchain then passed50Rust tests; the new scenario freeze subsequently passed473Python/15Node/51Rust."
     }
   ]
 }

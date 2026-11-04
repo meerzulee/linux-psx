@@ -324,3 +324,56 @@ outside Git; one completed test is not stability qualification.
   `20261105_021207_447500-exp-20261105-004-logging-only-alpha2-cold-boot-trace-same-artifa-a6f091c9.md`
   in sibling `ps4-uart/sessions/`; private receipts:
   `output/ps4-diagnostix-alpha2-boot-trace1/`.
+
+## EXP-20261105-005 — corrected firmware boots; first exact AVC decode passes
+
+- Corrected both firmware copies to the runtime's verified 314,168-byte input,
+  SHA256 `62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb`.
+  Preserved the combined dev2 kernel, all 41 matching modules, verbose boot
+  arguments and all three UVD gates. Core deployment/readback passed; root
+  SHA256 `9312ebc229f0b12a9d8586e266dc02da757b302db07a3d4878941d20d8a4ec33`,
+  initial initramfs SHA256
+  `d9189a025447117216b6f981859ba2f802ad3bac91c82b1680fb9f50b2040dfe`.
+- One boot reached `PS4_UVD_RUNTIME STARTED` at 8.877329 s and `QUEUE_READY`
+  at 8.890038 s, verified the root checksum and reached the menu and pinned-key
+  SSH. CPU computation and the owned 32 MiB memory-pattern check passed on
+  this boot. No failed systemd units or terminal UVD/GPU fault were observed.
+  The FAT dirty-volume warning remains; this is not filesystem qualification.
+- The separately scoped Chromium provider failed its first FTP hash check.
+  A fresh compressed SSH transfer matched every provider file before atomic
+  publication. Its automatic five-step browser baseline completed and closed:
+  Canvas, hardware WebGL, frame pacing and video passed; capabilities remained
+  observational `INCONCLUSIVE`, so the batch does not claim a blanket PASS.
+  WebGL identified AMD radeonsi Liverpool through ANGLE. Callback cadence was
+  about 59.85 fps at a configured 1920x1080/60 Hz; this is not measured physical
+  refresh. Browser hardware video decoding remained disabled.
+- Before decoding, applied the separately requested navigation-only TUI as a
+  read-only RAM file overlay, SHA256
+  `752c59644f5a152ee57809ec221660165361e1bced516d7e49a7c0e41abcc97a`.
+  Captured the filled active tab and Reports Up-to-navbar navigation; controller
+  and SSH PIDs stayed unchanged. USB boot files, root, firmware and kernel were
+  unchanged. This live UI overlay is distinct from the frozen boot-set identity.
+- An earlier menu selection was blocked before hardware access by the missing
+  UART assertion; no attempt was reserved. After verifying the same continuous
+  session and installing its boot-bound assertion, ran exactly one explicit
+  `uvd.avc` action. Forced VAAPI on the pinned render node and Mesa driver
+  produced all 120 128x96, 30 fps Constrained Baseline AVC frames as exact NV12:
+  2,211,840 bytes, SHA256
+  `d99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491`.
+  The decoder finished in about 0.56 s without a timeout; that is a short
+  unpaced fixture result, not sustained playback performance. Host readback
+  independently verified every frame and all saved artifact hashes.
+- Verdict: corrected boot and **one exact hardware AVC decode PASS**. This
+  does not establish repeated boots, 720p/1080p, other AVC profiles, browser
+  hardware decoding, long playback, cleanup/resource reuse or stable support.
+  The immutable attempt/stop intent remains. No further active test, driver
+  reset/unload/rearm, power command or automatic recovery occurred afterward;
+  collect reports, then recover by physical power-off before another experiment.
+  Ethernet was usable for SSH transfer; its snapshot had zero RX/TX errors but
+  1,096 RX drops, so its separate three-boot/endurance gate remains open.
+- Completed UART continuity: 300,594 bytes, same generation/epoch,
+  02:33:23–03:29:20 local. Compact context:
+  `20261105_023323_797690-exp-20261105-005-corrected-matching-uvd-firmware-alpha3-package--5bf7d3a1.md`
+  in sibling `ps4-uart/sessions/`. Private report, decoded-output readback,
+  provider receipts and screen captures:
+  `output/ps4-diagnostix-alpha3-preparation/`.

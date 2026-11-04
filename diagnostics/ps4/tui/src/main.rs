@@ -197,6 +197,40 @@ impl HardwareDialog {
                         }
                     }
                 }
+                for scenario in model::array(item, "/scenarios") {
+                    rows.push(hardware::Row::Heading(format!(
+                        "Scenario · {}",
+                        model::at(scenario, "/title")
+                    )));
+                    let availability = match model::at(scenario, "/availability").as_str() {
+                        "available-alpha" => "Available alpha action · not a result",
+                        "unimplemented" => "Unimplemented · no runnable fixture/harness",
+                        _ => "Unavailable · unknown scenario definition",
+                    };
+                    rows.push(hardware::Row::Field(
+                        "Availability".into(),
+                        availability.into(),
+                    ));
+                    let action = model::at(scenario, "/existing_test_id");
+                    if !action.is_empty() {
+                        rows.push(hardware::Row::Field(
+                            "Existing action".into(),
+                            format!("{action} · not started here"),
+                        ));
+                    }
+                    for (key, label) in [
+                        ("fixture", "Fixture"),
+                        ("preparation", "Prepare"),
+                        ("sequence", "Sequence"),
+                        ("evidence", "Evidence"),
+                        ("limits", "Limits"),
+                    ] {
+                        let value = model::at(scenario, &format!("/{key}"));
+                        if !value.is_empty() {
+                            rows.push(hardware::Row::Field(label.into(), value));
+                        }
+                    }
+                }
             }
             pages.push(hardware::Page {
                 title,
@@ -1121,6 +1155,9 @@ impl App {
                 self.category = (self.category + 1) % CATEGORIES.len();
                 self.selected = 0;
             }
+            KeyCode::Up if self.report_tree_focused() && self.selected == 0 => {
+                self.focus = Focus::Categories;
+            }
             KeyCode::Up => self.selected = self.selected.saturating_sub(1),
             KeyCode::Down => {
                 self.focus = Focus::Actions;
@@ -1869,6 +1906,99 @@ mod tests {
         assert_eq!(app.actions().len(), 3);
     }
     #[test]
+    fn reports_up_at_top_returns_to_areas_even_without_saved_reports() {
+        for results in [
+            json!([]),
+            json!([{"run_id":"saved","test_id":"cpu.compute"}]),
+        ] {
+            let mut app = App::new(PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.category = CATEGORIES
+                .iter()
+                .position(|value| *value == Category::Reports)
+                .unwrap();
+            app.focus = Focus::Actions;
+            app.selected = 0;
+            app.state["results"] = results.clone();
+            app.report_expanded[0] = true;
+            app.last_report = Some(json!({"run_id":"last"}));
+            app.active_job = Some(Job {
+                id: json!("existing"),
+                title: "Existing test".into(),
+                started: Instant::now(),
+                data: Value::Null,
+            });
+            app.key(key(KeyCode::Up));
+            assert!(app.focus == Focus::Categories);
+            assert_eq!(app.selected, 0);
+            assert_eq!(app.state["results"], results);
+            assert!(app.report_expanded[0]);
+            assert_eq!(app.last_report.as_ref().unwrap()["run_id"], "last");
+            assert_eq!(app.active_job.as_ref().unwrap().id, json!("existing"));
+            assert_eq!(app.next_id, 0);
+            app.key(key(KeyCode::Right));
+            assert!(app.category() == Category::Settings);
+        }
+    }
+    #[test]
+    fn reports_up_moves_children_first_and_other_areas_keep_their_existing_focus() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.onboarding = false;
+        app.category = CATEGORIES
+            .iter()
+            .position(|value| *value == Category::Reports)
+            .unwrap();
+        app.focus = Focus::Actions;
+        app.state["results"] = json!([{"run_id":"saved","test_id":"cpu.compute"}]);
+        app.report_expanded[0] = true;
+        app.selected = 2;
+        assert!(matches!(
+            app.actions()[app.selected].kind,
+            ActionKind::Report(_)
+        ));
+        for expected in [1, 0] {
+            app.key(key(KeyCode::Up));
+            assert_eq!(app.selected, expected);
+            assert!(app.focus == Focus::Actions);
+        }
+        app.key(key(KeyCode::Up));
+        assert!(app.focus == Focus::Categories);
+        app.key(key(KeyCode::Enter));
+        assert!(app.focus == Focus::Actions);
+        app.key(key(KeyCode::Esc));
+        assert!(app.focus == Focus::Categories);
+        app.category = 0;
+        app.focus = Focus::Actions;
+        app.key(key(KeyCode::Up));
+        assert!(app.focus == Focus::Actions);
+        assert!(app.category() == Category::System);
+    }
+    #[test]
+    fn up_in_report_details_scrolls_without_returning_to_areas() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.onboarding = false;
+        app.category = CATEGORIES
+            .iter()
+            .position(|value| *value == Category::Reports)
+            .unwrap();
+        app.focus = Focus::Actions;
+        app.selected = 0;
+        app.report = Some(json!({"run_id":"saved","commands":[{"output":"detail"}]}));
+        app.report_scroll = 2;
+        app.key(key(KeyCode::Up));
+        assert_eq!(app.report_scroll, 1);
+        assert!(app.focus == Focus::Actions);
+        app.report_scroll = 0;
+        app.key(key(KeyCode::Up));
+        assert_eq!(app.report_scroll, 0);
+        assert!(app.report.is_some());
+        assert!(app.focus == Focus::Actions);
+        app.key(key(KeyCode::Esc));
+        assert!(app.report.is_none());
+        app.key(key(KeyCode::Up));
+        assert!(app.focus == Focus::Categories);
+    }
+    #[test]
     fn private_password_reply_only_lives_in_modal_and_close_clears_it() {
         let mut app = App::new(PathBuf::from("/unreachable"), true);
         app.take_redraw();
@@ -2212,5 +2342,92 @@ mod tests {
             app.key(key(KeyCode::Right));
             assert!(app.category() == Category::System);
         }
+    }
+    #[test]
+    fn uvd_scenarios_are_readable_plan_rows_and_never_start_a_workload() {
+        let dialog = HardwareDialog::qualification().unwrap();
+        let index = dialog
+            .pages
+            .iter()
+            .position(|page| page.title == "UVD")
+            .unwrap();
+        let rows = &dialog.pages[index].rows;
+        let headings = rows
+            .iter()
+            .filter_map(|row| match row {
+                hardware::Row::Heading(value) if value.starts_with("Scenario · ") => {
+                    Some(value.as_str())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(headings.len(), 6);
+        assert!(
+            headings
+                .iter()
+                .any(|value| value.contains("128x96 exact 120-frame"))
+        );
+        assert!(headings.iter().any(|value| value.contains("720p30")));
+        assert!(headings.iter().any(|value| value.contains("1080p30")));
+        let availability = rows
+            .iter()
+            .filter_map(|row| match row {
+                hardware::Row::Field(label, value) if label == "Availability" => {
+                    Some(value.as_str())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            availability
+                .iter()
+                .filter(|value| value.starts_with("Available alpha"))
+                .count(),
+            1
+        );
+        assert_eq!(
+            availability
+                .iter()
+                .filter(|value| value.starts_with("Unimplemented"))
+                .count(),
+            5
+        );
+        let actions = rows
+            .iter()
+            .filter_map(|row| match row {
+                hardware::Row::Field(label, value) if label == "Existing action" => {
+                    Some(value.as_str())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(actions, ["uvd.avc · not started here"]);
+        assert!(rows.iter().any(|row| matches!(row,hardware::Row::Field(_,value) if value.contains("2.8 GB") && value.contains("streaming"))));
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.hardware = Some(dialog);
+        app.hardware.as_mut().unwrap().selected = index;
+        app.key(key(KeyCode::Enter));
+        assert!(app.hardware.as_ref().unwrap().detail);
+        app.key(key(KeyCode::End));
+        let scroll = app.hardware.as_ref().unwrap().scroll;
+        assert!(scroll > 0);
+        app.key(key(KeyCode::Char('a')));
+        assert!(
+            app.hardware
+                .as_ref()
+                .unwrap()
+                .raw
+                .as_ref()
+                .unwrap()
+                .contains("uvd.scenario.720p30")
+        );
+        app.key(key(KeyCode::Esc));
+        assert_eq!(app.hardware.as_ref().unwrap().scroll, scroll);
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Esc));
+        assert!(app.hardware.is_none());
+        assert_eq!(app.next_id, 0);
+        assert!(app.active_job.is_none());
+        assert!(app.last_report.is_none());
     }
 }

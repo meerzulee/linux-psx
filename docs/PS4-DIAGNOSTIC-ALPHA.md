@@ -115,6 +115,32 @@ sessions, exact build identities, repetitions and model scope against
 [the finish gates](CURRENT-FINISH-PLAN.md). Another PS4 model needs its own
 report and qualification; success on one Baikal console does not cover it.
 
+## UVD scenarios in the read-only Test plan
+
+**Test plan → UVD** and the [source checklist](../diagnostics/ps4/qualification.json)
+describe this progression. Availability describes tooling, never a test result.
+The original 45 checks, mandatory profiles and acceptance gates are unchanged.
+
+| Scenario | Current availability and next work |
+| --- | --- |
+| 128×96, exact 120 frames | Available through **Graphics → UVD AVC reference**. One attempt per physical cold boot; collect the canonical component on three cold boots of the same frozen build. It does not meet the native 900-frame or lifecycle gates. |
+| 720p30, 900 frames / 30 seconds | Unimplemented alpha fixture/harness. Prepare pinned input and exact software-reference frame hashes, then a bounded streaming comparison. |
+| 1080p30, 900 frames / 30 seconds | Unimplemented alpha integration. Historical native evidence is separate; freeze a matched fixture and streaming comparator before use. |
+| Additional 8-bit H.264 profiles/features | Unimplemented. Review actual driver capabilities and limits before selecting one feature and preparing its exact-reference fixture. No broader codec/profile support is promised. |
+| Longer playback and resource monitoring | Unimplemented bounded player/sampler. Separately planned 5- and 30-minute windows precede the unchanged 60-minute gate; measure speed, drops, memory/resources, temperatures and UART faults. |
+| Close/reopen, admission and exhaustion | Source-gated and unimplemented. Current retained-DMA and one-attempt restrictions prevent treating the existing repetition targets as runnable loops. |
+
+Declare an optional-storage budget for new references: 900 raw 1080p NV12
+frames occupy about **2.8 GB**, outside the 1 GiB core budget. Compare with
+bounded streaming buffers or pinned frame hashes; never load an entire raw
+clip/reference into RAM. Fixture preparation and harness integration do not
+qualify hardware.
+
+Within the authorized experiment, every actual UVD attempt remains the final
+active action of a fresh physical cold boot. Keep UART capture through physical
+power-off/known-good Orbis recovery. No automatic suite, same-boot retry,
+second decoder or power/reset/rearm exception is added by this plan.
+
 ## First UVD experiment
 
 Only the explicit AVC action may start a decoder. It reuses the existing

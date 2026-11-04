@@ -1,6 +1,7 @@
 """Qualification schema/evidence checks; never execute diagnostic workloads."""
 import contextlib
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -140,6 +141,48 @@ class QualificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
             path=Path(temporary);(path/'file').write_text('{}');(path/'link').symlink_to(path/'file')
             with self.assertRaises(ValueError):Q.read_json(path/'link')
+
+    def test_scenarios_do_not_change_the_frozen_45_checks_profiles_or_acceptance(self):
+        protected={'profiles':self.plan['profiles'],
+            'checks':[{key:value for key,value in item.items() if key!='scenarios'} for item in self.plan['checks']]}
+        digest=hashlib.sha256(json.dumps(protected,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+        # Original definitions before adding descriptive scenarios; all gates stay exact.
+        self.assertEqual(digest,'3ad4a40d856a584a685debbb2a0ca0ebfa34f68bd4ee4e7e2a4609f4e857928d')
+        self.assertEqual(len(self.plan['checks']),45)
+        scenarios=[scenario for item in self.plan['checks'] for scenario in item.get('scenarios',[])]
+        self.assertEqual(len(scenarios),6)
+        available=[scenario for scenario in scenarios if scenario['availability']=='available-alpha']
+        self.assertEqual([scenario['existing_test_id'] for scenario in available],['uvd.avc'])
+        self.assertTrue(all(scenario['existing_test_id'] is None for scenario in scenarios if scenario not in available))
+
+    def test_invalid_scenario_availability_duplicate_ids_and_executable_fields_are_rejected(self):
+        for change in ('command','available720','binding','duplicate','area'):
+            plan=copy.deepcopy(self.plan)
+            card=next(item for item in plan['checks'] if item['id']=='uvd.avc.exact')
+            if change=='command':card['scenarios'][1]['command']=['decode']
+            elif change=='available720':card['scenarios'][1].update(availability='available-alpha',existing_test_id='uvd.avc')
+            elif change=='binding':card['scenarios'][1]['existing_test_id']='uvd.avc'
+            elif change=='duplicate':card['scenarios'][1]['id']=card['scenarios'][0]['id']
+            else:plan['checks'][0]['scenarios']=card['scenarios']
+            with self.subTest(change=change),self.assertRaises(ValueError):Q.validate(plan)
+
+    def test_read_only_render_explains_available_baseline_and_missing_harnesses(self):
+        with mock.patch('subprocess.run',side_effect=AssertionError('scenario executed')), \
+             mock.patch('socket.socket',side_effect=AssertionError('network')):
+            text=' '.join(Q.render(self.plan,Q.evaluate(self.plan,'uvd-experimental')).split())
+        for value in ('128x96 exact 120-frame baseline','720p30 exact-reference fixture',
+                      '1080p30 exact-reference integration','Available alpha action; not a result',
+                      'Unimplemented; no runnable fixture/harness','uvd.avc (not invoked)',
+                      'fresh physical cold boot','no same-boot','storage budget','streaming'):
+            self.assertIn(value.lower(),text.lower())
+
+    def test_three_canonical_baselines_cannot_satisfy_the_unchanged_native_frame_gate(self):
+        self.scope.update(uvd_runtime=True,firmware_manifest_sha256='4'*64)
+        record=self.record('uvd.avc.exact')
+        for run in record['runs']:run['metrics']['native_frames']=0
+        report=Q.evaluate(self.isolated('uvd.avc.exact'),'isolated',self.document(record))
+        self.assertEqual(self.row(report,'uvd.avc.exact')['status'],'BLOCKED')
+        self.assertFalse(report['stability_claim'])
 
 
 if __name__=='__main__':unittest.main()

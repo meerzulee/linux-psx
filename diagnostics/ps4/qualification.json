@@ -1413,7 +1413,53 @@
         ]
       },
       "requires_uvd": true,
-      "requires_mesa": true
+      "requires_mesa": true,
+      "scenarios": [
+        {
+          "id": "uvd.scenario.baseline128",
+          "title": "128x96 exact 120-frame baseline",
+          "availability": "available-alpha",
+          "existing_test_id": "uvd.avc",
+          "fixture": "Pinned H.264 input and software-decoded NV12 reference; 128x96, exactly 120 frames, 8-bit 4:2:0.",
+          "preparation": "Existing Graphics > UVD AVC reference action (uvd.avc), matched corrected alpha firmware/kernel/Mesa and CPU/RAM prerequisites. No fixture or command parameters are added.",
+          "sequence": "One existing baseline action per physical cold boot. Repeat on three distinct physical cold boots of the same frozen artifact set; never rerun on the same boot, including after PASS.",
+          "evidence": "Save exact 120-frame and whole-output hashes, zero mismatches, forced hardware/no software fallback, actual loaded libraries and completed UART for each boot. This is only the canonical component: it does not satisfy the native 900-frame or lifecycle gates.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        },
+        {
+          "id": "uvd.scenario.720p30",
+          "title": "720p30 exact-reference fixture",
+          "availability": "unimplemented",
+          "existing_test_id": null,
+          "fixture": "Planned 1280x720 at 30 fps, 900 frames / 30 seconds, 8-bit H.264 to NV12. No runnable alpha fixture is installed.",
+          "preparation": "Create and review pinned encoded input, complete software NV12 reference/per-frame hashes, encoder/decoder versions and crop/stride conversion; add a bounded typed harness before hardware use. Use bounded streaming comparison buffers and declare an optional-storage budget; 900 raw 1080p NV12 frames are about 2.8 GB, outside the 1 GiB core. Never load a whole raw clip/reference into RAM.",
+          "sequence": "After fixture/harness review, use one bounded final UVD action within the authorized experiment on each fresh physical cold boot. Use the same frozen build across the proposed three-boot comparison; no current-menu parameter can select this scenario.",
+          "evidence": "Compare every output frame and visible NV12 sample to the exact reference; collect frame count, mismatches, hardware identity, software fallback count and UART faults. This planned scenario does not replace the existing 1080p native gate.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        },
+        {
+          "id": "uvd.scenario.1080p30",
+          "title": "1080p30 exact-reference integration",
+          "availability": "unimplemented",
+          "existing_test_id": null,
+          "fixture": "Planned 1920x1080 at 30 fps, 900 frames / 30 seconds, 8-bit H.264 to NV12. Historical native 900-frame evidence is not an installed alpha action.",
+          "preparation": "Review or recreate the native 900-frame fixture with exact input/reference/tool hashes, freeze it for this build and implement a bounded alpha harness. Preserve the existing native_frames >= 900 acceptance requirement. Use bounded streaming comparison buffers and declare an optional-storage budget; 900 raw 1080p NV12 frames are about 2.8 GB, outside the 1 GiB core. Never load a whole raw clip/reference into RAM.",
+          "sequence": "Only after that integration is reviewed: one final UVD action per fresh physical cold boot, across three same-build cold-boot observations with completed UART. No automatic repeat or same-boot second decode.",
+          "evidence": "Exact 900-frame NV12 bytes/per-frame hashes, zero mismatch/software fallback/terminal fault, actual loaded driver and completed UART; historical results do not qualify a new build.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        },
+        {
+          "id": "uvd.scenario.h264-features",
+          "title": "Additional 8-bit H.264 profiles/features",
+          "availability": "unimplemented",
+          "existing_test_id": null,
+          "fixture": "Candidate 8-bit 4:2:0 AVC fixtures only; no additional profile or feature is promised supported.",
+          "preparation": "Review actual driver capabilities and parser/session limits before selecting profiles, entropy coding, B/reference frames, reference counts, slice structure or crop/stride cases. Prepare one pinned exact-reference fixture per approved variable.",
+          "sequence": "Review and implement a bounded harness first, then change one approved feature per separately planned fresh-cold-boot final UVD action. Do not turn this list into an automatic suite.",
+          "evidence": "Record the reviewed stream features and exact reference output, hardware path, resource observations and UART. Unsupported cases remain unsupported; no HEVC, 10-bit, 4K, encoding or concurrent-session claim.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        }
+      ]
     },
     {
       "id": "uvd.playback",
@@ -1447,7 +1493,20 @@
         ]
       },
       "requires_uvd": true,
-      "requires_mesa": true
+      "requires_mesa": true,
+      "scenarios": [
+        {
+          "id": "uvd.scenario.endurance",
+          "title": "Bounded playback and resource monitoring",
+          "availability": "unimplemented",
+          "existing_test_id": null,
+          "fixture": "Planned single-handle 8-bit 1080p30 playback with a pinned clip/reference; current 120-frame action has a 60-second decode timeout and is not an endurance harness.",
+          "preparation": "Implement/review one bounded player and read-only resource sampler. First propose 5-minute, then 30-minute windows before the unchanged 60-minute qualification gate; no timeout override or unbounded loop in the current action.",
+          "sequence": "Each window is a separate final UVD action on a fresh physical cold boot. The full card still requires three 3600-second runs/cold boots; shorter exploratory windows cannot satisfy it.",
+          "evidence": "Measure PTS/wall speed, picture/audio and decoder/display drops, RSS/available memory, available handle/resource counters, actual libraries, temperatures and UART faults. Missing counters stay unknown; fence counts do not prove DMA quiescence.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        }
+      ]
     },
     {
       "id": "uvd.lifecycle",
@@ -1481,7 +1540,20 @@
         ]
       },
       "requires_uvd": true,
-      "requires_mesa": true
+      "requires_mesa": true,
+      "scenarios": [
+        {
+          "id": "uvd.scenario.lifecycle",
+          "title": "Source-gated close/reopen and exhaustion work",
+          "availability": "unimplemented",
+          "existing_test_id": null,
+          "fixture": "No executable alpha lifecycle or resource-exhaustion scenario is available.",
+          "preparation": "Fix/review ownership,close/reopen,admission and resource accounting before proposing any lifecycle harness. The existing 20-reopen gate remains blocked by current retained-DMA restrictions; do not raise a quota to hide failure.",
+          "sequence": "Current one-attempt-per-boot/final-active-action policy stays in force. Any future source-approved bounded lifecycle experiment requires a fresh physical cold boot and a separately planned sequence within the authorized experiment; no present menu action runs reopen loops or a second decoder.",
+          "evidence": "Preserve command rejections/exhaustion and ownership evidence; later demonstrate bounded resources, reusable handles and zero faults under the unchanged card gates. Success of the baseline or a long clip cannot close this source gap.",
+          "limits": "One explicit UVD attempt is the final active action of a fresh physical cold boot. Record completed UART continuity and keep capture running through physical power-off/known-good Orbis recovery. No same-boot retry, second decoder, reset, unload, unbind, rearm, suspend or automatic Linux power recovery."
+        }
+      ]
     },
     {
       "id": "uvd.admission",

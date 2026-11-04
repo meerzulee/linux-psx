@@ -1,4 +1,5 @@
-"""Refresh a synthetic four-asset bundle without touching devices or networking."""
+"""Ordinary and alpha UI-only synthetic refreshes; no devices or networking."""
+import copy
 import gzip
 import hashlib
 import importlib.machinery
@@ -11,6 +12,7 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest import mock
+import zlib
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +35,120 @@ CPIO = load("diagnostics_refresh_cpio_parser", "scripts/ps4-diagnostics-archive"
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
+
+
+class AlphaUIRefreshTests(unittest.TestCase):
+    def setUp(self):
+        temporary=tempfile.TemporaryDirectory(dir='/var/tmp');self.addCleanup(temporary.cleanup)
+        self.directory=Path(temporary.name);self.base=self.directory/'base';self.output=self.directory/'new'
+        (self.base/'psx-diagnostics').mkdir(parents=True)
+        self.stage=load('alpha_ui_stage_fixture','scripts/stage-ps4-diagnostics-usb')
+        self.policy=load('alpha_ui_policy_fixture','diagnostics/ps4/uvd.py')
+        payload=bytes(313912);crc=zlib.crc32(payload)&0xffffffff
+        header=struct.pack('<IIHHHHIIII',314168,32,1,0,4,2,0x012a6509,313912,256,crc)
+        self.firmware=header+bytes(256-len(header))+payload
+        self.policy.FIRMWARE=dict(self.policy.FIRMWARE,sha256=sha(self.firmware));self.policy.FIRMWARE_CRC=crc
+        executable=bytearray(64);executable[:7]=b'\x7fELF\x02\x01\x01';struct.pack_into('<HH',executable,16,3,62)
+        self.tui=self.directory/'tui';self.tui.write_bytes(executable+b'new navigation')
+        frontend={name:(bytes(executable)+b'old UI' if name=='psx-diagnostics-tui' else ('retained '+name).encode())
+                  for name in IMAGE.FRONTEND_FILES}
+        def facts(values,snapshot):
+            if set(values)!=set(IMAGE.FRONTEND_FILES):raise ValueError('fixed assets differ')
+            return {'schema_version':1,'total_bytes':sum(map(len,values.values())),
+                    'ram_limit_bytes':16*1024**2,'maximum_payload_bytes':8*1024**2,
+                    'files':[{'name':name,'bytes':len(values[name]),'sha256':sha(values[name]),
+                              'mode':f'{mode:04o}','bind_target':target}
+                             for name,(target,mode) in IMAGE.FRONTEND_FILES.items()]}
+        self.image=SimpleNamespace(FRONTEND_FILES=IMAGE.FRONTEND_FILES,console_profile=lambda _:True,
+                                   frontend_manifest=facts,executable_input=IMAGE.executable_input)
+        root=b'immutable root fixture';kernel=b'immutable kernel fixture'
+        self.policy.ALPHA3=dict(self.policy.ALPHA3,kernel_sha256=sha(kernel))
+        self.meta=dict(copy.deepcopy(self.policy.ALPHA3),rootfs_file='psx-diagnostics/rootfs.ext4',rootfs_sha256=sha(root),
+                       maximum_boot_set_bytes=1024**3,vram_mib=1024,ui_backend='ratatui',tui_sha256=sha(frontend['psx-diagnostics-tui']),
+                       rootfs_tui_sha256='ab'*32,alpha_inputs={'root_firmware':self.policy.FIRMWARE},
+                       required_boot_arguments=self.policy.BOOT_ARGUMENTS,frontend_overrides=facts(frontend,None),
+                       frontend_revision='uvd-alpha3-extras1',alpha_extra_extensions={'provider':'preserved'})
+        self.members={
+            'init':(0o100755,b'unchanged init policy'),
+            'bin/busybox':(0o100755,b'synthetic busybox'),
+            'etc/psx-diagnostics.env':(0o100644,b'BUILD_EPOCH=1234\nKERNEL_RELEASE=fixed\n'),
+            'lib/firmware/amdgpu/liverpool_uvd.bin':(0o100644,self.firmware),
+            'usr/lib/psx-diagnostics/extra-helper':(0o100755,b'keep extra helper byte-for-byte'),
+            'etc/psx-frontend.tsv':(0o100644,REFRESH.frontend_table(self.meta['frontend_overrides'])),
+        }
+        self.members.update({'psx-frontend/'+name:(0o100000|IMAGE.FRONTEND_FILES[name][1],data)for name,data in frontend.items()})
+        (self.base/'bzImage').write_bytes(kernel);(self.base/'psx-diagnostics/rootfs.ext4').write_bytes(root)
+        (self.base/'vram.txt').write_text('1024\n');(self.base/'bootargs.template.txt').write_text('unchanged gates and UART\n')
+        self.write_base()
+        parser=SimpleNamespace(parse_newc=CPIO.parse_newc,validate_busybox=mock.Mock())
+        root_reader=SimpleNamespace(RootImage=lambda _:SimpleNamespace(read=lambda path:self.firmware))
+        modules={'psx_frontend_stage':self.stage,'psx_frontend_image':self.image,'psx_frontend_cpio':parser,
+                 'psx_frontend_alpha_uvd':self.policy,'psx_frontend_alpha_root':root_reader}
+        patch=mock.patch.object(REFRESH,'load',side_effect=lambda name,path:modules[name]);patch.start();self.addCleanup(patch.stop)
+        patch=mock.patch.object(REFRESH,'ALPHA_UI_ROOT_SHA256',sha(root));patch.start();self.addCleanup(patch.stop)
+
+    def write_base(self):
+        self.members['etc/psx-diagnostics-expected.json']=(0o100644,json.dumps(self.meta).encode())
+        raw=b''.join(WRITER.entry(i,mode,1,1234,name,data)for i,(name,(mode,data))in enumerate(self.members.items(),1))
+        raw+=WRITER.entry(len(self.members)+1,0,1,1234,'TRAILER!!!')
+        packed=gzip.compress(raw,mtime=1234);(self.base/'initramfs.cpio.gz').write_bytes(packed)
+        external=dict(self.meta,initramfs_sha256=sha(packed))
+        (self.base/'psx-diagnostics/boot-set.json').write_text(json.dumps(external)+'\n')
+        files={str(p.relative_to(self.base)):sha(p.read_bytes())for p in self.base.rglob('*')if p.is_file()and p.name!='SHA256SUMS'}
+        (self.base/'SHA256SUMS').write_text(self.stage.installed_sums(files))
+
+    def refresh(self,**kwargs):
+        return REFRESH.refresh(self.base,self.tui,self.output,revision='alpha3-nav1',alpha_ui_only=True,**kwargs)
+
+    def test_only_tui_and_its_two_receipts_change_all_other_cpio_bytes_and_policy_remain(self):
+        before={str(p.relative_to(self.base)):p.read_bytes()for p in self.base.rglob('*')if p.is_file()}
+        result=self.refresh();self.assertEqual(result['status'],'PASS')
+        old_entries,old_tail=CPIO.parse_newc(gzip.decompress(before['initramfs.cpio.gz']))
+        new_entries,new_tail=CPIO.parse_newc(gzip.decompress((self.output/'initramfs.cpio.gz').read_bytes()))
+        changed={a.name.decode()for a,b in zip(old_entries,new_entries)if a.raw!=b.raw}
+        self.assertEqual(changed,{'psx-frontend/psx-diagnostics-tui','etc/psx-frontend.tsv','etc/psx-diagnostics-expected.json'})
+        self.assertEqual(old_tail,new_tail)
+        self.assertEqual((self.output/'initramfs.cpio.gz').read_bytes()[4:8],before['initramfs.cpio.gz'][4:8])
+        for name,data in before.items():self.assertEqual((self.base/name).read_bytes(),data)
+        old=json.loads(before['psx-diagnostics/boot-set.json']);new=json.loads((self.output/'psx-diagnostics/boot-set.json').read_text())
+        allowed={'frontend_overrides','frontend_revision','tui_sha256','frontend_refresh','initramfs_sha256'}
+        self.assertEqual({k:v for k,v in old.items()if k not in allowed},{k:v for k,v in new.items()if k not in allowed})
+        self.assertTrue(new['frontend_refresh']['root_image_unchanged'])
+        self.assertEqual(new['frontend_refresh']['base_boot_set_sha256'],sha(before['psx-diagnostics/boot-set.json']))
+        self.assertEqual(new['frontend_refresh']['changed_frontend_assets'],['psx-diagnostics-tui'])
+        self.assertEqual(result['firmware_unchanged']['sha256'],sha(self.firmware))
+
+    def test_plan_is_read_only_and_runtime_replacements_are_refused(self):
+        self.assertTrue(self.refresh(plan_only=True)['plan_only']);self.assertFalse(self.output.exists())
+        with self.assertRaisesRegex(ValueError,'do not supply runtime'):
+            self.refresh(snapshot=self.directory)
+        self.assertFalse(self.output.exists())
+
+    def test_other_alpha_profiles_wrong_root_and_missing_assets_fail_before_output(self):
+        original=copy.deepcopy(self.meta)
+        for key,value in (('profile','ps4-baikal-diagnostics-uvd-alpha2'),('kernel_release','wrong'),('rootfs_sha256','ff'*32)):
+            self.meta=dict(original,**{key:value});self.write_base()
+            with self.subTest(key=key),self.assertRaises(ValueError):self.refresh()
+            self.assertFalse(self.output.exists())
+        self.meta=original;self.members.pop('psx-frontend/network.py');self.write_base()
+        with self.assertRaisesRegex(ValueError,'fixed 29'):self.refresh()
+        self.assertFalse(self.output.exists())
+
+    def test_stock_cpio_firmware_and_corrupt_manifest_are_refused(self):
+        self.members['lib/firmware/amdgpu/liverpool_uvd.bin']=(0o100644,bytes(232752));self.write_base()
+        with self.assertRaisesRegex(ValueError,'314168'):self.refresh()
+        self.assertFalse(self.output.exists())
+        self.members['lib/firmware/amdgpu/liverpool_uvd.bin']=(0o100644,self.firmware)
+        self.meta['frontend_overrides']['files'][0]['sha256']='cd'*32;self.write_base()
+        with self.assertRaisesRegex(ValueError,'hashes/table'):self.refresh()
+        self.assertFalse(self.output.exists())
+
+    def test_ordinary_default_still_refuses_alpha_and_same_tui_is_not_repacked(self):
+        with self.assertRaisesRegex(ValueError,'alpha assembler'):
+            REFRESH.refresh(self.base,self.tui,self.output)
+        self.tui.write_bytes(self.members['psx-frontend/psx-diagnostics-tui'][1])
+        with self.assertRaisesRegex(ValueError,'TUI is unchanged'):self.refresh()
+        self.assertFalse(self.output.exists())
 
 
 class FrontendRefreshTests(unittest.TestCase):

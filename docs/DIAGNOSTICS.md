@@ -26,6 +26,9 @@ The checklist covers 45 scoped gates: 6 automated, 8 assisted, 22 manual,
 6 unimplemented and 3 deferred. It lists the unfinished work explicitly and
 does not start tests or award stability. Ordinary frontend refreshes reject
 UVD alpha images so native-dev3 helper guards cannot overwrite alpha guards.
+The explicit `--alpha-ui-only` mode accepts the frozen alpha3 boot set and
+changes only the TUI binary and its receipts; all other initramfs entries,
+firmware, kernel, root image and UVD gates remain unchanged.
 
 ## Source checks
 
