@@ -25,10 +25,8 @@ import tarfile
 import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
-ALPHA_PROFILE = 'ps4-baikal-diagnostics-uvd-alpha1'
-ALPHA_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev1'
-ALPHA_KERNEL = '9c3ec7d27fdfdebfee137684a635301e8dfa259b50e2f5d98ee33cf5f91e6153'
 VIDEO_FLAG = '--disable-accelerated-video-decode'
+CHROMIUM_USB_DIRECTORY = 'psx-diagnostics/providers/uvd-alpha1'
 
 
 def load(name, relative):
@@ -54,10 +52,21 @@ def pin(path, expected, size=None):
 
 def profile(path):
     value = json.loads(Path(path).read_text())
-    if (value.get('profile') != ALPHA_PROFILE or value.get('kernel_release') != ALPHA_RELEASE
-            or value.get('kernel_sha256') != ALPHA_KERNEL or value.get('uvd_runtime') is not True):
-        raise ValueError('Expected the separately frozen UVD alpha profile')
+    builder = load('psx_alpha_extras_profile', 'scripts/build-ps4-diagnostics-alpha')
+    policy = load('psx_alpha_extras_uvd_policy', 'diagnostics/ps4/uvd.py')
+    try:
+        builder.validate_profile(value)
+        policy.select_contract(value)
+    except ValueError as error:
+        raise ValueError('Expected an exact frozen UVD alpha profile: '+str(error)) from error
     return value
+
+
+def chromium_directory(alpha):
+    version = alpha.get('image_version')
+    if version not in ('alpha1', 'alpha2'):
+        raise ValueError('Unknown optional-provider alpha version')
+    return 'psx-diagnostics/providers/uvd-'+version
 
 
 def new_output(path, inputs=()):
@@ -85,7 +94,7 @@ def wayland_members(alpha, old, members):
     result = dict(members)
     runtime = (REPO/'diagnostics/ps4/wayland/runtime.py').read_bytes()
     result['runtime.py'] = (runtime, 0o755)
-    manifest = dict(old, profile='ps4-uvd-alpha1-native-wayland-egl1',
+    manifest = dict(old, profile='ps4-uvd-'+alpha['image_version']+'-native-wayland-egl1',
                     kernel_release=alpha['kernel_release'], kernel_sha256=alpha['kernel_sha256'],
                     hardware_acceptance=False, hardware_run=False,
                     qualification='Original pinned provider binaries and host ELF closure; alpha identity guards; no hardware execution')
@@ -145,6 +154,16 @@ def replace_assignment(source, name, expected, replacement):
     return changed
 
 
+def prepare_helper_source(source, original_pins, alpha_pins, directory=CHROMIUM_USB_DIRECTORY):
+    if directory not in ('psx-diagnostics/providers/uvd-alpha1', 'psx-diagnostics/providers/uvd-alpha2'):
+        raise ValueError('Unexpected alpha provider namespace')
+    original_directory = "PACKS = MEDIA / 'psx-diagnostics/providers'\n"
+    if source.count(original_directory) != 1:
+        raise ValueError('Original Chromium provider directory expression differs')
+    source = source.replace(original_directory, 'PACKS = MEDIA / '+repr(directory)+'\n')
+    return replace_assignment(source, 'EXPECTED', original_pins, alpha_pins)
+
+
 def debugfs(image, command, write=False):
     info = Path(image).lstat()
     if not stat.S_ISREG(info.st_mode) or write and (info.st_nlink != 1 or info.st_uid != os.geteuid()):
@@ -184,13 +203,13 @@ def verify_provider_payload(image, records):
     return {'regular_files': files, 'symlinks': links, 'all_original_payload_bytes_and_modes_preserved': True}
 
 
-def finalize_frontend(base, destination, helpers, provider):
+def finalize_frontend(base, destination, helpers, provider, alpha):
     """Bind two alpha-only provider helpers above the unchanged alpha root."""
     stage = load('psx_alpha_extras_stage', 'scripts/stage-ps4-diagnostics-usb')
     image = load('psx_alpha_extras_image', 'scripts/build-ps4-diagnostics')
     parser = load('psx_alpha_extras_cpio', 'scripts/ps4-diagnostics-archive')
     files, metadata = stage.source_files(base)
-    if metadata.get('profile') != ALPHA_PROFILE or metadata.get('kernel_sha256') != ALPHA_KERNEL:
+    if any(metadata.get(key) != alpha[key] for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256')):
         raise ValueError('Frontend rebinding requires the frozen alpha boot set')
     entries, _ = parser.parse_newc(gzip.decompress((base/'initramfs.cpio.gz').read_bytes()))
     seed = {e.name.decode(): e for e in entries}
@@ -209,10 +228,10 @@ def finalize_frontend(base, destination, helpers, provider):
             raise ValueError('Expected a regular fixed alpha provider helper')
         frontend[name] = path.read_bytes()
     expected.update(frontend_overrides=image.frontend_manifest(frontend, metadata['snapshot_sums_sha256']),
-                    frontend_revision='uvd-alpha1-extras1',
+                    frontend_revision='uvd-'+alpha['image_version']+'-extras1',
                     alpha_optional_chromium={
                         **{key: provider[key] for key in ('provider_id', 'image', 'image_bytes', 'image_sha256', 'provider_manifest_sha256')},
-                        'usb_directory': 'psx-diagnostics/providers', 'included_in_core': False,
+                        'usb_directory': chromium_directory(alpha), 'included_in_core': False,
                         'kernel_root_unchanged': True, 'hardware_video_decoding': False,
                         'helper_sha256': {name: hashlib.sha256(frontend[name]).hexdigest()
                                           for name in ('prepare-chromium-provider', 'launch-chromium-provider')},
@@ -266,10 +285,11 @@ def prepare_chromium(args, alpha):
     if old.get('browser_flags') != launcher.FLAGS or old.get('kernel_release') != launcher.RELEASE:
         raise ValueError('Original Chromium fixed launch policy differs')
     flags = [*launcher.FLAGS, VIDEO_FLAG]
-    provider_id = 'chromium-151.0.7922.169-psx-uvd-alpha1'
+    provider_id = 'chromium-151.0.7922.169-psx-uvd-'+alpha['image_version']
     provider = dict(old, provider_id=provider_id, kernel_release=alpha['kernel_release'],
                     kernel_sha256=alpha['kernel_sha256'], base_rootfs_sha256=boot['rootfs_sha256'],
                     frontend_initramfs_sha256=boot['initramfs_sha256'], browser_flags=flags,
+                    optional_usb_path=chromium_directory(alpha)+'/'+provider_id+'.ext4',
                     derived_from_image_sha256=expected['image_sha256'], hardware_acceptance=False,
                     qualification='Original pinned package executables/licenses; rebound alpha kernel/root; hardware video decoding disabled; no browser execution')
     embedded = json_bytes(provider)
@@ -309,14 +329,14 @@ def prepare_chromium(args, alpha):
                  mesa_manifest_sha256=alpha['mesa_manifest_sha256'])
     frontend = output/'frontend'; frontend.mkdir()
     source = (REPO/'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider').read_text()
-    (frontend/'prepare-chromium-provider').write_text(replace_assignment(source, 'EXPECTED', preparer.EXPECTED, fixed))
+    (frontend/'prepare-chromium-provider').write_text(prepare_helper_source(source, preparer.EXPECTED, fixed, chromium_directory(alpha)))
     source = (REPO/'rootfs/ps4-diagnostics-desktop/launch-chromium-provider').read_text()
     source = replace_assignment(source, 'RELEASE', launcher.RELEASE, alpha['kernel_release'])
     (frontend/'launch-chromium-provider').write_text(replace_assignment(source, 'FLAGS', launcher.FLAGS, flags))
     for path in frontend.iterdir():
         path.chmod(0o755)
     receipt['frontend_helpers'] = {p.name: {'sha256': digest(p), 'bytes': p.stat().st_size} for p in frontend.iterdir()}
-    receipt['boot_set'] = finalize_frontend(args.boot_set.resolve(strict=True), output/'boot-set', frontend, receipt)
+    receipt['boot_set'] = finalize_frontend(args.boot_set.resolve(strict=True), output/'boot-set', frontend, receipt, alpha)
     (output/'build-receipt.json').write_bytes(json_bytes(receipt))
     return receipt
 

@@ -230,3 +230,25 @@ outside Git; one completed test is not stability qualification.
   in sibling `ps4-uart/sessions/`. Display bridge/IRQ diagnostics remain;
   no new hardware-support or stability qualification follows. Private capture,
   build and deployment receipts: `output/ps4-diagnostics-hardware-ui2/`.
+
+## EXP-20261105-002 — alpha preparation and preserved rollback
+
+- The operator returned from the existing ordinary diagnostic boot to Orbis
+  and started FTP. The existing diagnostic USB ownership, serial/capacity/UUID
+  and 13-file receipt matched the recorded device. A complete host rollback
+  copy passed streamed SHA256 readback for every owned boot file, including
+  the root image. Recovery: workspace
+  `ps4/backups/psx-diagnostix-power-alpha2-20261105/`.
+- No console/USB file was changed and no alpha kernel or decoder was launched.
+  Before deployment the owner expanded the candidate to include every current
+  reviewed native-dev3 fix plus UVD and the ICC power-off contribution. The
+  frozen historical UVD alpha was superseded by that new combined-build scope.
+  Diagnostix naming and unavailable Power controls are interface work, not
+  observed power-management support.
+- Verdict: rollback preparation passed; the proposed alpha boot/decode is
+  **NOT RUN**, so this session establishes no UVD, power-off or kernel stability
+  acceptance. Completed UART continuity: 155,932 bytes, same generation/epoch,
+  00:58:35–01:13:58 local. Compact context:
+  `20261105_005835_491537-exp-20261105-002-matched-uvd-alpha1-integration-update-identifie-3861cb7c.md`
+  in sibling `ps4-uart/sessions/`. Continuous capture remains running; begin a
+  new bounded session for deployment and launch of the combined candidate.

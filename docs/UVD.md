@@ -42,6 +42,30 @@ The tested kernel SHA256 is
 release `7.2.11-psx-ps4-baikal-uvd-runtime-dev1`. Always keep its whole matching
 41-module set and corresponding source. Firmware is external and excluded.
 
+The newer Diagnostix alpha2 uses a separately built
+`7.2.11-psx-ps4-baikal-uvd-runtime-dev2`. Its
+[native3 composition helper](../experiments/ps4-uvd-driver/runtime/build_native3.py)
+applies all 73 active patches from the frozen native-dev3 baseline and the
+declared 41-file UVD overlay. It preserves the current platform fixes,
+including the credited ICC power-off patch; candidate and disabled patches
+remain inactive. The helper uses the shared packaging routines in
+[`build_poweroff.py`](../experiments/ps4-uvd-driver/runtime/build_poweroff.py).
+Both helpers have focused host checks beside them. The
+[alpha2 profile](../manifests/ps4-diagnostics-uvd-alpha2.json) pins the kernel,
+resolved config, complete matching modules and corresponding source archive.
+Its kernel SHA256 is
+`6b1d9d90d29eeffb58057cd04a387ad08c53adc7d13afb62bcb2b3af8c686fdc`.
+Compilation and archive readbacks passed; the earlier dev1 hardware results
+do not qualify this new build.
+
+The UVD runtime still parks during shutdown after entry, before ordinary ICC
+power-off can run. The host-only
+[`prepare-ps4-diagnostix-power-test`](../scripts/prepare-ps4-diagnostix-power-test)
+derives a separate boot set with all three UVD gates explicitly disabled and
+unchanged kernel, root and modules. Power-off qualification needs that fresh
+captured boot, observed disabled sysfs gates and no UVD runtime/ready entry;
+it cannot be inferred from an enabled UVD test or a physical power-off.
+
 ## Mesa and the visible test
 
 Linux psX owns the pinned Mesa 26.2.5 candidate in `userspace/mesa`, with

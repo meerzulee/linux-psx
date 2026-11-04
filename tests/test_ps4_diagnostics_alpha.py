@@ -23,6 +23,75 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def profile(self, version=1):
+        value=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha1.json').read_text())
+        if version==2:
+            old=value['kernel_release'];variant=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha2']
+            value.update(profile='ps4-baikal-diagnostics-uvd-alpha2',kernel_release=variant['kernel_release'],
+                         image_version='alpha2',product_name='Diagnostix',build_status='frozen',
+                         poweroff_fix={'patch':APP.POWEROFF_PATCH,'sha256':APP.POWEROFF_SHA256,
+                                       'uvd_shutdown_park_unchanged':True,'hardware_acceptance':False})
+            value['alpha_inputs']['legacy_package']={name.replace(old,variant['kernel_release']).replace('LINK-ATTEMPT-06','LINK-ATTEMPT-01'):pin
+                                                    for name,pin in value['alpha_inputs']['legacy_package'].items()}
+        return value
+
+    def test_known_variants_keep_distinct_release_and_build_receipt_contracts(self):
+        first=self.profile();second=self.profile(2)
+        self.assertEqual(APP.validate_profile(first)['kernel_release'],APP.ALPHA_RELEASE)
+        selected=APP.validate_profile(second)
+        self.assertEqual(selected['kernel_release'],'7.2.11-psx-ps4-baikal-uvd-runtime-dev2')
+        self.assertTrue(selected['link_receipt'].endswith('LINK-ATTEMPT-01.json'))
+        for bad in [dict(second,kernel_release=first['kernel_release']),dict(first,kernel_release=second['kernel_release']),
+                    dict(second,profile='ps4-baikal-diagnostics-uvd-alpha3'),dict(second,image_version='alpha1')]:
+            with self.assertRaisesRegex(ValueError,'mismatched'):
+                APP.validate_profile(bad)
+        bad=copy.deepcopy(second);pins=bad['alpha_inputs']['legacy_package']
+        pins['build-inputs/runtime/LINK-ATTEMPT-06.json']=pins.pop(selected['link_receipt'])
+        with self.assertRaisesRegex(ValueError,'Incomplete'):
+            APP.validate_profile(bad)
+
+    def test_pending_alpha2_and_placeholder_pins_stop_before_input_tools_or_output(self):
+        with tempfile.TemporaryDirectory(dir='/var/tmp')as temp:
+            root=Path(temp);profile=self.profile(2);profile['build_status']='pending-new-kernel'
+            profile['kernel_sha256']=None;path=root/'pending.json';path.write_bytes(APP.encoded(profile))
+            with mock.patch.object(APP,'validate_paths',side_effect=AssertionError('must not inspect inputs')),mock.patch.object(APP,'load',side_effect=AssertionError('must not load build tools')):
+                with self.assertRaisesRegex(ValueError,'pending'):
+                    APP.prepare(root/'missing-base',root/'missing-package',root/'missing-fixture',path,root/'output')
+            self.assertFalse((root/'output').exists())
+        for value in (None,'pending','',0,'0'*64,'f'*64,'a'*64):
+            profile=self.profile(2);profile['kernel_sha256']=value
+            with self.assertRaisesRegex(ValueError,'placeholder'):
+                APP.validate_profile(profile)
+        for field in ('bzImage','build-inputs/runtime/LINK-ATTEMPT-01.json'):
+            profile=self.profile(2);profile['alpha_inputs']['legacy_package'][field]['sha256']=None
+            with self.assertRaisesRegex(ValueError,'placeholder'):
+                APP.validate_profile(profile)
+        profile=self.profile(2);profile['alpha_inputs']['legacy_package']['bzImage']['bytes']=0
+        with self.assertRaisesRegex(ValueError,'Pending or invalid'):
+            APP.validate_profile(profile)
+
+    def test_alpha2_requires_exact_base_and_reviewed_patch_without_lifecycle_relaxation(self):
+        for changes in ({'uvd_shutdown_park_unchanged':False},{'hardware_acceptance':True},{'sha256':'1f'*32},
+                        {'patch':'unrelated.patch'}):
+            profile=self.profile(2);profile['poweroff_fix'].update(changes)
+            with self.assertRaisesRegex(ValueError,'ICC patch'):
+                APP.validate_profile(profile)
+        profile=self.profile(2);profile['alpha_base'].pop('rootfs_sha256')
+        with self.assertRaisesRegex(ValueError,'exact ordinary'):
+            APP.validate_profile(profile)
+
+    def test_alpha1_branding_is_unchanged_and_alpha2_changes_display_names_only(self):
+        expected=(b'NAME="psX Diagnostics"\nID=psx-diagnostics\nID_LIKE=arch\n'
+                  b'PRETTY_NAME="psX Diagnostics UVD alpha1"\nIMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION=alpha1\n')
+        self.assertEqual(APP.os_release(self.profile()),expected)
+        second=APP.os_release(self.profile(2)).decode()
+        self.assertIn('NAME="Diagnostix"\n',second)
+        self.assertIn('PRETTY_NAME="Diagnostix alpha2"\n',second)
+        self.assertIn('ID=psx-diagnostics\n',second);self.assertIn('IMAGE_ID=ps4-baikal-diagnostics\n',second)
+        profile=self.profile();profile['product_name']='bad"\nID=changed'
+        with self.assertRaisesRegex(ValueError,'plain product_name'):
+            APP.os_release(profile)
+
     def test_only_exact_release_constant_is_adapted(self):
         data = ('#!/usr/bin/python3\nRELEASE = "' + APP.BASE_RELEASE + '"\nassert observed == RELEASE\n').encode()
         updated = APP.rewrite_release(data)
@@ -31,6 +100,11 @@ class AlphaPolicyTests(unittest.TestCase):
         self.assertEqual(updated.replace(APP.ALPHA_RELEASE.encode(), APP.BASE_RELEASE.encode()), data)
         for invalid in (b'RELEASE = "other"', data+data, data+APP.BASE_RELEASE.encode()):
             with self.assertRaises(ValueError): APP.rewrite_release(invalid)
+        for variant in APP.VARIANTS.values():
+            release=variant['kernel_release'];updated=APP.rewrite_release(data,release)
+            self.assertEqual(updated.replace(release.encode(),APP.BASE_RELEASE.encode()),data)
+        with self.assertRaisesRegex(ValueError,'Unknown'):
+            APP.rewrite_release(data,'unfrozen-release')
 
     def test_catalogue_changes_only_release_and_existing_uvd_entry(self):
         original = json.loads((ROOT/'diagnostics/ps4/catalogue.json').read_text())
@@ -44,6 +118,8 @@ class AlphaPolicyTests(unittest.TestCase):
             else: self.assertEqual(new, old)
         self.assertEqual(original['expected_kernel_release'], APP.BASE_RELEASE)
         with self.assertRaises(ValueError): APP.alpha_catalogue(APP.encoded(changed))
+        second=APP.alpha_catalogue(APP.encoded(original),self.profile(2)['kernel_release'])
+        self.assertEqual(second.replace(self.profile(2)['kernel_release'].encode(),APP.ALPHA_RELEASE.encode()),APP.encoded(changed))
 
     def test_bootargs_preserve_disable_and_add_exact_gates_once(self):
         old=b'console=tty0 libata.force=1.00:disable psx_mts_net.autoarm=1 psx.diag_uuid=@USB_UUID@\n'
@@ -71,7 +147,7 @@ class AlphaPolicyTests(unittest.TestCase):
     def test_plan_returns_without_writing_image_or_output(self):
         with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
             root=Path(temp);(root/'base').mkdir();(root/'base/root').write_bytes(b'fixture')
-            prepared={'profile':{'profile':'fixture','module_count':41},'base':root/'base','output':root/'new',
+            prepared={'profile':{'profile':'fixture','kernel_release':APP.ALPHA_RELEASE,'module_count':41},'base':root/'base','output':root/'new',
                 'original':{'rootfs_sha256':'a'*64,'rootfs_file':'root'},'frontend':{'one':b'x'},'replacements':{},'modules':{},
                 'metadata':{'frontend_overrides':{'total_bytes':1},'alpha_derivation':{'fixture_files':135,'fixture_bytes':123}}}
             with mock.patch.object(APP,'copy_regular',side_effect=AssertionError('unexpected write')),mock.patch.object(APP,'RootImage',side_effect=AssertionError('unexpected image write')):
@@ -154,7 +230,7 @@ class AlphaImageTests(unittest.TestCase):
                           'source-new.tar.zst':b'corresponding-source','legacy.json':b'{"legacy":true}\n'}.items():
             (package/name).write_bytes(data)
         pins={p.name:{'sha256':APP.digest(p),'bytes':p.stat().st_size}for p in package.iterdir()}
-        profile={'profile':'fixture-alpha','module_count':1,'source_commit':'a'*40,'kernel_sha256':pins['bzImage']['sha256'],
+        profile={'profile':'fixture-alpha','kernel_release':'new','image_version':'alpha1','module_count':1,'source_commit':'a'*40,'kernel_sha256':pins['bzImage']['sha256'],
             'config_sha256':pins['config']['sha256'],'modules_sha256':pins['modules-new.tar.zst']['sha256'],
             'alpha_inputs':{'legacy_package':dict(pins,**{'build-inputs/runtime/SOURCE-RECEIPT.json':pins['legacy.json']})}}
         (package/'build-inputs/runtime').mkdir(parents=True);shutil.copyfile(package/'legacy.json',package/'build-inputs/runtime/SOURCE-RECEIPT.json')
@@ -171,12 +247,14 @@ class AlphaImageTests(unittest.TestCase):
             replacements={path:(data,0o644)for path,data in modules.items()},metadata=metadata,modules=modules,
             frontend={'one':b'x'},old_tree={},before_fsck=APP.fsck(self.base),anchors={},source_facts={},profile_path=profile_path,
             archive_name='modules-new.tar.zst',source_name='source-new.tar.zst',imported={'origin':'synthetic'},bootargs=b'alpha fixture\n',
-            seed=seed,stage=stage,image=type('Builder',(),{'initramfs':staticmethod(initramfs)})())
-        with mock.patch.object(APP,'BASE_RELEASE','old'),mock.patch.object(APP,'ALPHA_RELEASE','new'):
+            seed=seed,stage=stage,image=type('Builder',(),{'initramfs':staticmethod(initramfs)})(),
+            variant={'source_receipt':'build-inputs/runtime/SOURCE-RECEIPT.json'})
+        with mock.patch.object(APP,'BASE_RELEASE','old'):
             result=APP.build(p)
         self.assertEqual(result['status'],'PASS');self.assertFalse(result['hardware_acceptance'])
         self.assertFalse((p['output']/'psx-diagnostics/modules-old.tar.zst').exists())
         self.assertEqual((p['output']/'psx-diagnostics/modules-new.tar.zst').read_bytes(),b'new-archive')
+        self.assertEqual((p['output']/'psx-diagnostics/version.txt').read_bytes(),b'new\n')
         _,final=stage.source_files(p['output'])
         root=APP.RootImage(p['output']/final['rootfs_file'])
         inner=json.loads(root.read('/etc/psx-diagnostics/boot-set.json'))

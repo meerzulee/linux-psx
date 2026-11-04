@@ -1,4 +1,4 @@
-# PS4 diagnostics alpha with UVD
+# Diagnostix alpha with UVD
 
 This is a local engineering candidate for the recorded Baikal PS4. It combines
 the diagnostic interface with a separately pinned experimental UVD kernel and
@@ -9,6 +9,11 @@ The ordinary diagnostic boot set remains the rollback. The core retains its
 1 GiB cap; optional browser providers and media have separate explicit budgets.
 No public binary release or hardware qualification follows from assembly.
 
+Diagnostix is the visible appliance name. Source and image builds remain in
+Linux psX, preserving the existing `psx-diagnostics` service, path and protocol
+identities. The Power tab explains the current restrictions; its Shutdown and
+Reboot controls do not execute commands on an unqualified build.
+
 ## Frozen inputs
 
 [`ps4-diagnostics-uvd-alpha1.json`](../manifests/ps4-diagnostics-uvd-alpha1.json)
@@ -17,6 +22,20 @@ private Mesa, package snapshot, firmware and exact AVC fixture. Its release is
 `7.2.11-psx-ps4-baikal-uvd-runtime-dev1`. The preserved patched source snapshot
 records project base `35b9f37960ba2fbfc8e2fa0ad5077656ceb1dbc2`; it is not
 native-dev3's later source commit. Original package receipts remain unchanged.
+
+The separate alpha2 profile combines **all 73 reviewed active native-dev3
+patches** at `c8495a51e0bad4851015cd5d34ee61b2fde87e44` with the experimental
+UVD overlay. This includes the contributor's guarded ICC power-off fix, native
+boot defaults, SATA/PHY, HDMI/audio and focused platform/network corrections.
+Disabled or candidate patches are not activated. The builder verifies the
+whole source and active-patch inventory and packages a new kernel, matching
+modules, resolved configuration and full corresponding source. A pending
+profile cannot be used until its actual build hashes have been frozen.
+
+The ICC fix does not remove the UVD shutdown park. Power-off validation uses
+a separate boot of this combined kernel with all three UVD gates disabled;
+the UVD-enabled boot ends with physical recovery. A successful TCP disconnect
+or power command return is not operator-observed power-off acceptance.
 
 The alpha assembler creates a new regular ext4 image offline from the exact
 ordinary root, replaces its entire kernel-module tree, and installs the alpha
@@ -40,6 +59,8 @@ then creates a separate 384 MiB provider and a complete final boot set with
 two matching fixed frontend helpers; its provider image remains outside the
 1 GiB core cap. Original executables, libraries, licenses, sandbox ownership
 and modes are preserved and read back. Neither pack is executed on the host.
+Each alpha's optional Chromium files occupy their own USB subdirectory so
+the ordinary image's provider and sidecars remain available for rollback.
 
 ## What to test
 

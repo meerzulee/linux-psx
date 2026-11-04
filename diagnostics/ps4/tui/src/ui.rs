@@ -437,6 +437,13 @@ fn summary(app: &App, t: Theme) -> Vec<Line<'static>> {
             lines.push(Line::from("Native console uses its bitmap fallback; font size changes affect the graphical terminal."));
             lines.push(line_pair("Creator", "meerzulee", t));
         }
+        Category::Power => {
+            lines.push(line_pair("Shutdown", "Unavailable", t));
+            lines.push(line_pair("Reboot", "Unavailable", t));
+            lines.push(Line::default());
+            lines.push(Line::from("Enter reads recovery guidance."));
+            lines.push(Line::from("No power action is performed."));
+        }
     }
     lines
 }
@@ -455,7 +462,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
     if area.width < 80 || area.height < 24 {
         let text = format!(
-            "psX Diagnostics\n\nUse a terminal at least 80 x 24.\nCurrent: {} x {}\n\nQ exits to the console.",
+            "Diagnostix\n\nUse a terminal at least 80 x 24.\nCurrent: {} x {}\n\nQ exits to the console.",
             area.width, area.height
         );
         frame.render_widget(
@@ -489,9 +496,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
         ])
         .split(inner);
     let title = if app.demo {
-        "psX  /  DIAGNOSTICS  ·  DEMO PREVIEW"
+        "Diagnostix  ·  DEMO PREVIEW"
     } else {
-        "psX  /  DIAGNOSTICS"
+        "Diagnostix"
     };
     frame.render_widget(
         Paragraph::new(title)
@@ -530,8 +537,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
         rows[1],
     );
     if !app.onboarding {
+        let full_width =
+            CATEGORIES.iter().map(|c| c.title().len()).sum::<usize>() + (CATEGORIES.len() - 1) * 2;
         let titles = CATEGORIES.iter().map(|c| {
-            Line::from(if inner.width < 86 {
+            Line::from(if usize::from(inner.width) < full_width {
                 c.compact_title()
             } else {
                 c.title()
@@ -693,6 +702,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
         "↑↓ Choose   Enter Select   Esc Continue offline   F1 Help   Q Exit"
     } else if app.category() == Category::Reports && app.focus == Focus::Actions {
         "↑↓ Select   Enter Open/toggle   ← Collapse   → Expand   Tab Areas   F4 Refresh   Q Exit"
+    } else if app.category() == Category::Power {
+        "←→ Area   ↑↓ Select   Enter Read guidance   Esc Areas   F4 Reports   Q Exit"
     } else if app.settings_tree_focused() {
         "↑↓ Select   Enter Open/apply   ← Collapse   → Expand\nTab Areas   F2 Network   F3 Core   F4 Reports   V Details   Q Exit"
     } else {
@@ -717,7 +728,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     if app.exit_dialog {
         modal(
             frame,
-            "Exit diagnostics?",
+            "Exit Diagnostix?",
             vec![
                 Line::from("Return to the local console."),
                 Line::default(),
@@ -1003,6 +1014,49 @@ fn modal(frame: &mut Frame, title: &str, lines: Vec<Line<'_>>, width: u16, heigh
 }
 
 fn report(frame: &mut Frame, app: &App, value: &Value, t: Theme) {
+    if value["view"] == "power_unavailable" {
+        let alpha = app
+            .state
+            .pointer("/identity/declared_artifacts/uvd_runtime")
+            .and_then(Value::as_bool)
+            == Some(true);
+        let mut lines = vec![
+            Line::styled(
+                "Unavailable · no power action",
+                Style::default().fg(t.text).add_modifier(Modifier::BOLD),
+            ),
+            Line::default(),
+        ];
+        if alpha {
+            lines.extend([
+                Line::from("This UVD alpha enters the experimental decoder during boot."),
+                Line::from("It retains resources; shutdown/reset lifecycle is unqualified."),
+            ]);
+        } else {
+            lines.push(Line::from(
+                "Power/reset lifecycle needs a separate observed hardware test.",
+            ));
+        }
+        lines.extend([
+            Line::default(),
+            Line::from("1. Finish tests and save/review your reports."),
+            Line::from("2. Keep UART capture running through the power-off sequence."),
+            Line::from("3. Follow the planned physical power-off and Orbis recovery."),
+            Line::default(),
+            Line::from("Shutdown and reboot remain disabled in every profile."),
+            Line::default(),
+            Line::from("Enter or Esc returns to Power"),
+        ]);
+        modal(
+            frame,
+            &format!("{} · unavailable", model::at(value, "/operation")),
+            lines,
+            74,
+            18,
+            t,
+        );
+        return;
+    }
     if value["view"] == "creator_credits" {
         modal(
             frame,
@@ -1433,6 +1487,7 @@ mod tests {
                 .map(|cell| cell.symbol())
                 .collect();
             assert!(text.contains("Connect your console"));
+            assert!(text.contains("Diagnostix"));
             assert!(text.contains("DEMO PREVIEW"));
             assert!(text.contains("Continue offline"));
             assert!(!text.contains("192.0.2.7"));
@@ -1827,5 +1882,69 @@ mod tests {
         assert!(text.contains("Repetition"));
         assert!(text.contains("3 runs / 3 cold boots"));
         assert!(text.contains("Esc Back"));
+    }
+    #[test]
+    fn power_menu_and_recovery_dialog_are_readable_at_80_columns_without_an_execute_hint() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        for runtime in [false, true] {
+            let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.category = CATEGORIES
+                .iter()
+                .position(|c| *c == Category::Power)
+                .unwrap();
+            app.focus = Focus::Actions;
+            app.state["identity"] =
+                serde_json::json!({"declared_artifacts":{"uvd_runtime":runtime}});
+            let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            terminal.draw(|frame| draw(frame, &app)).unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            for value in [
+                "Diagnostix",
+                "Shutdown · unavailable",
+                "Reboot · unavailable",
+                "Enter Read guidance",
+                "made by meerzulee",
+            ] {
+                assert!(text.contains(value), "missing {value}");
+            }
+            assert!(!text.contains("Enter Run"));
+            for index in 0..2 {
+                app.selected = index;
+                app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+                terminal.draw(|frame| draw(frame, &app)).unwrap();
+                let text: String = terminal
+                    .backend()
+                    .buffer()
+                    .content
+                    .iter()
+                    .map(|cell| cell.symbol())
+                    .collect();
+                for value in [
+                    "Unavailable · no power action",
+                    "save/review your reports",
+                    "Keep UART capture running",
+                    "physical power-off and Orbis recovery",
+                    "disabled in every profile",
+                    "Enter or Esc returns to Power",
+                ] {
+                    assert!(text.contains(value), "missing {value}");
+                }
+                if runtime {
+                    assert!(text.contains("decoder during boot"));
+                } else {
+                    assert!(text.contains("separate observed hardware test"));
+                    assert!(!text.contains("decoder during boot"));
+                }
+                assert!(!text.contains("\"view\""));
+                app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            }
+        }
     }
 }

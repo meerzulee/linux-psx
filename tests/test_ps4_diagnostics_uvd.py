@@ -24,6 +24,29 @@ BOOT = "616aaa3f-28bf-48bf-bdf5-a98560a0ec94"
 
 
 class UVDTests(unittest.TestCase):
+    def test_pending_or_unknown_variants_cannot_become_an_accepted_contract(self):
+        pending = dict(UVD.ALPHA2, kernel_sha256=None, config_sha256=None, modules_sha256=None)
+        with mock.patch.object(UVD, 'ALPHA2', pending):
+            with self.assertRaisesRegex(ValueError, 'pins are pending'):
+                UVD.select_contract(copy.deepcopy(pending))
+        unknown = dict(UVD.ALPHA, profile='ps4-baikal-diagnostics-uvd-unreviewed')
+        with self.assertRaisesRegex(ValueError, 'Unknown frozen'):
+            UVD.select_contract(unknown)
+
+    def test_registered_combined_variant_cannot_borrow_old_hashes_or_relax_park(self):
+        combined = dict(UVD.ALPHA2, kernel_sha256='ab'*32, config_sha256='cd'*32,
+                        modules_sha256='ef'*32)
+        with mock.patch.object(UVD, 'ALPHA2', combined):
+            self.assertEqual(UVD.select_contract(copy.deepcopy(combined)), combined)
+            wrong = dict(combined, kernel_sha256=UVD.ALPHA['kernel_sha256'])
+            with self.assertRaisesRegex(ValueError, 'exact frozen'):
+                UVD.select_contract(wrong)
+            wrong = copy.deepcopy(combined)
+            wrong['poweroff_fix']['uvd_shutdown_park_unchanged'] = False
+            with self.assertRaisesRegex(ValueError, 'exact frozen'):
+                UVD.select_contract(wrong)
+        self.assertEqual(UVD.select_contract(dict(UVD.ALPHA)), UVD.ALPHA)
+
     def setUp(self):
         base = BASE.DiagnosticsTests("test_inventory_is_observation_with_exact_receipts_and_no_commands")
         base.setUp(); self.addCleanup(base.doCleanups)

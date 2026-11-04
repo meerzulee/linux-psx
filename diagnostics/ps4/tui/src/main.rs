@@ -338,7 +338,7 @@ impl App {
             notice: if demo {
                 "Demo preview only. No hardware actions execute.".into()
             } else {
-                "Choose a connection, then continue to diagnostics.".into()
+                "Choose a connection, then continue to Diagnostix.".into()
             },
             active_job: None,
             last_report: None,
@@ -812,6 +812,10 @@ impl App {
             ActionKind::SshSetup => self.open_ssh(),
             ActionKind::Credits => {
                 self.report = Some(json!({"view":"creator_credits"}));
+                self.report_scroll = 0;
+            }
+            ActionKind::Power(option) => {
+                self.report = Some(json!({"view":"power_unavailable","operation":option.title()}));
                 self.report_scroll = 0;
             }
             ActionKind::ReportGroup(group) => {
@@ -1538,12 +1542,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 render = Some(args.next().unwrap_or_else(|| "110x30".into()));
             }
             "--version" => {
-                println!("psx-diagnostics-tui {}", env!("CARGO_PKG_VERSION"));
+                println!(
+                    "Diagnostix {} (psx-diagnostics-tui)",
+                    env!("CARGO_PKG_VERSION")
+                );
                 return Ok(());
             }
             "--help" | "-h" => {
                 println!(
-                    "psx-diagnostics-tui [--socket PATH] [--demo] [--render-demo WIDTHxHEIGHT]\nNative local-console / SSH diagnostic client. Arrows, Enter, Esc; F1 help.\nDemo mode uses sample data and never contacts a console."
+                    "Diagnostix\npsx-diagnostics-tui [--socket PATH] [--demo] [--render-demo WIDTHxHEIGHT]\nNative local-console / SSH diagnostic client. Arrows, Enter, Esc; F1 help.\nDemo mode uses sample data and never contacts a console."
                 );
                 return Ok(());
             }
@@ -1945,6 +1952,7 @@ mod tests {
             Category::Storage,
             Category::Reports,
             Category::Settings,
+            Category::Power,
         ] {
             app.key(key(KeyCode::Right));
             assert!(app.category() == expected);
@@ -2160,5 +2168,49 @@ mod tests {
         assert_eq!(app.next_id, 0);
         assert!(app.report_expanded[0]);
         assert_eq!(app.last_report.as_ref().unwrap()["run_id"], "saved");
+    }
+    #[test]
+    fn power_guidance_is_local_in_every_profile_and_preserves_jobs_and_reports() {
+        for runtime in [Value::Null, json!(false), json!(true)] {
+            let mut app = App::new(PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.category = 0;
+            app.focus = Focus::Categories;
+            app.state["identity"] = json!({"declared_artifacts":{"uvd_runtime":runtime}});
+            app.last_report = Some(json!({"run_id":"saved"}));
+            app.active_job = Some(Job {
+                id: json!("existing"),
+                title: "Existing test".into(),
+                started: Instant::now(),
+                data: Value::Null,
+            });
+            app.key(key(KeyCode::Left));
+            assert!(app.category() == Category::Power);
+            app.key(key(KeyCode::Enter));
+            for (index, operation) in ["Shutdown", "Reboot"].into_iter().enumerate() {
+                assert_eq!(app.selected, index);
+                assert!(app.actions()[index].title.contains("unavailable"));
+                assert!(!app.key(key(KeyCode::Enter)));
+                assert_eq!(app.report.as_ref().unwrap()["view"], "power_unavailable");
+                assert_eq!(app.report.as_ref().unwrap()["operation"], operation);
+                assert_eq!(app.next_id, 0);
+                assert!(!app.action_pending);
+                assert_eq!(app.active_job.as_ref().unwrap().id, json!("existing"));
+                assert_eq!(app.last_report.as_ref().unwrap()["run_id"], "saved");
+                app.key(key(if index == 0 {
+                    KeyCode::Enter
+                } else {
+                    KeyCode::Esc
+                }));
+                assert!(app.report.is_none());
+                assert_eq!(app.selected, index);
+                if index == 0 {
+                    app.key(key(KeyCode::Down));
+                }
+            }
+            app.key(key(KeyCode::Esc));
+            app.key(key(KeyCode::Right));
+            assert!(app.category() == Category::System);
+        }
     }
 }

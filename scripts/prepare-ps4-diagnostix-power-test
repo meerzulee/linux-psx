@@ -1,0 +1,217 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Derive a UVD-disabled power-test boot set from frozen Diagnostix alpha2.
+
+Host files only: no mounts, hardware access or power actions. Kernel, config,
+all modules, root image and all 29 frontend assets remain byte-identical.
+--plan verifies inputs without creating output. Actual power testing requires
+a separately captured boot, all three observed gates N/0 and no runtime/ready entry.
+"""
+from __future__ import annotations
+
+import argparse
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+from pathlib import Path, PurePosixPath
+import re
+import stat
+import sys
+
+sys.dont_write_bytecode = True
+REPO = Path(__file__).resolve().parents[1]
+BASE_PROFILE = 'ps4-baikal-diagnostics-uvd-alpha2'
+PROFILE = 'ps4-baikal-diagnostix-alpha2-power-test'
+RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev2'
+MIB = 1024 ** 2
+CAP = 1024 * MIB
+GATES = ('amdgpu.ps4_uvd_runtime', 'amdgpu.ps4_uvd_ready', 'amdgpu.ps4_uvd_poll_state')
+DISABLED = [key + '=0' for key in GATES]
+CHANGED = {'initramfs.cpio.gz', 'bootargs.template.txt', 'psx-diagnostics/boot-set.json'}
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(REPO / path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def encoded(value):
+    return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode()
+
+
+def bootargs_disabled(data):
+    text = data.decode('utf-8')
+    require(all(c in '\t\n' or 32 <= ord(c) <= 126 for c in text) and len(text.splitlines()) == 1,
+            'Expected one plain boot-argument line')
+    tokens = text.split()
+    selected = [token for token in tokens if token.startswith('amdgpu.ps4_uvd_')]
+    require(len(selected) == 3 and set(selected) == {key + '=1' for key in GATES},
+            'Expected exactly the three enabled alpha UVD gates, without duplicates')
+    for token in ('libata.force=1.00:disable', 'psx_mts_net.autoarm=1', 'psx.diag_uuid=@USB_UUID@'):
+        require(tokens.count(token) == 1, 'Frozen SATA/Ethernet/USB boot policy differs')
+    # Replace the exact tokens in place, preserving every other byte.
+    for key in GATES:
+        text = re.sub(r'(?<!\S)' + re.escape(key) + r'=1(?!\S)', key + '=0', text)
+    return text.encode()
+
+
+def archive(path, parser):
+    require(path.stat().st_size <= 64 * MIB, 'Oversized compressed initramfs')
+    with gzip.open(path, 'rb') as stream:
+        raw = stream.read(128 * MIB + 1)
+    require(len(raw) <= 128 * MIB, 'Oversized expanded initramfs')
+    entries, _ = parser.parse_newc(raw)
+    result = {entry.name.decode(): entry for entry in entries}
+    require(len(result) == len(entries) and all(str(PurePosixPath(name)) == name for name in result),
+            'Noncanonical or duplicate initramfs names')
+    return result
+
+
+def archive_identity(entry):
+    # Ignore archive ordering/inode numbers, but preserve ownership, times,
+    # device numbers, link count, type, permissions and content.
+    values = [int(entry.header[index:index+8], 16) for index in range(6, 110, 8)]
+    return entry.mode, entry.nlink, tuple(values[index] for index in (2, 3, 5, 7, 8, 9, 10)), entry.data
+
+
+def prepare(source, output, profile_path, *, plan=False):
+    alpha = load('psx_power_alpha', 'scripts/build-ps4-diagnostics-alpha')
+    profile_path = alpha.regular(Path(profile_path).absolute())
+    profile_hash = digest(profile_path)
+    profile = json.loads(profile_path.read_text())
+    require(profile.get('profile') == BASE_PROFILE and profile.get('kernel_release') == RELEASE,
+            'Only frozen alpha2 runtime-dev2 is eligible; alpha1 is refused')
+    alpha.validate_profile(profile)
+    alpha.pinned(REPO / profile['poweroff_fix']['patch'], {'sha256': profile['poweroff_fix']['sha256']})
+    source = Path(source).absolute()
+    output = Path(output).absolute()
+    require(source.is_dir() and source.resolve() == source, 'Source needs a canonical regular directory')
+    require(not output.exists() and not output.is_symlink() and output.resolve() == output
+            and output.parent.is_dir(), 'Output needs a new canonical directory with an existing parent')
+    require(any(output != parent and output.is_relative_to(parent) for parent in ((REPO/'output').resolve(), Path('/var/tmp'))),
+            'Output must be beneath repository output/ or /var/tmp')
+    require(not (output.is_relative_to(source) or source.is_relative_to(output)), 'Output overlaps the original source')
+    alpha.regular(source/'SHA256SUMS')
+    source_sums_hash = digest(source/'SHA256SUMS')
+    stage = load('psx_power_stage', 'scripts/stage-ps4-diagnostics-usb')
+    image = load('psx_power_image', 'scripts/build-ps4-diagnostics')
+    parser = load('psx_power_cpio', 'scripts/ps4-diagnostics-archive')
+    files, original = stage.source_files(source)
+    source_bytes = sum((source/name).stat().st_size for name in files) + (source/'SHA256SUMS').stat().st_size
+    require(source_bytes + MIB <= CAP, 'Source boot set lacks the 1 MiB core reserve')
+    for name in files:
+        alpha.contained(source, name)
+    for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256',
+                'source_commit', 'module_count', 'image_version', 'product_name', 'build_status',
+                'poweroff_fix', 'uvd_runtime', 'uvd_diagnostic', 'alpha_policy', 'alpha_inputs',
+                'required_boot_arguments', 'root_format', 'source_payload', 'maximum_boot_set_bytes',
+                'mesa_manifest_sha256', 'snapshot_sums_sha256', 'vram_mib', 'mts_autoarm'):
+        require(original.get(key) == profile.get(key), 'Source differs from frozen alpha2 profile: ' + key)
+    require(original.get('rootfs_file') == 'psx-diagnostics/rootfs.ext4', 'Expected the unchanged ext4 alpha root')
+    require(files.get('psx-diagnostics/config') == profile['config_sha256']
+            and files.get(f'psx-diagnostics/modules-{RELEASE}.tar.zst') == profile['modules_sha256'],
+            'Complete matching config/all-module archive is missing or unpinned')
+    seed = archive(source/'initramfs.cpio.gz', parser)
+    expected = dict(original)
+    expected.pop('initramfs_sha256')
+    embedded = seed['etc/psx-diagnostics-expected.json']
+    require(embedded.mode == stat.S_IFREG | 0o644 and embedded.nlink == 1
+            and json.loads(embedded.data) == expected,
+            'Embedded/external alpha receipts differ')
+    require(seed['init'].data == (REPO/'rootfs/ps4-diagnostics/init').read_bytes(),
+            'Init source changed since the verified alpha was assembled')
+    parser.validate_busybox(seed['bin/busybox'].data)
+    names = {'psx-frontend/' + name for name in image.FRONTEND_FILES}
+    require({name for name in seed if name.startswith('psx-frontend/')} == names,
+            'Expected exactly the fixed 29 frontend assets')
+    frontend = {name: seed['psx-frontend/'+name].data for name in image.FRONTEND_FILES}
+    facts = image.frontend_manifest(frontend, original['snapshot_sums_sha256'])
+    require(facts == original['frontend_overrides'], 'Frontend contract differs from actual CPIO')
+    for name, (_, mode) in image.FRONTEND_FILES.items():
+        entry = seed['psx-frontend/'+name]
+        require(entry.mode == stat.S_IFREG | mode and entry.nlink == 1, 'Frontend asset mode/type differs: ' + name)
+    epoch = re.findall(rb"^BUILD_EPOCH='([0-9]+)'$", seed['etc/psx-diagnostics.env'].data, re.M)
+    require(len(epoch) == 1, 'Expected one original initramfs build epoch')
+    bootargs = bootargs_disabled((source/'bootargs.template.txt').read_bytes())
+    expected.update(profile=PROFILE, image_version='alpha2-power-test', uvd_runtime=False,
+                    required_boot_arguments=DISABLED,
+                    power_test={'base_profile': BASE_PROFILE, 'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
+                        'base_initramfs_sha256': files['initramfs.cpio.gz'], 'tool_sha256': digest(Path(__file__)),
+                        'kernel_root_frontend_unchanged': True, 'automatic_power_action': False,
+                        'hardware_acceptance': False, 'required_preflight': {
+                            'observed': False, 'captured_new_boot': True,
+                            'sysfs_required_values': {'/sys/module/amdgpu/parameters/'+key.split('.', 1)[1]: ['N', '0'] for key in GATES},
+                            'uvd_runtime_and_ready_entry': 'Must be absent before any separately authorized manual power experiment.'}})
+    result = {'profile': PROFILE, 'kernel_release': RELEASE, 'output': str(output), 'plan_only': plan,
+              'preserved': {key: original[key] for key in ('kernel_sha256', 'config_sha256', 'modules_sha256', 'rootfs_sha256')},
+              'uvd_runtime': False, 'boot_arguments': DISABLED, 'frontend_assets': len(frontend),
+              'changed_files': sorted(CHANGED), 'maximum_boot_set_bytes': CAP, 'reserve_bytes': MIB,
+              'required_preflight': expected['power_test']['required_preflight'],
+              'hardware_acceptance': False, 'automatic_power_action': False}
+    if plan:
+        return result
+    output.mkdir(mode=0o755)
+    for name in files:
+        if name not in CHANGED:
+            alpha.copy_regular(source/name, output/name)
+    (output/'bootargs.template.txt').write_bytes(bootargs)
+    firmware = {name: entry.data for name, entry in seed.items()
+                if name.startswith('lib/firmware/') and stat.S_ISREG(entry.mode)}
+    image.initramfs(original, seed, seed['bin/busybox'].data, firmware, original['rootfs_sha256'],
+                    output/'initramfs.cpio.gz', int(epoch[0]), expected=expected, frontend=frontend)
+    updated = archive(output/'initramfs.cpio.gz', parser)
+    receipt_name = 'etc/psx-diagnostics-expected.json'
+    require(set(updated) == set(seed), 'Derived CPIO member set changed')
+    require(all(archive_identity(updated[name]) == archive_identity(entry)
+                for name, entry in seed.items() if name != receipt_name),
+            'Derived CPIO changed data or modes beyond its receipt')
+    require(json.loads(updated[receipt_name].data) == expected, 'Derived embedded receipt differs')
+    external = dict(expected, initramfs_sha256=digest(output/'initramfs.cpio.gz'))
+    (output/'psx-diagnostics/boot-set.json').write_bytes(encoded(external))
+    sums = {name: digest(output/name) for name in files}
+    (output/'SHA256SUMS').write_text(stage.installed_sums(sums))
+    verified, metadata = stage.source_files(output)
+    require(set(verified) == set(files) and all(verified[name] == pin for name, pin in files.items() if name not in CHANGED),
+            'Derived immutable boot payload differs')
+    total = sum((output/name).stat().st_size for name in verified) + (output/'SHA256SUMS').stat().st_size
+    require(total + MIB <= CAP, 'Power-test boot set exceeds 1 GiB core cap plus 1 MiB reserve')
+    require(stage.source_files(source)[0] == files and digest(source/'SHA256SUMS') == source_sums_hash
+            and digest(profile_path) == profile_hash,
+            'Original boot set/profile changed during derivation')
+    result.update(status='PASS', boot_set_bytes=total, kernel_sha256=metadata['kernel_sha256'],
+                  rootfs_sha256=metadata['rootfs_sha256'], initramfs_sha256=metadata['initramfs_sha256'],
+                  original_unchanged=True)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, required=True, help='Verified complete frozen alpha2 boot set')
+    parser.add_argument('--output', type=Path, required=True, help='New host directory; never overwritten')
+    parser.add_argument('--profile', type=Path, default=REPO/'manifests/ps4-diagnostics-uvd-alpha2.json')
+    parser.add_argument('--plan', action='store_true', help='Verify inputs without creating output')
+    args = parser.parse_args()
+    print(json.dumps(prepare(args.source, args.output, args.profile, plan=args.plan), indent=2))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise SystemExit('Diagnostix power-test preparation: ' + str(error))

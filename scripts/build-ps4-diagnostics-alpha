@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Build one frozen UVD alpha from a verified ordinary boot set, offline and rootless.
+"""Build a separately frozen UVD alpha variant, offline and rootless.
 
 Only new ordinary output files are written. No mounts, devices, package installs,
 console connections or hardware tests. The 29-file frontend contract is unchanged.
@@ -31,6 +31,27 @@ sys.dont_write_bytecode = True
 REPO = Path(__file__).resolve().parents[1]
 BASE_RELEASE = '7.2.11-psx-ps4-baikal-native-dev3'
 ALPHA_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev1'
+VARIANTS = {
+    'ps4-baikal-diagnostics-uvd-alpha1': {
+        'kernel_release': ALPHA_RELEASE, 'image_version': 'alpha1',
+        'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
+        'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-06.json',
+    },
+    'ps4-baikal-diagnostics-uvd-alpha2': {
+        'kernel_release': '7.2.11-psx-ps4-baikal-uvd-runtime-dev2', 'image_version': 'alpha2',
+        'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
+        'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
+    },
+}
+BASE_IDENTITY = {
+    'profile': 'ps4-baikal-diagnostics-console1', 'kernel_release': BASE_RELEASE,
+    'kernel_sha256': '82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0',
+    'rootfs_sha256': '2c357c871d6422218935c0250d1282b90d2c4bdaae5b20b95b4cac621fdea424',
+    'mesa_manifest_sha256': '687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964',
+    'snapshot_sums_sha256': '6b98da612b59e63b8548393cf0df8c7d9a572a4cad1f851aec930eb594e9cd57',
+}
+POWEROFF_PATCH = 'platforms/ps4/patches/7.2-ps4-baikal/0200-ps4-drivers/0001-ps4-bpcie-icc-power-off-before-acpi.patch'
+POWEROFF_SHA256 = 'cb01d71ad7e12144ee7f014fe5385e37f7e239b2f2f3ee065b5ec7e0a0de219a'
 MIB = 1024 * 1024
 CAP = 1024 * MIB
 UVD_ARGS = ('amdgpu.ps4_uvd_runtime=1', 'amdgpu.ps4_uvd_ready=1', 'amdgpu.ps4_uvd_poll_state=1')
@@ -41,6 +62,85 @@ PATH_RE = re.compile(r'/[A-Za-z0-9._+/-]+\Z')
 def require(value, message):
     if not value:
         raise ValueError(message)
+
+
+def frozen_digest(value, name):
+    require(isinstance(value, str) and re.fullmatch(r'[0-9a-f]{64}', value)
+            and len(set(value)) > 1, 'Missing, pending or placeholder SHA256: ' + name)
+    return value
+
+
+def known_release(value):
+    require(value in {v['kernel_release'] for v in VARIANTS.values()}, 'Unknown frozen alpha kernel release')
+    return value
+
+
+def display_name(profile):
+    version = profile['image_version']
+    if version == 'alpha1' and 'product_name' not in profile:
+        return 'psX Diagnostics', 'psX Diagnostics UVD alpha1'
+    product = profile.get('product_name')
+    require(isinstance(product, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}', product),
+            'Expected a plain product_name without shell or line escapes')
+    return product, product + ' ' + version
+
+
+def os_release(profile):
+    product, pretty = display_name(profile)
+    return (f'NAME="{product}"\nID=psx-diagnostics\nID_LIKE=arch\nPRETTY_NAME="{pretty}"\n'
+            f'IMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION={profile["image_version"]}\n').encode()
+
+
+def validate_profile(profile):
+    require(isinstance(profile, dict), 'Alpha profile must be an object')
+    variant = VARIANTS.get(profile.get('profile'))
+    require(variant is not None and profile.get('kernel_release') == variant['kernel_release']
+            and profile.get('image_version') == variant['image_version'], 'Unknown or mismatched frozen alpha profile/release')
+    if variant['image_version'] == 'alpha2':
+        require(profile.get('build_status') == 'frozen', 'Alpha2 kernel inputs are pending; freeze reviewed artifact pins before assembly')
+        require(profile.get('product_name') == 'Diagnostix', 'Alpha2 product_name must be Diagnostix')
+        fix = profile.get('poweroff_fix', {})
+        require(isinstance(fix, dict) and fix.get('patch') == POWEROFF_PATCH and fix.get('sha256') == POWEROFF_SHA256
+                and fix.get('uvd_shutdown_park_unchanged') is True and fix.get('hardware_acceptance') is False,
+                'Alpha2 requires the exact ICC patch with unchanged UVD shutdown park')
+    else:
+        require(profile.get('build_status') in (None, 'frozen'), 'Alpha1 inputs are not frozen')
+        require('poweroff_fix' not in profile and profile.get('product_name') in (None, 'psX Diagnostics'),
+                'Alpha1 keeps its original kernel policy and product identity')
+    require(profile.get('alpha_base') == BASE_IDENTITY, 'Alpha variants require the exact ordinary native3 base')
+    require(profile.get('root_format') == 'ext4-ro-loop' and profile.get('ui_backend') == 'ratatui'
+            and profile.get('hardware_acceptance') is False and profile.get('uvd_runtime') is True
+            and profile.get('maximum_boot_set_bytes') == CAP and profile.get('vram_mib') == 1024
+            and profile.get('mts_autoarm') == 1 and profile.get('required_boot_arguments') == list(UVD_ARGS)
+            and type(profile.get('module_count')) is int and profile['module_count'] == 41, 'Alpha policy differs')
+    for key in ('kernel_sha256', 'config_sha256', 'modules_sha256', 'mesa_archive_sha256', 'mesa_manifest_sha256',
+                'snapshot_sums_sha256', 'firmware_manifest_sha256'):
+        frozen_digest(profile.get(key), key)
+    require(isinstance(profile.get('source_commit'), str) and re.fullmatch(r'[0-9a-f]{40}', profile['source_commit'])
+            and len(set(profile['source_commit'])) > 1, 'Missing or placeholder source commit')
+    for key in ('mesa_manifest_sha256', 'snapshot_sums_sha256'):
+        require(profile[key] == BASE_IDENTITY[key], 'Alpha must preserve the ordinary base Mesa/snapshot')
+    inputs = profile.get('alpha_inputs', {})
+    require(isinstance(inputs, dict) and isinstance(inputs.get('legacy_package'), dict), 'Missing frozen package inputs')
+    package = inputs['legacy_package']; release = variant['kernel_release']
+    needed = {'bzImage', 'config', f'modules-{release}.tar.zst', f'source-{release}.tar.zst',
+              'MODULES.json', 'RUNTIME-IDENTITY.json', 'PACKAGE.json', variant['source_receipt'], variant['link_receipt']}
+    require(needed <= set(package), 'Incomplete frozen package receipts for selected variant')
+    for name, pin in package.items():
+        image_path('/' + name)
+        require(isinstance(pin, dict), 'Invalid package pin: ' + name)
+        frozen_digest(pin.get('sha256'), name)
+        if 'bytes' in pin:
+            require(type(pin['bytes']) is int and 0 < pin['bytes'] < CAP, 'Pending or invalid package size: ' + name)
+    for name, key in (('bzImage', 'kernel_sha256'), ('config', 'config_sha256'), (f'modules-{release}.tar.zst', 'modules_sha256')):
+        require(package[name]['sha256'] == profile[key], 'Profile/package pins disagree: ' + key)
+    diagnostic = profile.get('uvd_diagnostic')
+    require(isinstance(diagnostic, dict), 'Missing frozen UVD diagnostic inputs')
+    for key, value in diagnostic.items():
+        if key.endswith('_sha256'):
+            frozen_digest(value, 'uvd_diagnostic.' + key)
+    display_name(profile)
+    return dict(variant)
 
 
 def sha(data):
@@ -319,16 +419,18 @@ def verify_tree(image, prefix, expected):
             'tree_sha256': sha(encoded({p: sha(expected[p]) for p in sorted(expected)}))}
 
 
-def rewrite_release(data):
+def rewrite_release(data, release=ALPHA_RELEASE):
+    known_release(release)
     old = ('RELEASE = "' + BASE_RELEASE + '"').encode()
     require(data.count(old) == 1 and data.count(BASE_RELEASE.encode()) == 1, 'Expected one exact native release constant')
-    return data.replace(old, ('RELEASE = "' + ALPHA_RELEASE + '"').encode())
+    return data.replace(old, ('RELEASE = "' + release + '"').encode())
 
 
-def alpha_catalogue(data):
+def alpha_catalogue(data, release=ALPHA_RELEASE):
+    known_release(release)
     value = json.loads(data)
     require(value.get('expected_kernel_release') == BASE_RELEASE, 'Unexpected catalogue release')
-    value['expected_kernel_release'] = ALPHA_RELEASE
+    value['expected_kernel_release'] = release
     tests = [x for x in value['tests'] if x.get('id') == 'uvd.avc']
     require(len(tests) == 1, 'Expected one UVD catalogue entry')
     tests[0].update(version=2, kind='functional', timeout_seconds=120,
@@ -354,15 +456,12 @@ def copy_regular(source, destination):
 
 
 def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_suite=None, wayland_sha256=None):
-    base, package, fixture_dir, output = validate_paths(base, package, fixture_dir, output)
     profile_path = regular(profile_path).resolve()
     profile = json.loads(profile_path.read_text())
-    require(profile['profile'] == 'ps4-baikal-diagnostics-uvd-alpha1' and profile['kernel_release'] == ALPHA_RELEASE
-            and profile['alpha_base']['kernel_release'] == BASE_RELEASE, 'Only the frozen alpha1 pair is supported')
-    require(profile['root_format'] == 'ext4-ro-loop' and profile['ui_backend'] == 'ratatui'
-            and profile['hardware_acceptance'] is False and profile['uvd_runtime'] is True
-            and profile['maximum_boot_set_bytes'] == CAP and profile['vram_mib'] == 1024
-            and profile['mts_autoarm'] == 1 and tuple(profile['required_boot_arguments']) == UVD_ARGS, 'Alpha policy differs')
+    variant = validate_profile(profile)
+    base, package, fixture_dir, output = validate_paths(base, package, fixture_dir, output)
+    if 'poweroff_fix' in profile:
+        pinned(REPO / profile['poweroff_fix']['patch'], {'sha256': profile['poweroff_fix']['sha256']})
     stage = load('psx_alpha_stage', REPO / 'scripts/stage-ps4-diagnostics-usb')
     image = load('psx_alpha_image', REPO / 'scripts/build-ps4-diagnostics')
     parser = load('psx_alpha_archive', REPO / 'scripts/ps4-diagnostics-archive')
@@ -388,6 +487,9 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     require(runtime['release'] == release and runtime['kernel_sha256'] == profile['kernel_sha256']
             and runtime['config_sha256'] == profile['config_sha256'] and runtime['module_count'] == profile['module_count']
             and runtime['source_archive']['sha256'] == package_pins[source_name]['sha256'], 'Legacy runtime receipt disagrees')
+    require(runtime.get('source_receipt_sha256') == package_pins[variant['source_receipt']]['sha256']
+            and runtime.get('link_receipt_sha256') == package_pins[variant['link_receipt']]['sha256'],
+            'Runtime source/link receipt identity differs from selected variant')
     modules = module_files(package / archive_name, release, parser, profile['module_count'])
     module_pins = json.loads((package / 'MODULES.json').read_text())
     ko = {p.removeprefix('/usr/'): data for p, data in modules.items() if p.endswith('.ko')}
@@ -435,7 +537,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     for name, target in sources.items():
         source = regular(REPO / 'diagnostics/ps4' / name); data = source.read_bytes(); before = sha(data)
         if name in ('network.py', 'ssh_access.py'):
-            data = rewrite_release(data)
+            data = rewrite_release(data, release)
         if name.endswith('.py'):
             compile(data, str(source), 'exec')
         else:
@@ -446,17 +548,16 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
             frontend[name] = data
     for source_name_, target in [('rootfs/ps4-diagnostics/ethernet-up', '/usr/lib/psx-diagnostics/ethernet-up'),
                                 ('rootfs/ps4-diagnostics-gui/prepare-ssh-host-key', '/usr/lib/psx-diagnostics/prepare-ssh-host-key')]:
-        data = (REPO / source_name_).read_bytes(); changed = rewrite_release(data); compile(changed, target, 'exec')
+        data = (REPO / source_name_).read_bytes(); changed = rewrite_release(data, release); compile(changed, target, 'exec')
         replacements[target] = (changed, 0o755)
         source_facts[source_name_] = {'source_sha256': sha(data), 'installed_sha256': sha(changed), 'path': target}
     catalogue = (REPO / 'diagnostics/ps4/catalogue.json').read_bytes()
-    replacements['/opt/psx-diagnostics/catalogue.json'] = (alpha_catalogue(catalogue), 0o644)
+    replacements['/opt/psx-diagnostics/catalogue.json'] = (alpha_catalogue(catalogue, release), 0o644)
     source_facts['diagnostics/ps4/catalogue.json'] = {'source_sha256': sha(catalogue), 'installed_sha256': sha(replacements['/opt/psx-diagnostics/catalogue.json'][0])}
     replacements[spec['playback']] = (playback_path.read_bytes(), 0o755)
     source_facts[str(playback_path.relative_to(REPO))] = {'source_sha256': sha(playback_path.read_bytes()), 'installed_sha256': spec['playback_sha256'], 'path': spec['playback']}
     replacements['/usr/bin/psx-qualify'] = (b'#!/bin/sh\nexec /usr/bin/python3 /opt/psx-diagnostics/qualification.py "$@"\n', 0o755)
-    replacements['/usr/lib/os-release'] = (b'NAME="psX Diagnostics"\nID=psx-diagnostics\nID_LIKE=arch\n'
-        b'PRETTY_NAME="psX Diagnostics UVD alpha1"\nIMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION=alpha1\n', 0o644)
+    replacements['/usr/lib/os-release'] = (os_release(profile), 0o644)
     wayland_path = REPO / 'rootfs/ps4-wayland/launch-wayland'
     if wayland_path.is_file():
         data = wayland_path.read_bytes(); replacements['/usr/lib/psx-diagnostics/launch-wayland'] = (data, 0o755)
@@ -468,7 +569,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
         wayland_facts = pinned(wayland_suite, {'sha256': wayland_sha256})
         wayland = load('psx_alpha_wayland', wayland_path)
         manifest, _ = wayland.inspect_archive(wayland_suite, wayland_sha256)
-        require(manifest.get('kernel_release') == ALPHA_RELEASE and manifest.get('kernel_sha256') == profile['kernel_sha256']
+        require(manifest.get('kernel_release') == release and manifest.get('kernel_sha256') == profile['kernel_sha256']
                 and manifest.get('mesa_manifest_sha256') == profile['mesa_manifest_sha256'], 'Wayland suite is not matched to the alpha kernel/Mesa')
         wayland_facts['suite_manifest_sha256'] = sha(encoded(manifest))
         replacements['/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz'] = (wayland_suite.read_bytes(), 0o644)
@@ -489,11 +590,14 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256', 'source_commit', 'module_count',
                 'image_version', 'uvd_runtime', 'uvd_diagnostic', 'alpha_policy', 'alpha_inputs', 'required_boot_arguments'):
         metadata[key] = copy.deepcopy(profile[key])
+    for key in ('product_name', 'poweroff_fix', 'build_status', 'native3_baseline'):
+        if key in profile:
+            metadata[key] = copy.deepcopy(profile[key])
     imported = {'schema_version': 1, 'origin': 'Frozen experimental package imported without rebuilding or changing its receipts',
                 'kernel_release': release, 'kernel_sha256': profile['kernel_sha256'], 'config_sha256': profile['config_sha256'],
                 'modules_sha256': profile['modules_sha256'], 'module_count': profile['module_count'], 'source_commit': profile['source_commit'],
                 'legacy_receipts': package_pins, 'hardware_acceptance': False}
-    metadata.update(kernel=imported, frontend_overrides=frontend_facts, frontend_revision='uvd-alpha1',
+    metadata.update(kernel=imported, frontend_overrides=frontend_facts, frontend_revision='uvd-' + profile['image_version'],
                     rootfs_tui_sha256=original.get('rootfs_tui_sha256', original['tui_sha256']), tui_sha256=sha(frontend['psx-diagnostics-tui']),
                     builder_sha256=digest(Path(__file__)), hardware_acceptance=False,
                     alpha_derivation={'base_profile': original['profile'], 'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
@@ -509,12 +613,13 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
                 anchors=anchors, before_fsck=before_fsck, old_tree=old_tree, bootargs=bootargs, stage=stage, image=image,
                 archive_name=archive_name, source_name=source_name, source_facts=source_facts, profile_path=profile_path,
                 fixture_identity=fixture_identity, wayland_suite=wayland_suite, wayland_facts=wayland_facts,
-                tui_input=Path(tui).resolve() if tui is not None else None)
+                tui_input=Path(tui).resolve() if tui is not None else None, variant=variant)
 
 
 def build(prepared, *, plan_only=False):
     p = prepared
-    plan = {'profile': p['profile']['profile'], 'kernel_release': ALPHA_RELEASE, 'base_rootfs_sha256': p['original']['rootfs_sha256'],
+    release = p['profile']['kernel_release']
+    plan = {'profile': p['profile']['profile'], 'kernel_release': release, 'base_rootfs_sha256': p['original']['rootfs_sha256'],
             'output': str(p['output']), 'root_image_bytes': (p['base'] / p['original']['rootfs_file']).stat().st_size,
             'frontend_assets': len(p['frontend']), 'frontend_bytes': p['metadata']['frontend_overrides']['total_bytes'],
             'replacement_files': len(p['replacements']), 'module_files': len(p['modules']), 'module_count': p['profile']['module_count'],
@@ -528,8 +633,8 @@ def build(prepared, *, plan_only=False):
     copy_regular(p['base'] / p['original']['rootfs_file'], root)
     editor = RootImage(root, writable=True, immutable_base=p['base'] / p['original']['rootfs_file'])
     changes = editor.apply(p['replacements'], remove_tree='/usr/lib/modules/' + BASE_RELEASE)
-    new_tree = verify_tree(editor, '/usr/lib/modules/' + ALPHA_RELEASE, p['modules'])
-    require(set(editor.entries('/usr/lib/modules')) == {ALPHA_RELEASE}, 'Alpha module release set differs')
+    new_tree = verify_tree(editor, '/usr/lib/modules/' + release, p['modules'])
+    require(set(editor.entries('/usr/lib/modules')) == {release}, 'Alpha module release set differs')
     metadata = p['metadata']
     metadata['alpha_derivation']['root_changes'] = changes
     metadata['alpha_derivation']['module_readback'] = new_tree
@@ -562,20 +667,20 @@ def build(prepared, *, plan_only=False):
     copy_regular(p['package'] / p['archive_name'], payload / p['archive_name'])
     require(digest(payload / 'config') == p['profile']['config_sha256']
             and digest(payload / p['archive_name']) == p['profile']['modules_sha256'], 'Copied kernel metadata/archive differs from frozen pins')
-    (payload / 'version.txt').write_text(ALPHA_RELEASE + '\n')
+    (payload / 'version.txt').write_text(release + '\n')
     (payload / 'artifacts.json').write_bytes(encoded(p['imported']))
     (payload / 'manifest.txt').write_text('Frozen UVD alpha adapter; original kernel/modules/source receipts preserved under alpha-inputs.\nNo compilation or hardware qualification performed by this assembler.\n')
     source_pin = p['profile']['alpha_inputs']['legacy_package'][p['source_name']]
     (payload / 'source-pins.json').write_bytes(encoded({'source_archive': p['source_name'], **source_pin,
         'source_commit': p['profile']['source_commit'], 'repository': 'https://github.com/meerzulee/linux-psx',
         'availability': 'Complete patched corresponding-source archive retained unchanged in the verified host UVD package; distribute separately with any binary release.',
-        'legacy_source_receipt': p['profile']['alpha_inputs']['legacy_package']['build-inputs/runtime/SOURCE-RECEIPT.json']}))
+        'legacy_source_receipt': p['profile']['alpha_inputs']['legacy_package'][p['variant']['source_receipt']]}))
     for name in p['profile']['alpha_inputs']['legacy_package']:
         pinned(contained(p['package'], name), p['profile']['alpha_inputs']['legacy_package'][name])
         if name not in ('bzImage', 'config', p['archive_name'], p['source_name']):
             copy_regular(p['package'] / name, payload / 'alpha-inputs' / name)
     (output / 'bootargs.template.txt').write_bytes(p['bootargs'])
-    (payload / 'README.txt').write_text('psX Diagnostics UVD alpha1 — frozen experimental kernel, not hardware-qualified.\n'
+    (payload / 'README.txt').write_text(display_name(p['profile'])[1] + ' — frozen experimental kernel, not hardware-qualified.\n'
         'Complete matched kernel/modules and a verified derivative of the ordinary USB root.\n'
         'Internal SATA remains disabled; no automatic reset/power/storage tests.\n'
         'UVD runtime is enabled; one explicit bounded AVC attempt per boot. Terminal faults require physical power-off and rollback.\n'

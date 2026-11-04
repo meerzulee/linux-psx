@@ -12,9 +12,10 @@ pub enum Category {
     Storage,
     Reports,
     Settings,
+    Power,
 }
 
-pub const CATEGORIES: [Category; 9] = [
+pub const CATEGORIES: [Category; 10] = [
     Category::System,
     Category::Cpu,
     Category::Graphics,
@@ -24,6 +25,7 @@ pub const CATEGORIES: [Category; 9] = [
     Category::Storage,
     Category::Reports,
     Category::Settings,
+    Category::Power,
 ];
 
 impl Category {
@@ -38,6 +40,7 @@ impl Category {
             Self::Storage => "Storage",
             Self::Reports => "Reports",
             Self::Settings => "Settings",
+            Self::Power => "Power",
         }
     }
     pub fn description(self) -> &'static str {
@@ -51,6 +54,7 @@ impl Category {
             Self::Storage => "Identify storage without opening or changing its contents.",
             Self::Reports => "Review this console's saved test results.",
             Self::Settings => "Choose a palette and graphical terminal font size.",
+            Self::Power => "Shutdown and reboot are unavailable in this build.",
         }
     }
     pub fn compact_title(self) -> &'static str {
@@ -80,10 +84,25 @@ pub enum ActionKind {
     Hardware(crate::hardware::Section),
     Qualification,
     Credits,
+    Power(PowerOption),
     SettingsGroup(SettingsGroup),
     SshSetup,
     ReportGroup(usize),
     Report(Value),
+}
+
+#[derive(Clone, Copy)]
+pub enum PowerOption {
+    Shutdown,
+    Reboot,
+}
+impl PowerOption {
+    pub fn title(self) -> &'static str {
+        match self {
+            Self::Shutdown => "Shutdown",
+            Self::Reboot => "Reboot",
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -410,7 +429,7 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
             if onboarding {
                 let continue_action = Action {
                     title: if linked {
-                        "Continue to diagnostics"
+                        "Continue to Diagnostix"
                     } else {
                         "Continue offline"
                     }
@@ -575,6 +594,14 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
         ],
         Category::Reports => report_actions(state, &[false; REPORT_GROUPS.len()]),
         Category::Settings => settings_actions(state, [false; 3]),
+        Category::Power => [PowerOption::Shutdown, PowerOption::Reboot]
+            .into_iter()
+            .map(|option| Action {
+                title: format!("{} · unavailable", option.title()),
+                detail: "Power/reset lifecycle is unqualified. Enter explains report saving and physical recovery; it performs no power action.".into(),
+                kind: ActionKind::Power(option),
+            })
+            .collect(),
     }
 }
 
@@ -729,7 +756,7 @@ mod tests {
         assert!(connected(&state));
         let list = actions(Category::Network, &state, true);
         assert!(matches!(list.first().unwrap().kind, ActionKind::Continue));
-        assert_eq!(list.first().unwrap().title, "Continue to diagnostics");
+        assert_eq!(list.first().unwrap().title, "Continue to Diagnostix");
         assert_eq!(list[1].title, "Disconnect Ethernet");
         assert!(list[1].detail.contains("SSH"));
     }
@@ -769,10 +796,11 @@ mod tests {
         assert!(!connected(&json!({})));
     }
     #[test]
-    fn category_actions_have_no_shell_or_power_controls() {
+    fn category_actions_only_issue_allowlisted_requests_and_never_power_tests() {
         for category in CATEGORIES {
             for item in actions(category, &demo_state(), false) {
-                if let ActionKind::Request(action, _) = item.kind {
+                if let ActionKind::Request(action, params) = item.kind {
+                    assert!(!at(&params, "/test_id").starts_with("power."));
                     assert!(
                         [
                             "test.run",

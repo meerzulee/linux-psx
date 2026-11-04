@@ -1,4 +1,4 @@
-# Optional PS4 diagnostic appliance
+# Diagnostix — PS4 diagnostic appliance
 
 Linux psX owns the diagnostic source **and image builders**. A standalone clone
 contains the controller, Ratatui interface, browser lab, initramfs/root overlays,

@@ -14,7 +14,7 @@
 Linux psX brings PS4 and PS5 kernel development into one source project with
 separate console targets. It owns the kernel patches, builds, matching modules, PS4 Mesa source
 and hardware evidence. It also owns the optional
-[PS4 diagnostic appliance and image builders](docs/DIAGNOSTICS.md). Production distribution and desktop integration live in
+[Diagnostix diagnostic appliance and image builders](docs/DIAGNOSTICS.md). Production distribution and desktop integration live in
 [Omarchy psX](https://github.com/meerzulee/omarchy-psx).
 
 ## PlayStation 4

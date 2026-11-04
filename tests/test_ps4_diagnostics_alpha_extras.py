@@ -35,6 +35,39 @@ class AlphaExtrasTests(unittest.TestCase):
         self.assertIn("LAUNCH_CONFIG = {'pin': EXPECTED['root']}", changed)
         self.assertEqual(APP.VIDEO_FLAG, '--disable-accelerated-video-decode')
 
+    def test_generated_alpha_preparer_keeps_ordinary_provider_sidecars_separate(self):
+        original = (ROOT/'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider').read_text()
+        before = {'__name__': 'synthetic_original_preparer'}
+        exec(compile(original, '<original source, no main>', 'exec'), before)
+        pins = dict(before['EXPECTED'], provider_id='synthetic-alpha', image='synthetic-alpha.ext4')
+        adapted = APP.prepare_helper_source(original, before['EXPECTED'], pins)
+        after = {'__name__': 'synthetic_alpha_preparer'}
+        exec(compile(adapted, '<alpha source, no main>', 'exec'), after)
+        self.assertNotEqual(after['PACKS'], before['PACKS'])
+        self.assertEqual(after['PACKS'].parent, before['PACKS'])
+        self.assertEqual(after['EXPECTED'], pins)
+        self.assertEqual(after['MEDIA'], before['MEDIA'])
+        self.assertEqual(after['CONFIG'], before['CONFIG'])
+        self.assertEqual(after['TARGET'], before['TARGET'])
+        with self.assertRaisesRegex(ValueError, 'directory expression'):
+            APP.prepare_helper_source(adapted, pins, pins)
+
+    def test_each_registered_alpha_gets_a_separate_optional_provider_namespace(self):
+        original = (ROOT/'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider').read_text()
+        before = {'__name__': 'synthetic_native_preparer'}
+        exec(compile(original, '<native, no main>', 'exec'), before)
+        for version in ('alpha1', 'alpha2'):
+            directory = APP.chromium_directory(dict(ALPHA, image_version=version))
+            changed = APP.prepare_helper_source(original, before['EXPECTED'], before['EXPECTED'], directory)
+            after = {'__name__': 'synthetic_namespaced_preparer'}
+            exec(compile(changed, '<alpha, no main>', 'exec'), after)
+            self.assertEqual(after['PACKS'].name, 'uvd-'+version)
+            self.assertEqual(after['PACKS'].parent, before['PACKS'])
+        with self.assertRaisesRegex(ValueError, 'Unknown'):
+            APP.chromium_directory({'image_version': 'unreviewed'})
+        with self.assertRaisesRegex(ValueError, 'namespace'):
+            APP.prepare_helper_source(original, before['EXPECTED'], before['EXPECTED'], '../other')
+
     def test_wayland_preserves_provider_executables_while_rebinding_exact_kernel(self):
         old = {'kernel_release': ALPHA['alpha_base']['kernel_release'],
                'mesa_manifest_sha256': ALPHA['mesa_manifest_sha256'],

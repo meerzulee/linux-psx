@@ -37,6 +37,24 @@ ALPHA = {
     "uvd_runtime": True,
     "hardware_acceptance": False,
 }
+# Complete native3 + UVD dev2 artifacts, frozen after all module/source
+# readbacks. Unknown or pending identities cannot pass select_contract.
+ALPHA2 = dict(ALPHA, profile="ps4-baikal-diagnostics-uvd-alpha2",
+              kernel_release="7.2.11-psx-ps4-baikal-uvd-runtime-dev2",
+              kernel_sha256='6b1d9d90d29eeffb58057cd04a387ad08c53adc7d13afb62bcb2b3af8c686fdc',
+              config_sha256='51c008bb764dc1cbcc7fb81bf8c164ee23447feb5844c596c53e040bb49df4df',
+              modules_sha256='a900cf6e72dafbcf5b520c5b83471d6f78ad75eba644178541ad441fce62aef0',
+              source_commit="c8495a51e0bad4851015cd5d34ee61b2fde87e44",
+              image_version="alpha2", build_status="frozen", product_name="Diagnostix",
+              poweroff_fix={
+                  "patch": "platforms/ps4/patches/7.2-ps4-baikal/0200-ps4-drivers/0001-ps4-bpcie-icc-power-off-before-acpi.patch",
+                  "sha256": "cb01d71ad7e12144ee7f014fe5385e37f7e239b2f2f3ee065b5ec7e0a0de219a",
+                  "contributor": "suds-mcduff",
+                  "original_pr": "https://github.com/meerzulee/linux-psx/pull/4",
+                  "maintainer_guards": "Reject forced shutdown and pending ICC replies before changing shared state.",
+                  "uvd_shutdown_park_unchanged": True,
+                  "hardware_acceptance": False,
+              })
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -156,13 +174,25 @@ def sync(path):
         os.close(fd)
 
 
+def select_contract(manifest):
+    require(isinstance(manifest, dict), "UVD manifest must be an object")
+    selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2}.get(manifest.get("profile"))
+    require(selected is not None, "Unknown frozen UVD alpha artifact profile")
+    for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
+        value = selected.get(key)
+        require(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value)
+                and len(set(value)) > 1, "UVD alpha artifact pins are pending")
+    require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
+            "This is not the exact frozen UVD alpha artifact profile")
+    return selected
+
+
 def preflight(runner):
     identity = runner.identity()
     require(identity["release_matches"], "Alpha kernel/catalogue release mismatch")
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
-    require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in ALPHA.items()),
-            "This is not the exact frozen UVD alpha artifact profile")
+    select_contract(manifest)
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
             manifest.get("required_boot_arguments") == BOOT_ARGUMENTS and
@@ -170,7 +200,7 @@ def preflight(runner):
             "Alpha UVD inputs/boot policy differ")
     validation = manifest.get("manifest_validation", {})
     require(isinstance(validation, dict) and validation.get("embedded_root_contract_verified") is True and
-            validation.get("observed_kernel_release") == ALPHA["kernel_release"] and
+            validation.get("observed_kernel_release") == identity["kernel_release"] and
             validation.get("observed_media_initramfs_sha256") == manifest.get("initramfs_sha256") and
             all(re.fullmatch(r"[0-9a-f]{64}", str(manifest.get(key, ""))) for key in
                 ("initramfs_sha256", "rootfs_sha256")), "Verified root/boot-set contract is missing")
@@ -243,7 +273,7 @@ def decode(runner):
             selected = runner.fs.root / DIAGNOSTIC[key].lstrip("/")
             argv += ["--" + key, str(selected), "--" + key + "-sha256", DIAGNOSTIC[key + "_sha256"]]
         argv += ["--render-node", str(runner.fs.root / DIAGNOSTIC["render_node"].lstrip("/")),
-                 "--release", ALPHA["kernel_release"], "--boot-id", identity["boot_id"],
+                 "--release", identity["kernel_release"], "--boot-id", identity["boot_id"],
                  "--run", "--output", str(output), "--experiment", session["experiment_id"],
                  "--uart-session", session["session_id"], "--timeout", "60"]
         command = runner.command(argv, OUTER_TIMEOUT, env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"})
@@ -261,7 +291,7 @@ def decode(runner):
                 child.get("uart_session_assertion") == session["session_id"], "Incomplete playback/input identity receipt")
         before = child.get("preflight", {})
         require(isinstance(before, dict) and before.get("boot_id") == identity["boot_id"] and
-                before.get("kernel_release") == ALPHA["kernel_release"] and
+                before.get("kernel_release") == identity["kernel_release"] and
                 isinstance(before.get("ffmpeg"), dict) and isinstance(before.get("driver"), dict) and
                 before["ffmpeg"].get("sha256") == DIAGNOSTIC["ffmpeg_sha256"] and
                 before["driver"].get("sha256") == DIAGNOSTIC["driver_sha256"], "Playback identity differs")

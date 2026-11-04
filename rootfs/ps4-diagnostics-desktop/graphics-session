@@ -46,7 +46,7 @@ case "$PSX_GRAPHICS_MODE" in
         fi
         LD_LIBRARY_PATH="/run/psx-frontend${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             "$terminal" --disable-server --fullscreen --hide-menubar --hide-toolbar \
-            --hide-scrollbar --hide-borders --title='psX Diagnostics' \
+            --hide-scrollbar --hide-borders --title='Diagnostix' \
             --execute /usr/bin/psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock
         exit $? ;;
     chromium)
