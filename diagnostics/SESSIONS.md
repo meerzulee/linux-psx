@@ -252,3 +252,39 @@ outside Git; one completed test is not stability qualification.
   `20261105_005835_491537-exp-20261105-002-matched-uvd-alpha1-integration-update-identifie-3861cb7c.md`
   in sibling `ps4-uart/sessions/`. Continuous capture remains running; begin a
   new bounded session for deployment and launch of the combined candidate.
+
+## EXP-20261105-003 — matched alpha2 upload; first boot has no display
+
+- Built `7.2.11-psx-ps4-baikal-uvd-runtime-dev2` from all 73 frozen active
+  native-dev3 patches plus the declared UVD overlay, retaining the ICC power-off
+  fix and UVD shutdown park. Kernel SHA256:
+  `6b1d9d90d29eeffb58057cd04a387ad08c53adc7d13afb62bcb2b3af8c686fdc`.
+  Full corresponding source and all 41 matching modules passed archive
+  readback. Diagnostic checks passed 433 Python, 15 browser and 47 Rust tests;
+  kernel source checks passed 47 tests, and build helpers passed nine checks.
+- The 19-file core and separate matched Chromium provider passed staged and
+  published FTP readback on the identified diagnostic USB. Its prior owned OS
+  files were backed up and retired; SSH state/results and ordinary optional
+  providers were retained. Core size: 1,066,195,032 bytes, plus the reserved
+  1 MiB still below 1 GiB. Final initramfs SHA256:
+  `72aa6762d03bad5b4b2434917e5d1c8e5c8d2d5f58afffcb3a96e105a6f59071`.
+  Root SHA256:
+  `7b903fa116835f1a5c9d2c287dd0a0603167b0ad83585442133f476327bc1e0a`.
+- One launch through the existing 1024 MiB BIN reached the intended dev2 Linux
+  kernel with all three UVD gates enabled. The operator ultimately reported
+  **no HDMI signal**; Ctrl+Alt+F2 produced no visible console. Neither previous
+  Linux network address responded to ping/SSH. Userspace and UVD entry are not
+  established. The last UART line was `No irq handler for 0.49` at 60.894343 s;
+  that emergency-priority message does not isolate the cause.
+- `loglevel=3` suppresses even `dev_err` firmware/UVD messages, so the quiet
+  capture cannot locate the failing stage or establish an E820 stop. Source
+  inspection confirms the expected UVD firmware is in the actual initramfs.
+  Next isolate logging only on a cold boot, retaining every artifact and all
+  three UVD gates. No decoder retry, GPU reset/unload or power test occurred.
+- Verdict: file preparation passed; the observed display/network boot failed,
+  with cause **INCONCLUSIVE**. UVD decode and power-off tests are **NOT RUN**;
+  no new hardware acceptance follows. Completed UART continuity: 40,364 bytes,
+  same generation/epoch, 01:40:44–02:08:58 local. Compact context:
+  `20261105_014044_417313-exp-20261105-003-matched-diagnostix-alpha2-usb-deployment-and-si-54a8ab1d.md`
+  in sibling `ps4-uart/sessions/`. Private receipts and failure record:
+  `output/ps4-diagnostix-alpha2-complete/`.

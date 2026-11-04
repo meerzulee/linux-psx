@@ -5,6 +5,8 @@
 Default is a read-only plan. Only initramfs, boot metadata and boot arguments
 may change. Every changed byte is backed up and read back; unchanged files are
 retained under their existing verified ownership receipt, without retransfers.
+--bootargs-only --verbose-uart retains the exact complete alpha2 boot set and
+changes only its logging arguments, without requiring a frontend refresh.
 """
 import argparse
 import ftplib
@@ -51,12 +53,24 @@ def main():
     parser.add_argument('--receipt', type=Path, required=True)
     parser.add_argument('--verbose-uart', action='store_true',
                         help='Retain detailed kernel UART output; the frontend redirects video-console logs')
+    parser.add_argument('--bootargs-only', action='store_true',
+                        help='Change only verbose UART arguments above the identical installed alpha2 boot set')
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
+    if args.bootargs_only and not args.verbose_uart:
+        parser.error('--bootargs-only requires --verbose-uart')
     source = args.source.resolve(strict=True)
     files, metadata = DEPLOY.STAGE.source_files(source)
-    if (metadata.get('root_format') != 'ext4-ro-loop' or not metadata.get('frontend_overrides')
-            or metadata.get('frontend_refresh', {}).get('root_image_unchanged') is not True):
+    refresh = metadata.get('frontend_refresh')
+    if metadata.get('root_format') != 'ext4-ro-loop' or not metadata.get('frontend_overrides'):
+        raise ValueError('Source is not a pinned ext4 frontend boot set')
+    if args.bootargs_only:
+        if (metadata.get('profile') != 'ps4-baikal-diagnostics-uvd-alpha2'
+                or metadata.get('kernel_release') != '7.2.11-psx-ps4-baikal-uvd-runtime-dev2'
+                or metadata.get('image_version') != 'alpha2' or metadata.get('uvd_runtime') is not True
+                or len(files) != 19):
+            raise ValueError('Bootargs-only mode requires the complete 19-file alpha2 runtime-dev2 boot set')
+    elif not isinstance(refresh, dict) or refresh.get('root_image_unchanged') is not True:
         raise ValueError('Source is not a pinned frontend-only refresh')
     expected = {name: value for name, value in files.items() if name != 'bootargs.template.txt'}
     root = args.remote_root
@@ -81,6 +95,8 @@ def main():
                 or set(previous['files']) != set(expected)):
             raise ValueError('Frontend refresh must preserve the existing complete file set/profile')
         changed = sorted(name for name in expected if previous['files'][name] != expected[name])
+        if args.bootargs_only and set(changed) != {'bootargs.txt'}:
+            raise ValueError('Bootargs-only update must change exactly bootargs.txt; every other payload pin must match')
         if set(changed) - ALLOWED:
             raise ValueError('Frontend update would change an unrelated payload file')
         total = sum((source / name).stat().st_size for name in files if name != 'bootargs.template.txt') + len(bootargs)
@@ -93,7 +109,9 @@ def main():
         frontend_fields = {'initramfs_sha256', 'tui_sha256', 'builder_sha256',
                            'frontend_overrides', 'frontend_revision', 'frontend_theme',
                            'rootfs_tui_sha256', 'frontend_refresh'}
-        if any(previous_meta.get(key) != metadata.get(key)
+        if args.bootargs_only and previous_meta != metadata:
+            raise ValueError('Bootargs-only update requires the exact unchanged complete boot metadata')
+        if not args.bootargs_only and any(previous_meta.get(key) != metadata.get(key)
                for key in (set(previous_meta) | set(metadata)) - frontend_fields):
             raise ValueError('Frontend update must retain kernel/config/modules and other root metadata pins')
         if (previous_meta.get('rootfs_sha256') != metadata['rootfs_sha256']
@@ -103,6 +121,7 @@ def main():
                 'changed_files': changed, 'root_image_unchanged': True, 'kernel_unchanged': True,
                 'total_os_payload_bytes': total, 'apply': args.apply, 'hardware_acceptance': False,
                 'verbose_uart': args.verbose_uart,
+                'bootargs_only': args.bootargs_only,
                 'verification_scope': 'Full SHA256 readback of changed files; unchanged files retained from previous verified USB receipt'}
         print(json.dumps(plan, indent=2), flush=True)
         if not args.apply:
@@ -160,7 +179,8 @@ def main():
                           verified_readback=True, clock_seed_epoch=clock, time_sync_requested=True,
                           boot_logging={'configuration': 'menu tty1; journal tty12; raw kernel tty11; UART retained',
                                         'arguments_preserved': not args.verbose_uart,
-                                        'verbose_uart_requested': args.verbose_uart},
+                                        'verbose_uart_requested': args.verbose_uart,
+                                        'bootargs_only': args.bootargs_only},
                           verification_scope=plan['verification_scope'], staged_unix=time.time(),
                           hardware_acceptance=False, backup=str(backup))
             generated = {'installed.json': (json.dumps(marker, indent=2) + '\n').encode(),
@@ -180,7 +200,8 @@ def main():
                 if DEPLOY.read_file(ftp, saved, maximum=16*1024**2)[1] != previous['files'][name]:
                     raise ValueError('Old staging bytes differ; retained for review')
                 ftp.delete(saved)
-            print('PASS: small frontend update verified; kernel and root image retained', flush=True)
+            print('PASS: UART boot arguments verified; complete boot set retained' if args.bootargs_only else
+                  'PASS: small frontend update verified; kernel and root image retained', flush=True)
         except Exception as error:
             journal('frontend_update_failed', error=str(error), committed=committed)
             if not committed:

@@ -133,6 +133,36 @@ class FrontendFTPTests(unittest.TestCase):
         self.assertFalse(self.receipt.exists())
         self.assert_preserved()
 
+    def use_alpha2_snapshot(self):
+        self.metadata.update(profile='ps4-baikal-diagnostics-uvd-alpha2',
+            kernel_release='7.2.11-psx-ps4-baikal-uvd-runtime-dev2', image_version='alpha2',
+            uvd_runtime=True, frontend_refresh=None)
+        additional = ['README.txt', 'alpha-build-receipt.json', 'alpha-inputs/MODULES.json',
+            'alpha-inputs/PACKAGE.json', 'alpha-inputs/RUNTIME-IDENTITY.json',
+            'alpha-inputs/build-inputs/runtime/LINK-ATTEMPT-01.json',
+            'alpha-inputs/build-inputs/runtime/SOURCE-RECEIPT.json', 'artifacts.json',
+            'manifest.txt', 'modules-'+self.metadata['kernel_release']+'.tar.zst',
+            'source-pins.json', 'version.txt']
+        for name in additional:
+            self.new['psx-diagnostics/'+name] = ('synthetic alpha2 '+name).encode()
+        self.metadata['modules_sha256'] = sha(self.new['psx-diagnostics/modules-'+self.metadata['kernel_release']+'.tar.zst'])
+        self.write_source()
+        self.old = {name:data for name,data in self.new.items() if name != 'bootargs.template.txt'}
+        self.old['bootargs.txt'] = (b'psx.diag_uuid=1234-ABCD time=1600000000 pci=use_crs '
+            b'libata.force=1.00:disable psx_mts_net.autoarm=1 amdgpu.ps4_uvd_runtime=1 '
+            b'amdgpu.ps4_uvd_ready=1 amdgpu.ps4_uvd_poll_state=1 loglevel=3\n')
+        self.publish_old_snapshot()
+        self.assertEqual(len(self.previous['files']), 19)
+
+    def publish_old_snapshot(self):
+        self.previous.update(profile=self.metadata['profile'], kernel_release=self.metadata['kernel_release'],
+            files={name:sha(data) for name,data in self.old.items()})
+        self.previous_raw = (json.dumps(self.previous)+'\n').encode()
+        self.sums = APP.DEPLOY.STAGE.installed_sums(self.previous['files']).encode()
+        self.ftp = RecordingFTP({USB+'/'+name:data for name,data in self.old.items()} | self.mutable | {
+            USB+'/psx-diagnostics/installed.json':self.previous_raw,
+            USB+'/psx-diagnostics/USB-SHA256SUMS':self.sums})
+
     def test_default_plan_has_no_remote_or_local_mutation(self):
         original = dict(self.ftp.files)
         self.run_update(apply=False)
@@ -238,6 +268,111 @@ class FrontendFTPTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run_update()
         self.assert_rolled_back()
+
+    def test_bootargs_only_requires_explicit_verbose_and_keeps_default_refresh_guard(self):
+        self.use_alpha2_snapshot()
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            self.run_update(extra=('--bootargs-only',))
+        with self.assertRaisesRegex(ValueError, 'frontend-only refresh'):
+            self.run_update(extra=('--verbose-uart',))
+        self.assertFalse(self.backup.exists())
+        self.assertEqual(self.ftp.mutations, [])
+
+    def test_bootargs_only_success_retains_the_entire_alpha2_set_without_large_reads(self):
+        self.use_alpha2_snapshot()
+        self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+        result = json.loads(self.receipt.read_text())
+        marker = json.loads(self.ftp.files[USB+'/psx-diagnostics/installed.json'])
+        self.assertEqual(result['changed_files'], ['bootargs.txt'])
+        self.assertTrue(result['bootargs_only'])
+        self.assertEqual(len(marker['files']), 19)
+        expected = APP.verbose_uart_arguments(self.old['bootargs.txt'])
+        self.assertEqual(self.ftp.files[USB+'/bootargs.txt'], expected)
+        self.assertEqual((self.backup/'bootargs.txt').read_bytes(), self.old['bootargs.txt'])
+        self.assertIn(b'loglevel=7', expected)
+        self.assertIn(b'ignore_loglevel', expected)
+        self.assertNotIn(b'initcall_debug', expected)
+        for key in ('runtime', 'ready', 'poll_state'):
+            self.assertIn(('amdgpu.ps4_uvd_'+key+'=1').encode(), expected)
+        for name, data in self.old.items():
+            if name != 'bootargs.txt':
+                self.assertEqual(self.ftp.files[USB+'/'+name], data)
+                self.assertEqual(marker['files'][name], self.previous['files'][name])
+                if name != 'psx-diagnostics/boot-set.json':
+                    self.assertNotIn(USB+'/'+name, self.ftp.reads)
+        uploads = {paths[0] for operation,*paths in self.ftp.mutations if operation == 'store'}
+        self.assertEqual(uploads, {USB+'/.psx-frontend-frontendfixture/new/bootargs.txt',
+            USB+'/psx-diagnostics/installed.json', USB+'/psx-diagnostics/USB-SHA256SUMS'})
+        self.assert_preserved()
+
+    def test_bootargs_only_plan_is_read_only_for_alpha2_without_refresh_metadata(self):
+        self.use_alpha2_snapshot()
+        original = dict(self.ftp.files)
+        self.run_update(apply=False, extra=('--bootargs-only', '--verbose-uart'))
+        self.assertEqual(self.ftp.files, original)
+        self.assertEqual(self.ftp.mutations, [])
+        self.assertFalse(self.backup.exists())
+        self.assertFalse(self.receipt.exists())
+
+    def test_bootargs_only_rejects_every_non_argument_payload_or_metadata_pin_change(self):
+        self.use_alpha2_snapshot()
+        names = ['bzImage', 'initramfs.cpio.gz', 'psx-diagnostics/rootfs.ext4',
+            'psx-diagnostics/config', 'psx-diagnostics/modules-'+self.metadata['kernel_release']+'.tar.zst',
+            'psx-diagnostics/alpha-inputs/RUNTIME-IDENTITY.json']
+        fields = {'bzImage':'kernel_sha256', 'initramfs.cpio.gz':'initramfs_sha256',
+            'psx-diagnostics/rootfs.ext4':'rootfs_sha256', 'psx-diagnostics/config':'config_sha256',
+            names[4]:'modules_sha256'}
+        original_new, original_metadata = copy.deepcopy(self.new), copy.deepcopy(self.metadata)
+        for name in names:
+            self.new, self.metadata = copy.deepcopy(original_new), copy.deepcopy(original_metadata)
+            self.new[name] = b'changed bytes'
+            if name in fields:
+                self.metadata[fields[name]] = sha(self.new[name])
+            self.write_source()
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+            self.assertEqual(self.ftp.mutations, [])
+            self.assertFalse(self.backup.exists())
+        for field in ('frontend_revision', 'frontend_overrides', 'rootfs_tui_sha256'):
+            self.new, self.metadata = copy.deepcopy(original_new), copy.deepcopy(original_metadata)
+            self.metadata[field] = None
+            self.write_source()
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+            self.assertEqual(self.ftp.mutations, [])
+
+    def test_bootargs_only_refuses_incomplete_set_other_profiles_and_no_argument_change(self):
+        self.use_alpha2_snapshot()
+        for changes in ({'profile':'ps4-baikal-diagnostics-uvd-alpha1'}, {'uvd_runtime':False}):
+            original = copy.deepcopy(self.metadata)
+            self.metadata.update(changes); self.write_source()
+            with self.assertRaises(ValueError):
+                self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+            self.assertEqual(self.ftp.mutations, [])
+            self.metadata = original
+        del self.new['psx-diagnostics/README.txt']
+        (self.source/'psx-diagnostics/README.txt').unlink()
+        self.write_source()
+        with self.assertRaisesRegex(ValueError, '19-file'):
+            self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+        self.use_alpha2_snapshot()
+        self.old['bootargs.txt'] = APP.verbose_uart_arguments(self.old['bootargs.txt'])
+        self.publish_old_snapshot()
+        with self.assertRaisesRegex(ValueError, 'exactly bootargs.txt'):
+            self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+        self.assertEqual(self.ftp.mutations, [])
+
+    def test_bootargs_only_failure_rolls_back_arguments_and_generated_receipts(self):
+        for failure in ('rename', 'receipt'):
+            self.use_alpha2_snapshot()
+            self.backup = self.temp/('backup-'+failure)
+            if failure == 'rename':
+                self.ftp.fail_rename = (USB+'/bootargs.txt', 'after')
+            else:
+                self.ftp.fail_store = USB+'/psx-diagnostics/USB-SHA256SUMS'
+            with self.subTest(failure=failure), self.assertRaises(OSError):
+                self.run_update(extra=('--bootargs-only', '--verbose-uart'))
+            self.assert_rolled_back()
 
 
 if __name__ == "__main__":

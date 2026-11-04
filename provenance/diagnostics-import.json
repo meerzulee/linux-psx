@@ -1557,8 +1557,17 @@
       "bytes": 11868,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
-      "destination_bytes": 11868
+      "destination_sha256": "27fbf9a3779048520f0980e709bb661ff27497a3a8049415aa941ad91b859737",
+      "destination_bytes": 13503,
+      "destination_adaptations": [
+        {
+          "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
+          "prior_destination_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
+          "destination_sha256": "27fbf9a3779048520f0980e709bb661ff27497a3a8049415aa941ad91b859737",
+          "destination_bytes": 13503,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "origin_path": "scripts/update-ps4-diagnostics-frontend-ssh",
@@ -1767,8 +1776,17 @@
       "bytes": 12361,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
-      "destination_bytes": 12361
+      "destination_sha256": "d02a143cdcf369707af8c43e2102dfbdd6c1624f67f08d6660b29bb48c5aa4e1",
+      "destination_bytes": 20572,
+      "destination_adaptations": [
+        {
+          "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
+          "prior_destination_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
+          "destination_sha256": "d02a143cdcf369707af8c43e2102dfbdd6c1624f67f08d6660b29bb48c5aa4e1",
+          "destination_bytes": 20572,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "tests/test_ps4_diagnostics_frontend_refresh.py",
@@ -2241,8 +2259,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "5c4634cc834c5a9223a00f1582cf6179de314251b0857051e36b17ee53919230",
-      "destination_bytes": 17453,
+      "destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
+      "destination_bytes": 19904,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2280,6 +2298,13 @@
           "prior_destination_sha256": "1380a444374596964fb8621c60eaec67e01d0eb9bb790de2c195f7ffcdf51182",
           "destination_sha256": "5c4634cc834c5a9223a00f1582cf6179de314251b0857051e36b17ee53919230",
           "destination_bytes": 17453,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
+          "prior_destination_sha256": "5c4634cc834c5a9223a00f1582cf6179de314251b0857051e36b17ee53919230",
+          "destination_sha256": "2e6d502854724e9775997225ed29c192aaa6387fb5b1aea84bc499f5a0ce6fe9",
+          "destination_bytes": 19904,
           "mode": "0644"
         }
       ]
@@ -2881,6 +2906,15 @@
         "manifests/ps4-diagnostics-uvd-alpha2.json",
         "scripts/prepare-ps4-diagnostix-power-test",
         "tests/test_ps4_diagnostix_power.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "scripts/update-ps4-diagnostics-frontend-ftp",
+        "tests/test_ps4_diagnostics_frontend_ftp.py"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }
