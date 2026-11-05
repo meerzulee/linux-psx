@@ -71,6 +71,14 @@ ALPHA4 = dict(ALPHA3, profile="ps4-baikal-diagnostics-uvd-alpha4", image_version
               build_status="frozen", console_loglevel=7,
               poweroff_fix=dict(ALPHA3["poweroff_fix"], uvd_shutdown_park_unchanged=False),
               uvd_lifecycle_sources_unchanged=False, uvd_poweroff_experiment=POWEROFF_EXPERIMENT)
+# Dev4 changes only the scoped AHCI completion probe and release identity.
+# The experimental UVD and power-off source bytes are unchanged from dev3.
+ALPHA5 = dict(ALPHA4, profile="ps4-baikal-diagnostics-uvd-alpha5", image_version="alpha5",
+              kernel_release="7.2.11-psx-ps4-baikal-uvd-runtime-dev4",
+              kernel_sha256="9b3842def11f0638601f60ab7659eb8fa9c4c7e5cb81bab64d25f301ad826d37",
+              config_sha256="50676ba45e8535e1f7a3fd9f8eeab73fa7f841e255c1ccf846fda652d499dba0",
+              modules_sha256="fcda424b74177ec2316e58187d1c1c86e6e521782094cad77a6cdcb8fdc32dcc",
+              uvd_sources_unchanged_from_dev3=True, sata_policy="read-only-scoped-probe")
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -209,7 +217,7 @@ def sync(path):
 def select_contract(manifest):
     require(isinstance(manifest, dict), "UVD manifest must be an object")
     selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3,
-                ALPHA4["profile"]: ALPHA4}.get(manifest.get("profile"))
+                ALPHA4["profile"]: ALPHA4, ALPHA5["profile"]: ALPHA5}.get(manifest.get("profile"))
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -217,7 +225,7 @@ def select_contract(manifest):
                 and len(set(value)) > 1, "UVD alpha artifact pins are pending")
     require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
             "This is not the exact frozen UVD alpha artifact profile")
-    if selected["image_version"] == "alpha4":
+    if selected["image_version"] in ("alpha4", "alpha5"):
         policy = manifest["uvd_poweroff_experiment"]
         require(all(type(policy.get(key)) is type(value) and policy[key] == value
                     for key, value in POWEROFF_EXPERIMENT.items()), "Alpha4 power-off experiment policy types differ")
@@ -230,7 +238,7 @@ def preflight(runner):
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
     selected = select_contract(manifest)
-    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] == "alpha4" else BOOT_ARGUMENTS
+    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5") else BOOT_ARGUMENTS
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
             manifest.get("required_boot_arguments") == arguments and

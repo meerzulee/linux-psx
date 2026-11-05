@@ -56,17 +56,17 @@ class AlphaExtrasTests(unittest.TestCase):
         original = (ROOT/'rootfs/ps4-diagnostics-desktop/prepare-chromium-provider').read_text()
         before = {'__name__': 'synthetic_native_preparer'}
         exec(compile(original, '<native, no main>', 'exec'), before)
-        for version in ('alpha1', 'alpha2', 'alpha3'):
+        for version in ('alpha1', 'alpha2', 'alpha3', 'alpha4', 'alpha5'):
             directory = APP.chromium_directory(dict(ALPHA, image_version=version))
             changed = APP.prepare_helper_source(original, before['EXPECTED'], before['EXPECTED'], directory)
             after = {'__name__': 'synthetic_namespaced_preparer'}
             exec(compile(changed, '<alpha, no main>', 'exec'), after)
             self.assertEqual(after['PACKS'].name, 'uvd-'+version)
             self.assertEqual(after['PACKS'].parent, before['PACKS'])
-        for version in ('unreviewed', 'alpha4', 'alpha3/../alpha2'):
+        for version in ('unreviewed', 'alpha6', 'alpha3/../alpha2'):
             with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Unknown'):
                 APP.chromium_directory({'image_version': version})
-        for directory in ('../other', 'psx-diagnostics/providers/uvd-alpha4',
+        for directory in ('../other', 'psx-diagnostics/providers/uvd-alpha6',
                           'psx-diagnostics/providers/uvd-alpha3/../uvd-alpha2'):
             with self.subTest(directory=directory), self.assertRaisesRegex(ValueError, 'namespace'):
                 APP.prepare_helper_source(original, before['EXPECTED'], before['EXPECTED'], directory)
@@ -134,6 +134,16 @@ class AlphaExtrasTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'new owned regular image'):
                     APP.debugfs(Path('/dev/null'), 'rm /PROVIDER.json', write=True)
                 run.assert_not_called()
+
+    def test_alpha4_requires_its_exact_frozen_kernel_not_a_relabelled_alpha3(self):
+        actual = APP.profile(ROOT/'manifests/ps4-diagnostics-uvd-alpha4.json')
+        self.assertEqual(APP.chromium_directory(actual), 'psx-diagnostics/providers/uvd-alpha4')
+        previous = json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        relabeled = dict(previous, profile=actual['profile'], image_version='alpha4')
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
+            path = Path(temporary)/'profile.json'
+            path.write_text(json.dumps(relabeled))
+            with self.assertRaisesRegex(ValueError, 'frozen UVD'): APP.profile(path)
 
 
 if __name__ == '__main__':

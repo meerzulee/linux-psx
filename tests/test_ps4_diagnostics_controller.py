@@ -268,6 +268,106 @@ class ControllerTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "earlier action"):
                         self.controller.ready()
 
+    def wayland_fixture(self, failure=None, extra_service=None):
+        archive = b'synthetic hash-pinned Wayland archive'
+        manifest_path = self.fixture/'etc/psx-diagnostics/boot-set.json'
+        manifest = json.loads(manifest_path.read_text())
+        manifest.update(manifest_validation={'embedded_root_contract_verified': True},
+                        alpha_derivation={'wayland_suite': {'path': '/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz',
+                                                          'sha256': hashlib.sha256(archive).hexdigest()}})
+        manifest_path.write_text(json.dumps(manifest))
+        for name, data in (('usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz', archive),
+                           ('usr/lib/psx-diagnostics/launch-wayland', b'synthetic protected launcher')):
+            path = self.fixture/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+        self.wayland_calls = []
+        self.graphics_active = True
+        def executor(argv, timeout, output, error, env):
+            self.wayland_calls.append(argv)
+            if argv[:2] == ['/usr/bin/systemctl', 'show']:
+                records = []
+                for name in APP.WAYLAND_UNITS:
+                    active = name == extra_service or name == APP.DIAGNOSTICS_UNIT and self.graphics_active
+                    records.append('Id='+name+'\nLoadState=loaded\nActiveState='+('active' if active else 'inactive'))
+                return APP.diagnostics.CommandResult(0, '\n\n'.join(records)+'\n')
+            if argv[:2] == ['/usr/bin/systemctl', 'stop']:
+                self.graphics_active = False
+                return APP.diagnostics.CommandResult(0)
+            if argv[:2] == ['/usr/bin/systemctl', 'start']:
+                self.graphics_active = True
+                return APP.diagnostics.CommandResult(0)
+            self.assertEqual(argv[:2], ['/usr/bin/python3', '/usr/lib/psx-diagnostics/launch-wayland'])
+            if '--apply' not in argv:
+                return APP.diagnostics.CommandResult(1 if failure == 'preflight' else 0, '{}')
+            if failure == 'timeout': return APP.diagnostics.CommandResult(124, timed_out=True)
+            native_id = argv[argv.index('--run-id')+1]
+            native = {'run_id': native_id, 'boot_id': 'wrong-boot' if failure == 'identity' else 'fixture-boot',
+                      'kernel_release': self.controller.runner.identity()['kernel_release'],
+                      'phase': 'completed', 'status': 'PASS', 'stop_required': False, 'returncode': 0,
+                      'native_wayland': True, 'nested': False, 'backend': 'drm',
+                      'client': {'status': 'PASS', 'native_wayland': True, 'known_pixels': True, 'frames': 3,
+                                 'renderer': 'llvmpipe' if failure == 'software' else 'AMD Liverpool'}}
+            destination = self.fixture/'run/psx-wayland/runs'/native_id
+            destination.mkdir(parents=True)
+            for name, data in (('result.json', json.dumps(native)), ('client.jsonl', '{}\n'), ('compositor.log', 'synthetic')):
+                (destination/name).write_text(data)
+            return APP.diagnostics.CommandResult(0, json.dumps(native))
+        self.controller.runner.executor = executor
+        return mock.patch.object(self.controller, 'core_prerequisites', return_value=None)
+
+    def test_wayland_typed_job_restores_gui_after_verified_native_pixel_pass(self):
+        with self.wayland_fixture(), mock.patch.object(APP.subprocess, 'run', side_effect=AssertionError('live command')):
+            job = self.controller.request('graphics.wayland')
+            self.wait(job['id'])
+        result = self.controller.jobs.get(job['id'])['result']
+        self.assertEqual(result['test_id'], 'wayland.native')
+        self.assertEqual(result['status'], 'PASS'); self.assertFalse(result['stop_required'])
+        self.assertTrue(result['diagnostics_display_restored']); self.assertTrue(self.graphics_active)
+        self.assertEqual(set(result['artifacts']), {'result.json', 'client.jsonl', 'compositor.log'})
+        stored = json.loads((Path(result['result_directory'])/'result.json').read_text())
+        self.assertEqual(stored['native_report']['boot_id'], 'fixture-boot')
+        self.assertEqual(self.controller.results()[0]['run_id'], result['run_id'])
+        with self.assertRaises(ValueError): self.controller.request('graphics.wayland', {'command': 'anything'})
+
+    def test_wayland_existing_browser_refuses_before_display_stop(self):
+        with self.wayland_fixture(extra_service='psx-diagnostics-window-chromium.service'):
+            result = self.controller.wayland_test()
+        self.assertEqual(result['status'], 'BLOCKED'); self.assertFalse(result['stop_required'])
+        self.assertFalse(any('stop' in argv or '--apply' in argv for argv in self.wayland_calls))
+
+    def test_wayland_preflight_refusal_restores_gui_without_hardware_launch(self):
+        with self.wayland_fixture(failure='preflight'): result = self.controller.wayland_test()
+        self.assertEqual(result['status'], 'BLOCKED'); self.assertFalse(result['stop_required'])
+        self.assertTrue(result['diagnostics_display_restored']); self.assertTrue(self.graphics_active)
+        self.assertFalse(any('--apply' in argv for argv in self.wayland_calls))
+
+    def test_wayland_software_timeout_or_wrong_boot_never_pass_or_restart_xorg(self):
+        for failure in ('software', 'timeout', 'identity'):
+            with self.subTest(failure=failure):
+                # Each synthetic scenario has its own history; real stop records are never removed.
+                fresh = self.root/failure
+                fresh.mkdir()
+                self.controller.results_dir = fresh
+                self.controller.runner.results_dir = fresh
+                with self.wayland_fixture(failure=failure): result = self.controller.wayland_test()
+                self.assertEqual(result['status'], 'INCONCLUSIVE'); self.assertTrue(result['stop_required'])
+                self.assertFalse(self.graphics_active)
+                self.assertFalse(any('start' in argv for argv in self.wayland_calls))
+                with self.assertRaisesRegex(ValueError, 'earlier action'): self.controller.ready()
+
+    def test_wayland_core_or_existing_stop_prevents_service_commands(self):
+        with self.wayland_fixture(), mock.patch.object(self.controller, 'core_prerequisites', return_value={'status':'BLOCKED'}):
+            self.assertEqual(self.controller.wayland_test()['status'], 'BLOCKED')
+            self.assertEqual(self.wayland_calls, [])
+        with mock.patch.object(self.controller, 'ready', side_effect=ValueError('existing stop')):
+            with self.assertRaisesRegex(ValueError, 'existing stop'): self.controller.request('graphics.wayland')
+
+    def test_wayland_symlinked_provider_cannot_reach_service_commands(self):
+        with self.wayland_fixture():
+            path = self.fixture/'usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz'
+            moved = path.with_name('retained.tar.gz'); path.rename(moved); path.symlink_to(moved.name)
+            result = self.controller.wayland_test()
+        self.assertEqual(result['status'], 'BLOCKED'); self.assertEqual(self.wayland_calls, [])
+
     def test_real_local_ipc_uses_only_a_named_action(self):
         path = self.root / "control.sock"
         server = APP.IPCServer(str(path), APP.IPCHandler)

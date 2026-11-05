@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Stage the frozen alpha5 optional Chromium provider and optional native clips.
+
+Default: read-only remote plan. --apply uploads unique partials, verifies their
+complete bytes, then renames into previously absent fixed destinations. Existing
+identical files are verified/skipped; different files are never overwritten.
+No core receipt, boot file, state, result, older provider, mount or launch changes.
+Use only after the core publisher has completed its full verified readback.
+FTP cannot authenticate physical USB identity: this checks its installed receipt.
+Run one publisher at a time; FTP has no portable atomic rename-without-replace.
+Partials and uncertain publications are retained, never deleted or auto-retried.
+"""
+import argparse
+import ftplib
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path, PurePosixPath
+import stat
+import sys
+import time
+from types import SimpleNamespace
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def load(name, relative):
+    loader = importlib.machinery.SourceFileLoader(name, str(ROOT / relative))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+DEPLOY = load('psx_alpha_extras_deploy', 'scripts/deploy-ps4-diagnostics-ftp')
+PROFILE = 'ps4-baikal-diagnostics-uvd-alpha5'
+RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev4'
+META = 'psx-diagnostics/boot-set.json'
+NAMESPACE = 'psx-diagnostics/providers/uvd-alpha5'
+IMAGE = 'chromium-151.0.7922.169-psx-uvd-alpha5.ext4'
+PROVIDER_JSON = 'b43ce8c9d377b5af81cbe1a5e9d24a3b2db18413155018d39a2736975c0588bd'
+CORE = {
+    'bzImage': '9b3842def11f0638601f60ab7659eb8fa9c4c7e5cb81bab64d25f301ad826d37',
+    'psx-diagnostics/rootfs.ext4': 'f37178423962f672c4161095c14fd7870c609c818724ae690650c4ac77a61dfb',
+    'initramfs.cpio.gz': 'c4c8ccd5157de33456b4dd579e2fb6bd77761a29b51313f58ae281d90ecc447a',
+    META: '7ee052ea31035a3c574894336485b92a1ab1d87f95646d70f71468e7b56006c4',
+}
+# Insertion order publishes the provider commit manifest last.
+PINS = {
+    IMAGE: (402653184, 'f46e3eba5c809f2d993b10e99c01d6035eb9ad10436c34af8458566cf15c9ee1'),
+    'chromium-provider.json': (124, '6062fa0c04a19df8d59640defaa0bbf21dc54691c759e547dd88f9b833f44de9'),
+    'provider-manifest.json': (1016, '0d22bbee3f5b34810b6f84886ff1ced44d167e65447189ed58e9ce3d34ab11ca'),
+}
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def local_pin(path, expected=None):
+    require(path.is_absolute() and path.resolve() == path, 'Local input contains an alias or symlink')
+    digest, size = hashlib.sha256(), 0
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid()
+                and not info.st_mode & 0o022, 'Local input type/owner/mode differs')
+        require(expected is None or info.st_size == expected[0], 'Local input size differs')
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block); size += len(block)
+            require(expected is None or size <= expected[0], 'Local input grew')
+        require(size == info.st_size and (expected is None or digest.hexdigest() == expected[1]),
+                'Local input SHA256/size differs')
+    return {'path': str(path), 'bytes': size, 'sha256': digest.hexdigest()}
+
+
+def local_inputs(source, native=None):
+    source = source.absolute()
+    metadata = source / 'boot-set' / META
+    pin = local_pin(metadata)
+    require(pin['sha256'] == CORE[META], 'This is not the frozen alpha5 boot-set metadata')
+    meta = json.loads(metadata.read_bytes())
+    require(meta.get('profile') == PROFILE and meta.get('kernel_release') == RELEASE
+            and meta.get('kernel_sha256') == CORE['bzImage']
+            and meta.get('rootfs_sha256') == CORE['psx-diagnostics/rootfs.ext4']
+            and meta.get('initramfs_sha256') == CORE['initramfs.cpio.gz'], 'Core bindings differ')
+    files = {NAMESPACE + '/' + name: local_pin(source / name, expected) for name, expected in PINS.items()}
+    manifest = json.loads((source / 'provider-manifest.json').read_bytes())
+    config = json.loads((source / 'chromium-provider.json').read_bytes())
+    require(manifest.get('image') == IMAGE and manifest.get('image_bytes') == PINS[IMAGE][0]
+            and manifest.get('image_sha256') == PINS[IMAGE][1]
+            and manifest.get('kernel_release') == RELEASE
+            and manifest.get('kernel_sha256') == CORE['bzImage']
+            and manifest.get('base_rootfs_sha256') == CORE['psx-diagnostics/rootfs.ext4']
+            and manifest.get('hardware_acceptance') is False
+            and manifest.get('provider_manifest_sha256') == PROVIDER_JSON
+            and config == manifest.get('launcher_config')
+            and config == {'schema_version': 1, 'provider_manifest_sha256': PROVIDER_JSON},
+            'Provider sidecar bindings differ')
+    if native is not None:
+        adapter = load('psx_alpha_extras_uvd', 'diagnostics/ps4/uvd.py')
+        suite = load('psx_alpha_extras_native', 'diagnostics/ps4/uvd_suite.py')
+        # Only fixed input parsing/hashing; never invoke a runtime, decoder or subprocess.
+        runner = SimpleNamespace(fs=SimpleNamespace(fixture=True))
+        for scenario in ('native720-900', 'native1080-900'):
+            paths, _, _, inputs = suite.verify_native(adapter, runner, scenario, bundle=native.absolute())
+            for key in ('clip', 'framemd5', 'fixture'):
+                name = 'psx-diagnostics/fixtures/native-video/' + suite.NATIVE[scenario]['directory'] + '/' + paths[key].name
+                files[name] = inputs[key]
+    return files
+
+
+def remote_core(ftp, root, identity, payloads=False):
+    blobs = {name: DEPLOY.read_file(ftp, root + '/psx-diagnostics/' + name,
+             maximum=1024 * 1024, collect=True)[2] for name in ('installed.json', 'USB-SHA256SUMS', 'boot-set.json')}
+    receipt = json.loads(blobs['installed.json'])
+    DEPLOY.verify_receipt(receipt, identity['serial'], identity['bytes'], identity['uuid'])
+    require(blobs['USB-SHA256SUMS'].decode() == DEPLOY.STAGE.installed_sums(receipt['files']), 'Core checksum receipt differs')
+    require(all(receipt['files'].get(name) == sha for name, sha in CORE.items()), 'Installed core is not frozen alpha5')
+    require(hashlib.sha256(blobs['boot-set.json']).hexdigest() == CORE[META], 'Remote core metadata bytes differ')
+    if payloads:
+        for name in ('bzImage', 'initramfs.cpio.gz'):
+            require(DEPLOY.read_file(ftp, root + '/' + name, maximum=32 * 1024 * 1024)[1] == CORE[name],
+                    'Remote kernel/initramfs bytes differ')
+    return receipt, {name: hashlib.sha256(data).hexdigest() for name, data in blobs.items()}
+
+
+def remote_matches(ftp, path, pin):
+    size, sha, _ = DEPLOY.read_file(ftp, path, maximum=pin['bytes'])
+    require((size, sha) == (pin['bytes'], pin['sha256']), 'Existing/staged extras differ: ' + path)
+
+
+def transfer(ftp, root, identity, files, apply, journal):
+    receipt, snapshot = remote_core(ftp, root, identity, payloads=True)
+    require(not set(files) & set(receipt['files']), 'Extras overlap receipt-owned core files')
+    existing = []
+    for name, pin in files.items():
+        if DEPLOY.exists(ftp, root + '/' + name):
+            remote_matches(ftp, root + '/' + name, pin)
+            existing.append(name)
+    journal('plan', core=snapshot, verified_existing=existing, expected_files=files,
+            root_verification='Prior full core publisher readback receipt; exact metadata binding; no second root download',
+            usb_identity_verification='Installed receipt identity; FTP cannot inspect USB hardware')
+    if not apply:
+        journal('planned'); return
+    staged = {}
+    for name, pin in files.items():
+        if name in existing: continue
+        local_pin(Path(pin['path']), (pin['bytes'], pin['sha256']))
+        partial = root + '/' + name + '.' + uuid.uuid4().hex + '.partial'
+        require(not DEPLOY.exists(ftp, partial), 'Unique partial already exists')
+        journal('uploading', name=name, partial=partial)
+        DEPLOY.make_dirs(ftp, str(PurePosixPath(partial).parent))
+        transferred, last = 0, time.monotonic()
+        def progress(block):
+            nonlocal transferred, last
+            transferred += len(block)
+            if time.monotonic() - last >= 8:
+                print(f'UPLOADING {name}: {transferred // (1024 * 1024)} MiB', flush=True)
+                last = time.monotonic()
+        fd = os.open(pin['path'], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        with os.fdopen(fd, 'rb') as stream:
+            require(stat.S_ISREG(os.fstat(fd).st_mode), 'Input ceased to be a regular file')
+            ftp.storbinary('STOR ' + partial, stream, blocksize=256 * 1024, callback=progress)
+        remote_matches(ftp, partial, pin)
+        staged[name] = partial
+        journal('staged_readback_verified', name=name, partial=partial)
+    # Publish only after every new payload readback passes; metadata is last in each bundle.
+    for name, partial in staged.items():
+        require(remote_core(ftp, root, identity)[1] == snapshot, 'Installed core changed during transfer')
+        target = root + '/' + name
+        if DEPLOY.exists(ftp, target):
+            remote_matches(ftp, target, files[name])
+            journal('identical_appeared_partial_retained', name=name, partial=partial)
+            continue
+        journal('publishing', name=name, partial=partial)
+        ftp.rename(partial, target)
+        journal('published_after_verified_readback', name=name, partial=partial)
+    require(remote_core(ftp, root, identity)[1] == snapshot, 'Installed core changed before completion')
+    journal('completed')
+
+
+def run(args):
+    path = args.receipt.absolute()
+    require(path.parent.resolve() == path.parent, 'Receipt parent contains a symlink')
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    os.close(fd)
+    state = {'schema': 'psx-alpha5-extras-ftp-v1', 'profile': PROFILE, 'apply': args.apply,
+             'hardware_acceptance': False, 'core_files_changed': False, 'events': []}
+    def journal(event, **fields):
+        state['status'] = event
+        state['events'].append(dict(event=event, unix=time.time(), **fields))
+        DEPLOY.STAGE.atomic_write(path, data=(json.dumps(state, indent=2) + '\n').encode())
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try: os.fsync(directory)
+        finally: os.close(directory)
+        print(event, flush=True)
+    try:
+        journal('validating')
+        files = local_inputs(args.source, args.native_fixtures)
+        identity = {'serial': args.expect_serial, 'bytes': args.expect_bytes, 'uuid': args.expect_uuid}
+        journal('local_inputs_verified', target=identity, remote_root=args.remote_root)
+        with ftplib.FTP(timeout=30) as ftp:
+            ftp.connect(args.host, args.port); ftp.login()
+            transfer(ftp, args.remote_root, identity, files, args.apply, journal)
+    except Exception as error:
+        journal('failed_partials_retained_no_retry', error=str(error), error_type=type(error).__name__)
+        raise
+    return state
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, required=True, help='Frozen alpha5-complete provider directory')
+    parser.add_argument('--native-fixtures', type=Path, help='Optional frozen native-video fixture parent')
+    parser.add_argument('--host', required=True)
+    parser.add_argument('--port', type=int, default=2121)
+    parser.add_argument('--remote-root', choices=('/mnt/usb0', '/mnt/usb1'), default='/mnt/usb0')
+    parser.add_argument('--expect-serial', required=True)
+    parser.add_argument('--expect-bytes', type=int, required=True)
+    parser.add_argument('--expect-uuid', required=True)
+    parser.add_argument('--receipt', type=Path, required=True, help='New private local transfer receipt')
+    parser.add_argument('--apply', action='store_true')
+    run(parser.parse_args())
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, EOFError, ftplib.Error) as error:
+        print('ERROR: ' + str(error), file=sys.stderr)
+        sys.exit(1)

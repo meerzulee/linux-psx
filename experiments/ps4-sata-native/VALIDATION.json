@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "status": "PASS_SOURCE_FIXTURE_AND_ATA_OBJECT",
+  "hardware_acceptance": false,
+  "date": "2026-11-05",
+  "patch_sha256": "a33c832630a285b4f1c7ccd4fe37b5a8899b93e6c435041b371c9184f89f4023",
+  "checks": [
+    {
+      "name": "patch application",
+      "options": [
+        "--batch",
+        "--fuzz=0"
+      ],
+      "result": "PASS"
+    },
+    {
+      "name": "actual patched probe header fixture",
+      "hz": [
+        100,
+        250,
+        1000
+      ],
+      "sanitizers": [
+        "address",
+        "undefined"
+      ],
+      "compiler_flags": [
+        "-std=gnu11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1"
+      ],
+      "result": "PASS"
+    },
+    {
+      "name": "native ATA object compilation",
+      "command": [
+        "make",
+        "-j16",
+        "ARCH=x86_64",
+        "CC=gcc",
+        "HOSTCC=gcc",
+        "drivers/ata/libahci.o"
+      ],
+      "returncode": 0,
+      "result": "PASS"
+    },
+    {
+      "name": "kernel repository make check",
+      "returncode": 0,
+      "result": "PASS",
+      "log_sha256": "88891a3cf834a1ba156f4f5d4df95e428287e3ff5375c5462b32c350f94f4192"
+    },
+    {
+      "name": "frozen input member hashes unchanged",
+      "result": "PASS"
+    },
+    {
+      "name": "resolved config unchanged for object check",
+      "result": "PASS"
+    }
+  ],
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "compiler": "gcc (GCC) 16.2.1 20260810"
+  },
+  "object_sha256": "9e4b258755e113bf811b9e3a3dd7fcc7e22fcfea959787459efb898734234155",
+  "candidate_sources": {
+    "drivers/ata/ahci.h": "af869ca98591cfeebeb8c45a9bf09ff56dbfd5678350acac7cf263060f511cd5",
+    "drivers/ata/libahci.c": "e8f7af615766330e30dcd6cd9a3debd42efbe705ef2cfcd77d09a124d65cfaea",
+    "drivers/ata/ahci-ps4-probe.h": "08708400870e8d86562cc5044448e1eecc1658008a55de969e573ddfccac7677"
+  },
+  "unchanged_reviewed_sources": {
+    "drivers/ps4/ps4-bpcie.c": "276489e97d2504e46fd00716bf26b4a43415686c4ce844e3a3f4dd648c68739f",
+    "drivers/ps4/ps4-bpcie-icc.c": "2ca0f7767691a716a9b2df6ab7032dce8ed786f826be92dc0104ed40a06ec859",
+    "drivers/usb/host/xhci-aeolia.c": "3c890c622b2854f5859fb59143e9f9fadb5c088fe1e34b271e2b25bcc34d66ac",
+    "drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c": "d08c1a736322f2b4f1c99f798962138a63d330308bf5a4c19165ce426a168845",
+    "drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c": "23f7858cd813327d5adc760c3771e76950cec4964a1964dc8203ea566b296afc",
+    "drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h": "e7de118c7631385546743942fc0dec2a4f82bef19acb4563641212d19c2e028a"
+  },
+  "tools": {
+    "make_patch.py": "12c200313fe0af15537f4aa52584583b9dec6e0b2c155f5bd016061b3cf157b4",
+    "test_host.py": "072f3c506af22237e0cc5041d63128be0f5b6da67774c53264d3781e6b65daad",
+    "fixture.c": "6c5bc6ef46bb996d9b3ce44ace4948c5249f1a7e5cfb45bebc13a3922e196d62",
+    "ahci-ps4-probe.h": "08708400870e8d86562cc5044448e1eecc1658008a55de969e573ddfccac7677"
+  },
+  "limits": [
+    "Object-only cache retains runtime-dev3 LOCALVERSION; no bootable candidate package is claimed.",
+    "Parent assigns runtime-dev4 and builds all matching modules/corresponding source.",
+    "Fixture models callback interleavings and fake MMIO; not a proof of real IRQ concurrency, DMA correctness, driver error recovery or hardware acceptance.",
+    "No hardware operation, storage access, payload delivery, media staging or publication performed."
+  ]
+}

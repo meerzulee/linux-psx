@@ -96,6 +96,7 @@ ROOTFS_FILENAME=${ROOTFS_FILENAME:-rootfs.tar.gz}
 MTS_AUTOARM=${MTS_AUTOARM:-0}
 WRITABLE_ROOT_MIB=${WRITABLE_ROOT_MIB:-512}
 FRONTEND_OVERRIDES=${FRONTEND_OVERRIDES:-0}
+SATA_POLICY=${SATA_POLICY:-disabled-first-boot}
 MEDIA_UUID=''
 CLOCK_EPOCH=$BUILD_EPOCH
 SATA_DISABLED=0
@@ -118,9 +119,29 @@ case "$MEDIA_UUID" in ''|*[!a-fA-F0-9-]*) rescue 'Missing or invalid diagnostic 
 case "$CLOCK_EPOCH" in ''|*[!0-9]*) rescue 'Invalid loader time.' ;; esac
 date -u -s "@$CLOCK_EPOCH" >/dev/null 2>&1 || true
 [ "$(uname -r)" = "$KERNEL_RELEASE" ] || rescue 'Kernel release differs from this boot set.'
-[ "$SATA_DISABLED:$SATA_FLAGS" = '1:1' ] || rescue 'This profile requires one exact internal-SATA disable argument.'
 [ "$MTS_GATED:$MTS_FLAGS" = '1:1' ] || rescue "This profile requires one exact Ethernet autoarm=$MTS_AUTOARM argument."
-say "Kernel $KERNEL_RELEASE; USB $ROOT_FORMAT profile; internal SATA disabled."
+case "$SATA_POLICY" in
+    disabled-first-boot)
+        [ "$SATA_DISABLED:$SATA_FLAGS" = '1:1' ] || rescue 'This profile requires one exact internal-SATA disable argument.'
+        say "Kernel $KERNEL_RELEASE; USB $ROOT_FORMAT profile; internal SATA disabled." ;;
+    read-only-scoped-probe)
+        . /etc/psx-sata-readonly || rescue 'Missing read-only SATA guard.'
+        psx_sata_arguments "$(cat /proc/cmdline)" || rescue 'Read-only SATA boot arguments differ from the embedded profile.'
+        sata_attempt=0
+        while :; do
+            mdev -s 2>/dev/null || true
+            psx_sata_readonly /sys /dev > /run/psx-sata-readonly.txt
+            sata_status=$?
+            [ "$sata_status" -ne 0 ] || break
+            [ "$sata_status" -eq 1 ] || rescue 'Internal SATA write protection failed.'
+            sata_attempt=$((sata_attempt + 1))
+            [ "$sata_attempt" -lt 30 ] || rescue 'No unambiguous internal SATA disk appeared within 30 seconds.'
+            sleep 1
+        done
+        say "Kernel $KERNEL_RELEASE; internal SATA identity test; disk and partitions read-only."
+        cat /run/psx-sata-readonly.txt ;;
+    *) rescue 'Unknown embedded SATA policy.' ;;
+esac
 
 # Inspect only USB partitions before asking blkid to read their metadata.
 DEVICE=''

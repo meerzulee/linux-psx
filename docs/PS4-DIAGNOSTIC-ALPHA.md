@@ -71,6 +71,31 @@ reboot, kexec, suspend or broader stability. A roughly 90-second delay and
 busy loop-root shutdown messages remain recorded. See the [power-off candidate
 details](UVD.md#default-off-dev3-power-off-test-candidate).
 
+EXP-20261105-018 then matched the canonical 120 UVD frames and returned to
+Orbis through one forced ICC hardware restart, with UVD still enabled. Reports
+were preserved and the USB synced/remounted read-only first. This is distinct
+from ordinary Linux reboot teardown. Both scoped power results are recorded
+in the [diagnostic session ledger](../diagnostics/SESSIONS.md).
+
+The separate [alpha5 profile](../manifests/ps4-diagnostics-uvd-alpha5.json)
+uses runtime-dev4 and its whole matching module set. It preserves the dev3
+UVD, ICC, PHY and xHCI source and adds the scoped internal-SATA completion
+probe. Its initramfs identifies the internal ATA disk through the exact PCI
+controller, sets the disk and its partitions read-only before userspace, and
+stops if protection cannot be verified. The USB remains the diagnostic root.
+The ordered smoke runner executes foundation, network, graphics, browsers,
+Wayland and audio checks before one selected terminal UVD scenario. These
+are executable tests; their build receipts do not supply hardware results.
+
+EXP019–022 captured the dev4 read-only SATA boot, matching direct reads,
+OpenGL/Vulkan and native Wayland reference pixels, both browser baselines,
+all 900 native 1080p UVD reference frames, and software power-off after that
+combined use. A fresh boot exercised the corrected audio manifest reader:
+44.1 kHz `aplay` completed successfully, with audible verification explicitly
+deferred by the owner. Browser-close polling and complete bounded JSON reads
+are corrected in source. The original privately tested USB image retains its
+original hashes; corrected diagnostic source is used by subsequent builds.
+
 The alpha assembler creates a new regular ext4 image offline from the exact
 ordinary root, replaces its entire kernel-module tree, and installs the alpha
 runner and checklist. It uses no host mount, container, physical device or

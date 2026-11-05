@@ -175,7 +175,14 @@ def render_bootargs(template, usb_uuid, metadata, epoch=None):
             raise ValueError("diagnostic clock seed must be a valid 2020–2099 epoch")
         tokens = [token for token in arguments.split() if not token.startswith("time=")]
         ntp = "systemd.wants=systemd-timesyncd.service"
-        if ntp not in tokens:
+        clock_want = metadata.get("boot_clock_start_timesyncd", True)
+        if type(clock_want) is not bool:
+            raise ValueError("boot clock service policy must be boolean")
+        if not clock_want and metadata.get("profile") != "ps4-baikal-diagnostics-uvd-alpha5":
+            raise ValueError("only the scoped SATA alpha5 starts time sync through its root service")
+        if not clock_want:
+            tokens = [token for token in tokens if token != ntp]
+        elif ntp not in tokens:
             tokens.append(ntp)
         tokens.append("time=" + str(epoch))
         arguments = " ".join(tokens) + "\n"

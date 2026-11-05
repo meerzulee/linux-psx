@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
-      "destination_bytes": 62373,
+      "destination_sha256": "05f157e69f5c59f8b4b3c5f79225520d44bc7bc12eb1e79a7e494cfe03eafd23",
+      "destination_bytes": 78084,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -78,6 +78,13 @@
           "prior_destination_sha256": "9c43f6a3e492e9aba8c2e01d6910a4efdf755ccfae247c0e0a218bf1f06983d8",
           "destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
           "destination_bytes": 62373,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
+          "destination_sha256": "05f157e69f5c59f8b4b3c5f79225520d44bc7bc12eb1e79a7e494cfe03eafd23",
+          "destination_bytes": 78084,
           "mode": "0644"
         }
       ]
@@ -247,14 +254,21 @@
       "bytes": 53810,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
-      "destination_bytes": 54855,
+      "destination_sha256": "5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2",
+      "destination_bytes": 56478,
       "destination_adaptations": [
         {
           "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
           "prior_destination_sha256": "4bc357114d65c4dd96652f7236e69655c49d7b75a9db89a9041927fbc090c33f",
           "destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
           "destination_bytes": 54855,
+          "mode": "0755"
+        },
+        {
+          "reason": "Fix observed alpha5 audio manifest truncation: strict complete regular-file JSON up to1MiB, complete manifest identity hashing, bounded session receipts and unsafe/oversized/corrupt input regressions. No audio command executed in the failed trial; corrected hardware playback requires a fresh boot.",
+          "prior_destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
+          "destination_sha256": "5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2",
+          "destination_bytes": 56478,
           "mode": "0755"
         }
       ]
@@ -587,14 +601,21 @@
       "bytes": 10471,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "2613555088d6b4b7e3605f961cfda3a64ad33372fa82d99776d496646a63b97f",
-      "destination_bytes": 10771,
+      "destination_sha256": "cd3015df6ebb28c3591b553e33843eeb700b0d79bdef07185b70538a793663c3",
+      "destination_bytes": 11495,
       "destination_adaptations": [
         {
           "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
           "prior_destination_sha256": "cf480b79bb83235b65d0e68ceecbf3011ad324b8279cbe7af811d3e24799b28a",
           "destination_sha256": "2613555088d6b4b7e3605f961cfda3a64ad33372fa82d99776d496646a63b97f",
           "destination_bytes": 10771,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "2613555088d6b4b7e3605f961cfda3a64ad33372fa82d99776d496646a63b97f",
+          "destination_sha256": "cd3015df6ebb28c3591b553e33843eeb700b0d79bdef07185b70538a793663c3",
+          "destination_bytes": 11495,
           "mode": "0644"
         }
       ]
@@ -1260,14 +1281,21 @@
       "adaptations": [
         "Extend the fixed frontend map to the two Chromium RAM-only helpers; preserve bind/rescue/hash safeguards."
       ],
-      "destination_sha256": "949c7092d97dee15e2b48bedf1742e5bd675adeca541be82681d35ed4467a862",
-      "destination_bytes": 12504,
+      "destination_sha256": "7db1dc8611f97c6eccc50fdc6bc733d7105e222f329bd36cc239b0f8b8d48aac",
+      "destination_bytes": 13548,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
           "prior_destination_sha256": "3d4fd7810955ec83aaaff1d92da2e265d9799a65320e09c4da1ba6e99f272f40",
           "destination_sha256": "949c7092d97dee15e2b48bedf1742e5bd675adeca541be82681d35ed4467a862",
           "destination_bytes": 12504,
+          "mode": "0755"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "949c7092d97dee15e2b48bedf1742e5bd675adeca541be82681d35ed4467a862",
+          "destination_sha256": "7db1dc8611f97c6eccc50fdc6bc733d7105e222f329bd36cc239b0f8b8d48aac",
+          "destination_bytes": 13548,
           "mode": "0755"
         }
       ]
@@ -1386,8 +1414,17 @@
       "bytes": 6786,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "47b150f975565a0086648c2ba0a196a6896258d88f6066590f79b9fb8e418b1b",
-      "destination_bytes": 6786
+      "destination_sha256": "ce066ea019ac9dbdce4fcb9af3a90c4091dc0883328f5ce577a177336644e68f",
+      "destination_bytes": 7117,
+      "destination_adaptations": [
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "47b150f975565a0086648c2ba0a196a6896258d88f6066590f79b9fb8e418b1b",
+          "destination_sha256": "ce066ea019ac9dbdce4fcb9af3a90c4091dc0883328f5ce577a177336644e68f",
+          "destination_bytes": 7117,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "origin_path": "scripts/build-ps4-diagnostics",
@@ -1406,8 +1443,8 @@
         "Add exactly two opt-in Chromium helpers to the fixed frontend map (28 assets); retain root/kernel guards and payload/RAM limits.",
         "Allow an explicitly pinned reconstructed package snapshot while preserving exact archive/member/file pins."
       ],
-      "destination_sha256": "c97d7bd98c88bc00960730c8c6910a49438ea0a781f7bec78a00d7425671dec9",
-      "destination_bytes": 62637,
+      "destination_sha256": "7279e0b368686445d98cedc5ddf2b5a7575b6b0b59d0f05f90f515532f08dc1d",
+      "destination_bytes": 63071,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1428,6 +1465,13 @@
           "prior_destination_sha256": "809ff3b9e879dfb2b2c239e37942134a094a12c5716692a5bf5663fb1f0664e3",
           "destination_sha256": "c97d7bd98c88bc00960730c8c6910a49438ea0a781f7bec78a00d7425671dec9",
           "destination_bytes": 62637,
+          "mode": "0755"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "c97d7bd98c88bc00960730c8c6910a49438ea0a781f7bec78a00d7425671dec9",
+          "destination_sha256": "7279e0b368686445d98cedc5ddf2b5a7575b6b0b59d0f05f90f515532f08dc1d",
+          "destination_bytes": 63071,
           "mode": "0755"
         }
       ]
@@ -1457,8 +1501,17 @@
       "bytes": 16255,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "4ba91e9aac58755d28b3d47297397305fef11b9537d872cb853f9aaac0d15ba0",
-      "destination_bytes": 16255
+      "destination_sha256": "399b405b23b15fa84fe2261604b2f82be46ac78bd8f79ae7f9c48f60ad17347e",
+      "destination_bytes": 21367,
+      "destination_adaptations": [
+        {
+          "reason": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+          "prior_destination_sha256": "4ba91e9aac58755d28b3d47297397305fef11b9537d872cb853f9aaac0d15ba0",
+          "destination_sha256": "399b405b23b15fa84fe2261604b2f82be46ac78bd8f79ae7f9c48f60ad17347e",
+          "destination_bytes": 21367,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "scripts/fetch-ps4-firmware",
@@ -1572,8 +1625,17 @@
       "bytes": 15242,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
-      "destination_bytes": 15242
+      "destination_sha256": "af201f1ade74f045e9ac39fb8c7e2e87d77e6ac052925eaa8c7b5f07dc0d4e3a",
+      "destination_bytes": 15717,
+      "destination_adaptations": [
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
+          "destination_sha256": "af201f1ade74f045e9ac39fb8c7e2e87d77e6ac052925eaa8c7b5f07dc0d4e3a",
+          "destination_bytes": 15717,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "origin_path": "scripts/update-ps4-diagnostics-frontend-ftp",
@@ -1585,14 +1647,21 @@
       "bytes": 11868,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "27fbf9a3779048520f0980e709bb661ff27497a3a8049415aa941ad91b859737",
-      "destination_bytes": 13503,
+      "destination_sha256": "3de18d9f70945bf9821e55476d08eb2fadd2d7a885f1a9d299c61387cd85b4d0",
+      "destination_bytes": 20230,
       "destination_adaptations": [
         {
           "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
           "prior_destination_sha256": "48a13b74d7635083d6a1c0327eeeef031fe5fff1469818c582802d9c95ffd7dc",
           "destination_sha256": "27fbf9a3779048520f0980e709bb661ff27497a3a8049415aa941ad91b859737",
           "destination_bytes": 13503,
+          "mode": "0755"
+        },
+        {
+          "reason": "Preserve explicit UVD-disabled power-test preparation and transactional FTP refresh source; that profile was withdrawn before deployment and is not used by the combined UVD/SATA test.",
+          "prior_destination_sha256": "27fbf9a3779048520f0980e709bb661ff27497a3a8049415aa941ad91b859737",
+          "destination_sha256": "3de18d9f70945bf9821e55476d08eb2fadd2d7a885f1a9d299c61387cd85b4d0",
+          "destination_bytes": 20230,
           "mode": "0755"
         }
       ]
@@ -1710,8 +1779,17 @@
       "bytes": 24861,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "e30862a152a4542c6c5b8dbd3deebe6db568f4b6e5665066ab58dae975ac6422",
-      "destination_bytes": 24861
+      "destination_sha256": "d74be31a5aea00f1f6833c0cadcc7032ce575cff7e350d6ca219dd31c36af176",
+      "destination_bytes": 28653,
+      "destination_adaptations": [
+        {
+          "reason": "Fix observed alpha5 audio manifest truncation: strict complete regular-file JSON up to1MiB, complete manifest identity hashing, bounded session receipts and unsafe/oversized/corrupt input regressions. No audio command executed in the failed trial; corrected hardware playback requires a fresh boot.",
+          "prior_destination_sha256": "e30862a152a4542c6c5b8dbd3deebe6db568f4b6e5665066ab58dae975ac6422",
+          "destination_sha256": "d74be31a5aea00f1f6833c0cadcc7032ce575cff7e350d6ca219dd31c36af176",
+          "destination_bytes": 28653,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "tests/test_ps4_diagnostics_clock.py",
@@ -1723,8 +1801,17 @@
       "bytes": 1544,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "97df5c91355a8601e1e4c72bfe1f347dbab972e590cfda7c7c07faf17a32660d",
-      "destination_bytes": 1544
+      "destination_sha256": "6862fd86f8fd1a708379606000b577d6f2782cd1ec4f28f85564df42783b94f8",
+      "destination_bytes": 2627,
+      "destination_adaptations": [
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "97df5c91355a8601e1e4c72bfe1f347dbab972e590cfda7c7c07faf17a32660d",
+          "destination_sha256": "6862fd86f8fd1a708379606000b577d6f2782cd1ec4f28f85564df42783b94f8",
+          "destination_bytes": 2627,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "tests/test_ps4_diagnostics_console.py",
@@ -1761,8 +1848,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "e5e252c61e02044cd559cef7c212145df089af64ba3902b3667ce18638fe7b15",
-      "destination_bytes": 16384,
+      "destination_sha256": "838e5384ace74a8626f3c76b6cdcc31e00ea379cbc0323eacefafd3a6b6eed52",
+      "destination_bytes": 23672,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -1777,6 +1864,13 @@
           "prior_destination_sha256": "f2842b45c3bfa0921c50a4447984e3ad5ac47ec43b1d8575ebc83023c1e45c56",
           "destination_sha256": "e5e252c61e02044cd559cef7c212145df089af64ba3902b3667ce18638fe7b15",
           "destination_bytes": 16384,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "e5e252c61e02044cd559cef7c212145df089af64ba3902b3667ce18638fe7b15",
+          "destination_sha256": "838e5384ace74a8626f3c76b6cdcc31e00ea379cbc0323eacefafd3a6b6eed52",
+          "destination_bytes": 23672,
           "mode": "0644"
         }
       ]
@@ -1804,14 +1898,21 @@
       "bytes": 12361,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "d02a143cdcf369707af8c43e2102dfbdd6c1624f67f08d6660b29bb48c5aa4e1",
-      "destination_bytes": 20572,
+      "destination_sha256": "2105c06a179c6ee34a2adf2c3a3b71687e6fbe3d24220bffcaf0a8d073ead663",
+      "destination_bytes": 28462,
       "destination_adaptations": [
         {
           "reason": "Record the completed alpha2 first-boot failure without inferring an IRQ cause. Add explicit exact-metadata bootargs-only verbose-UART updates so tracing preserves all kernel, root, module and frontend bytes and avoids remote large-image rereads; retain default frontend guards and transaction rollback.",
           "prior_destination_sha256": "83c69b01c4a9d3c286c95fd97f1328947bd885646c986239c78711c34caef41e",
           "destination_sha256": "d02a143cdcf369707af8c43e2102dfbdd6c1624f67f08d6660b29bb48c5aa4e1",
           "destination_bytes": 20572,
+          "mode": "0644"
+        },
+        {
+          "reason": "Preserve explicit UVD-disabled power-test preparation and transactional FTP refresh source; that profile was withdrawn before deployment and is not used by the combined UVD/SATA test.",
+          "prior_destination_sha256": "d02a143cdcf369707af8c43e2102dfbdd6c1624f67f08d6660b29bb48c5aa4e1",
+          "destination_sha256": "2105c06a179c6ee34a2adf2c3a3b71687e6fbe3d24220bffcaf0a8d073ead663",
+          "destination_bytes": 28462,
           "mode": "0644"
         }
       ]
@@ -1887,8 +1988,17 @@
       "bytes": 19800,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "0448a8e861749b3fc536030abb9ea3e8f97918a133a7a8f6dbb489b8894a09b5",
-      "destination_bytes": 19800
+      "destination_sha256": "db7a276407b03dd7e17a4e677f375ab31c871ebdda74eef1075ebcc504d6ca04",
+      "destination_bytes": 27001,
+      "destination_adaptations": [
+        {
+          "reason": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+          "prior_destination_sha256": "0448a8e861749b3fc536030abb9ea3e8f97918a133a7a8f6dbb489b8894a09b5",
+          "destination_sha256": "db7a276407b03dd7e17a4e677f375ab31c871ebdda74eef1075ebcc504d6ca04",
+          "destination_bytes": 27001,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "tests/test_ps4_diagnostics_graphics.py",
@@ -1935,8 +2045,8 @@
         "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
         "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
       ],
-      "destination_sha256": "11351c39797b13db64f34ac6d6481f95b0a076837df3c330955da45620a6b055",
-      "destination_bytes": 53144,
+      "destination_sha256": "2f66eae19766e8df9a98486ae606b10e570a8e34ff27cc8770db6dde81b4f343",
+      "destination_bytes": 54574,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1957,6 +2067,13 @@
           "prior_destination_sha256": "88a7ba3cdf9103c181e58d07a843eed160bd789e6a57a0c4d8974e1509e4bea4",
           "destination_sha256": "11351c39797b13db64f34ac6d6481f95b0a076837df3c330955da45620a6b055",
           "destination_bytes": 53144,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "11351c39797b13db64f34ac6d6481f95b0a076837df3c330955da45620a6b055",
+          "destination_sha256": "2f66eae19766e8df9a98486ae606b10e570a8e34ff27cc8770db6dde81b4f343",
+          "destination_bytes": 54574,
           "mode": "0644"
         }
       ]
@@ -2029,14 +2146,21 @@
       "bytes": 9863,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "522f2452a61bdb03a1a43ccceb3931256070b2e8ce4b8d3a628ee29567c11c79",
-      "destination_bytes": 10699,
+      "destination_sha256": "23c4b86aa871b2da8fd568c41d743d5ec2fd8b3773804905a2695b33c5c7c91e",
+      "destination_bytes": 12114,
       "destination_adaptations": [
         {
           "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
           "prior_destination_sha256": "076b2bca9730deca96dff69c0afde62e2facc95be8c673175bbd295ff7952f7a",
           "destination_sha256": "522f2452a61bdb03a1a43ccceb3931256070b2e8ce4b8d3a628ee29567c11c79",
           "destination_bytes": 10699,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "522f2452a61bdb03a1a43ccceb3931256070b2e8ce4b8d3a628ee29567c11c79",
+          "destination_sha256": "23c4b86aa871b2da8fd568c41d743d5ec2fd8b3773804905a2695b33c5c7c91e",
+          "destination_bytes": 12114,
           "mode": "0644"
         }
       ]
@@ -2308,8 +2432,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "aa1ede165f7511c34b71a12fade800f2ccaa63c0d00d5c2b7c30c5682506d86b",
-      "destination_bytes": 45977,
+      "destination_sha256": "e698da02f2388e17a025ccd614100bc31bc00444647755b0ebdded2dcb8c165d",
+      "destination_bytes": 54135,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2403,6 +2527,27 @@
           "prior_destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
           "destination_sha256": "aa1ede165f7511c34b71a12fade800f2ccaa63c0d00d5c2b7c30c5682506d86b",
           "destination_bytes": 45977,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "aa1ede165f7511c34b71a12fade800f2ccaa63c0d00d5c2b7c30c5682506d86b",
+          "destination_sha256": "875534ff78cf414deb6f7239b717d4c4265b305bd07abde9e060441e52b5469a",
+          "destination_bytes": 47638,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed dev4 SATA enumeration/direct-read, graphics/browser/Wayland/native900-frame UVD and combined software power-off evidence, preserving harness/media failures, performance and lifecycle limits.",
+          "prior_destination_sha256": "875534ff78cf414deb6f7239b717d4c4265b305bd07abde9e060441e52b5469a",
+          "destination_sha256": "ccde3d9d0a466efa14b2225dd66e89f4828bc8ac89b2a583660e9af51a5ee8af",
+          "destination_bytes": 52670,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed fresh-boot corrected audio command, CPU/RAM passes and explicit owner deferral of audible verification; preserve all tested artifact identities, pending stability/lifecycle gates and historical scope.",
+          "prior_destination_sha256": "ccde3d9d0a466efa14b2225dd66e89f4828bc8ac89b2a583660e9af51a5ee8af",
+          "destination_sha256": "e698da02f2388e17a025ccd614100bc31bc00444647755b0ebdded2dcb8c165d",
+          "destination_bytes": 54135,
           "mode": "0644"
         }
       ]
@@ -2525,8 +2670,8 @@
     },
     {
       "path": "diagnostics/ps4/qualification.py",
-      "destination_sha256": "1bb001a999b7e7743837d2865cfae9a8ca8fa626646d7e76625401ec01a98a03",
-      "destination_bytes": 19695,
+      "destination_sha256": "f7e5914cce908d4edeba487245f6953abd3f1ed95778e14acb2285408e9e4340",
+      "destination_bytes": 48258,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2537,13 +2682,27 @@
           "destination_sha256": "1bb001a999b7e7743837d2865cfae9a8ca8fa626646d7e76625401ec01a98a03",
           "destination_bytes": 19695,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "1bb001a999b7e7743837d2865cfae9a8ca8fa626646d7e76625401ec01a98a03",
+          "destination_sha256": "06693844822cc9c110fe8adac6f37f93f20ba672614688b3ab54b534e24e42cc",
+          "destination_bytes": 47796,
+          "mode": "0644"
+        },
+        {
+          "reason": "Fix observed browser-close reporting race: completed snapshots stay pending until confirmed closure; retain strict same-boot identity, save and close-failure checks. Hardware kernel/root unchanged; reviewed source staged in private RAM for the continued suite.",
+          "prior_destination_sha256": "06693844822cc9c110fe8adac6f37f93f20ba672614688b3ab54b534e24e42cc",
+          "destination_sha256": "f7e5914cce908d4edeba487245f6953abd3f1ed95778e14acb2285408e9e4340",
+          "destination_bytes": 48258,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/qualification.json",
-      "destination_sha256": "4581b571b30edad7dfcf36551ea847843dc7f46a8173f033416f24a3af8d3c95",
-      "destination_bytes": 61854,
+      "destination_sha256": "f793157b224da562f4c47452e199e5b98bb3cad8304ca53bd85e8ef5b463ebbe",
+      "destination_bytes": 69869,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2554,13 +2713,20 @@
           "destination_sha256": "4581b571b30edad7dfcf36551ea847843dc7f46a8173f033416f24a3af8d3c95",
           "destination_bytes": 61854,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "4581b571b30edad7dfcf36551ea847843dc7f46a8173f033416f24a3af8d3c95",
+          "destination_sha256": "f793157b224da562f4c47452e199e5b98bb3cad8304ca53bd85e8ef5b463ebbe",
+          "destination_bytes": 69869,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/uvd.py",
-      "destination_sha256": "39a37493d66e97fd2c1f2a0d1e7d79299e541900eef9a38406b9e2a9ce7ddbc1",
-      "destination_bytes": 22504,
+      "destination_sha256": "9f36b58a3d3835b7dd4d9c1ed9f9dea443545f605a6c9ba97eee254b2e81c343",
+      "destination_bytes": 23246,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2592,13 +2758,20 @@
           "destination_sha256": "39a37493d66e97fd2c1f2a0d1e7d79299e541900eef9a38406b9e2a9ce7ddbc1",
           "destination_bytes": 22504,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "39a37493d66e97fd2c1f2a0d1e7d79299e541900eef9a38406b9e2a9ce7ddbc1",
+          "destination_sha256": "9f36b58a3d3835b7dd4d9c1ed9f9dea443545f605a6c9ba97eee254b2e81c343",
+          "destination_bytes": 23246,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "docs/PS4-DIAGNOSTIC-ALPHA.md",
-      "destination_sha256": "83402a2e04fd57bde2b1d1036194a5cc85c1a5e2747fab2029e4a7b133a36f64",
-      "destination_bytes": 11722,
+      "destination_sha256": "101b0ea481d9448ac42aeacea574529c1e6606985e8f214cc21ec1fb8e5b1969",
+      "destination_bytes": 14295,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2630,6 +2803,20 @@
           "destination_sha256": "83402a2e04fd57bde2b1d1036194a5cc85c1a5e2747fab2029e4a7b133a36f64",
           "destination_bytes": 11722,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "83402a2e04fd57bde2b1d1036194a5cc85c1a5e2747fab2029e4a7b133a36f64",
+          "destination_sha256": "165f8aa2e0a403937f26ae8ddc4ee2daf1ae4f3dd2f0174d333d08627766a99a",
+          "destination_bytes": 13686,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed fresh-boot corrected audio command, CPU/RAM passes and explicit owner deferral of audible verification; preserve all tested artifact identities, pending stability/lifecycle gates and historical scope.",
+          "prior_destination_sha256": "165f8aa2e0a403937f26ae8ddc4ee2daf1ae4f3dd2f0174d333d08627766a99a",
+          "destination_sha256": "101b0ea481d9448ac42aeacea574529c1e6606985e8f214cc21ec1fb8e5b1969",
+          "destination_bytes": 14295,
+          "mode": "0644"
         }
       ]
     },
@@ -2643,8 +2830,8 @@
     },
     {
       "path": "scripts/build-ps4-diagnostics-alpha",
-      "destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
-      "destination_bytes": 56990,
+      "destination_sha256": "6685e63e4c3ccb38913908d728713224887bde8cf0cb63410c551e270e9271ae",
+      "destination_bytes": 61234,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2669,13 +2856,20 @@
           "destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
           "destination_bytes": 56990,
           "mode": "0755"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
+          "destination_sha256": "6685e63e4c3ccb38913908d728713224887bde8cf0cb63410c551e270e9271ae",
+          "destination_bytes": 61234,
+          "mode": "0755"
         }
       ]
     },
     {
       "path": "scripts/prepare-ps4-diagnostics-alpha-extras",
-      "destination_sha256": "2492f61a7fbd53ed01ced77dc84fb386e9cd4cf11d9b31d1cccb7691d394b1ed",
-      "destination_bytes": 20349,
+      "destination_sha256": "202767dcc3a666647025bc003d3131b952c49209709175b6a122c2ad13653d2f",
+      "destination_bytes": 20474,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2693,13 +2887,20 @@
           "destination_sha256": "2492f61a7fbd53ed01ced77dc84fb386e9cd4cf11d9b31d1cccb7691d394b1ed",
           "destination_bytes": 20349,
           "mode": "0755"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "2492f61a7fbd53ed01ced77dc84fb386e9cd4cf11d9b31d1cccb7691d394b1ed",
+          "destination_sha256": "202767dcc3a666647025bc003d3131b952c49209709175b6a122c2ad13653d2f",
+          "destination_bytes": 20474,
+          "mode": "0755"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha.py",
-      "destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
-      "destination_bytes": 31433,
+      "destination_sha256": "956eaec9c8903aff19a7262dcc647614443b8fabeb5adf300326b0966bb17ba6",
+      "destination_bytes": 36829,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2724,13 +2925,20 @@
           "destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
           "destination_bytes": 31433,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
+          "destination_sha256": "956eaec9c8903aff19a7262dcc647614443b8fabeb5adf300326b0966bb17ba6",
+          "destination_bytes": 36829,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha_extras.py",
-      "destination_sha256": "666c2708908ec324c0bf3e30bb0092c42c1136a1ef369dd309480d4d9132a0f7",
-      "destination_bytes": 8630,
+      "destination_sha256": "bec2b041e8a343b279c6f50f98fd54547f5f29771bbe217f8bf3c74d43bea282",
+      "destination_bytes": 9348,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2748,13 +2956,20 @@
           "destination_sha256": "666c2708908ec324c0bf3e30bb0092c42c1136a1ef369dd309480d4d9132a0f7",
           "destination_bytes": 8630,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "666c2708908ec324c0bf3e30bb0092c42c1136a1ef369dd309480d4d9132a0f7",
+          "destination_sha256": "bec2b041e8a343b279c6f50f98fd54547f5f29771bbe217f8bf3c74d43bea282",
+          "destination_bytes": 9348,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_qualification.py",
-      "destination_sha256": "622d9ad3f37a6c3987ed1df9d4c283449b0b3d8f8f81e12e932efa92bb1fdd57",
-      "destination_bytes": 12659,
+      "destination_sha256": "6b4865cb330d61d2963119fa2fd5253de1bf444af855347da824184e8ff346bb",
+      "destination_bytes": 30536,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2765,13 +2980,27 @@
           "destination_sha256": "622d9ad3f37a6c3987ed1df9d4c283449b0b3d8f8f81e12e932efa92bb1fdd57",
           "destination_bytes": 12659,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "622d9ad3f37a6c3987ed1df9d4c283449b0b3d8f8f81e12e932efa92bb1fdd57",
+          "destination_sha256": "a3c95dcdb1cf862314d11d3676e7897edb16e0422b0a9b7ddd6f73b2ffe84728",
+          "destination_bytes": 28486,
+          "mode": "0644"
+        },
+        {
+          "reason": "Fix observed browser-close reporting race: completed snapshots stay pending until confirmed closure; retain strict same-boot identity, save and close-failure checks. Hardware kernel/root unchanged; reviewed source staged in private RAM for the continued suite.",
+          "prior_destination_sha256": "a3c95dcdb1cf862314d11d3676e7897edb16e0422b0a9b7ddd6f73b2ffe84728",
+          "destination_sha256": "6b4865cb330d61d2963119fa2fd5253de1bf444af855347da824184e8ff346bb",
+          "destination_bytes": 30536,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
-      "destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
-      "destination_bytes": 30119,
+      "destination_sha256": "ade5719b48548adcdfa3be2419c864f5db2383255742f88e9619e7148519887a",
+      "destination_bytes": 31082,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2803,6 +3032,13 @@
           "destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
           "destination_bytes": 30119,
           "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
+          "destination_sha256": "ade5719b48548adcdfa3be2419c864f5db2383255742f88e9619e7148519887a",
+          "destination_bytes": 31082,
+          "mode": "0644"
         }
       ]
     },
@@ -2816,19 +3052,37 @@
     },
     {
       "path": "scripts/prepare-ps4-diagnostix-power-test",
-      "destination_sha256": "0a17906cdc2d146955e797ae89ca9ef634e15f38a5b40222dfd69cdfcefd0d1a",
-      "destination_bytes": 12543,
+      "destination_sha256": "fff5704911df75b5ea859116729ffb0d1a9e6aa73caea4edb6f2b6dad80050c6",
+      "destination_bytes": 14145,
       "mode": "0755",
       "purpose": "Add Diagnostix branding and nonexecuting Power guidance; freeze the complete native3 plus UVD dev2 profile, exact runtime guards, variant-safe optional providers and a separate all-three-gates-off power-test boot derivative. Preserve oldalpha1 and kernel-only checks.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Preserve explicit UVD-disabled power-test preparation and transactional FTP refresh source; that profile was withdrawn before deployment and is not used by the combined UVD/SATA test.",
+          "prior_destination_sha256": "0a17906cdc2d146955e797ae89ca9ef634e15f38a5b40222dfd69cdfcefd0d1a",
+          "destination_sha256": "fff5704911df75b5ea859116729ffb0d1a9e6aa73caea4edb6f2b6dad80050c6",
+          "destination_bytes": 14145,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "path": "tests/test_ps4_diagnostix_power.py",
-      "destination_sha256": "eb81f452ecc4a7460357a345563971c816dfe2978bda2206a8395edbcff49acb",
-      "destination_bytes": 15898,
+      "destination_sha256": "85520d41356c59737afebeea1880de2d971c52e213b1def4e8d698c83a98ce42",
+      "destination_bytes": 22700,
       "mode": "0644",
       "purpose": "Add Diagnostix branding and nonexecuting Power guidance; freeze the complete native3 plus UVD dev2 profile, exact runtime guards, variant-safe optional providers and a separate all-three-gates-off power-test boot derivative. Preserve oldalpha1 and kernel-only checks.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Preserve explicit UVD-disabled power-test preparation and transactional FTP refresh source; that profile was withdrawn before deployment and is not used by the combined UVD/SATA test.",
+          "prior_destination_sha256": "eb81f452ecc4a7460357a345563971c816dfe2978bda2206a8395edbcff49acb",
+          "destination_sha256": "85520d41356c59737afebeea1880de2d971c52e213b1def4e8d698c83a98ce42",
+          "destination_bytes": 22700,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "manifests/ps4-diagnostics-uvd-alpha3.json",
@@ -2856,8 +3110,8 @@
     },
     {
       "path": "diagnostics/ps4/browser_uvd.py",
-      "destination_sha256": "983029a288afb98749b027105d1ac1c7b414f8ffcc670758d51f9596c4a6576e",
-      "destination_bytes": 56111,
+      "destination_sha256": "21ed7922522a8d56c19ba9ebdedf2a7102a226a7769f302092a47acb53505932",
+      "destination_bytes": 56464,
       "mode": "0644",
       "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2874,6 +3128,13 @@
           "prior_destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
           "destination_sha256": "983029a288afb98749b027105d1ac1c7b414f8ffcc670758d51f9596c4a6576e",
           "destination_bytes": 56111,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "983029a288afb98749b027105d1ac1c7b414f8ffcc670758d51f9596c4a6576e",
+          "destination_sha256": "21ed7922522a8d56c19ba9ebdedf2a7102a226a7769f302092a47acb53505932",
+          "destination_bytes": 56464,
           "mode": "0644"
         }
       ]
@@ -2896,8 +3157,8 @@
     },
     {
       "path": "tests/test_ps4_browser_uvd.py",
-      "destination_sha256": "c2fa63cb8061aa3e4dfe3f7884f510276e05e91afe818dacd2c8276c6a8edd95",
-      "destination_bytes": 42186,
+      "destination_sha256": "3cb77b1773f998f3e156de99cca7fe65e8e0624abe090c70fd0bf6942d6023aa",
+      "destination_bytes": 43142,
       "mode": "0644",
       "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2914,6 +3175,13 @@
           "prior_destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
           "destination_sha256": "c2fa63cb8061aa3e4dfe3f7884f510276e05e91afe818dacd2c8276c6a8edd95",
           "destination_bytes": 42186,
+          "mode": "0644"
+        },
+        {
+          "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+          "prior_destination_sha256": "c2fa63cb8061aa3e4dfe3f7884f510276e05e91afe818dacd2c8276c6a8edd95",
+          "destination_sha256": "3cb77b1773f998f3e156de99cca7fe65e8e0624abe090c70fd0bf6942d6023aa",
+          "destination_bytes": 43142,
           "mode": "0644"
         }
       ]
@@ -2965,6 +3233,86 @@
       "destination_bytes": 13320,
       "mode": "0644",
       "purpose": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/uvd_suite.py",
+      "destination_sha256": "c4b2c09578be2bdd8a215236c28906ad5941d36cbe952d424127805b2e49481a",
+      "destination_bytes": 21011,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha5.json",
+      "destination_sha256": "e706d0311fd8285c4439ba8bf3d627daf2747ce14e707023312eaaa77fee238c",
+      "destination_bytes": 13700,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "rootfs/ps4-diagnostics/sata-readonly",
+      "destination_sha256": "d7bbdd4919199bc91979edfcfbd79775228b758c0a1d8770c46da4d08f053aa6",
+      "destination_bytes": 3383,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_sata_readonly.py",
+      "destination_sha256": "d29caa16ed44380b465eeceef621c8729e8dfbbe5787f319f3a7d53cc99c02ce",
+      "destination_bytes": 5789,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_uvd_controller.py",
+      "destination_sha256": "8845d06fac460cf0984b20f983abef7467e486b4ea0a9db8c7b9d26177d76ddf",
+      "destination_bytes": 8419,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_uvd_suite.py",
+      "destination_sha256": "a82fe048d6e96e50463b9c06b95dbfc720b968bab6a455eca5728010f6f2a483",
+      "destination_bytes": 17783,
+      "mode": "0644",
+      "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/sata.py",
+      "destination_sha256": "d87ff854ce0b7431df49900537f4546ba0718d16b77ef83ec0370058f272384f",
+      "destination_bytes": 25155,
+      "mode": "0644",
+      "purpose": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_sata_read.py",
+      "destination_sha256": "63c6689476c503e1b36c2b03fa6f209571bd615eb3ffb5219b430a4d98c4d2a8",
+      "destination_bytes": 18005,
+      "mode": "0644",
+      "purpose": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/stage-ps4-diagnostics-alpha-extras-ftp",
+      "destination_sha256": "16b42175126a94155a149080f23276939b2f2a783e1c74c7a619d73cad3d7871",
+      "destination_bytes": 12591,
+      "mode": "0755",
+      "purpose": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_alpha_extras_ftp.py",
+      "destination_sha256": "ff68ded79c8556cbab1e76e688fe72c0bbd15e8b6a36ddda8952890a2bfb13fd",
+      "destination_bytes": 14384,
+      "mode": "0644",
+      "purpose": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
       "origin": "New Linux psX source after diagnostic import"
     }
   ],
@@ -3361,6 +3709,94 @@
       "reason": "Record completed EXP016 canonical UVD plus physical software power-off, observed delayed shutdown and subsequent Orbis recovery; no support promotion.",
       "paths": [
         "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Preserve explicit UVD-disabled power-test preparation and transactional FTP refresh source; that profile was withdrawn before deployment and is not used by the combined UVD/SATA test.",
+      "paths": [
+        "scripts/prepare-ps4-diagnostix-power-test",
+        "scripts/update-ps4-diagnostics-frontend-ftp",
+        "tests/test_ps4_diagnostics_frontend_ftp.py",
+        "tests/test_ps4_diagnostix_power.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "diagnostics/ps4/browser_uvd.py",
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/qualification.json",
+        "diagnostics/ps4/qualification.py",
+        "diagnostics/ps4/uvd.py",
+        "diagnostics/ps4/wayland/runtime.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "rootfs/ps4-diagnostics/init",
+        "rootfs/ps4-wayland/launch-wayland",
+        "scripts/build-ps4-diagnostics",
+        "scripts/build-ps4-diagnostics-alpha",
+        "scripts/prepare-ps4-diagnostics-alpha-extras",
+        "scripts/stage-ps4-diagnostics-usb",
+        "tests/test_ps4_browser_uvd.py",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_alpha_extras.py",
+        "tests/test_ps4_diagnostics_clock.py",
+        "tests/test_ps4_diagnostics_controller.py",
+        "tests/test_ps4_diagnostics_image.py",
+        "tests/test_ps4_diagnostics_qualification.py",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "tests/test_ps4_diagnostics_wayland.py",
+        "diagnostics/ps4/uvd_suite.py",
+        "manifests/ps4-diagnostics-uvd-alpha5.json",
+        "rootfs/ps4-diagnostics/sata-readonly",
+        "tests/test_ps4_sata_readonly.py",
+        "tests/test_ps4_uvd_controller.py",
+        "tests/test_ps4_uvd_suite.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
+      "paths": [
+        "diagnostics/ps4/sata.py",
+        "tests/test_ps4_sata_read.py",
+        "scripts/deploy-ps4-diagnostics-ftp",
+        "tests/test_ps4_diagnostics_ftp.py",
+        "scripts/stage-ps4-diagnostics-alpha-extras-ftp",
+        "tests/test_ps4_diagnostics_alpha_extras_ftp.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Fix observed browser-close reporting race: completed snapshots stay pending until confirmed closure; retain strict same-boot identity, save and close-failure checks. Hardware kernel/root unchanged; reviewed source staged in private RAM for the continued suite.",
+      "paths": [
+        "diagnostics/ps4/qualification.py",
+        "tests/test_ps4_diagnostics_qualification.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Fix observed alpha5 audio manifest truncation: strict complete regular-file JSON up to1MiB, complete manifest identity hashing, bounded session receipts and unsafe/oversized/corrupt input regressions. No audio command executed in the failed trial; corrected hardware playback requires a fresh boot.",
+      "paths": [
+        "diagnostics/ps4/runner.py",
+        "tests/test_ps4_diagnostics.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed dev4 SATA enumeration/direct-read, graphics/browser/Wayland/native900-frame UVD and combined software power-off evidence, preserving harness/media failures, performance and lifecycle limits.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed fresh-boot corrected audio command, CPU/RAM passes and explicit owner deferral of audible verification; preserve all tested artifact identities, pending stability/lifecycle gates and historical scope.",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

@@ -118,6 +118,28 @@ class DiagnosticImageTests(unittest.TestCase):
         self.assertIn("WRITABLE_ROOT_MIB='512'", env)
         self.assertEqual(found["bin/losetup"].data, b"/bin/busybox")
 
+    def test_scoped_sata_profile_embeds_guard_before_userspace(self):
+        profile = {"kernel_release": "test-release", "ram_root_mib": 0,
+                   "source_date_epoch": 1234, "sata_policy": "read-only-scoped-probe"}
+        path = self.root / "initramfs.gz"
+        IMAGE.initramfs(profile, {}, b"fixture", {}, "b" * 64, path, 5678)
+        parser = load("diagnostics_sata_cpio_test", "scripts/ps4-diagnostics-archive")
+        entries, _ = parser.parse_newc(gzip.decompress(path.read_bytes()))
+        found = {entry.name.decode(): entry for entry in entries}
+        self.assertIn(b"SATA_POLICY='read-only-scoped-probe'", found["etc/psx-diagnostics.env"].data)
+        self.assertEqual(found["etc/psx-sata-readonly"].data,
+                         (ROOT / "rootfs/ps4-diagnostics/sata-readonly").read_bytes())
+        self.assertEqual(found["bin/blockdev"].data, b"/bin/busybox")
+        init = found["init"].data
+        self.assertLess(init.index(b"psx_sata_readonly /sys /dev"), init.index(b"exec switch_root"))
+
+    def test_unknown_sata_policy_refuses_image_assembly(self):
+        profile = {"kernel_release": "test-release", "ram_root_mib": 0,
+                   "source_date_epoch": 1234, "sata_policy": "allow-writes"}
+        with self.assertRaisesRegex(ValueError, "SATA"):
+            IMAGE.initramfs(profile, {}, b"fixture", {}, "b" * 64,
+                            self.root / "initramfs.gz", 5678)
+
     def frontend(self):
         executable = bytearray(64)
         executable[:7] = b"\x7fELF\x02\x01\x01"

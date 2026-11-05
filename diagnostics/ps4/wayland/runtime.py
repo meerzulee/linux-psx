@@ -13,7 +13,8 @@ import subprocess
 import sys
 import time
 
-GRAPHICS = ('browser', 'opengl', 'vulkan', 'diagnostics')
+GRAPHICS = ('browser', 'chromium', 'browser-manual', 'chromium-manual',
+            'protondb', 'opengl', 'vulkan', 'diagnostics')
 
 
 def digest(path):
@@ -54,7 +55,17 @@ class Operations:
     def node(self, path): return os.stat(path)
     def command(self, argv):
         return subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
-                              text=True, timeout=10, check=True)
+                              text=True, timeout=10, check=False)
+
+
+def require_inactive(operations, name):
+    result = operations.command(['/usr/bin/systemctl', 'show', '--property=LoadState,ActiveState', name])
+    fields = dict(line.split('=', 1) for line in result.stdout.splitlines() if '=' in line)
+    state, loaded = fields.get('ActiveState'), fields.get('LoadState')
+    code = getattr(result, 'returncode', 0)
+    if not (state == 'inactive' and loaded in ('loaded', 'not-found') and
+            (code == 0 or code == 1 and loaded == 'not-found')):
+        raise ValueError('Close the current Xorg/Wayland session or inspect its failed state before the native Wayland test')
 
 
 def preflight(suite, root_prefix='/', operations=None, allow_own_service=False, verified_manifest=None):
@@ -78,15 +89,11 @@ def preflight(suite, root_prefix='/', operations=None, allow_own_service=False, 
     if not re.fullmatch(r'[a-f0-9-]{36}', boot_id):
         raise ValueError('Missing current kernel boot identity')
     for mode in GRAPHICS:
-        name = 'psx-diagnostics-graphics@' + mode + '.service'
-        result = operations.command(['/usr/bin/systemctl', 'show', '--property=ActiveState', '--value', name])
-        if result.stdout.strip() in ('active', 'activating', 'reloading', 'deactivating'):
-            raise ValueError('Close the current Xorg graphical session before the native Wayland test')
+        for name in ('psx-diagnostics-graphics@' + mode + '.service',
+                     'psx-diagnostics-window-' + mode + '.service'):
+            require_inactive(operations, name)
     if not allow_own_service:
-        result = operations.command(['/usr/bin/systemctl', 'show', '--property=ActiveState', '--value',
-                                     'psx-diagnostics-wayland.service'])
-        if result.stdout.strip() in ('active', 'activating', 'reloading', 'deactivating'):
-            raise ValueError('A Wayland test is already running')
+        require_inactive(operations, 'psx-diagnostics-wayland.service')
     cards = []
     for candidate in sorted((root / 'sys/class/drm').glob('card[0-9]*')):
         if not re.fullmatch(r'card[0-9]+', candidate.name):
@@ -106,8 +113,10 @@ def preflight(suite, root_prefix='/', operations=None, allow_own_service=False, 
         if not (root / relative).is_file():
             raise ValueError('Native Wayland requires the existing PAM/logind session support')
     # The generic Mesa verifier is data-only and never creates a context.
-    operations.command(['/usr/bin/python3', '/opt/psx-mesa-tools/with-mesa.py',
+    verified = operations.command(['/usr/bin/python3', '/opt/psx-mesa-tools/with-mesa.py',
         '--root', '/opt/psx-mesa', '--expected-manifest-sha256', manifest['mesa_manifest_sha256'], '--verify-only'])
+    if getattr(verified, 'returncode', 0) != 0:
+        raise ValueError('Pinned Mesa verification failed before Wayland startup')
     return {'profile': manifest['profile'], 'kernel_release': manifest['kernel_release'], 'boot_id': boot_id,
             'drm_device': cards[0], 'backend': 'drm', 'renderer': 'gles2', 'seat_backend': 'logind',
             'native_wayland': True, 'nested': False, 'hardware_acceptance': False}
@@ -177,7 +186,13 @@ def run_session(suite, run_id):
     report = dict(facts, status='PASS' if passed else 'INCONCLUSIVE', phase='completed', run_id=run_id,
                   stop_required=not passed, returncode=returncode, client=client,
                   duration_seconds=round(time.monotonic()-started, 3))
-    (directory/'result.json').write_text(json.dumps(report, indent=2)+'\n')
+    for name in ('client.jsonl', 'compositor.log'):
+        with (directory/name).open('rb') as saved: os.fsync(saved.fileno())
+    with (directory/'result.json').open('x') as saved:
+        saved.write(json.dumps(report, indent=2)+'\n'); saved.flush(); os.fsync(saved.fileno())
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(descriptor)
+    finally: os.close(descriptor)
     print(json.dumps(report), flush=True)
     return 0 if passed else 1
 

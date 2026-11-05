@@ -185,4 +185,268 @@ class QualificationTests(unittest.TestCase):
         self.assertFalse(report['stability_claim'])
 
 
+class SmokeTests(unittest.TestCase):
+    def setUp(self):
+        self.plan=Q.validate(Q.read_json(Q.PLAN))
+        self.identity=dict(boot_id='616aaa3f-28bf-48bf-bdf5-a98560a0ec94',kernel_release='fixture-alpha4',
+            manifest_sha256='a'*64,runner_sha256='b'*64,catalogue_sha256='c'*64,
+            release_matches=True,manifest_available=True,declared_artifacts={'uvd_runtime':True,'rootfs_sha256':'d'*64})
+        self.records={};self.jobs={};self.counter=0;self.calls=[];self.failure=None;self.stop=None
+        self.browser_closed=True;self.renderer='software';self.now=0;self.saves=[]
+
+    def tick(self,seconds):self.now+=seconds
+
+    def record(self,test_id,status='PASS',**fields):
+        self.counter+=1
+        identifier='20261105T010000Z-'+f'{self.counter:012x}'
+        value=dict(run_id=identifier,test_id=test_id,identity=copy.deepcopy(self.identity),
+            phase='completed',status=status,started_at=f'{self.counter:08d}',hardware_acceptance=False,
+            message='synthetic '+test_id,stop_required=False,test_version=1,
+            commands=[dict(returncode=0,signal=None,timed_out=False,interrupted=False,output_limited=False)])
+        if test_id=='cpu.compute':value.update(parameters={'seconds':2},evidence={
+            'digest':'3951d9a412ce4c815eada76de213f560647cd60d4c37896cbcdcb899b645f197','iterations':2})
+        if test_id=='memory.pattern':value.update(parameters={'memory_mib':32},evidence={'verified_mib':32,'patterns':[0,85,170,255]})
+        value.update(fields);self.records[identifier]=value
+        return value
+
+    def rpc(self,action,params):
+        self.calls.append((action,copy.deepcopy(params)))
+        if action=='state':return {'identity':copy.deepcopy(self.identity),'jobs':[],
+            'tests':[{'id':key,'version':1}for key in ('cpu.compute','memory.pattern')]}
+        if action=='results.list':return [dict(run_id=value['run_id'],test_id=value['test_id'],
+            status=value['status'],phase=value['phase'],boot_id=value['identity']['boot_id'],
+            started_at=value['started_at'],stop_required=value.get('stop_required'))
+            for value in sorted(self.records.values(),key=lambda value:value['started_at'],reverse=True)]
+        if action=='job.get':return self.jobs[params['id']]
+        if action=='test.run':
+            key=params['test_id'];kind=next(step['kind']for step in self.plan['smoke']['steps']if step['id']==key)
+            value=self.record(key,'INCONCLUSIVE'if kind=='observation'or key=='audio.44100'else'PASS')
+            if key==self.failure:value.update(status='FAIL',message='synthetic oracle failure')
+            if key==self.stop:value.update(status='INCONCLUSIVE',stop_required=True)
+            if key=='uvd.avc':value['stop_required']=True
+            if key=='audio.44100':value['observation_required']='audible-correct-pitch-and-duration'
+        elif action=='uvd.scenario':value=self.record(Q.TERMINAL_SCENARIOS[params['scenario']]['test_id'],stop_required=True)
+        elif action=='graphics.wayland':value=self.record('wayland.native')
+        elif action=='graphics.launch':
+            app=params['app'];batch=self.record('browser.batch',automatic=True,browser_app=app,
+                closed=self.browser_closed,expected_count=5,completed_count=5)
+            batch['run_ids']=[]
+            for key in ('browser.capabilities','browser.canvas2d','browser.webgl','browser.animation','browser.video'):
+                child=self.record(key,batch_id=batch['run_id'],renderer={'classification':self.renderer})
+                batch['run_ids'].append(child['run_id'])
+            value={'status':'INCONCLUSIVE','automatic_suite':True,'app':app}
+        else:raise AssertionError('Unexpected action '+action)
+        identifier=f'{len(self.jobs)+1:032x}'
+        self.jobs[identifier]={'id':identifier,'state':'completed','result':value}
+        return {'id':identifier,'state':'running'}
+
+    def run_smoke(self,**options):
+        return Q.run_smoke(self.plan,self.rpc,lambda run_id:copy.deepcopy(self.records[run_id]),
+            provider_check=lambda _:None,save=lambda report:self.saves.append(copy.deepcopy(report)),
+            clock=lambda:self.now,sleep=self.tick,**options)
+
+    def step(self,report,key):return next(value for value in report['steps']if value['id']==key)
+
+    def test_full_typed_sequence_has_shared_foundations_wayland_and_single_uvd_last(self):
+        report=self.run_smoke(https_url='https://example.com/fixture')
+        mutations=[(action,params.get('test_id',params.get('app',params.get('scenario','wayland'))))for action,params in self.calls
+                   if action in ('test.run','graphics.launch','graphics.wayland','uvd.scenario')]
+        self.assertEqual(mutations[:2],[('test.run','cpu.compute'),('test.run','memory.pattern')])
+        self.assertEqual(mutations[-1],('uvd.scenario','canonical-120'))
+        self.assertEqual(sum(action=='uvd.scenario'for action,_ in mutations),1)
+        self.assertEqual(sum(key=='cpu.compute'for _,key in mutations),1)
+        self.assertLess(mutations.index(('graphics.launch','chromium')),mutations.index(('graphics.wayland','wayland')))
+        self.assertEqual(self.step(report,'inventory.readonly')['status'],'INCONCLUSIVE')
+        self.assertEqual(self.step(report,'audio.44100')['status'],'INCONCLUSIVE')
+        self.assertEqual(self.step(report,'browser.firefox')['webgl_renderer'],'software')
+        self.assertFalse(self.step(report,'browser.firefox')['video_hardware_decode_proven'])
+        self.assertIn('no hardware/UVD acceptance',self.step(report,'browser.firefox')['message'])
+        self.assertEqual(len(report['coverage']),45)
+        self.assertTrue(all(value['qualification_status']=='NOT_EVALUATED'for value in report['coverage']))
+        self.assertFalse(report['hardware_acceptance']);self.assertFalse(report['stability_claim'])
+        self.assertEqual(report['status'],'INCONCLUSIVE')
+        self.assertGreater(len(self.saves),16)
+        self.assertFalse(any(action.startswith(('network.','ssh.'))or params.get('test_id','').startswith('power.')
+                             for action,params in self.calls))
+
+    def test_matching_core_receipts_are_reused_and_failed_or_stale_core_never_retries(self):
+        for key in ('cpu.compute','memory.pattern'):self.record(key)
+        report=self.run_smoke()
+        self.assertTrue(self.step(report,'cpu.compute')['reused']);self.assertTrue(self.step(report,'memory.pattern')['reused'])
+        self.assertFalse(any(action=='test.run'and params['test_id']in('cpu.compute','memory.pattern')for action,params in self.calls))
+        self.calls.clear();self.records.clear();self.jobs.clear()
+        self.record('cpu.compute',status='FAIL')
+        report=self.run_smoke()
+        self.assertEqual(self.step(report,'cpu.compute')['status'],'BLOCKED')
+        self.assertFalse(any(action in ('test.run','graphics.launch','graphics.wayland')for action,_ in self.calls))
+        self.calls.clear();self.records.clear()
+        stale=self.record('cpu.compute');stale['identity']['runner_sha256']='e'*64
+        report=self.run_smoke()
+        self.assertFalse(any(action=='test.run'for action,_ in self.calls))
+
+    def test_fresh_cpu_oracle_failure_and_later_stop_latch_halt_all_downstream_actions(self):
+        self.failure='cpu.compute'
+        report=self.run_smoke()
+        self.assertEqual(self.step(report,'cpu.compute')['status'],'FAIL')
+        self.assertEqual([params['test_id']for action,params in self.calls if action=='test.run'],['cpu.compute'])
+        self.assertEqual(report['status'],'FAIL')
+        self.calls.clear();self.records.clear();self.jobs.clear();self.failure=None;self.stop='gpu.opengl.render'
+        report=self.run_smoke()
+        self.assertEqual(self.step(report,'gpu.vulkan.render')['status'],'BLOCKED')
+        self.assertFalse(any(action in ('graphics.launch','uvd.scenario')for action,params in self.calls))
+
+    def test_core_cache_cannot_substitute_another_test_or_unknown_catalogue_version(self):
+        cpu=self.record('cpu.compute');memory=self.record('memory.pattern')
+        report=Q.run_smoke(self.plan,self.rpc,lambda _:copy.deepcopy(memory),provider_check=lambda _:None,
+            clock=lambda:self.now,sleep=self.tick)
+        self.assertEqual(self.step(report,'cpu.compute')['status'],'BLOCKED')
+        self.assertFalse(any(action in ('test.run','graphics.launch','graphics.wayland')for action,_ in self.calls))
+        self.assertFalse(Q.foundation_pass(cpu,self.identity,{'cpu.compute':None}))
+        self.assertFalse(Q.foundation_pass(dict(cpu,test_version=True),self.identity,{'cpu.compute':True}))
+
+    def test_existing_uvd_intent_or_missing_ordinary_runtime_never_reopens_or_claims_failure(self):
+        self.record('uvd.avc',stop_required=True)
+        report=self.run_smoke()
+        self.assertFalse(any(action=='test.run'for action,_ in self.calls))
+        self.records.clear();self.calls.clear();self.identity['declared_artifacts']['uvd_runtime']=False
+        report=self.run_smoke()
+        self.assertEqual(self.step(report,'uvd.avc')['status'],'UNSUPPORTED')
+        self.assertFalse(any(action=='uvd.scenario'for action,_ in self.calls))
+        self.assertEqual(self.step(report,'ethernet.https')['status'],'NOT_RUN')
+
+    def test_missing_provider_is_explicit_and_unclosed_browser_blocks_wayland_and_uvd(self):
+        report=Q.run_smoke(self.plan,self.rpc,lambda key:copy.deepcopy(self.records[key]),
+            provider_check=lambda _:'Chromium provider bound to native3/root2c, not current alpha4',
+            clock=lambda:self.now,sleep=self.tick)
+        self.assertEqual(self.step(report,'browser.chromium')['status'],'BLOCKED')
+        self.assertFalse(any(action=='graphics.launch'and params['app']=='chromium'for action,params in self.calls))
+        self.records.clear();self.calls.clear();self.jobs.clear();self.browser_closed=False
+        report=self.run_smoke()
+        self.assertEqual(self.step(report,'browser.firefox')['status'],'BLOCKED')
+        self.assertFalse(any(action in ('graphics.wayland','uvd.scenario')for action,params in self.calls))
+
+    def test_completed_batch_waits_for_durable_service_closure_without_relaunch(self):
+        reads={}
+        def saved(key):
+            value=copy.deepcopy(self.records[key])
+            if value['test_id']=='browser.batch':
+                reads[key]=reads.get(key,0)+1
+                if reads[key]<3:value['closed']=False
+            return value
+        report=Q.run_smoke(self.plan,self.rpc,saved,provider_check=lambda _:None,
+            clock=lambda:self.now,sleep=self.tick)
+        self.assertEqual(self.step(report,'browser.firefox')['status'],'PASS')
+        self.assertEqual(self.step(report,'browser.chromium')['status'],'PASS')
+        self.assertEqual(sorted(reads.values()),[3,3])
+        self.assertEqual([params['app']for action,params in self.calls if action=='graphics.launch'],['browser','chromium'])
+        self.assertGreaterEqual(self.now,1)
+        self.assertTrue(any(action=='graphics.wayland'for action,_ in self.calls))
+
+    def test_closure_wait_still_stops_immediately_on_save_identity_or_close_error(self):
+        for fault in ('usb','identity','close-error'):
+            self.calls.clear();self.records.clear();self.jobs.clear();self.now=0
+            def saved(key):
+                value=copy.deepcopy(self.records[key])
+                if value['test_id']=='browser.batch':
+                    value['closed']=False
+                    if fault=='usb':value['usb_save_failed']=True
+                    elif fault=='identity':value['identity']['manifest_sha256']='e'*64
+                    else:value['close_error']='Service stop did not complete'
+                return value
+            report=Q.run_smoke(self.plan,self.rpc,saved,provider_check=lambda _:None,
+                clock=lambda:self.now,sleep=self.tick)
+            with self.subTest(fault=fault):
+                self.assertEqual(self.step(report,'browser.firefox')['status'],'BLOCKED')
+                self.assertEqual(self.now,0)
+                self.assertFalse(any(action in ('graphics.wayland','uvd.scenario')for action,_ in self.calls))
+
+    def test_deadline_preserves_inflight_job_without_cancel_reset_or_retry(self):
+        rpc=self.rpc
+        def pending(action,params):
+            value=rpc(action,params)
+            if action=='job.get':return dict(value,state='running')
+            return value
+        report=Q.run_smoke(self.plan,pending,lambda key:self.records[key],provider_check=lambda _:None,
+                           clock=lambda:self.now,sleep=self.tick)
+        self.assertIn('may still be active',report['halt_reason'])
+        self.assertEqual(sum(action=='test.run'for action,_ in self.calls),1)
+        self.assertEqual(self.step(report,'uvd.avc')['status'],'BLOCKED')
+
+    def test_browser_requires_auto_grant_and_five_saved_matching_reports_before_continuing(self):
+        original=self.rpc
+        for fault in ('manual','missing-child','foreign-child'):
+            self.calls.clear();self.records.clear();self.jobs.clear()
+            def broken(action,params):
+                value=original(action,params)
+                if action=='graphics.launch':
+                    if fault=='manual':self.jobs[value['id']]['result']['automatic_suite']=False
+                    else:
+                        batch=next(item for item in self.records.values()if item['test_id']=='browser.batch')
+                        if fault=='missing-child':batch['run_ids'].pop()
+                        else:self.records[batch['run_ids'][-1]]['identity']['boot_id']='another-boot'
+                return value
+            report=Q.run_smoke(self.plan,broken,lambda key:copy.deepcopy(self.records[key]),provider_check=lambda _:None,
+                clock=lambda:self.now,sleep=self.tick)
+            with self.subTest(fault=fault):
+                self.assertEqual(self.step(report,'browser.firefox')['status'],'BLOCKED')
+                self.assertFalse(any(action in ('graphics.wayland','uvd.scenario')for action,params in self.calls))
+
+    def test_native_terminal_selection_replaces_canonical_and_runs_exactly_once(self):
+        for scenario in ('native720-900','native1080-900'):
+            self.records.clear();self.calls.clear();self.jobs.clear()
+            report=self.run_smoke(terminal_scenario=scenario)
+            selected=[params for action,params in self.calls if action=='uvd.scenario']
+            self.assertEqual(selected,[{'scenario':scenario}])
+            self.assertFalse(any(action=='test.run'and params.get('test_id')=='uvd.avc'for action,params in self.calls))
+            self.assertEqual(report['terminal_scenario'],scenario)
+            self.assertEqual(report['steps'][-1]['timeout_seconds'],240)
+            self.assertEqual(len(report['steps']),16)
+            self.assertEqual([r['scenario']for r in report['terminal_options']if r['selected']],[scenario])
+            self.assertTrue(all(r['status']=='NOT_RUN'for r in report['terminal_options']if not r['selected']))
+
+    def test_wrong_terminal_result_never_counts_as_selected_scenario_pass(self):
+        original=self.rpc
+        def wrong(action,params):
+            value=original(action,params)
+            if action=='uvd.scenario':self.jobs[value['id']]['result']['test_id']='uvd.avc'
+            return value
+        report=Q.run_smoke(self.plan,wrong,lambda key:copy.deepcopy(self.records[key]),
+            provider_check=lambda _:None,clock=lambda:self.now,sleep=self.tick,terminal_scenario='native720-900')
+        self.assertEqual(self.step(report,'uvd.avc')['status'],'BLOCKED')
+        self.assertIn('selected fixed scenario',report['halt_reason'])
+        self.assertEqual(sum(action=='uvd.scenario'for action,_ in self.calls),1)
+
+    def test_selected_terminal_plan_is_inert_and_unknown_scenario_refused(self):
+        output=io.StringIO()
+        with mock.patch.object(Q,'ControllerIPC',side_effect=AssertionError('socket opened')),contextlib.redirect_stdout(output):
+            self.assertEqual(Q.main(['--smoke','--terminal-scenario','native1080-900','--json']),0)
+        report=json.loads(output.getvalue())
+        self.assertEqual(report['terminal_scenario'],'native1080-900')
+        self.assertEqual(report['steps'][-1]['parameters'],{'scenario':'native1080-900'})
+        with self.assertRaisesRegex(ValueError,'fixed terminal'):
+            self.run_smoke(terminal_scenario='power.off')
+        self.assertEqual(self.calls,[])
+
+    def test_smoke_plan_cli_is_inert_and_schema_forbids_reordered_or_arbitrary_actions(self):
+        output=io.StringIO()
+        with mock.patch.object(Q,'ControllerIPC',side_effect=AssertionError('socket opened')),contextlib.redirect_stdout(output):
+            self.assertEqual(Q.main(['--smoke','--json']),0)
+        self.assertEqual(json.loads(output.getvalue())['phase'],'plan')
+        for kind in ('order','power','browser-kind'):
+            plan=copy.deepcopy(self.plan)
+            if kind=='order':plan['smoke']['steps'].reverse()
+            elif kind=='power':plan['smoke']['steps'][0]['parameters']['test_id']='power.off'
+            else:plan['smoke']['steps'][11]['kind']='functional'
+            with self.subTest(kind=kind),self.assertRaises(ValueError):Q.validate(plan)
+
+    def test_private_output_is_exclusive_bounded_and_fsynced_with_complete_coverage(self):
+        with tempfile.TemporaryDirectory(dir='/var/tmp')as directory:
+            path=Path(directory)/'smoke.json';writer=Q.SmokeWriter(path)
+            report=self.run_smoke();writer(report)
+            self.assertEqual(json.loads(path.read_text())['run_id'],report['run_id'])
+            self.assertEqual(path.stat().st_mode&0o777,0o600)
+            with self.assertRaises(FileExistsError):Q.SmokeWriter(path)
+            self.assertEqual(len(list(Path(directory).iterdir())),1)
+
+
 if __name__=='__main__':unittest.main()

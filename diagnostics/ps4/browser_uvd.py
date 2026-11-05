@@ -57,6 +57,26 @@ RUNTIME_BOOT = {'profile':'ps4-baikal-diagnostics-uvd-alpha3', 'rootfs_sha256':R
                 'config_sha256':'51c008bb764dc1cbcc7fb81bf8c164ee23447feb5844c596c53e040bb49df4df',
                 'modules_sha256':'a900cf6e72dafbcf5b520c5b83471d6f78ad75eba644178541ad441fce62aef0',
                 'mesa_manifest_sha256':MESA_SHA}
+ALPHA4_BOOT = {
+    'profile':'ps4-baikal-diagnostics-uvd-alpha4',
+    'rootfs_sha256':'51e10b3de0d8a4f1645654b8c686635305f2de25e3cf2782a922d172d85e2197',
+    'kernel_release':'7.2.11-psx-ps4-baikal-uvd-runtime-dev3',
+    'kernel_sha256':'01fa05f683c4c36ae83678f09cf3df502ddb0731dc73f2530cdb05fbe317804d',
+    'config_sha256':'e4ae5561870aa34c9eafad0dcb9de3eaf77c4a8248237134d7dfcd0e76aa93fe',
+    'modules_sha256':'603a4b9453fba5462c702102afab335a857d01d707cf945f7a8809ec5640396c',
+    'mesa_manifest_sha256':MESA_SHA}
+BOOT_CONTRACTS = {value['profile']: value for value in (RUNTIME_BOOT, ALPHA4_BOOT)}
+
+
+def boot_contract(manifest):
+    expected = BOOT_CONTRACTS.get(manifest.get('profile')) if isinstance(manifest, dict) else None
+    require(expected is not None and all(manifest.get(key) == value for key, value in expected.items())
+            and isinstance(manifest.get('manifest_validation'), dict)
+            and manifest['manifest_validation'].get('embedded_root_contract_verified') is True,
+            'Browser UVD requires an exact verified frozen alpha3 or alpha4 boot contract')
+    return expected
+
+
 PREFS = {
     'layers.acceleration.disabled': False, 'gfx.webrender.software': False,
     'gfx.webrender.all': True, 'media.hardware-video-decoding.enabled': True,
@@ -423,10 +443,7 @@ def prepare_egl_selection(manifest, *, root=Path('/'), owner=0, mountinfo=None):
     root/owner/mountinfo permit CPU fixtures. The live CLI has no overrides.
     This only localizes the readable selector; it is not a demonstrated fix.
     """
-    require(manifest.get('profile') == 'ps4-baikal-diagnostics-uvd-alpha3' and
-            manifest.get('rootfs_sha256') == ROOT_SHA and manifest.get('mesa_manifest_sha256') == MESA_SHA and
-            manifest.get('manifest_validation', {}).get('embedded_root_contract_verified') is True,
-            'EGL selection requires the verified frozen alpha3 boot')
+    selected = boot_contract(manifest)
     require(root.is_absolute() and root.resolve() == root, 'Unexpected fixture/live root')
     if mountinfo is None:
         with (root/'proc/self/mountinfo').open() as stream:
@@ -490,7 +507,7 @@ def prepare_egl_selection(manifest, *, root=Path('/'), owner=0, mountinfo=None):
             'created': created, 'mode': '0444', 'owner_uid': owner, 'scope': 'explicit browser process only',
             'library_path': EGL_LIBRARY, 'resolved_library': '/'+library.relative_to(root).as_posix(),
             'library_sha256': sha(data), 'mesa_manifest_sha256': MESA_SHA,
-            'boot_rootfs_sha256': ROOT_SHA, 'etc_mount_filesystem': 'tmpfs',
+            'boot_rootfs_sha256': selected['rootfs_sha256'], 'etc_mount_filesystem': 'tmpfs',
             'hypothesis': 'Make the same candidate EGL selector readable within the existing RDD broker policy; untested, not a hardware fix.'}
 
 
@@ -534,10 +551,7 @@ def prepare_runtime_storage(manifest, run_id, budget, *, root=Path('/'), owner=0
     Fixture root/owner/mount evidence allow CPU tests; the live CLI has no path,
     budget or retest overrides. Existing profiles and directories are retained.
     """
-    require(isinstance(manifest,dict) and all(manifest.get(key) == value for key,value in RUNTIME_BOOT.items())
-            and isinstance(manifest.get('manifest_validation'),dict)
-            and manifest['manifest_validation'].get('embedded_root_contract_verified') is True,
-            'Browser RAM storage requires the exact verified frozen alpha3 boot')
+    boot_contract(manifest)
     require(root.is_absolute() and root.resolve() == root
             and re.fullmatch(r'[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}',run_id), 'Invalid runtime root/run identity')
     if mountinfo is None:
@@ -765,8 +779,7 @@ def run(args, data):
             record['media_cache_limits'] = media_cache_limits(len(data['clip']))
             identity, session, paths, _, _ = uvd.preflight(runner)
             manifest = uvd.document(uvd.local(runner, runner.manifest_path), runner)
-            require(manifest['profile'] == uvd.ALPHA3['profile'] and manifest['rootfs_sha256'] == ROOT_SHA,
-                    'Only the exact corrected alpha3 root is supported')
+            boot_contract(manifest)
             history = []; batches = []
             for i, path in enumerate(RESULTS.glob('*/result.json')):
                 require(i < 4096, 'Result history bound exceeded')
@@ -913,7 +926,7 @@ def main(argv=None):
                       'low_water_free_bytes':RUNTIME_LOW_WATER,'prior_profiles_deleted':False},
                   'planned_egl_selection': {'path': str(EGL_SELECTION_PATH), 'sha256': sha(EGL_SELECTION),
                       'scope': 'explicit browser process only', 'hypothesis': 'Readable candidate selection; not an observed hardware fix'},
-                  'requires': ['current-boot CPU/RAM PASS', 'exact alpha3 contract', 'active private UART assertion',
+                  'requires': ['current-boot CPU/RAM PASS', 'exact supported frozen boot contract', 'active private UART assertion',
                                'unused immutable UVD attempt', 'existing X11 diagnostics', 'positive decoder evidence']}
     else:
         result = run(args, data)

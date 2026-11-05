@@ -35,6 +35,14 @@ from preferences import DisplayPreferences
 
 LIMIT = 1024 * 1024
 BROWSER_STEPS = ('browser.capabilities', 'browser.canvas2d', 'browser.webgl', 'browser.animation', 'browser.video')
+WAYLAND_MODES = ('browser', 'chromium', 'browser-manual', 'chromium-manual',
+                 'protondb', 'opengl', 'vulkan', 'diagnostics')
+WAYLAND_UNITS = tuple('psx-diagnostics-graphics@'+mode+'.service' for mode in WAYLAND_MODES) + tuple(
+    'psx-diagnostics-window-'+mode+'.service' for mode in WAYLAND_MODES) + ('psx-diagnostics-wayland.service',)
+DIAGNOSTICS_UNIT = 'psx-diagnostics-graphics@diagnostics.service'
+UVD_SCENARIOS = {'canonical-120': ('uvd.avc', 'Canonical 120-frame AVC reference'),
+                 'native720-900': ('uvd.native720', 'Native 720p30 900-frame AVC reference'),
+                 'native1080-900': ('uvd.native1080', 'Native 1080p30 900-frame AVC reference')}
 EXTRA_TESTS = (
     {"id": "gpu.opengl.render", "title": "OpenGL reference pixels", "area": "Graphics", "kind": "functional", "timeout_seconds": 20,
      "description": "Render a small known image with the pinned Mesa stack and verify downloaded pixels."},
@@ -306,7 +314,8 @@ class Controller:
     def results(self):
         records = {record["run_id"]: record for record in self.runner.results()}
         extra = {test["id"] for test in EXTRA_TESTS} | {
-            "browser.canvas2d", "browser.webgl", "browser.animation", "browser.capabilities", "browser.video", "browser.batch"}
+            "browser.canvas2d", "browser.webgl", "browser.animation", "browser.capabilities", "browser.video", "browser.batch", "wayland.native",
+            "uvd.native720", "uvd.native1080"}
         if self.results_dir.exists():
             for path in sorted(self.results_dir.glob("*/result.json"), reverse=True)[:200]:
                 try:
@@ -485,6 +494,200 @@ class Controller:
                           status="PASS" if passed else "INCONCLUSIVE", stop_required=not passed,
                           message="Reference pixels matched; inspect the renderer in the report." if passed else "Graphics test stopped; inspect the report before further GPU actions.")
             diagnostics.atomic_json(directory / "result.json", record)
+            return record
+
+    def _wayland_states(self):
+        result = self.runner.command(['/usr/bin/systemctl', 'show', '--property=Id,LoadState,ActiveState',
+                                      *WAYLAND_UNITS], 10)
+        if result.returncode not in (0, 1) or result.timed_out or result.interrupted or result.output_limited:
+            raise ValueError('Graphics service state could not be verified')
+        records = {}
+        for block in result.stdout.strip().split('\n\n'):
+            fields = dict(line.split('=', 1) for line in block.splitlines() if '=' in line)
+            name = fields.get('Id')
+            if (name not in WAYLAND_UNITS or name in records or fields.get('LoadState') not in ('loaded', 'not-found')
+                    or fields.get('ActiveState') not in ('active', 'inactive')
+                    or fields.get('LoadState') == 'not-found' and fields.get('ActiveState') != 'inactive'):
+                raise ValueError('A graphics service is failed, transitioning or unidentified')
+            records[name] = fields['ActiveState']
+        if set(records) != set(WAYLAND_UNITS):
+            raise ValueError('Incomplete graphics service inventory')
+        return records
+
+    def uvd_scenario(self, scenario):
+        """One selected terminal scenario, inside a saved job and shared intent."""
+        if not isinstance(scenario, str) or scenario not in UVD_SCENARIOS:
+            raise ValueError('Unknown fixed UVD scenario')
+        identity = self.ready()
+        test_id, title = UVD_SCENARIOS[scenario]
+        enabled = identity.get('declared_artifacts', {}).get('uvd_runtime') is True
+        if enabled:
+            blocked = self.core_prerequisites(test_id)
+            if blocked: return blocked
+        run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
+        directory = self.results_dir / run_id
+        with self.runner.lock():
+            directory.mkdir(mode=0o700)
+            diagnostics.fsync_directory(self.results_dir)
+            record = {'schema_version': 1, 'run_id': run_id, 'test_id': test_id, 'title': title,
+                'parameters': {'scenario': scenario}, 'identity': identity, 'phase': 'running',
+                'status': 'INCONCLUSIVE', 'started_at': diagnostics.timestamp(),
+                'stop_required': False, 'hardware_acceptance': False, 'result_directory': str(directory),
+                'message': 'Selected terminal UVD scenario is pending'}
+            diagnostics.atomic_json(directory / 'result.json', record)
+            self.runner.log = diagnostics.Evidence(directory, self.jobs.event)
+            self.runner.commands = []
+            self.runner.log.event('run_started', test_id=test_id, parameters=record['parameters'])
+            invoked = False
+            try:
+                if not enabled:
+                    value = {'status': 'UNSUPPORTED', 'message': 'Ordinary UVD flag is false; no decoder was opened or failed.'}
+                else:
+                    path = HERE / 'uvd_suite.py'
+                    if not path.is_file(): path = self.runner.fs.local('/opt/psx-diagnostics/uvd_suite.py')
+                    if not path.is_file():
+                        value = {'status': 'BLOCKED', 'message': 'The fixed UVD scenario module is not installed; no decoder was opened.'}
+                    else:
+                        spec = importlib.util.spec_from_file_location('psx_uvd_terminal_suite', path)
+                        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                        invoked = True
+                        value = module.run(self.runner, scenario)
+                if (not isinstance(value, dict) or value.get('status') not in diagnostics.STATUSES
+                        or value.get('status') == 'PASS' and value.get('stop_required') is not True):
+                    raise ValueError('UVD scenario did not return a valid terminal receipt')
+                if self.runner.identity() != identity:
+                    raise ValueError('Boot/artifact identity changed during the UVD scenario')
+                record.update({key: value[key] for key in ('status', 'message', 'evidence', 'stop_required', 'scenario') if key in value})
+            except (OSError, ValueError, ImportError, KeyError, TypeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
+                record.update(status='INCONCLUSIVE' if invoked else 'BLOCKED', stop_required=invoked,
+                    message='UVD scenario stopped: ' + (safe_error(error) or type(error).__name__))
+            record.update(phase='completed', completed_at=diagnostics.timestamp(), commands=self.runner.commands)
+            self.runner.log.event('run_completed', status=record['status'], message=record['message'])
+            diagnostics.atomic_json(directory / 'result.json', record)
+            return record
+
+    def _wayland_read(self, logical, maximum):
+        path = self.runner.fs.root / str(logical).lstrip('/')
+        info = path.lstat()
+        owner = os.geteuid() if self.runner.fs.fixture else 0
+        if (path.resolve() != path or not stat.S_ISREG(info.st_mode) or info.st_uid != owner
+                or info.st_mode & 0o022 or info.st_size > maximum):
+            raise ValueError('Wayland input/evidence is not a protected bounded file')
+        raw = path.read_bytes()
+        if len(raw) != info.st_size: raise ValueError('Wayland file changed while reading')
+        return raw
+
+    def wayland_test(self):
+        identity = self.ready()
+        blocked = self.core_prerequisites('wayland.native')
+        if blocked: return blocked
+        run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
+        native_id = uuid.uuid4().hex
+        directory = self.results_dir / run_id
+        with self.runner.lock():
+            directory.mkdir(mode=0o700)
+            record = {'schema_version': 1, 'run_id': run_id, 'test_id': 'wayland.native',
+                      'title': 'Native Wayland reference pixels', 'phase': 'running', 'status': 'INCONCLUSIVE',
+                      'identity': identity, 'started_at': diagnostics.timestamp(), 'stop_required': False,
+                      'hardware_acceptance': False, 'result_directory': str(directory), 'native_run_id': native_id,
+                      'message': 'Checking the fixed native Wayland provider and display handoff'}
+            diagnostics.atomic_json(directory / 'result.json', record)
+            self.runner.log = diagnostics.Evidence(directory, self.jobs.event)
+            self.runner.commands = []
+            stopped = stop_completed = launched = False
+            restore = False
+            def checked(argv, timeout):
+                result = self.runner.command(argv, timeout)
+                if result.returncode or result.timed_out or result.interrupted or result.output_limited:
+                    raise ValueError('Bounded Wayland service/setup command did not complete')
+                return result
+            try:
+                if self.runner.fs.fixture and self.runner.executor is None:
+                    raise ValueError('Fixture roots cannot start Wayland display sessions')
+                manifest = decode(self._wayland_read(self.runner.manifest_path, 1024**2))
+                provider = manifest.get('alpha_derivation', {}).get('wayland_suite', {})
+                archive = '/usr/share/psx-diagnostics/wayland/psx-wayland-suite.tar.gz'
+                expected = provider.get('sha256')
+                if (provider.get('path') != archive or not isinstance(expected, str)
+                        or not re.fullmatch(r'[0-9a-f]{64}', expected)
+                        or manifest.get('manifest_validation', {}).get('embedded_root_contract_verified') is not True):
+                    raise ValueError('This boot has no verified fixed native Wayland provider')
+                raw = self._wayland_read(archive, 2*1024**2)
+                if hashlib.sha256(raw).hexdigest() != expected:
+                    raise ValueError('Wayland archive differs from the boot contract')
+                helper = '/usr/lib/psx-diagnostics/launch-wayland'
+                helper_raw = self._wayland_read(helper, 128*1024)
+                record['provider'] = {'archive_sha256': expected, 'launcher_sha256': hashlib.sha256(helper_raw).hexdigest()}
+                base = ['/usr/bin/python3', helper, '--suite', archive, '--expected-sha256', expected, '--run-id', native_id]
+                states = self._wayland_states()
+                if any(value != 'inactive' for name, value in states.items() if name != DIAGNOSTICS_UNIT):
+                    raise ValueError('Close all browser/graphics windows before native Wayland')
+                restore = states[DIAGNOSTICS_UNIT] == 'active'
+                if restore:
+                    stopped = True  # An interrupted stop is also a display handoff.
+                    checked(['/usr/bin/systemctl', 'stop', DIAGNOSTICS_UNIT], 15)
+                    stop_completed = True
+                if any(value != 'inactive' for value in self._wayland_states().values()):
+                    raise ValueError('Xorg did not release the display for native Wayland')
+                # This invocation validates only files/services/Mesa identity.
+                checked(base, 25)
+                if self.runner.identity() != identity: raise ValueError('Boot identity changed before Wayland')
+                diagnostics.atomic_json(directory / 'result.json', dict(record, message='Native Wayland attempt starting'))
+                launched = True
+                command = self.runner.command(base + ['--apply'], 65)
+                native_path = '/run/psx-wayland/runs/' + native_id
+                artifacts = {}
+                for name in ('result.json', 'client.jsonl', 'compositor.log'):
+                    data = self._wayland_read(native_path + '/' + name, 1024**2)
+                    destination = directory / ('wayland-' + name)
+                    with destination.open('xb') as saved:
+                        saved.write(data); saved.flush(); os.fsync(saved.fileno())
+                    artifacts[name] = {'sha256': hashlib.sha256(data).hexdigest(), 'bytes': len(data)}
+                native = decode((directory / 'wayland-result.json').read_bytes())
+                client = native.get('client') if isinstance(native, dict) else None
+                if (not isinstance(native, dict) or native.get('run_id') != native_id
+                        or native.get('boot_id') != identity['boot_id'] or native.get('kernel_release') != identity['kernel_release']):
+                    raise ValueError('Wayland result does not belong to this boot and run')
+                record.update(native_report=native, artifacts=artifacts)
+                renderer = client.get('renderer') if isinstance(client, dict) else None
+                passed = (command.returncode == 0 and not (command.timed_out or command.interrupted or command.output_limited)
+                          and native.get('phase') == 'completed' and native.get('status') == 'PASS'
+                          and native.get('stop_required') is False and native.get('returncode') == 0
+                          and native.get('native_wayland') is True and native.get('nested') is False
+                          and native.get('backend') == 'drm' and isinstance(client, dict) and client.get('status') == 'PASS'
+                          and client.get('native_wayland') is True and client.get('known_pixels') is True
+                          and client.get('frames') == 3 and isinstance(renderer, str) and renderer.strip()
+                          and not any(word in renderer.lower() for word in ('llvmpipe', 'softpipe', 'software', 'swrast', 'lavapipe', 'swiftshader')))
+                if not passed: raise ValueError('Native Wayland did not establish a complete hardware pixel PASS')
+                if self.runner.identity() != identity: raise ValueError('Boot identity changed during Wayland')
+                diagnostics.fsync_directory(directory)
+                if any(value != 'inactive' for value in self._wayland_states().values()):
+                    raise ValueError('A native/display service remains active after the test')
+                if restore:
+                    checked(['/usr/bin/systemctl', 'start', DIAGNOSTICS_UNIT], 15)
+                    states = self._wayland_states()
+                    if states[DIAGNOSTICS_UNIT] != 'active': raise ValueError('Diagnostics display did not return')
+                record.update(status='PASS', message='Three native Wayland frames matched reference pixels; endurance and input qualification remain separate.')
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
+                record.update(status='INCONCLUSIVE' if launched or stopped else 'BLOCKED',
+                              stop_required=bool(launched or stopped), message=safe_error(error) or 'Wayland action was interrupted')
+                # A failed/uncertain active test never automatically opens Xorg.
+                record['diagnostics_display_restored'] = False
+                if restore and stop_completed and not launched:
+                    try:
+                        if self.runner.identity() != identity or any(v != 'inactive' for v in self._wayland_states().values()):
+                            raise ValueError('Display/boot state changed during data-only preflight')
+                        checked(['/usr/bin/systemctl', 'start', DIAGNOSTICS_UNIT], 15)
+                        if self._wayland_states()[DIAGNOSTICS_UNIT] != 'active':
+                            raise ValueError('Diagnostics display did not return')
+                        record.update(status='BLOCKED', stop_required=False, diagnostics_display_restored=True)
+                    except (OSError, ValueError, subprocess.SubprocessError):
+                        record.update(status='INCONCLUSIVE', stop_required=True,
+                                      message=record['message']+'; diagnostics display restoration was not verified')
+            else:
+                record['diagnostics_display_restored'] = restore
+            record.update(phase='completed', completed_at=diagnostics.timestamp(), commands=self.runner.commands)
+            diagnostics.atomic_json(directory / 'result.json', record)
             return record
 
     def launch_graphics(self, app):
@@ -729,7 +932,7 @@ class Controller:
                    "test.run": {"test_id", "parameters", "retry_reason"}, "network.scan": set(),
                    "network.wifi.connect": {"ssid", "password"}, "network.ethernet.connect": set(),
                    "network.wifi.disconnect": set(), "network.ethernet.disconnect": set(),
-                   "graphics.launch": {"app"}, "result.observe": {"run_id", "answer"},
+                   "graphics.launch": {"app"}, "graphics.wayland": set(), "uvd.scenario": {"scenario"}, "result.observe": {"run_id", "answer"},
                    "settings.set": {"theme", "font_family", "font_size"},
                    "ssh.info": set(), "ssh.github.preview": {"username"}, "ssh.github.add": {"preview_id"},
                    "ssh.password.enable": set(), "ssh.password.disable": set()}
@@ -804,6 +1007,13 @@ class Controller:
             if app not in ("browser", "chromium", "browser-manual", "chromium-manual", "protondb", "opengl", "vulkan", "diagnostics"):
                 raise ValueError("Unknown graphical application")
             return self.jobs.submit("Open " + app, lambda: self.launch_graphics(app))
+        if action == 'graphics.wayland':
+            return self.jobs.submit('Native Wayland reference pixels', self.wayland_test)
+        if action == 'uvd.scenario':
+            scenario = params.get('scenario')
+            if not isinstance(scenario, str) or scenario not in UVD_SCENARIOS:
+                raise ValueError('Choose one fixed UVD scenario')
+            return self.jobs.submit(UVD_SCENARIOS[scenario][1], lambda: self.uvd_scenario(scenario))
         raise ValueError("Action not implemented")
 
     def browser_display_mode(self):

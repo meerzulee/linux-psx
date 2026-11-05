@@ -17,6 +17,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import sys
 import time
 import uuid
@@ -40,6 +41,63 @@ def verbose_uart_arguments(bootargs):
     return (' '.join(retained + ['loglevel=7', 'ignore_loglevel']) + '\n').encode()
 
 
+def power_test_sources(source, files, metadata, previous_source):
+    loader = importlib.machinery.SourceFileLoader('psx_ftp_power_derivation', str(ROOT/'prepare-ps4-diagnostix-power-test'))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    power = importlib.util.module_from_spec(spec); loader.exec_module(power)
+    old_files, old = DEPLOY.STAGE.source_files(previous_source)
+    enabled = [key+'=1' for key in power.ALPHA4_GATES]
+    disabled = [key+'=0' for key in power.ALPHA4_GATES]
+    if (old.get('profile') != 'ps4-baikal-diagnostics-uvd-alpha4' or old.get('image_version') != 'alpha4'
+            or old.get('kernel_release') != '7.2.11-psx-ps4-baikal-uvd-runtime-dev3'
+            or old.get('uvd_runtime') is not True or old.get('required_boot_arguments') != enabled
+            or metadata.get('profile') != 'ps4-baikal-diagnostix-alpha4-power-test'
+            or metadata.get('image_version') != 'alpha4-power-test' or metadata.get('uvd_runtime') is not False
+            or metadata.get('required_boot_arguments') != disabled or len(files) != 19
+            or set(files) != set(old_files)
+            or {name for name in files if files[name] != old_files[name]} != power.CHANGED):
+        raise ValueError('Power-test update requires the exact alpha4 parent and 19-file receipt-only derivative')
+    fields = {'profile', 'image_version', 'uvd_runtime', 'required_boot_arguments', 'power_test', 'initramfs_sha256'}
+    if ({key:value for key,value in old.items() if key not in fields}
+            != {key:value for key,value in metadata.items() if key not in fields}):
+        raise ValueError('Power-test update changed immutable parent metadata')
+    proof = {'base_profile':old['profile'], 'base_boot_set_sha256':old_files['psx-diagnostics/boot-set.json'],
+        'base_initramfs_sha256':old_files['initramfs.cpio.gz'], 'tool_sha256':DEPLOY.STAGE.digest(ROOT/'prepare-ps4-diagnostix-power-test'),
+        'kernel_root_frontend_unchanged':True, 'automatic_power_action':False, 'hardware_acceptance':False,
+        'required_preflight':{'observed':False, 'captured_new_boot':True,
+            'sysfs_required_values':{'/sys/module/amdgpu/parameters/'+key.split('.',1)[1]:['N','0'] for key in power.ALPHA4_GATES},
+            'uvd_runtime_and_ready_entry':'Must be absent before any separately authorized manual power experiment.'},
+        **{'base_'+key:old[key] for key in ('kernel_sha256','config_sha256','modules_sha256','rootfs_sha256')},
+        'base_frontend_manifest_sha256':pin(power.encoded(old['frontend_overrides'])),
+        'disabled_boot_arguments':disabled, 'uvd_poweroff_exception_enabled':False}
+    if metadata.get('power_test') != proof:
+        raise ValueError('Power-test derivative does not pin the exact parent and four disabled-gate preflight')
+    if (source/'bootargs.template.txt').read_bytes() != power.bootargs_disabled(
+            (previous_source/'bootargs.template.txt').read_bytes(), gates=power.ALPHA4_GATES):
+        raise ValueError('Power-test source boot arguments changed beyond four gates')
+    parser = power.load('psx_ftp_power_cpio', 'scripts/ps4-diagnostics-archive')
+    before = power.archive(previous_source/'initramfs.cpio.gz', parser)
+    after = power.archive(source/'initramfs.cpio.gz', parser)
+    receipt = 'etc/psx-diagnostics-expected.json'
+    if (set(before) != set(after) or receipt not in before
+            or any(power.archive_identity(entry) != power.archive_identity(after[name])
+                   for name,entry in before.items() if name != receipt)
+            or power.archive_identity(before[receipt])[:-1] != power.archive_identity(after[receipt])[:-1]):
+        raise ValueError('Power-test CPIO changed a member, payload or mode beyond its embedded receipt')
+    for entries, contract in ((before,old),(after,metadata)):
+        expected = dict(contract); expected.pop('initramfs_sha256')
+        if json.loads(entries[receipt].data) != expected:
+            raise ValueError('Power-test CPIO/external metadata differs')
+    return power, old_files, old
+
+
+def power_test_arguments(power, bootargs, usb_uuid):
+    identity = ('psx.diag_uuid='+usb_uuid).encode()
+    templated = re.sub(rb'(?<!\S)'+re.escape(identity)+rb'(?!\S)', b'psx.diag_uuid=@USB_UUID@', bootargs)
+    disabled = power.bootargs_disabled(templated, gates=power.ALPHA4_GATES)
+    return re.sub(rb'(?<!\S)psx\.diag_uuid=@USB_UUID@(?!\S)', lambda _:identity, disabled)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=Path, required=True)
@@ -55,16 +113,26 @@ def main():
                         help='Retain detailed kernel UART output; the frontend redirects video-console logs')
     parser.add_argument('--bootargs-only', action='store_true',
                         help='Change only verbose UART arguments above the identical installed alpha2 boot set')
+    parser.add_argument('--power-test', action='store_true', help='Publish only the verified alpha4 UVD-disabled power-test derivative')
+    parser.add_argument('--previous-source', type=Path, help='Exact complete alpha4 parent; required only with --power-test')
     parser.add_argument('--apply', action='store_true')
     args = parser.parse_args()
     if args.bootargs_only and not args.verbose_uart:
         parser.error('--bootargs-only requires --verbose-uart')
+    if args.power_test and (args.previous_source is None or args.verbose_uart or args.bootargs_only):
+        parser.error('--power-test requires --previous-source and cannot combine with UART/bootargs-only modes')
+    if args.previous_source is not None and not args.power_test:
+        parser.error('--previous-source is only valid with --power-test')
     source = args.source.resolve(strict=True)
     files, metadata = DEPLOY.STAGE.source_files(source)
     refresh = metadata.get('frontend_refresh')
     if metadata.get('root_format') != 'ext4-ro-loop' or not metadata.get('frontend_overrides'):
         raise ValueError('Source is not a pinned ext4 frontend boot set')
-    if args.bootargs_only:
+    power = old_files = old_metadata = None
+    if args.power_test:
+        args.previous_source = args.previous_source.resolve(strict=True)
+        power, old_files, old_metadata = power_test_sources(source, files, metadata, args.previous_source)
+    elif args.bootargs_only:
         if (metadata.get('profile') != 'ps4-baikal-diagnostics-uvd-alpha2'
                 or metadata.get('kernel_release') != '7.2.11-psx-ps4-baikal-uvd-runtime-dev2'
                 or metadata.get('image_version') != 'alpha2' or metadata.get('uvd_runtime') is not True
@@ -89,14 +157,21 @@ def main():
         identities = [token for token in old_bootargs.decode().split() if token.startswith('psx.diag_uuid=')]
         if identities != ['psx.diag_uuid=' + args.expect_uuid]:
             raise ValueError('Previous boot arguments do not bind the selected USB')
-        bootargs = verbose_uart_arguments(old_bootargs) if args.verbose_uart else old_bootargs
+        bootargs = (power_test_arguments(power, old_bootargs, args.expect_uuid) if args.power_test else
+                    verbose_uart_arguments(old_bootargs) if args.verbose_uart else old_bootargs)
         expected['bootargs.txt'] = pin(bootargs)
-        if (previous.get('profile') != metadata['profile'] or previous.get('kernel_release') != metadata['kernel_release']
+        parent_metadata = old_metadata if args.power_test else metadata
+        if (previous.get('profile') != parent_metadata['profile'] or previous.get('kernel_release') != parent_metadata['kernel_release']
                 or set(previous['files']) != set(expected)):
             raise ValueError('Frontend refresh must preserve the existing complete file set/profile')
+        if args.power_test and any(previous['files'].get(name) != value for name,value in old_files.items()
+                                   if name != 'bootargs.template.txt'):
+            raise ValueError('Installed ownership pins differ from the exact alpha4 previous source')
         changed = sorted(name for name in expected if previous['files'][name] != expected[name])
         if args.bootargs_only and set(changed) != {'bootargs.txt'}:
             raise ValueError('Bootargs-only update must change exactly bootargs.txt; every other payload pin must match')
+        if args.power_test and set(changed) != ALLOWED:
+            raise ValueError('Power-test update must change exactly its three small boot files')
         if set(changed) - ALLOWED:
             raise ValueError('Frontend update would change an unrelated payload file')
         total = sum((source / name).stat().st_size for name in files if name != 'bootargs.template.txt') + len(bootargs)
@@ -106,12 +181,14 @@ def main():
         if pin(previous_meta_bytes) != previous['files']['psx-diagnostics/boot-set.json']:
             raise ValueError('Existing boot metadata changed')
         previous_meta = json.loads(previous_meta_bytes)
+        if args.power_test and previous_meta != old_metadata:
+            raise ValueError('Remote boot metadata differs from the exact alpha4 parent')
         frontend_fields = {'initramfs_sha256', 'tui_sha256', 'builder_sha256',
                            'frontend_overrides', 'frontend_revision', 'frontend_theme',
                            'rootfs_tui_sha256', 'frontend_refresh'}
         if args.bootargs_only and previous_meta != metadata:
             raise ValueError('Bootargs-only update requires the exact unchanged complete boot metadata')
-        if not args.bootargs_only and any(previous_meta.get(key) != metadata.get(key)
+        if not args.bootargs_only and not args.power_test and any(previous_meta.get(key) != metadata.get(key)
                for key in (set(previous_meta) | set(metadata)) - frontend_fields):
             raise ValueError('Frontend update must retain kernel/config/modules and other root metadata pins')
         if (previous_meta.get('rootfs_sha256') != metadata['rootfs_sha256']
@@ -123,11 +200,14 @@ def main():
                 'verbose_uart': args.verbose_uart,
                 'bootargs_only': args.bootargs_only,
                 'verification_scope': 'Full SHA256 readback of changed files; unchanged files retained from previous verified USB receipt'}
+        if args.power_test:
+            plan.update(power_test=True, previous_source=str(args.previous_source), image_version=metadata['image_version'])
         print(json.dumps(plan, indent=2), flush=True)
         if not args.apply:
             return
         backup = args.backup.resolve()
-        if backup.is_relative_to(source) or source.is_relative_to(backup):
+        if (backup.is_relative_to(source) or source.is_relative_to(backup)
+                or args.power_test and (backup.is_relative_to(args.previous_source) or args.previous_source.is_relative_to(backup))):
             raise ValueError('Backup must be outside the source boot set')
         backup.mkdir(mode=0o700, parents=True, exist_ok=False)
         (backup / 'installed.json').write_bytes(raw)
@@ -183,6 +263,9 @@ def main():
                                         'bootargs_only': args.bootargs_only},
                           verification_scope=plan['verification_scope'], staged_unix=time.time(),
                           hardware_acceptance=False, backup=str(backup))
+            if args.power_test:
+                marker.update(profile=metadata['profile'], image_version=metadata['image_version'], kernel_release=metadata['kernel_release'])
+                marker['boot_logging'].update(arguments_preserved=False, other_arguments_preserved=True, power_test_gates_disabled=True)
             generated = {'installed.json': (json.dumps(marker, indent=2) + '\n').encode(),
                          'USB-SHA256SUMS': DEPLOY.STAGE.installed_sums(expected).encode()}
             for name, data in generated.items():

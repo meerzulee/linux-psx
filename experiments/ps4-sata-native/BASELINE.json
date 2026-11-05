@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev3",
+  "kernel_sha256": "01fa05f683c4c36ae83678f09cf3df502ddb0731dc73f2530cdb05fbe317804d",
+  "source_archive_sha256": "16e98003a8dad18649b62e4f42d904859215ca69d0b0e19dc48fee25d08afbb1",
+  "members": {
+    "drivers/ata/ahci.h": "92529178ccd56472ea4f8fa0b00cf3678629ac76c8b146e19a087a2d53f54dfd",
+    "drivers/ata/libahci.c": "cbc2a17918f6705073310ebc2d22dfac4ef0941f1610dfb75e87587dfd689bb6"
+  },
+  "historical_inputs": {
+    "ps4/experiments/storage/ps4-sata-completion-probe-20261022-01/patch/0001-ata-ahci-ps4-command-scoped-completion-probe.patch": "7d0f5ba77f66a78801fbd3c579af2e3c51d860903f9fe5866f67ed457642e001",
+    "ps4/experiments/storage/ps4-sata-completion-probe-20261022-02/patches/0002-ahci-completion-probe.patch": "beb26c62c630365c9d5327a4d9b409b0a3d5c8ff740ff55677f8061afbecba65"
+  },
+  "hardware_acceptance": false
+}

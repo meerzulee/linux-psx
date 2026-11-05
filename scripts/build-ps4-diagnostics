@@ -686,6 +686,9 @@ def install_modules(root, archive, profile, validator):
 
 
 def initramfs(profile, seed, busybox, firmware, root_sha, output, epoch, expected=None, frontend=None):
+    sata_policy = profile.get("sata_policy", "disabled-first-boot")
+    if sata_policy not in ("disabled-first-boot", "read-only-scoped-probe"):
+        raise ValueError("unknown early SATA protection policy")
     contract = dict(expected if expected is not None else dict(profile, rootfs_sha256=root_sha))
     facts = None
     if frontend is not None:
@@ -707,10 +710,13 @@ def initramfs(profile, seed, busybox, firmware, root_sha, output, epoch, expecte
                  f"ROOT_FORMAT='{profile.get('root_format', 'gzip-tar-unpacked-into-tmpfs')}'\n"
                  f"ROOTFS_FILENAME='{root_filename(profile)}'\n"
                  f"MTS_AUTOARM='{profile.get('mts_autoarm', 0)}'\n"
+                 f"SATA_POLICY='{sata_policy}'\n"
                  f"WRITABLE_ROOT_MIB='{profile.get('writable_root_mib', 512)}'\n"
                  f"FRONTEND_OVERRIDES='{int(frontend is not None)}'\n").encode(), 0o100644),
              "etc/psx-diagnostics-expected.json": (
                  (json.dumps(contract, sort_keys=True) + "\n").encode(), 0o100644)}
+    if sata_policy == "read-only-scoped-probe":
+        files["etc/psx-sata-readonly"] = ((REPO / "rootfs/ps4-diagnostics/sata-readonly").read_bytes(), 0o100644)
     if facts is not None:
         records = []
         for item in facts["files"]:
@@ -728,7 +734,7 @@ def initramfs(profile, seed, busybox, firmware, root_sha, output, epoch, expecte
         files[name] = (data, 0o100644)
     for applet in ("sh", "mount", "umount", "mkdir", "cat", "cp", "chmod", "losetup", "chroot", "printf", "sleep", "mdev", "blkid",
                    "sha256sum", "date", "awk", "gzip", "tar", "readlink", "uname", "switch_root",
-                   "ls", "sync", "modprobe", "ip", "udhcpc", "reboot", "poweroff", "wc"):
+                   "ls", "sync", "modprobe", "ip", "udhcpc", "reboot", "poweroff", "wc", "blockdev"):
         files.setdefault("bin/" + applet, (b"/bin/busybox", 0o120777))
     directories = {"dev", "dev/pts", "proc", "sys", "run", "newroot", "tmp"}
     for name in files:

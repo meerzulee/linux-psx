@@ -1,6 +1,7 @@
 """Synthetic FTP deployment/recovery checks; no network, mounts or devices."""
 import contextlib
 import copy
+from datetime import datetime, timedelta
 import ftplib
 import hashlib
 import importlib.machinery
@@ -59,6 +60,14 @@ class FakeFTP:
         self.corrupt_old = False
         self.denied_directories = set()
         self.disconnected = False
+        self.retrievals = []
+        self.timestamps = {name: "20261105120000" for name in self.files}
+        self.metadata_clock = 0
+        self.metadata_disabled = False
+        self.unstable_metadata = False
+        self.missing_stage_metadata = False
+        self.rename_metadata_change = None
+        self.on_retrieve = None
 
     def __enter__(self):
         return self
@@ -72,6 +81,26 @@ class FakeFTP:
 
     def login(self):
         return "230 synthetic"
+
+    def stamp(self):
+        self.metadata_clock += 1
+        return (datetime(2026, 11, 5, 12) + timedelta(seconds=self.metadata_clock)).strftime("%Y%m%d%H%M%S")
+
+    def voidcmd(self, command):
+        if command != "TYPE I": raise AssertionError("unexpected FTP command")
+        return "200 binary"
+
+    def size(self, path):
+        if self.metadata_disabled: raise ftplib.error_perm("502 SIZE unavailable")
+        return len(self.files[normal(path)])
+
+    def sendcmd(self, command):
+        if not command.startswith("MDTM "): raise AssertionError("unexpected FTP command")
+        path = normal(command[5:])
+        if self.metadata_disabled or self.missing_stage_metadata and "/new/" in path:
+            raise ftplib.error_perm("502 MDTM unavailable")
+        if self.unstable_metadata: self.timestamps[path] = self.stamp()
+        return "213 " + self.timestamps.setdefault(path, "20261105120000")
 
     def cwd(self, path):
         if self.disconnected:
@@ -89,11 +118,13 @@ class FakeFTP:
 
     def retrbinary(self, command, callback, blocksize=8192):
         path = normal(command.removeprefix("RETR "))
+        self.retrievals.append(path)
         if path not in self.files:
             raise ftplib.error_perm("550 File unavailable")
         payload = self.files[path]
         for start in range(0, len(payload), blocksize):
             callback(payload[start:start + blocksize])
+        if self.on_retrieve: self.on_retrieve(path)
         return "226 synthetic"
 
     def storbinary(self, command, stream, blocksize=8192, callback=None):
@@ -101,6 +132,7 @@ class FakeFTP:
         if str(PurePosixPath(path).parent) not in self.directories:
             raise ftplib.error_perm("550 Parent absent")
         self.mutations.append(("store", path))
+        self.timestamps[path] = self.stamp()
         if self.fail_store == path:
             self.fail_store = None
             self.files[path] = b"partial-write"
@@ -137,6 +169,10 @@ class FakeFTP:
             self.fail_rename = None
             raise OSError("injected rename failure")
         self.files[target] = self.files.pop(source)
+        self.timestamps[target] = self.timestamps.pop(source, "20261105120000")
+        if self.rename_metadata_change and self.rename_metadata_change in target:
+            self.rename_metadata_change = None
+            self.timestamps[target] = self.stamp()
         if self.corrupt_old and "/old/" in target:
             self.corrupt_old = False
             self.files[target] = b"corrupt old recovery bytes"
@@ -158,6 +194,7 @@ class FakeFTP:
         if path not in self.files:
             raise ftplib.error_perm("550 File absent")
         del self.files[path]
+        self.timestamps.pop(path, None)
 
 
 class DeploymentTests(unittest.TestCase):
@@ -419,6 +456,97 @@ class DeploymentTests(unittest.TestCase):
         self.write_source()
         with self.assertRaisesRegex(ValueError, "reserved"):
             STAGE.source_files(self.source)
+
+    def test_readback_once_hashes_every_new_stage_and_old_backup_exactly_once(self):
+        self.run_deploy(extra=("--readback-once",))
+        result = json.loads(self.receipt_path.read_text())
+        self.assertEqual(result["status"], "PASS")
+        marker = json.loads((self.backup / "backup-verified.json").read_text())
+        self.assertEqual(set(marker["remote_fingerprints"]), set(self.old))
+        for name in self.old:
+            self.assertEqual(self.ftp.retrievals.count(USB + "/" + name), 1, name)
+        new_root = "psx-diagnostics/rootfs.ext4"
+        root_reads = [name for name in self.ftp.retrievals if name.endswith("/" + new_root)]
+        self.assertEqual(len(root_reads), 1)
+        self.assertIn("/new/", root_reads[0])
+        self.assertFalse(any("/old/" in name for name in self.ftp.retrievals))
+        current = json.loads(self.ftp.files[USB + "/psx-diagnostics/installed.json"])
+        self.assertIn("SIZE/MDTM", current["readback_once"]["verified"])
+        self.assert_mutable_preserved()
+
+    def test_default_retains_full_final_readbacks_and_works_without_metadata_commands(self):
+        self.ftp.metadata_disabled = True
+        self.run_deploy()
+        self.assertEqual(sum(path.endswith("/psx-diagnostics/rootfs.ext4") for path in self.ftp.retrievals), 2)
+        self.assertTrue((self.backup / "backup-verified.json").is_file())
+        self.assertNotIn("remote_fingerprints", json.loads((self.backup / "backup-verified.json").read_text()))
+
+    def test_readback_once_missing_or_unstable_metadata_refuses_before_mutation(self):
+        for failure in ("metadata_disabled", "unstable_metadata"):
+            setattr(self.ftp, failure, True)
+            with self.subTest(failure=failure), self.assertRaisesRegex(ValueError, "SIZE|MDTM|fingerprint"):
+                self.run_deploy(extra=("--readback-once",))
+            setattr(self.ftp, failure, False)
+            self.assertFalse(self.ftp.mutations); self.assertFalse(self.backup.exists())
+        self.assert_mutable_preserved()
+
+    def test_metadata_change_during_full_backup_refuses_before_any_remote_mutation(self):
+        def changed(path):
+            if path == USB + "/bzImage": self.ftp.timestamps[path] = self.ftp.stamp()
+        self.ftp.on_retrieve = changed
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            self.run_deploy(extra=("--readback-once",))
+        self.assertFalse(self.ftp.mutations)
+        self.assertFalse((self.backup / "backup-verified.json").exists())
+
+    def test_fast_mode_still_requires_full_staged_sha_and_never_publishes_corrupt_bytes(self):
+        self.ftp.corrupt_stage = True
+        with self.assertRaisesRegex(ValueError, "staged"):
+            self.run_deploy(extra=("--readback-once",))
+        self.assertTrue(any("/new/" in name for name in self.ftp.retrievals))
+        self.assertFalse(any(operation[0] == "rename" for operation in self.ftp.mutations))
+        self.assert_old_restored()
+
+    def test_changed_rename_fingerprint_restores_the_exact_original_set(self):
+        self.ftp.rename_metadata_change = USB + "/bzImage"
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            self.run_deploy(extra=("--readback-once",))
+        self.assert_old_restored()
+        self.assertIn('"event": "rollback_verified"', (self.backup / "journal.jsonl").read_text())
+
+    def test_missing_new_metadata_aborts_staging_without_publishing(self):
+        self.ftp.missing_stage_metadata = True
+        with self.assertRaisesRegex(ValueError, "MDTM"):
+            self.run_deploy(extra=("--readback-once",))
+        self.assertFalse(any(operation[0] == "rename" for operation in self.ftp.mutations))
+        self.assert_old_restored()
+
+    def test_reused_backup_requires_verified_matching_original_fingerprints(self):
+        self.seed_verified_backup()
+        extra = ("--readback-once", "--reuse-verified-backup")
+        with self.assertRaisesRegex(ValueError, "fingerprints"): self.run_deploy(extra=extra)
+        self.assertFalse(self.ftp.mutations)
+        marker_path = self.backup / "backup-verified.json"
+        marker = json.loads(marker_path.read_text())
+        marker["remote_fingerprints"] = {name: APP.fingerprint(self.ftp, USB + "/" + name) for name in self.old}
+        marker_path.write_text(json.dumps(marker))
+        original = self.ftp.timestamps[USB + "/bzImage"]
+        self.ftp.timestamps[USB + "/bzImage"] = self.ftp.stamp()
+        with self.assertRaisesRegex(ValueError, "fingerprints"): self.run_deploy(extra=extra)
+        self.assertFalse(self.ftp.mutations)
+        self.ftp.timestamps[USB + "/bzImage"] = original
+        self.ftp.retrievals.clear()
+        self.run_deploy(extra=extra)
+        self.assertEqual(json.loads(self.receipt_path.read_text())["status"], "PASS")
+        self.assertFalse(any(USB + "/" + name in self.ftp.retrievals for name in self.old))
+        self.assert_mutable_preserved()
+
+    def test_fingerprint_rejects_malformed_server_metadata(self):
+        path = USB + "/bzImage"
+        for value in ("213 unknown", "213 20261305120000", "250 20261105120000", "213 20261105120000\r\n250 injected"):
+            with mock.patch.object(self.ftp, "sendcmd", return_value=value), self.assertRaises(ValueError): APP.fingerprint(self.ftp, path)
+        for value in (None, True, -1, 4 * 1024**3 + 1):
+            with mock.patch.object(self.ftp, "size", return_value=value), self.assertRaises(ValueError): APP.fingerprint(self.ftp, path)
 
 
 if __name__ == "__main__":

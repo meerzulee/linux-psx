@@ -1,0 +1,70 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Sourced by init before starting userspace. Never mounts or writes disk data.
+
+psx_sata_block_node() { [ -b "$1" ]; }
+
+psx_sata_arguments() {
+    sata_force=0 sata_legacy=0 sata_probe=0 sata_phy=0 sata_auto=0
+    for sata_arg in $1; do
+        case "$sata_arg" in
+            libata.force=*)
+                [ "$sata_arg" = 'libata.force=1:1.5Gbps' ] || return 2
+                sata_force=$((sata_force + 1)) ;;
+            libahci.ps4_ahci_poll_ms=*)
+                [ "$sata_arg" = 'libahci.ps4_ahci_poll_ms=0' ] || return 2
+                sata_legacy=$((sata_legacy + 1)) ;;
+            libahci.ps4_probe_ms=*|libahci.ps4_ahci_completion_probe_ms=*)
+                [ "$sata_arg" = 'libahci.ps4_probe_ms=5' ] || return 2
+                sata_probe=$((sata_probe + 1)) ;;
+            ps4_bpcie.ps4_sata_phy_orbit=*)
+                [ "$sata_arg" = 'ps4_bpcie.ps4_sata_phy_orbit=1' ] || return 2
+                sata_phy=$((sata_phy + 1)) ;;
+            systemd.gpt_auto=*)
+                [ "$sata_arg" = 'systemd.gpt_auto=0' ] || return 2
+                sata_auto=$((sata_auto + 1)) ;;
+        esac
+    done
+    [ "$sata_force:$sata_legacy:$sata_probe:$sata_phy:$sata_auto" = '1:1:1:1:1' ]
+}
+
+psx_sata_readonly() {
+    # Return 1 while no disk has appeared, 2 for a terminal protection error.
+    # Production init supplies /sys and /dev. Tests supply an isolated fake tree.
+    sata_sys=$1 sata_dev=$2
+    sata_pci=$sata_sys/bus/pci/devices/0000:00:14.7
+    [ -r "$sata_pci/vendor" ] && [ -r "$sata_pci/device" ] || return 1
+    [ "$(cat "$sata_pci/vendor")" = '0x104d' ] &&
+        [ "$(cat "$sata_pci/device")" = '0x90de' ] || return 2
+    sata_parent=$(readlink -f "$sata_pci") || return 2
+    sata_found=0
+    for sata_block in "$sata_sys"/class/block/*; do
+        [ -e "$sata_block" ] || continue
+        [ ! -r "$sata_block/partition" ] || continue
+        sata_path=$(readlink -f "$sata_block") || return 2
+        # The shared PCI function also owns USB: require its ATA ancestry.
+        case "$sata_path" in "$sata_parent"/ata[0-9]*/*/block/*) ;; *) continue ;; esac
+        case "$sata_path" in */usb*) return 2 ;; esac
+        sata_name=${sata_block##*/}
+        case "$sata_name" in sd[a-z]*) ;; *) return 2 ;; esac
+        [ "$(cat "$sata_block/removable")" = 0 ] || return 2
+        sata_size=$(cat "$sata_block/size") || return 2
+        case "$sata_size" in ''|*[!0-9]*) return 2 ;; esac
+        [ "$sata_size" -gt 0 ] || return 2
+        psx_sata_block_node "$sata_dev/$sata_name" || return 1
+        blockdev --setro "$sata_dev/$sata_name" || return 2
+        [ "$(cat "$sata_block/ro")" = 1 ] || return 2
+        # Disk read-only state protects every partition at the block layer.
+        # Set already enumerated partitions explicitly and verify them too.
+        for sata_part in "$sata_block"/*; do
+            [ -r "$sata_part/partition" ] || continue
+            sata_part_name=${sata_part##*/}
+            psx_sata_block_node "$sata_dev/$sata_part_name" || return 1
+            blockdev --setro "$sata_dev/$sata_part_name" || return 2
+            [ "$(cat "$sata_part/ro")" = 1 ] || return 2
+        done
+        printf '%s readonly=1 controller=0000:00:14.7\n' "$sata_name"
+        sata_found=$((sata_found + 1))
+    done
+    [ "$sata_found" -eq 1 ] || { [ "$sata_found" -eq 0 ] && return 1; return 2; }
+}

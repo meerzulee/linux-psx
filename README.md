@@ -40,24 +40,33 @@ console or a fresh rebuild.
 | GPU / OpenGL / display | ✅ Liverpool; OpenGL 4.6; 1080p at 60 Hz | ⏳ Untested | ⏳ Untested |
 | Mesa version | 🧪 26.2.5 dev5 isolated and installed trials have scoped passes; broad qualification remains open | ⏳ Untested | ⏳ Untested |
 | Vulkan | 🧪 26.2.5 dev5: HTILE depth oracle and 120 cube presentations passed | ⏳ Untested | ⏳ Untested |
-| UVD / H.264 decode | 🧪 UVD runtime experiments passed 1080p30; the current default hybrid boot falls back to software | ⏳ Untested | ⏳ Untested |
+| UVD / H.264 decode | 🧪 Dev4 forced-VAAPI 1080p: all 900 decoded frames matched SHA256/MD5 references; playback, profiles and lifecycle have separate scopes | ⏳ Untested | ⏳ Untested |
 | VCE / hardware encoding | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
 | Ethernet | ✅ Native `psx0`; DHCP and bidirectional traffic | ⏳ Untested | ⏳ Untested |
 | Internal storage / SATA | 🧪 Hybrid USB root + internal ext4 test image RW; 64 MiB write/read and 256 MiB direct read passed; repeat boots, stress and encryption/UFS remain unqualified | ⏳ Untested | ⏳ Untested |
 | External USB root | ✅ Read/write root booted on 7.2 | ⏳ Untested | ⏳ Untested |
 | Wi-Fi | ✅ Working on reported setups with matching external firmware; further work deferred pending specific bugs | ⏳ Untested | ⏳ Untested |
 | Bluetooth audio | ✅ Working on recorded firmware-equipped setups; further work deferred pending specific bugs | ⏳ Untested | ⏳ Untested |
-| HDMI audio | ✅ Clean 44.1 kHz; native 48 kHz remains broken | ⏳ Untested | ⏳ Untested |
+| HDMI audio | 🧪 Historical clean 44.1 kHz; dev4 playback command passed, audible check deferred; native 48 kHz remains unresolved | ⏳ Untested | ⏳ Untested |
 | Temperature monitoring | ✅ Historical `k10temp` readings on 6.18 | ⏳ Untested | ⏳ Untested |
 | Fan control | ⏳ Not qualified | ⏳ Untested | ⏳ Untested |
-| Blu-ray / optical | ⏳ Not detected; controller port and power path unknown | ⏳ Untested | ⏳ Untested |
-| Shutdown / reboot / suspend | ⏳ Not qualified; UVD recovery restrictions apply | ⏳ Untested | ⏳ Untested |
+| Blu-ray / optical | 🧪 Sony PS-SYSTEM 420R ATAPI device detected on dev4; medium reading untested | ⏳ Untested | ⏳ Untested |
+| Shutdown / reboot / suspend | 🧪 Dev4 software power-off after SATA/graphics/UVD passed; dev3 forced ICC restart to Orbis passed; clean reboot and suspend remain open | ⏳ Untested | ⏳ Untested |
 
 The current internal-SATA result is a hybrid USB-root Omarchy boot with an
 internal ext4 test image mounted read-write. The legacy AHCI timer was disabled
 and the command-scoped completion probe was active. Short write/read and direct
 read tests passed. Repeat boots, sustained/random I/O, the Sony encrypted/UFS
 stack, installation and a proper production completion path remain unqualified.
+
+The separate dev4 diagnostic kernel adds a scoped AHCI completion probe and
+boots from USB with the internal disk protected read-only. Its 500 GB Toshiba
+HDD enumerated and three 8 MiB regions matched on two direct reads each:
+48 MiB total at about 19.2 MiB/s. These observations do not extend the older
+write-test result to dev4. The same boot passed OpenGL/Vulkan reference pixels,
+hardware WebGL in Firefox and Chromium, native Wayland reference pixels and
+the 900-frame UVD oracle, then powered off through software. See the
+[captured diagnostic results](diagnostics/SESSIONS.md).
 
 A separate [contributor report](https://github.com/meerzulee/linux-psx/issues/5)
 records two internal-SSD root boots on a Baikal Slim with a custom initramfs

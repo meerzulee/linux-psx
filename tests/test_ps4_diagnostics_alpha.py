@@ -24,6 +24,78 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def alpha5(self):
+        profile=self.alpha4();old=profile['kernel_release']
+        release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha5']['kernel_release']
+        profile.update(profile='ps4-baikal-diagnostics-uvd-alpha5',image_version='alpha5',kernel_release=release,
+            sata_policy='read-only-scoped-probe',uvd_sources_unchanged_from_dev3=True,
+            boot_clock_start_timesyncd=False,required_sata_boot_arguments=list(APP.SATA_ARGS),
+            sata_probe_experiment=copy.deepcopy(APP.SATA_PROBE))
+        # Synthetic identities exercise shape/policy only, never packaging.
+        profile['alpha_inputs']['legacy_package']={name.replace(old,release):pin
+            for name,pin in profile['alpha_inputs']['legacy_package'].items()}
+        return profile
+
+    def test_alpha5_has_a_distinct_dev4_readonly_sata_contract(self):
+        profile=self.alpha5()
+        self.assertEqual(APP.validate_profile(profile)['kernel_release'],'7.2.11-psx-ps4-baikal-uvd-runtime-dev4')
+        self.assertEqual(profile['required_boot_arguments'],list(APP.UVD_POWEROFF_ARGS))
+        self.assertFalse(profile['uvd_lifecycle_sources_unchanged'])
+        for change in ({'sata_policy':'disabled-first-boot'}, {'boot_clock_start_timesyncd':True},
+                       {'uvd_sources_unchanged_from_dev3':False}, {'required_sata_boot_arguments':list(APP.UVD_POWEROFF_ARGS)}):
+            with self.subTest(change=change),self.assertRaisesRegex(ValueError,'Alpha5'):
+                APP.validate_profile(dict(profile,**change))
+        for key,value in (('probe_ms',True),('legacy_poll_ms',5),('hardware_local_port',1),
+                          ('libata_force','1:1.5Gbps,noncq'),('early_internal_disk_read_only',False),
+                          ('pci_address','0000:00:14.6'),('hardware_acceptance',True)):
+            changed=copy.deepcopy(profile);changed['sata_probe_experiment'][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'SATA scope'):
+                APP.validate_profile(changed)
+        for key in ('sata_probe_experiment','required_sata_boot_arguments','boot_clock_start_timesyncd'):
+            changed=self.alpha4();changed[key]=profile[key]
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'Historical'):
+                APP.validate_profile(changed)
+
+    def test_alpha5_keeps_historical_poweroff_delta_and_explicit_dev3_source_preservation(self):
+        profile=self.alpha5()
+        receipt={'uvd_lifecycle_sources_unchanged':False,'uvd_sources_unchanged_from_dev3':True,
+                 'uvd_poweroff_experiment':copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT)}
+        APP.validate_package_lifecycle(profile,receipt,copy.deepcopy(receipt))
+        for changes in ({'uvd_sources_unchanged_from_dev3':False}, {'uvd_sources_unchanged_from_dev3':None},
+                        {'uvd_lifecycle_sources_unchanged':True}):
+            for first in (True,False):
+                changed=dict(receipt,**changes)
+                with self.subTest(changes=changes,first=first),self.assertRaises(ValueError):
+                    APP.validate_package_lifecycle(profile,changed if first else receipt,receipt if first else changed)
+
+    def test_alpha5_pending_manifest_refuses_before_input_or_output_access(self):
+        value=self.alpha5();value.update(build_status='pending-package',kernel_sha256=None)
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
+            root=Path(temp);path=root/'pending.json';path.write_bytes(APP.encoded(value))
+            with mock.patch.object(APP,'validate_paths',side_effect=AssertionError('input access')):
+                with self.assertRaisesRegex(ValueError,'pending'):
+                    APP.prepare(root/'base',root/'package',root/'fixture',path,root/'output')
+            self.assertFalse((root/'output').exists())
+
+    def test_alpha5_args_fit_with_clock_and_keep_panic_uart_display_and_all_gates(self):
+        value=APP.alpha_bootargs(self.serial_bootargs(),poweroff_experiment=True,sata_probe=True)
+        stage=APP.load('alpha5_clock_renderer',ROOT/'scripts/stage-ps4-diagnostics-usb')
+        rendered=stage.render_bootargs(value.decode(),'FFFF-FFFF',dict(self.alpha5(),ui_backend='ratatui'),epoch=4102444799)
+        self.assertEqual(len(rendered),507)
+        tokens=rendered.decode().split()
+        for token in (*APP.SATA_ARGS,*APP.UVD_POWEROFF_ARGS,'panic=0','keep_bootcon','systemd.show_status=false','time=4102444799'):
+            self.assertEqual(tokens.count(token),1)
+        self.assertNotIn('systemd.wants=systemd-timesyncd.service',tokens)
+        self.assertNotIn('libata.force=1.00:disable',tokens)
+        self.assertNotIn('noncq',rendered.decode())
+        for extra in ('libata.force=noncq','libahci.ps4_probe_ms=1','ps4_bpcie.ps4_sata_phy_orbit=0','systemd.gpt_auto=1'):
+            with self.subTest(extra=extra),self.assertRaisesRegex(ValueError,'override'):
+                APP.alpha_bootargs(self.serial_bootargs().rstrip()+b' '+extra.encode()+b'\n',poweroff_experiment=True,sata_probe=True)
+        target,data=APP.ALPHA5_TIME_SYNC
+        self.assertEqual(target,'/etc/systemd/system/psx-diagnostics-control.service.d/time-sync.conf')
+        self.assertEqual(data,b'[Unit]\nWants=systemd-timesyncd.service\n')
+        self.assertTrue((ROOT/'rootfs/ps4-diagnostics-desktop/psx-diagnostics-control.service').is_file())
+
     def alpha4(self):
         profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
         old=profile['kernel_release'];release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha4']['kernel_release']

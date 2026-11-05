@@ -67,6 +67,19 @@ def evidence(frames=120):
 
 
 class MediaCacheLimitsTests(unittest.TestCase):
+    def test_each_frozen_browser_boot_requires_all_its_exact_artifacts(self):
+        for contract in (B.RUNTIME_BOOT, B.ALPHA4_BOOT):
+            manifest = dict(contract, manifest_validation={'embedded_root_contract_verified': True})
+            self.assertEqual(B.boot_contract(manifest), contract)
+            for key in contract:
+                with self.subTest(profile=contract['profile'], field=key), self.assertRaises(ValueError):
+                    B.boot_contract(dict(manifest, **{key: 'unreviewed'}))
+            with self.assertRaises(ValueError):
+                B.boot_contract(dict(manifest, manifest_validation={'embedded_root_contract_verified': False}))
+        with self.assertRaises(ValueError):
+            B.boot_contract(dict(B.RUNTIME_BOOT, profile=B.ALPHA4_BOOT['profile'],
+                                 manifest_validation={'embedded_root_contract_verified': True}))
+
     def test_block_rounding_and_strict_power_of_two_headroom_cover_boundary_and_26mb_clip(self):
         mib = 1024**2
         for size, expected in ((1, 8), (88796, 8), (mib, 8),
@@ -573,9 +586,10 @@ class EGLSelectionTests(unittest.TestCase):
         raw = json.dumps(receipt).encode()
         (self.mesa/'MESA-PSX-CANDIDATE.json').write_bytes(raw)
         patch = mock.patch.object(B, 'MESA_SHA', B.sha(raw)); patch.start(); self.addCleanup(patch.stop)
-        self.manifest = {'profile': 'ps4-baikal-diagnostics-uvd-alpha3', 'rootfs_sha256': B.ROOT_SHA,
-                         'mesa_manifest_sha256': B.MESA_SHA,
-                         'manifest_validation': {'embedded_root_contract_verified': True}}
+        selected = dict(B.RUNTIME_BOOT, mesa_manifest_sha256=B.MESA_SHA)
+        patch = mock.patch.dict(B.BOOT_CONTRACTS, {selected['profile']: selected})
+        patch.start(); self.addCleanup(patch.stop)
+        self.manifest = dict(selected, manifest_validation={'embedded_root_contract_verified': True})
         self.mount = '24 1 0:42 /etc /etc rw,nosuid,nodev - tmpfs tmpfs rw,size=524288k\n'
 
     def prepare(self, **changes):

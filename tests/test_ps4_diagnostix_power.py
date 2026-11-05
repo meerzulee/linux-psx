@@ -125,6 +125,104 @@ class PowerTestDerivationTests(unittest.TestCase):
         (self.source/'initramfs.cpio.gz').write_bytes(gzip.compress(b''.join(chunks)+trailer, mtime=0))
         self.publish()
 
+    def use_alpha4(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha4.json').read_text())
+        release=profile['kernel_release']
+        old=self.source/f'psx-diagnostics/modules-{APP.RELEASE}.tar.zst'
+        old.rename(self.source/f'psx-diagnostics/modules-{release}.tar.zst')
+        for name,field in [('bzImage','kernel_sha256'),('config','config_sha256'),
+                           (f'modules-{release}.tar.zst','modules_sha256')]:
+            path=self.source/('bzImage' if name=='bzImage'else 'psx-diagnostics/'+name)
+            profile[field]=APP.digest(path)
+            profile['alpha_inputs']['legacy_package'][name]={'bytes':path.stat().st_size,'sha256':profile[field]}
+        self.profile=profile
+        self.profile_path.write_bytes(APP.encoded(profile))
+        self.metadata=dict(copy.deepcopy(profile),**{key:self.metadata[key]for key in
+            ('rootfs_file','rootfs_sha256','rootfs_image_bytes','frontend_overrides')})
+        seed=APP.archive(self.source/'initramfs.cpio.gz',ARCHIVE)
+        frontend={name:seed['psx-frontend/'+name].data for name in IMAGE.FRONTEND_FILES}
+        IMAGE.initramfs(self.metadata,{},static_elf(),{'lib/firmware/amdgpu/liverpool_uvd.bin':b'synthetic unchanged firmware'},
+            self.metadata['rootfs_sha256'],self.source/'initramfs.cpio.gz',1793500000,expected=self.metadata,frontend=frontend)
+        self.arguments=self.arguments.rstrip()+b' amdgpu.ps4_uvd_poff=1\n'
+        (self.source/'bootargs.template.txt').write_bytes(self.arguments)
+        self.publish()
+
+    def test_alpha4_four_zero_gates_preserve_all_payloads_and_original_cpio_firmware_metadata(self):
+        self.use_alpha4()
+        before=self.snapshot()
+        source_files,_=STAGE.source_files(self.source)
+        source_cpio=APP.archive(self.source/'initramfs.cpio.gz',ARCHIVE)
+        result=APP.prepare(self.source,self.output,self.profile_path)
+        files,metadata=STAGE.source_files(self.output)
+        self.assertEqual(result['status'],'PASS')
+        self.assertEqual(metadata['profile'],'ps4-baikal-diagnostix-alpha4-power-test')
+        self.assertEqual(metadata['image_version'],'alpha4-power-test')
+        self.assertEqual(metadata['kernel_release'],'7.2.11-psx-ps4-baikal-uvd-runtime-dev3')
+        self.assertFalse(metadata['uvd_runtime'])
+        self.assertFalse(metadata['hardware_acceptance'])
+        disabled=[key+'=0'for key in APP.ALPHA4_GATES]
+        self.assertEqual(metadata['required_boot_arguments'],disabled)
+        expected=self.arguments
+        for key in APP.ALPHA4_GATES:expected=expected.replace((key+'=1').encode(),(key+'=0').encode())
+        self.assertEqual((self.output/'bootargs.template.txt').read_bytes(),expected)
+        self.assertEqual({name for name in files if files[name]!=source_files[name]},APP.CHANGED)
+        child=metadata['power_test']
+        self.assertEqual(child['base_boot_set_sha256'],source_files['psx-diagnostics/boot-set.json'])
+        for field in ('kernel_sha256','config_sha256','modules_sha256','rootfs_sha256'):
+            self.assertEqual(child['base_'+field],self.metadata[field])
+        self.assertEqual(child['base_frontend_manifest_sha256'],sha(APP.encoded(self.metadata['frontend_overrides'])))
+        self.assertFalse(child['uvd_poweroff_exception_enabled'])
+        self.assertFalse(child['automatic_power_action'])
+        self.assertEqual(child['disabled_boot_arguments'],disabled)
+        required=child['required_preflight']
+        self.assertFalse(required['observed'])
+        self.assertEqual(set(required['sysfs_required_values']),{
+            '/sys/module/amdgpu/parameters/'+key.split('.',1)[1]for key in APP.ALPHA4_GATES})
+        self.assertTrue(all(values==['N','0']for values in required['sysfs_required_values'].values()))
+        target_cpio=APP.archive(self.output/'initramfs.cpio.gz',ARCHIVE)
+        receipt='etc/psx-diagnostics-expected.json'
+        self.assertEqual(set(source_cpio),set(target_cpio))
+        for name,entry in source_cpio.items():
+            if name!=receipt:self.assertEqual(APP.archive_identity(entry),APP.archive_identity(target_cpio[name]),name)
+        self.assertEqual(metadata['frontend_overrides'],self.metadata['frontend_overrides'])
+        self.assertEqual(metadata['uvd_poweroff_experiment'],self.profile['uvd_poweroff_experiment'])
+        self.assertEqual(self.snapshot(),before)
+
+    def test_alpha4_plan_is_read_only_and_malformed_four_gate_source_is_refused(self):
+        self.use_alpha4()
+        before=self.snapshot()
+        with mock.patch.object(IMAGE,'initramfs',side_effect=AssertionError('plan must not write')):
+            result=APP.prepare(self.source,self.output,self.profile_path,plan=True)
+        self.assertEqual(result['profile'],'ps4-baikal-diagnostix-alpha4-power-test')
+        self.assertFalse(self.output.exists());self.assertEqual(self.snapshot(),before)
+        for arguments in (self.arguments.replace(b' amdgpu.ps4_uvd_poff=1',b''),
+                          self.arguments.replace(b'_poff=1',b'_poff=0'),
+                          self.arguments.rstrip()+b' amdgpu.ps4_uvd_poff=1\n',
+                          self.arguments.rstrip()+b' amdgpu.ps4_uvd_unknown=1\n'):
+            (self.source/'bootargs.template.txt').write_bytes(arguments);self.publish()
+            with self.subTest(arguments=arguments),self.assertRaises(ValueError):
+                APP.prepare(self.source,self.output,self.profile_path,plan=True)
+            self.assertFalse(self.output.exists())
+        with self.assertRaises(ValueError):APP.bootargs_disabled(self.arguments)
+        with self.assertRaisesRegex(ValueError,'Unknown'):
+            APP.bootargs_disabled(self.arguments,gates=APP.ALPHA4_GATES+('unreviewed',))
+
+    def test_alpha4_wrong_profile_release_or_experiment_drift_is_refused(self):
+        self.use_alpha4()
+        for changes in ({'profile':'ps4-baikal-diagnostics-uvd-alpha3'},
+                        {'kernel_release':APP.RELEASE}, {'build_status':'pending-new-kernel'},
+                        {'uvd_poweroff_experiment':dict(self.profile['uvd_poweroff_experiment'],retain_dma=False)}):
+            value=copy.deepcopy(self.profile);value.update(changes)
+            self.profile_path.write_bytes(APP.encoded(value))
+            with self.subTest(changes=changes),self.assertRaises(ValueError):
+                APP.prepare(self.source,self.output,self.profile_path)
+            self.assertFalse(self.output.exists())
+        self.profile_path.write_bytes(APP.encoded(self.profile))
+        self.metadata['uvd_poweroff_experiment']['test_value']=0;self.publish()
+        with self.assertRaisesRegex(ValueError,'uvd_poweroff_experiment'):
+            APP.prepare(self.source,self.output,self.profile_path)
+        self.assertFalse(self.output.exists())
+
     def test_real_receipts_cpio_and_every_immutable_payload_survive_derivation(self):
         before = self.snapshot()
         old_files, _ = STAGE.source_files(self.source)

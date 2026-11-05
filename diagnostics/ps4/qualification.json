@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "title": "PS4 Baikal qualification checklist — alpha proposals, not hardware results",
+  "title": "PS4 Baikal qualification checklist \u2014 alpha proposals, not hardware results",
   "target": {
     "platform": "PS4",
     "southbridge": "Baikal",
@@ -1674,5 +1674,286 @@
       },
       "requires_uvd": false
     }
-  ]
+  ],
+  "smoke": {
+    "schema_version": 1,
+    "suite_id": "diagnostix.ps4.all-available-smoke.v1",
+    "policy": "Only explicit --smoke --run submits fixed controller jobs. One foundation per boot, UVD final and once. No reset/unload/retry, connection changes or power commands.",
+    "steps": [
+      {
+        "id": "cpu.compute",
+        "title": "CPU computation",
+        "kind": "foundation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "cpu.compute",
+          "parameters": {
+            "seconds": 2
+          }
+        },
+        "checks": [
+          "cpu.bounded"
+        ],
+        "timeout_seconds": 25
+      },
+      {
+        "id": "memory.pattern",
+        "title": "Owned RAM patterns",
+        "kind": "foundation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "memory.pattern",
+          "parameters": {
+            "memory_mib": 32
+          }
+        },
+        "checks": [
+          "memory.bounded"
+        ],
+        "timeout_seconds": 40
+      },
+      {
+        "id": "inventory.readonly",
+        "title": "Hardware and thermal inventory",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "inventory.readonly",
+          "parameters": {}
+        },
+        "checks": [
+          "artifacts.identity",
+          "inventory.baseline",
+          "usb.readonly",
+          "optical.inventory",
+          "thermal.preflight"
+        ],
+        "timeout_seconds": 25
+      },
+      {
+        "id": "ethernet.status",
+        "title": "Read current Ethernet link",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "ethernet.status",
+          "parameters": {}
+        },
+        "checks": [
+          "ethernet.autoload"
+        ],
+        "timeout_seconds": 25
+      },
+      {
+        "id": "storage.inventory",
+        "title": "Read-only storage inventory",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "storage.inventory",
+          "parameters": {}
+        },
+        "checks": [
+          "sata.inventory"
+        ],
+        "timeout_seconds": 25
+      },
+      {
+        "id": "audio.info",
+        "title": "ALSA card and PCM information",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "audio.info",
+          "parameters": {}
+        },
+        "checks": [
+          "audio.output"
+        ],
+        "timeout_seconds": 20
+      },
+      {
+        "id": "ethernet.https",
+        "title": "Explicit interface-bound HTTPS",
+        "kind": "functional",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "ethernet.https",
+          "parameters": {}
+        },
+        "checks": [
+          "ethernet.transfer"
+        ],
+        "timeout_seconds": 65
+      },
+      {
+        "id": "gpu.opengl.info",
+        "title": "Offscreen EGL information",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "gpu.opengl.info",
+          "parameters": {}
+        },
+        "checks": [
+          "gpu.opengl"
+        ],
+        "timeout_seconds": 40
+      },
+      {
+        "id": "gpu.vulkan.info",
+        "title": "Vulkan information",
+        "kind": "observation",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "gpu.vulkan.info",
+          "parameters": {}
+        },
+        "checks": [
+          "gpu.vulkan"
+        ],
+        "timeout_seconds": 40
+      },
+      {
+        "id": "gpu.opengl.render",
+        "title": "OpenGL reference pixels",
+        "kind": "functional",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "gpu.opengl.render",
+          "parameters": {}
+        },
+        "checks": [
+          "gpu.opengl"
+        ],
+        "timeout_seconds": 40
+      },
+      {
+        "id": "gpu.vulkan.render",
+        "title": "Vulkan reference pixels",
+        "kind": "functional",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "gpu.vulkan.render",
+          "parameters": {}
+        },
+        "checks": [
+          "gpu.vulkan"
+        ],
+        "timeout_seconds": 45
+      },
+      {
+        "id": "browser.firefox",
+        "title": "Firefox automatic five-step baseline",
+        "kind": "browser",
+        "action": "graphics.launch",
+        "parameters": {
+          "app": "browser"
+        },
+        "checks": [
+          "browser.firefox",
+          "graphics.xorg"
+        ],
+        "timeout_seconds": 120
+      },
+      {
+        "id": "browser.chromium",
+        "title": "Chromium automatic five-step baseline",
+        "kind": "browser",
+        "action": "graphics.launch",
+        "parameters": {
+          "app": "chromium"
+        },
+        "checks": [
+          "browser.chromium",
+          "graphics.xorg"
+        ],
+        "timeout_seconds": 120
+      },
+      {
+        "id": "wayland.integration",
+        "title": "Matched native Wayland provider",
+        "kind": "functional",
+        "action": "graphics.wayland",
+        "parameters": {},
+        "checks": [
+          "wayland.integration"
+        ],
+        "timeout_seconds": 150
+      },
+      {
+        "id": "audio.44100",
+        "title": "44.1 kHz reference playback",
+        "kind": "functional",
+        "action": "test.run",
+        "parameters": {
+          "test_id": "audio.44100",
+          "parameters": {}
+        },
+        "checks": [
+          "audio.output"
+        ],
+        "timeout_seconds": 40
+      },
+      {
+        "id": "uvd.avc",
+        "title": "Final canonical UVD reference decode",
+        "kind": "terminal",
+        "action": "uvd.scenario",
+        "parameters": {
+          "scenario": "canonical-120"
+        },
+        "checks": [
+          "uvd.avc.exact",
+          "uvd.variant"
+        ],
+        "timeout_seconds": 150
+      }
+    ],
+    "coverage_gaps": [
+      {
+        "id": "browser.hardware_uvd",
+        "status": "BLOCKED",
+        "reason": "Standard five-step browser video is a software/VP8 playback smoke, not UVD proof. A separate browser hardware-decoder scenario needs its own exact matched terminal integration; never chain a second UVD attempt."
+      },
+      {
+        "id": "uvd.native_fixtures",
+        "status": "NOT_RUN",
+        "reason": "Select exactly one terminal scenario: canonical-120, native720-900 or native1080-900. Unselected fixtures remain NOT_RUN; one boot never chains a second decoder or establishes the other resolutions."
+      },
+      {
+        "id": "uvd.lifecycle",
+        "status": "BLOCKED",
+        "reason": "One immutable UVD intent per boot. Close/reopen, concurrency, resource exhaustion, DMA drain, reset and suspend remain source-gated, not executable smoke loops."
+      },
+      {
+        "id": "power.external",
+        "status": "BLOCKED",
+        "reason": "Power-off/reboot are a separate captured operator stage after saved evidence; this command sends no power/kexec/ICC command."
+      },
+      {
+        "id": "audio.native48",
+        "status": "DEFERRED",
+        "reason": "Native 48 kHz remains deferred. 44.1 kHz playback needs an actual audible pitch/duration observation."
+      },
+      {
+        "id": "wireless",
+        "status": "DEFERRED",
+        "reason": "No radio/pairing/reset is performed. Wi-Fi/Bluetooth claims require specific device/firmware observations or a reproducible bug, not inventory alone."
+      },
+      {
+        "id": "manual_and_duration",
+        "status": "NOT_RUN",
+        "reason": "Cold-boot counts, endurance, physical HDMI/overscan, HID events, RTC reference drift and other manual cards remain visible in all 45 coverage rows. One smoke cannot satisfy those qualification gates."
+      }
+    ],
+    "terminal_scenarios": {
+      "default": "canonical-120",
+      "choices": [
+        "canonical-120",
+        "native720-900",
+        "native1080-900"
+      ]
+    }
+  }
 }

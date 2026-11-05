@@ -64,7 +64,7 @@ def profile(path):
 
 def chromium_directory(alpha):
     version = alpha.get('image_version')
-    if version not in ('alpha1', 'alpha2', 'alpha3'):
+    if version not in ('alpha1', 'alpha2', 'alpha3', 'alpha4', 'alpha5'):
         raise ValueError('Unknown optional-provider alpha version')
     return 'psx-diagnostics/providers/uvd-'+version
 
@@ -156,7 +156,8 @@ def replace_assignment(source, name, expected, replacement):
 
 def prepare_helper_source(source, original_pins, alpha_pins, directory=CHROMIUM_USB_DIRECTORY):
     if directory not in ('psx-diagnostics/providers/uvd-alpha1', 'psx-diagnostics/providers/uvd-alpha2',
-                         'psx-diagnostics/providers/uvd-alpha3'):
+                         'psx-diagnostics/providers/uvd-alpha3', 'psx-diagnostics/providers/uvd-alpha4',
+                         'psx-diagnostics/providers/uvd-alpha5'):
         raise ValueError('Unexpected alpha provider namespace')
     original_directory = "PACKS = MEDIA / 'psx-diagnostics/providers'\n"
     if source.count(original_directory) != 1:

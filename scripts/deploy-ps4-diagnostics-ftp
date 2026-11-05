@@ -15,6 +15,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import sys
 import time
 import uuid
@@ -68,6 +69,61 @@ def read_file(ftp, path, destination=None, maximum=4 * 1024**3, collect=False):
 
 def remote_json(ftp, path):
     return json.loads(read_file(ftp, path, maximum=1024 * 1024, collect=True)[2])
+
+
+def fingerprint(ftp, path):
+    """Read-only server identity, meaningful only with no concurrent writers."""
+    try:
+        ftp.voidcmd("TYPE I")
+        size = ftp.size(path)
+        reply = ftp.sendcmd("MDTM " + path)
+    except ftplib.Error as error:
+        raise ValueError("readback-once requires working SIZE and MDTM: " + path) from error
+    if (type(size) is not int or not 0 <= size <= 4 * 1024**3
+            or not isinstance(reply, str) or not re.fullmatch(r"213 [0-9]{14}(?:\.[0-9]{1,9})?", reply)):
+        raise ValueError("readback-once requires valid SIZE and MDTM: " + path)
+    try:
+        time.strptime(reply[4:18], "%Y%m%d%H%M%S")
+    except ValueError as error:
+        raise ValueError("readback-once received an invalid MDTM date: " + path) from error
+    return {"size": size, "mdtm": reply[4:]}
+
+
+def check_fingerprint(ftp, path, expected):
+    if fingerprint(ftp, path) != expected:
+        raise ValueError("remote SIZE/MDTM fingerprint changed: " + path)
+
+
+def verified_file(ftp, path, pin, *, destination=None, track=False, baseline=None):
+    before = baseline if baseline is not None else fingerprint(ftp, path) if track else None
+    if baseline is not None:
+        check_fingerprint(ftp, path, baseline)
+    size, actual, _ = read_file(ftp, path, destination, maximum=before["size"] if before is not None else 4 * 1024**3)
+    if actual != pin:
+        raise ValueError("USB file changed or readback differs: " + path)
+    if before is not None:
+        check_fingerprint(ftp, path, before)
+        if size != before["size"]:
+            raise ValueError("remote size and complete SHA256 readback length differ: " + path)
+    return before
+
+
+def verified_rename(ftp, source, target, expected):
+    check_fingerprint(ftp, source, expected)
+    ftp.rename(source, target)
+    check_fingerprint(ftp, target, expected)
+
+
+def save_backup_marker(backup, previous, fingerprints):
+    marker = {"schema_version": 1, "status": "PASS", "target": previous["target"], "files": previous["files"]}
+    if fingerprints:
+        marker["remote_fingerprints"] = fingerprints
+        marker["verification_scope"] = "Full old-file SHA256 backup; recorded original server SIZE/MDTM for rename preservation"
+    with (backup / "backup-verified.json").open("x") as stream:
+        json.dump(marker, stream, indent=2); stream.write("\n"); stream.flush(); os.fsync(stream.fileno())
+    descriptor = os.open(backup, os.O_RDONLY | os.O_DIRECTORY)
+    try: os.fsync(descriptor)
+    finally: os.close(descriptor)
 
 
 def verify_receipt(receipt, serial, capacity, usb_uuid):
@@ -144,6 +200,7 @@ def main():
     parser.add_argument("--expect-uuid", required=True)
     parser.add_argument("--backup", type=Path, required=True)
     parser.add_argument("--reuse-verified-backup", action="store_true")
+    parser.add_argument("--readback-once", action="store_true", help="One full staged SHA256 readback; require stable SIZE/MDTM across atomic renames and no other USB writer")
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
@@ -170,11 +227,19 @@ def main():
                 raise ValueError("refusing to replace an unowned USB file: " + name)
         changed = [name for name in expected if expected[name] != previous["files"].get(name)]
         obsolete = sorted(set(previous["files"]) - set(expected))
+        original_fingerprints = {}
+        if args.readback_once:
+            # Fail before any staging/target mutation if the server cannot prove
+            # stable metadata for every previously owned regular payload.
+            original_fingerprints = {name: fingerprint(ftp, root + "/" + name) for name in previous["files"]}
+            for name, value in original_fingerprints.items():
+                check_fingerprint(ftp, root + "/" + name, value)
         plan = {"profile": metadata["profile"], "kernel_release": metadata["kernel_release"],
                 "operation": "update receipt-owned USB OS files; preserve state/results; local rollback backup",
                 "target": previous["target"], "changed_files": changed, "retired_files": obsolete,
                 "source_bytes": sum((source / n).stat().st_size for n in files if n != "bootargs.template.txt") + len(bootargs),
                 "backup": str(args.backup.resolve()), "apply": args.apply,
+                "readback_once": args.readback_once,
                 "hardware_acceptance": False, "payload_executed": False}
         print(json.dumps(plan, indent=2), flush=True)
         if metadata.get("maximum_boot_set_bytes") is not None and plan["source_bytes"] + 1024**2 > metadata["maximum_boot_set_bytes"]:
@@ -191,6 +256,8 @@ def main():
                     or (backup / "installed.json").read_bytes() != previous_bytes
                     or (backup / "USB-SHA256SUMS").read_text() != sums):
                 raise ValueError("verified recovery copy belongs to another USB set")
+            if args.readback_once and marker.get("remote_fingerprints") != original_fingerprints:
+                raise ValueError("readback-once recovery copy lacks matching verified original remote fingerprints")
         else:
             backup.mkdir(mode=0o700, parents=True, exist_ok=False)
             (backup / "installed.json").write_bytes(previous_bytes)
@@ -200,19 +267,26 @@ def main():
             if not args.reuse_verified_backup:
                 path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
                 with path.open("xb") as output:
-                    _, actual, _ = read_file(ftp, root + "/" + name, output)
+                    try:
+                        verified_file(ftp, root + "/" + name, pin, destination=output,
+                                      baseline=original_fingerprints.get(name))
+                    except ValueError as error:
+                        raise ValueError("old USB file changed: " + name + "; " + str(error)) from error
                     output.flush(); os.fsync(output.fileno())
-                if actual != pin:
-                    raise ValueError("old USB file changed: " + name)
             if path.is_symlink() or not path.resolve().is_relative_to(backup) or STAGE.digest(path) != pin:
                 raise ValueError("old USB file changed or recovery copy failed: " + name)
             print("BACKUP VERIFIED " + name, flush=True)
+        if not args.reuse_verified_backup:
+            save_backup_marker(backup, previous, original_fingerprints)
         for name in set(previous["files"]) - set(changed) - set(obsolete):
-            if read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
+            if args.readback_once:
+                check_fingerprint(ftp, root + "/" + name, original_fingerprints[name])
+            elif read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
                 raise ValueError("unchanged USB file drifted before staging: " + name)
         staging = root + "/.psx-stage-" + uuid.uuid4().hex
         make_dirs(ftp, staging)
         published, moved, committed = [], [], False
+        staged_fingerprints = {}
         def journal(event, **fields):
             with (backup / "journal.jsonl").open("a") as output:
                 output.write(json.dumps(dict(event=event, unix=time.time(), **fields)) + "\n")
@@ -232,31 +306,45 @@ def main():
                 stream = io.BytesIO(bootargs) if name == "bootargs.txt" else (source / name).open("rb")
                 with stream:
                     ftp.storbinary("STOR " + target, stream, blocksize=256 * 1024, callback=progress)
-                if read_file(ftp, target)[1] != expected[name]:
-                    raise ValueError("staged USB file differs: " + name)
+                try:
+                    staged_fingerprints[name] = verified_file(ftp, target, expected[name], track=args.readback_once)
+                except ValueError as error:
+                    raise ValueError("staged USB file differs: " + name + "; " + str(error)) from error
                 print("STAGED VERIFIED " + name, flush=True)
             ordered = sorted(n for n in changed if n.startswith("psx-diagnostics/")) + [n for n in ("bzImage", "initramfs.cpio.gz", "vram.txt", "bootargs.txt") if n in changed]
             for name in ordered + obsolete:
                 if name in previous["files"]:
-                    if read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
+                    if args.readback_once:
+                        check_fingerprint(ftp, root + "/" + name, original_fingerprints[name])
+                    elif read_file(ftp, root + "/" + name)[1] != previous["files"][name]:
                         raise ValueError("old USB file changed before publication: " + name)
                     saved = staging + "/old/" + name
                     make_dirs(ftp, str(PurePosixPath(saved).parent))
                     journal("before_move_old", name=name)
-                    ftp.rename(root + "/" + name, saved)
+                    if args.readback_once:
+                        verified_rename(ftp, root + "/" + name, saved, original_fingerprints[name])
+                    else: ftp.rename(root + "/" + name, saved)
                     moved.append(name)
                 if name in expected:
                     make_dirs(ftp, str(PurePosixPath(root + "/" + name).parent))
                     journal("before_publish", name=name)
-                    ftp.rename(staging + "/new/" + name, root + "/" + name)
+                    if args.readback_once:
+                        verified_rename(ftp, staging + "/new/" + name, root + "/" + name, staged_fingerprints[name])
+                    else: ftp.rename(staging + "/new/" + name, root + "/" + name)
                     published.append(name)
             for name, pin in expected.items():
-                if read_file(ftp, root + "/" + name)[1] != pin:
+                if args.readback_once:
+                    check_fingerprint(ftp, root + "/" + name,
+                                      staged_fingerprints[name] if name in changed else original_fingerprints[name])
+                elif read_file(ftp, root + "/" + name)[1] != pin:
                     raise ValueError("published USB readback differs: " + name)
             marker = dict(previous, profile=metadata["profile"], kernel_release=metadata["kernel_release"],
                           files=expected, verified_readback=True, staged_unix=time.time(),
                           hardware_acceptance=False, payload_executed=False,
                           backup=str(backup), evidence_mode="owner-authorized-ftp-only")
+            if args.readback_once:
+                marker["readback_once"] = {"verified": "Complete SHA256 staged readback plus unchanged SIZE/MDTM across atomic renames",
+                                           "assumption": "No concurrent USB writers; no payload launched during update"}
             for name, data in (("installed.json", (json.dumps(marker, indent=2) + "\n").encode()),
                                ("USB-SHA256SUMS", STAGE.installed_sums(expected).encode())):
                 path = root + "/psx-diagnostics/" + name
@@ -268,7 +356,9 @@ def main():
             # Only verified, backed-up old bytes are removed from the USB.
             for name in moved:
                 saved = staging + "/old/" + name
-                if read_file(ftp, saved)[1] != previous["files"][name]:
+                if args.readback_once:
+                    check_fingerprint(ftp, saved, original_fingerprints[name])
+                elif read_file(ftp, saved)[1] != previous["files"][name]:
                     raise ValueError("old recovery bytes changed; retain staging directory")
                 ftp.delete(saved)
             result = dict(plan, status="PASS", verified_readback=True, files=expected,

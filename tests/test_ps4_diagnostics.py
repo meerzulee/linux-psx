@@ -418,6 +418,59 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertEqual(result["status"], "BLOCKED")
         self.assertFalse(self.fake.calls)
 
+    def test_large_complete_manifest_selects_audio_fixture_without_truncation_or_private_export(self):
+        path = self.fixture / 'opt/fixtures/reference.wav'; path.parent.mkdir(parents=True)
+        with wave.open(str(path), 'wb') as wav:
+            wav.setnchannels(2); wav.setsampwidth(2); wav.setframerate(44100)
+            wav.writeframes(bytes(4410 * 4))
+        self.manifest['frontend_receipt_private_padding'] = 'private-large-manifest-marker' + 'x' * 170000
+        self.manifest['fixtures'] = {'audio_44100': {'path': '/opt/fixtures/reference.wav',
+                                                   'sha256': diag.digest(path.read_bytes())}}
+        self.write_manifest(); manifest_path = self.fixture / diag.MANIFEST_PATH.lstrip('/')
+        self.assertGreater(manifest_path.stat().st_size, 65536)
+        self.tool('aplay'); self.fake.responses = [diag.CommandResult(0)]
+        result = self.runner().run('audio.44100')
+        self.assertEqual(result['status'], 'INCONCLUSIVE'); self.assertTrue(result['observation_required'])
+        self.assertEqual(len(self.fake.calls), 1)
+        self.assertEqual(self.fake.calls[0]['argv'][-1], str(path))
+        self.assertEqual(result['identity']['manifest_sha256'], diag.digest(manifest_path.read_bytes()))
+        self.assertNotIn('private-large-manifest-marker', json.dumps(result))
+        self.assertEqual(diag.read_json(manifest_path), self.manifest)
+
+    def test_oversize_manifest_rejects_even_a_complete_json_prefix_before_parsing(self):
+        runner = self.runner()
+        path = self.write(diag.MANIFEST_PATH, json.dumps(self.manifest).encode() + b' ' * diag.JSON_LIMIT)
+        with mock.patch.object(diag.json, 'loads', side_effect=AssertionError('oversize JSON parsed')):
+            with self.assertRaisesRegex(ValueError, 'byte limit'): diag.read_json(path)
+            identity = runner.identity()
+        self.assertFalse(identity['manifest_available']); self.assertFalse(identity['release_matches'])
+        self.assertIsNone(identity['manifest_sha256']); self.assertFalse(self.fake.calls)
+
+    def test_corrupt_json_is_not_hidden_by_audio_fallback(self):
+        path = self.write(diag.MANIFEST_PATH, b'{"fixtures": {}, "private": "unfinished')
+        with self.assertRaisesRegex(ValueError, 'Unterminated'): diag.read_json(path)
+        runner = self.runner()
+        with self.assertRaisesRegex(ValueError, 'Unterminated'): runner.play_audio({'audio_device': 'hw:0,3'})
+        self.assertEqual(runner.run('audio.44100')['status'], 'BLOCKED')
+        self.assertFalse(self.fake.calls)
+
+    def test_json_reader_rejects_devices_fifo_and_symlinks_before_open(self):
+        path = self.write('/etc/fixture.json', '{}')
+        linked = path.with_name('linked.json'); linked.symlink_to(path)
+        linked_parent = self.fixture / 'linked-etc'; linked_parent.symlink_to(path.parent)
+        fifo = path.with_name('json-fifo'); os.mkfifo(fifo)
+        for target in ('/dev/null', '/proc/version', fifo, linked, linked_parent / path.name):
+            with self.subTest(target=str(target)), mock.patch.object(diag.os, 'open', side_effect=AssertionError('unsafe input opened')):
+                with self.assertRaises(ValueError): diag.read_json(target)
+
+    def test_json_explicit_bound_and_nonfinite_values_are_rejected(self):
+        path = self.write('/etc/fixture.json', '{"value":' + ' ' * 128 + '1}')
+        with self.assertRaisesRegex(ValueError, 'byte limit'): diag.read_json(path, limit=32)
+        for limit in (0, True, diag.JSON_LIMIT + 1):
+            with self.subTest(limit=limit), self.assertRaisesRegex(ValueError, 'byte limit'): diag.read_json(path, limit=limit)
+        path.write_text('{"value": NaN}')
+        with self.assertRaisesRegex(ValueError, 'Nonfinite'): diag.read_json(path)
+
 
 class ProcessBoundaryTests(unittest.TestCase):
     def test_worker_known_answer_without_hardware_queries_or_real_limits(self):

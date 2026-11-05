@@ -33,6 +33,21 @@ def synthetic_firmware():
 
 
 class FirmwareContractTests(unittest.TestCase):
+    def test_alpha5_contract_keeps_dev3_poweroff_guards_and_distinct_sata_identity(self):
+        selected = copy.deepcopy(UVD.ALPHA5)
+        self.assertEqual(UVD.select_contract(selected), UVD.ALPHA5)
+        self.assertEqual(selected['uvd_poweroff_experiment'], UVD.ALPHA4['uvd_poweroff_experiment'])
+        self.assertIs(selected['uvd_lifecycle_sources_unchanged'], False)
+        self.assertIs(selected['uvd_sources_unchanged_from_dev3'], True)
+        for key in ('kernel_sha256', 'config_sha256', 'modules_sha256'):
+            self.assertNotEqual(selected[key], UVD.ALPHA4[key])
+        for key, value in (('sata_policy', 'disabled-first-boot'),
+                           ('uvd_sources_unchanged_from_dev3', False),
+                           ('uvd_lifecycle_sources_unchanged', True)):
+            wrong = dict(selected, **{key: value})
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                UVD.select_contract(wrong)
+
     def test_exact_header_and_computed_crc_are_required_in_addition_to_hash(self):
         data, crc = synthetic_firmware()
         with mock.patch.object(UVD, 'FIRMWARE', dict(UVD.FIRMWARE, sha256=UVD.sha(data))), \

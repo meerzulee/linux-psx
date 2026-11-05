@@ -42,7 +42,8 @@ class Operations:
     def node(self, _): return SimpleNamespace(st_mode=stat.S_IFCHR|0o600, st_rdev=os.makedev(226, 0))
     def command(self, argv):
         self.commands.append(argv)
-        return SimpleNamespace(stdout='active\n' if argv[-1] == self.active else 'inactive\n')
+        state = 'active' if argv[-1] == self.active else 'inactive'
+        return SimpleNamespace(stdout='LoadState=loaded\nActiveState='+state+'\n', returncode=0)
 
 
 class WaylandTests(unittest.TestCase):
@@ -113,7 +114,7 @@ class WaylandTests(unittest.TestCase):
         self.assertEqual(result['drm_device'], '/dev/dri/card0')
         self.assertEqual(result['renderer'], 'gles2')
         self.assertFalse(result['nested']); self.assertFalse(result['hardware_acceptance'])
-        self.assertEqual(len(self.ops.commands), 6)
+        self.assertEqual(len(self.ops.commands), 2*len(RUNTIME.GRAPHICS)+2)
         self.assertIn('--verify-only', self.ops.commands[-1])
         self.assertFalse(any('start' in command or 'systemd-run' in command for command in self.ops.commands))
 
@@ -122,6 +123,26 @@ class WaylandTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Close the current Xorg'):
             RUNTIME.preflight(self.suite, self.root, self.ops)
         self.assertFalse(any('--verify-only' in command for command in self.ops.commands))
+
+    def test_every_browser_mode_and_window_blocks_native_drm_handoff(self):
+        for mode in ('chromium', 'browser-manual', 'chromium-manual', 'protondb'):
+            for name in ('psx-diagnostics-graphics@'+mode+'.service', 'psx-diagnostics-window-'+mode+'.service'):
+                self.ops.active = name
+                with self.subTest(unit=name), self.assertRaisesRegex(ValueError, 'Close the current Xorg'):
+                    RUNTIME.preflight(self.suite, self.root, self.ops)
+
+    def test_missing_service_is_idle_but_failed_or_unknown_service_is_not(self):
+        for code, state, loaded, allowed in ((1, 'inactive', 'not-found', True),
+                (0, 'failed', 'loaded', False), (1, '', '', False), (1, 'inactive', 'error', False)):
+            ops = SimpleNamespace(command=lambda _: SimpleNamespace(returncode=code,
+                stdout='LoadState='+loaded+'\nActiveState='+state+'\n'))
+            if allowed: RUNTIME.require_inactive(ops, 'synthetic.service')
+            else:
+                with self.assertRaises(ValueError): RUNTIME.require_inactive(ops, 'synthetic.service')
+
+    def test_launcher_refuses_unsafe_run_identity_before_archive_or_staging(self):
+        with self.assertRaisesRegex(ValueError, 'identifier'):
+            LAUNCH.launch(SimpleNamespace(run_id='../escape'))
 
     def test_multiple_amd_devices_are_never_auto_selected(self):
         path = self.root/'sys/class/drm/card1/device/vendor'

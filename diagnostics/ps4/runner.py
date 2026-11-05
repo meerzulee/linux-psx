@@ -36,6 +36,7 @@ MANIFEST_PATH = "/etc/psx-diagnostics/boot-set.json"
 SCHEMA = 1
 LOG_LIMIT = 8 * 1024 * 1024
 PREVIEW_LIMIT = 128 * 1024
+JSON_LIMIT = 1024 * 1024
 TOOL_DIRECTORIES = ("/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin")
 CPU_ANSWER = "3951d9a412ce4c815eada76de213f560647cd60d4c37896cbcdcb899b645f197"
 STATUSES = frozenset(("PASS", "FAIL", "DEGRADED", "NOT_RUN", "UNSUPPORTED",
@@ -66,12 +67,37 @@ def clean_terminal(value):
     return "".join(c for c in str(value) if c in "\n\t" or ord(c) >= 32 and ord(c) != 127).replace("\x1b", "")
 
 
-def read_json(path):
-    with Path(path).open("rb") as stream:
-        data = stream.read(1024 * 1024 + 1)
-    if len(data) > 1024 * 1024:
+def json_bytes(path, limit=JSON_LIMIT):
+    """Read complete bounded regular-file JSON bytes; never truncate to parse."""
+    if type(limit) is not int or not 1 <= limit <= JSON_LIMIT:
+        raise ValueError("JSON byte limit must be within 1 MiB")
+    path = Path(path).absolute()
+    resolved = path.resolve(strict=True)
+    if (path != resolved or any(resolved.is_relative_to(root) for root in
+            (Path('/dev'), Path('/proc'), Path('/sys'))) or not stat.S_ISREG(path.lstat().st_mode)):
+        raise ValueError("JSON input must be a regular file without symlinks or device/pseudo-file paths")
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError("JSON input must be a regular file")
+        if info.st_size > limit:
+            raise ValueError("JSON input exceeds its byte limit (maximum 1 MiB)")
+        data = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+    if len(data) > limit:
         raise ValueError("JSON input exceeds 1 MiB")
-    return json.loads(data)
+    if len(data) != info.st_size or (after.st_size, after.st_mtime_ns) != (info.st_size, info.st_mtime_ns):
+        raise ValueError("JSON input changed while reading")
+    return data
+
+
+def decode_json(data):
+    return json.loads(data, parse_constant=lambda _: (_ for _ in ()).throw(ValueError("Nonfinite JSON value")))
+
+
+def read_json(path, limit=JSON_LIMIT):
+    return decode_json(json_bytes(path, limit))
 
 
 def load_catalogue():
@@ -107,6 +133,10 @@ class FixtureFS:
     def text(self, name, limit=65536):
         data = self.data(name, limit)
         return data.decode("utf-8", "replace").strip() if data is not None else None
+
+    def json_bytes(self, name, limit=JSON_LIMIT):
+        # Do not resolve away a symlink before the strict regular-file reader.
+        return json_bytes(self.root / str(name).lstrip('/'), limit)
 
     def exists(self, name):
         try:
@@ -268,13 +298,13 @@ class Runner:
         self.log = None
 
     def identity(self):
-        manifest_bytes = self.fs.data(self.manifest_path, 1024 * 1024)
-        manifest_text = manifest_bytes.decode("utf-8", "replace") if manifest_bytes else None
+        manifest_bytes = None
         try:
-            manifest = json.loads(manifest_text) if manifest_text else {}
+            manifest_bytes = self.fs.json_bytes(self.manifest_path)
+            manifest = decode_json(manifest_bytes)
             if not isinstance(manifest, dict):
                 manifest = {}
-        except ValueError:
+        except (OSError, ValueError):
             manifest = {}
         kernel = manifest.get("kernel")
         kernel = kernel if isinstance(kernel, dict) else {}
@@ -287,15 +317,15 @@ class Runner:
         receipt = {key: manifest[key] for key in allowed if key in manifest}
         session = {"provided": False, "continuity": "unverified"}
         if self.session_path:
-            raw = self.fs.data(self.session_path)
             try:
-                supplied = json.loads(raw or "null")
+                raw = self.fs.json_bytes(self.session_path, 65536)
+                supplied = decode_json(raw)
                 if isinstance(supplied, dict):
                     session = {key: supplied[key] for key in
                                ("experiment_id", "session_id", "continuity", "state", "boot_id")
                                if key in supplied}
                     session.update(provided=True, receipt_sha256=digest(raw or b""))
-            except ValueError:
+            except (OSError, ValueError):
                 session = {"provided": True, "continuity": "invalid-receipt"}
         return {"boot_id": self.fs.text("/proc/sys/kernel/random/boot_id"),
                 "kernel_release": running, "expected_kernel_release": expected,
@@ -736,8 +766,10 @@ class Runner:
                         "software_vs_hardware": "Inspect recorded vendor/device/renderer; neither is assumed"})
 
     def play_audio(self, params):
-        manifest = self.fs.text(self.manifest_path)
-        fixtures = json.loads(manifest or "{}").get("fixtures", {})
+        manifest = decode_json(self.fs.json_bytes(self.manifest_path))
+        if not isinstance(manifest, dict):
+            raise ValueError("Audio boot manifest must be a JSON object")
+        fixtures = manifest.get("fixtures", {})
         fixtures = fixtures if isinstance(fixtures, dict) else {}
         declared = fixtures.get("audio_44100", {})
         declared = declared if isinstance(declared, dict) else {}

@@ -673,3 +673,127 @@ outside Git; one completed test is not stability qualification.
 - The owner subsequently returned to Orbis and started FTP. A separate
   read-only check confirmed the exact installed USB receipt was unchanged.
   Raw UART, private transfer journals and per-console reports remain local.
+
+## EXP-20261105-017 — UVD-disabled reboot proposal withdrawn
+
+- The owner requested UVD and restart in the same boot. The separately prepared
+  disabled-gate profile was withdrawn before USB deployment or console launch.
+  No hardware result is assigned to this proposal; its host artifacts remain
+  preserved. EXP018 uses the unchanged, UVD-enabled alpha4 boot set.
+
+## EXP-20261105-018 — dev3 exact UVD decode and forced ICC restart to Orbis
+
+- Booted the same alpha4/dev3 kernel, modules, root and initramfs as EXP016;
+  all four UVD/power-off gates remained enabled. CPU and memory checks passed.
+  The public UVD runner matched all 120 frames, with zero mismatches and
+  whole NV12 SHA256
+  `d99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491`.
+- Saved reports to the host, synced the USB and verified its read-only remount
+  before one explicit ICC hardware-restart request from normal userspace.
+  Existing retained DMA backing remained allocated. No kernel, boot-argument,
+  firmware or driver-reset change was introduced for the restart.
+- UART recorded the request followed by a fresh Orbis boot. The owner confirmed
+  that Orbis returned. The expired SSH connection alone was not used as reset
+  evidence. The bounded UART session completed, 219,445 bytes, without a serial
+  reconnect, logger restart or continuity error.
+- Verdict: **PASS for one exact UVD-then-forced-ICC-restart sequence**. This
+  exercises a hardware restart after explicit storage preparation. Ordinary
+  Linux reboot teardown, kexec, suspend, device DMA drain and repeated-cycle
+  reliability remain separate tests. Private reports and raw UART stay local.
+
+## EXP-20261105-019 — dev4 internal SATA enumeration and read-only USB-root boot
+
+- Booted alpha5 with kernel `7.2.11-psx-ps4-baikal-uvd-runtime-dev4`, SHA256
+  `9b3842def11f0638601f60ab7659eb8fa9c4c7e5cb81bab64d25f301ad826d37`;
+  config `50676ba45e8535e1f7a3fd9f8eeab73fa7f841e255c1ccf846fda652d499dba0`,
+  whole module archive `fcda424b74177ec2316e58187d1c1c86e6e521782094cad77a6cdcb8fdc32dcc`,
+  root `f37178423962f672c4161095c14fd7870c609c818724ae690650c4ac77a61dfb`
+  and initramfs `c4c8ccd5157de33456b4dd579e2fb6bd77761a29b51313f58ae281d90ecc447a`.
+- Only three ATA code files changed from dev3. The four UVD/power-off gates
+  remained enabled; UVD, ICC, PHY and xHCI source bytes were preserved. The
+  command-owned probe was active at 5 ms on controller `0000:00:14.7`, port 0,
+  with legacy polling disabled and the established 1.5 Gbit/s PHY profile.
+- The 500,107,862,016-byte Toshiba MQ01ABD050 enumerated with NCQ enabled.
+  The initramfs protected the disk and all observed partitions read-only
+  before userspace. Linux reached the matching USB root with no failed units
+  or observed ATA timeout/error-recovery cascade. A separate Sony PS-SYSTEM
+  420R ATAPI device also enumerated; no optical-medium read was attempted.
+- Verdict: **PASS for one scoped disk-enumeration/read-only boot**. This was
+  not a data-read, write, sustained-load or internal-installation test.
+  Bounded UART completed, 172,397 bytes, without continuity errors.
+- Preparation findings remain distinct: FTP timed out before publishing any
+  active boot file. Direct USB preparation then encountered a host-side USB
+  disconnect/reconnect during final readback. FAT metadata was preserved and
+  repaired; complete source hashes were verified and the drive cleanly
+  unmounted before this successful console launch. These are transport/media
+  findings, not Linux console boot failures. Private evidence remains local.
+
+## EXP-20261105-020 — dev4 component checks and exact native 1080p UVD
+
+- Same boot/artifacts as EXP019. CPU computation and 32 MiB owned-memory
+  patterns passed. Six aligned direct reads of three 8 MiB HDD regions
+  matched SHA256 values across both passes: 48 MiB in 2.499 seconds, about
+  19.2 MiB/s. No raw disk contents were retained or internal disk data written.
+- Ethernet passed bound verified HTTPS and matching-hash 16 MiB transfers in
+  each direction. Observed SSH rates were 36.8/58.2 Mbit/s including connection
+  setup and the host's Wi-Fi path; these are not link-capacity measurements.
+- Native OpenGL and Vulkan reference pixels passed. Firefox and Chromium
+  completed Canvas, hardware WebGL, animation and software/VP8 video tests;
+  capability enumeration remained an observation. Native DRM Wayland produced
+  three matching 1920x1080 GLES2 frames on Liverpool and restored diagnostics.
+- One terminal forced-VAAPI native 1080p test matched all 900 frames against
+  per-frame SHA256/MD5 and whole-output SHA256
+  `b88dd37166f35cdfaa60aa130e65cbb8ac4ba0c959d0dc8d30b74e83bde44790`.
+  All 2,799,360,000 output bytes were hashed in streams; no raw output video
+  was retained. The 82.33-second decode/download/hash pipeline is not a
+  real-time presentation benchmark. The immutable UVD stop intent remains.
+- Two harness findings were preserved. Browser completion was first inspected
+  before its close acknowledgement; bounded same-batch polling fixed this
+  race, and the corrected pass completed both browsers. Audio never launched:
+  its valid roughly 170 KiB boot manifest was silently truncated to 64 KiB
+  before JSON parsing. A strict complete bounded reader was prepared for a
+  fresh-boot audio experiment. No audio hardware failure is inferred.
+- Verdict: **scoped component passes with an audio harness gap**. No kernel
+  panic, Oops or illegal `qc_active` transition appeared in the saved journal.
+  Bounded UART completed, 48,910 bytes, without continuity errors. Repeated
+  cold boots, endurance, wider AVC profiles, lifecycle and encoding retain
+  their separate gates. Reports and raw UART remain private.
+
+## EXP-20261105-021 — dev4 software power-off after SATA, graphics and UVD
+
+- Saved the EXP020 reports on the host and synced USB state before one
+  ordinary software power-off request. All four UVD/power-off gates remained
+  enabled. UART recorded internal-disk cache synchronization and stop,
+  `EXPERIMENTAL_POWEROFF retained=1 teardown=0`, Ethernet
+  `stop_ack=1 retained=1 drain=unproven`, and `reboot: Power down`.
+- The owner confirmed the power light and fans were fully off. Verdict:
+  **PASS for this scoped combined-use software power-off sequence**.
+  Bounded UART completed, 4,683 bytes, without continuity errors.
+- Request-to-power-down took about 90.94 seconds. The delaying userspace unit
+  remains unidentified. USB was remounted read-only and synced; the remaining
+  busy loop-backed root prevented complete final unmount/detach. These remain
+  recorded diagnostic shutdown findings. No clean reboot, suspend or DMA-drain
+  qualification is implied.
+
+## EXP-20261105-022 — corrected audio manifest reader; audible check deferred
+
+- Cold-booted the same dev4 kernel and unchanged alpha5 USB after the confirmed
+  software power-off. A fresh boot ID and matching validated manifest were
+  observed. This supplied a second observed dev4 boot, not a repeated complete
+  graphics/UVD qualification cycle.
+- Loaded the corrected diagnostic runner into private RAM, retaining the root
+  catalogue and UVD adapter. Runner SHA256
+  `5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2`
+  read the complete 171,869-byte validated manifest. CPU and owned-memory
+  checks passed with this runner's actual source identity.
+- The pinned three-second stereo PCM16 fixture, SHA256
+  `9fb18fc1e75587a0f5a715d5394776563fac75cfdc8af860fb1a2164a1b1b50b`,
+  played through ALSA `hw:0,3` at 44,100 Hz. `aplay` returned zero in about
+  3.14 seconds with no stderr, timeout, signal or output-limit event. This
+  confirms that the manifest-reader correction reached and completed the
+  playback command; no kernel or boot-file replacement was needed.
+- The owner explicitly deferred sound verification. Audible pitch, duration
+  and output acceptance therefore remain **DEFERRED**, while the raw playback
+  report remains INCONCLUSIVE pending observation. No audible PASS or native
+  48 kHz claim is assigned. Bounded UART completed, 254,827 bytes, without
+  continuity errors. Private reports and raw captures remain local.
