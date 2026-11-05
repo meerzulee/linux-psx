@@ -64,9 +64,11 @@ adds the default-off `amdgpu.ps4_uvd_poff=1` experimental boot option alongside
 the three UVD gates. Only normal system power-off may return from AMDGPU PCI
 shutdown without teardown; DMA backing stays allocated and every other
 lifecycle guard remains. Kernel compilation, all 41 matching modules and
-complete source/module archive readbacks passed. Hardware power-off remains
-unqualified until the captured UVD-then-power-off experiment observes physical
-power removal and healthy subsequent startup. See the [power-off candidate
+complete source/module archive readbacks passed. EXP-20261105-016 subsequently
+passed a captured canonical UVD decode followed by owner-observed physical
+power-off; Orbis/FTP returned afterwards. This single run does not qualify
+reboot, kexec, suspend or broader stability. A roughly 90-second delay and
+busy loop-root shutdown messages remain recorded. See the [power-off candidate
 details](UVD.md#default-off-dev3-power-off-test-candidate).
 
 The alpha assembler creates a new regular ext4 image offline from the exact

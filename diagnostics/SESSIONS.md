@@ -639,3 +639,37 @@ outside Git; one completed test is not stability qualification.
   errors. Reviewed context contained Wi-Fi scan messages and no terminal
   UVD/GPU fault. Raw logs remain private. EXP013–015 apply to the tested dev2
   artifact set and cannot qualify the separate dev3 power-off candidate.
+
+## EXP-20261105-016 — dev3 UVD decode followed by software power-off
+
+- Booted the matched alpha4/dev3 set, kernel SHA256
+  `01fa05f683c4c36ae83678f09cf3df502ddb0731dc73f2530cdb05fbe317804d`,
+  whole 41-module archive `603a4b9453fba5462c702102afab335a857d01d707cf945f7a8809ec5640396c`,
+  root `51e10b3de0d8a4f1645654b8c686635305f2de25e3cf2782a922d172d85e2197`
+  and initramfs `805fdbab38a5ed11be094fb7886ed3bab3fd2548fae1d8e4c47c8839a03dd508`.
+  The three UVD gates and experimental `ps4_uvd_poff` were observed enabled.
+  Embedded/root/boot-set validation passed; no failed systemd units were found.
+- CPU computation and owned-memory checks passed. One normal public-runner UVD
+  attempt forced VAAPI and matched all 120 NV12 frames, 2,211,840 bytes, with
+  zero mismatches and whole-output SHA256
+  `d99b87567601efb735d438e766f34112344a3a31fc1d9e1b4177bfd329bcb491`.
+  No terminal GPU/UVD fault appeared before shutdown. Reports and their hashes
+  were copied to the host and USB writes synced before the power action.
+- Ordinary `systemctl poweroff` returned success. UART recorded the explicit
+  request, followed by expected shutdown closure, then
+  `EXPERIMENTAL_POWEROFF retained=1 teardown=0` and `reboot: Power down`.
+  The original PCI-shutdown parking marker was absent. Ethernet shutdown
+  reported `stop_ack=1 retained=1 drain=unproven`; it did not free its DMA.
+  The owner confirmed the power light and fans were fully off.
+- Verdict: **PASS for this single canonical UVD-then-software-power-off
+  sequence**. UART continuity completed without reconnect or logger restart.
+  This does not qualify ordinary reboot, kexec, suspend, DMA quiescence,
+  broader AVC profiles, native 1080p on dev3, endurance or stable support.
+- Shutdown took about 90.86 seconds after the request; about 90.44 seconds
+  preceded final systemd-shutdown. The delaying unit has not been identified.
+  Finalization remounted the USB read-only and synced it, while reporting the
+  still-busy loop-backed root/USB mount. Both are retained findings for the
+  diagnostic shutdown flow, not hidden by the successful physical power-off.
+- The owner subsequently returned to Orbis and started FTP. A separate
+  read-only check confirmed the exact installed USB receipt was unchanged.
+  Raw UART, private transfer journals and per-console reports remain local.

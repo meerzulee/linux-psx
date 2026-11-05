@@ -2308,8 +2308,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
-      "destination_bytes": 43631,
+      "destination_sha256": "aa1ede165f7511c34b71a12fade800f2ccaa63c0d00d5c2b7c30c5682506d86b",
+      "destination_bytes": 45977,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2396,6 +2396,13 @@
           "prior_destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
           "destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
           "destination_bytes": 43631,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed EXP016 canonical UVD plus physical software power-off, observed delayed shutdown and subsequent Orbis recovery; no support promotion.",
+          "prior_destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
+          "destination_sha256": "aa1ede165f7511c34b71a12fade800f2ccaa63c0d00d5c2b7c30c5682506d86b",
+          "destination_bytes": 45977,
           "mode": "0644"
         }
       ]
@@ -3346,6 +3353,13 @@
         "manifests/ps4-diagnostics-uvd-alpha4.json",
         "scripts/prepare-ps4-video-fixtures",
         "tests/test_ps4_video_fixtures.py",
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed EXP016 canonical UVD plus physical software power-off, observed delayed shutdown and subsequent Orbis recovery; no support promotion.",
+      "paths": [
         "diagnostics/SESSIONS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."

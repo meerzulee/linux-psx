@@ -120,9 +120,19 @@ A separate dev3 kernel candidate has compiled and passed complete module and
 corresponding-source archive readbacks for a narrow power-off experiment.
 The [alpha4 profile](../manifests/ps4-diagnostics-uvd-alpha4.json) pins kernel
 SHA256 `01fa05f683c4c36ae83678f09cf3df502ddb0731dc73f2530cdb05fbe317804d`
-and all 41 matching modules. No hardware power-off PASS is claimed here.
+and all 41 matching modules. EXP-20261105-016 then passed one captured
+120-frame exact VAAPI decode followed by ordinary software power-off: UART
+recorded the retained-DMA exception and final power-down, and the owner
+confirmed that the light and fans turned fully off. Orbis/FTP returned
+afterwards with the USB receipt unchanged. This is a scoped single-run PASS,
+not reboot, kexec, suspend or general lifecycle qualification.
 Its boot-only `amdgpu.ps4_uvd_poff=1` opt-in is default 0, read-only in sysfs
 and protected by `__ro_after_init`.
+
+The measured shutdown took about 90.86 seconds. Most of that preceded final
+systemd-shutdown; the delaying unit remains unidentified. Finalization synced
+and remounted the USB read-only while its loop-backed root remained busy.
+These diagnostic shutdown findings remain open despite successful power-off.
 
 The exception applies only to an entered, retained Liverpool runtime while
 the system is in `SYSTEM_POWER_OFF`, with `reboot_force` and
