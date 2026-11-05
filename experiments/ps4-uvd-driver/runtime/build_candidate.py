@@ -44,6 +44,15 @@ def in_function(text, name, old, new):
     return text[:start] + once(text[start:end], old, new) + text[end:]
 
 
+def pci_shutdown_retention_guard():
+    """Power-off-only return; other lifecycle callers retain their park."""
+    return ('\n\tif (amdgpu_ps4_uvd_runtime_retain(adev)) {\n'
+            '\t\tif (amdgpu_ps4_uvd_runtime_poweroff(adev))\n'
+            '\t\t\treturn;\n'
+            '\t\tamdgpu_ps4_uvd_runtime_park(adev, "amdgpu_pci_shutdown");\n'
+            '\t}\n')
+
+
 def transform(source):
     out = dict(source)
     def edit(name, old, new):
@@ -288,13 +297,14 @@ static const struct amdgpu_video_codecs ps4_uvd_no_encode;
     edit('amdgpu_drv.c', '\nerr_pci:\n',
          '\nerr_pci:\n\tif (amdgpu_ps4_uvd_runtime_retain(adev))\n'
          '\t\tamdgpu_ps4_uvd_runtime_park(adev, "probe-error");\n')
-    for function, anchor in (
-        ('amdgpu_pci_remove', '\n\tamdgpu_ras_eeprom_check_and_recover(adev);'),
-        ('amdgpu_pci_shutdown', '\n\tif (amdgpu_ras_intr_triggered())'),
-    ):
-        func('amdgpu_drv.c', function, anchor,
-             '\n\tif (amdgpu_ps4_uvd_runtime_retain(adev))\n'
-             f'\t\tamdgpu_ps4_uvd_runtime_park(adev, "{function}");\n' + anchor)
+    func('amdgpu_drv.c', 'amdgpu_pci_remove',
+         '\n\tamdgpu_ras_eeprom_check_and_recover(adev);',
+         '\n\tif (amdgpu_ps4_uvd_runtime_retain(adev))\n'
+         '\t\tamdgpu_ps4_uvd_runtime_park(adev, "amdgpu_pci_remove");\n'
+         '\n\tamdgpu_ras_eeprom_check_and_recover(adev);')
+    anchor = '\n\tif (amdgpu_ras_intr_triggered())'
+    func('amdgpu_drv.c', 'amdgpu_pci_shutdown', anchor,
+         pci_shutdown_retention_guard() + anchor)
     func('amdgpu_kms.c', 'amdgpu_driver_unload_kms',
          '\n\tamdgpu_unregister_gpu_instance(adev);',
          '\n\tif (amdgpu_ps4_uvd_runtime_retain(adev))\n'

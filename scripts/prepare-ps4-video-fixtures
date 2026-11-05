@@ -1,0 +1,366 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Meerzulee
+"""Prepare optional host-only 720p30/1080p30 AVC fixtures with streaming oracles.
+
+No downloads, devices, console actions or runtime-gate changes. READY means
+software fixture preparation only, never PS4 decode or stability acceptance.
+The fixed FFmpeg testsrc2 pattern is encoded once; playback never loops.
+"""
+from __future__ import annotations
+
+import argparse
+from fractions import Fraction
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import resource
+import selectors
+import signal
+import stat
+import subprocess
+import time
+
+REPO = Path(__file__).resolve().parents[1]
+PROFILES = {'720p30': (1280, 720, 31, '6000k'), '1080p30': (1920, 1080, 40, '10000k')}
+FRAMES = 900
+DURATION = 30
+CONTAINER_LIMIT = 64*1024**2
+LOG_LIMIT = 1024**2
+TIMEOUT = 180
+READ_BYTES = 65536
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def digest(path):
+    value = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        while data := stream.read(READ_BYTES):
+            value.update(data)
+    return value.hexdigest()
+
+
+def pinned_tool(path, expected):
+    selected = Path(path).absolute()
+    path = selected.resolve(strict=True)
+    info = path.stat()
+    require(stat.S_ISREG(info.st_mode) and os.access(path, os.X_OK), 'Explicit host tool is not executable')
+    require(re.fullmatch(r'[0-9a-f]{64}', expected or '') is not None
+            and digest(path) == expected, 'Explicit host tool SHA256 differs: '+str(selected))
+    return path, {'selected_path': str(selected), 'path': str(path), 'sha256': expected}
+
+
+def bounded_command(argv, *, timeout=TIMEOUT, stdout_limit=LOG_LIMIT, sink=None, watched=None):
+    """Drain bounded pipes concurrently; raw decode bytes go only to a hash sink."""
+    def child_limits():
+        resource.setrlimit(resource.RLIMIT_FSIZE, (CONTAINER_LIMIT, CONTAINER_LIMIT))
+    child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, start_new_session=True, preexec_fn=child_limits)
+    buffers = {'stdout': bytearray(), 'stderr': bytearray()}
+    counts = {'stdout': 0, 'stderr': 0}
+    started = time.monotonic()
+    try:
+        with selectors.DefaultSelector() as selector:
+            for name in buffers:
+                stream = getattr(child, name)
+                os.set_blocking(stream.fileno(), False)
+                selector.register(stream, selectors.EVENT_READ, name)
+            while selector.get_map():
+                require(time.monotonic()-started < timeout, 'Host video command timed out')
+                if watched is not None and watched.exists():
+                    require(watched.stat().st_size <= CONTAINER_LIMIT, 'Encoded fixture exceeded 64 MiB')
+                for key, _ in selector.select(.05):
+                    data = os.read(key.fileobj.fileno(), READ_BYTES)
+                    if not data:
+                        selector.unregister(key.fileobj)
+                        continue
+                    name = key.data
+                    counts[name] += len(data)
+                    limit = stdout_limit if name == 'stdout' else LOG_LIMIT
+                    require(counts[name] <= limit, 'Host video command output exceeded its budget')
+                    if name == 'stdout' and sink is not None:
+                        sink.write(data)
+                    else:
+                        buffers[name].extend(data)
+            remaining = timeout-(time.monotonic()-started)
+            require(remaining > 0, 'Host video command timed out')
+            try:
+                code = child.wait(timeout=remaining)
+            except subprocess.TimeoutExpired as error:
+                raise ValueError('Host video command timed out') from error
+            if watched is not None and watched.exists():
+                require(watched.stat().st_size <= CONTAINER_LIMIT, 'Encoded fixture exceeded 64 MiB')
+        return {'returncode': code, 'stdout': bytes(buffers['stdout']), 'stderr': bytes(buffers['stderr']),
+                'stdout_bytes': counts['stdout'], 'stderr_bytes': counts['stderr']}
+    except BaseException:
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        child.wait(timeout=3)
+        raise
+    finally:
+        child.stdout.close()
+        child.stderr.close()
+
+
+class FrameOracle:
+    """Incremental hashes, not raw references: no retained decoded frame buffer."""
+    def __init__(self, frame_bytes, *, expected=None):
+        self.frame_bytes = frame_bytes
+        self.expected = expected
+        self.bytes = self.offset = 0
+        self.whole = hashlib.sha256()
+        self.frame = hashlib.sha256()
+        self.frame_md5 = hashlib.md5(usedforsecurity=False)
+        self.hashes = []
+        self.md5 = []
+        self.mismatches = []
+
+    def write(self, data):
+        require(self.bytes+len(data) <= self.frame_bytes*FRAMES, 'Software decode returned excess frames')
+        self.bytes += len(data)
+        self.whole.update(data)
+        view = memoryview(data)
+        while view:
+            count = min(len(view), self.frame_bytes-self.offset)
+            self.frame.update(view[:count])
+            self.frame_md5.update(view[:count])
+            self.offset += count
+            view = view[count:]
+            if self.offset == self.frame_bytes:
+                index = len(self.hashes)
+                value = self.frame.hexdigest()
+                self.hashes.append(value)
+                self.md5.append(self.frame_md5.hexdigest())
+                if self.expected is not None and value != self.expected[index]:
+                    self.mismatches.append(index)
+                self.frame = hashlib.sha256()
+                self.frame_md5 = hashlib.md5(usedforsecurity=False)
+                self.offset = 0
+
+    def observations(self):
+        return {'frames': len(self.hashes), 'bytes': self.bytes, 'sha256': self.whole.hexdigest(),
+                'frame_sha256': self.hashes, 'frame_md5': self.md5, 'mismatched_frames': self.mismatches,
+                'retained_raw_frame_buffers': 0, 'pipe_read_bytes': READ_BYTES}
+
+    def finish(self):
+        require(self.offset == 0 and len(self.hashes) == FRAMES, 'Software decode did not return exactly 900 complete frames')
+        require(not self.mismatches, 'MP4/Annex-B software frame oracle mismatch')
+        return self.observations()
+
+
+def write_framemd5(path, hashes, frame_bytes):
+    require(len(hashes) == FRAMES and all(re.fullmatch(r'[0-9a-f]{32}', value) for value in hashes),
+            'Framemd5 requires exactly 900 valid MD5 reference hashes')
+    with Path(path).open('x', encoding='ascii') as stream:
+        stream.write('#format: frame checksums\n#version: 2\n#hash: MD5\n#tb 0: 1/30\n'
+                     '#stream#, dts, pts, duration, size, hash\n')
+        for index, value in enumerate(hashes):
+            stream.write(f'0, {index}, {index}, 1, {frame_bytes}, {value}\n')
+
+
+def validate_probe(document, width, height, level):
+    require(isinstance(document, dict), 'ffprobe did not return an object')
+    streams = document.get('streams', [])
+    require(len(streams) == 1, 'Expected exactly one video stream and no audio')
+    stream = streams[0]
+    expected = {'codec_name': 'h264', 'codec_type': 'video', 'profile': 'Constrained Baseline',
+                'width': width, 'height': height, 'level': level, 'pix_fmt': 'yuv420p',
+                'refs': 1, 'has_b_frames': 0, 'r_frame_rate': '30/1', 'avg_frame_rate': '30/1'}
+    require(all(type(stream.get(key)) is type(value) and stream[key] == value for key, value in expected.items()),
+            'Actual encoded profile, dimensions, level, reference frames or frame rate differs')
+    require(str(stream.get('nb_frames')) == str(FRAMES), 'Container frame count is not 900')
+    require(stream.get('field_order') == 'progressive', 'Interlaced video is not an allowed fixture')
+    frames = document.get('frames', [])
+    require(len(frames) == FRAMES, 'ffprobe did not observe all 900 frames')
+    require(all(frame.get('pict_type') in ('I', 'P') and frame.get('interlaced_frame') == 0 for frame in frames),
+            'Actual encoded frames include B pictures or interlacing')
+    try:
+        base = Fraction(stream['time_base'])
+        require(base == Fraction(1, 30000) and Fraction(stream['duration']) == DURATION
+                and type(stream['duration_ts']) is int and stream['duration_ts']*base == DURATION
+                and Fraction(document['format']['duration']) == DURATION,
+                'Exact container time base or duration differs')
+        pts = [frame['pts'] for frame in frames]
+        require(all(type(value) is int and value*base == Fraction(index, 30) for index, value in enumerate(pts)),
+                'Every increasing frame PTS must start at zero and equal index/30')
+    except (KeyError, TypeError, ZeroDivisionError) as error:
+        raise ValueError('Missing exact MP4 timestamp metadata') from error
+    return {'codec_metadata': expected, 'frame_pts': pts,
+            'frame_pts_us': [(value*1000000+15000)//30000 for value in pts],
+            'time_base': stream['time_base'], 'stream_duration_ts': stream['duration_ts'],
+            'duration_seconds': DURATION}
+
+
+def validate_headers(text, level):
+    expected = {'profile_idc': 66, 'constraint_set1_flag': 1, 'level_idc': level,
+                'max_num_ref_frames': 1, 'entropy_coding_mode_flag': 0,
+                'num_slice_groups_minus1': 0, 'frame_mbs_only_flag': 1}
+    for name, value in expected.items():
+        actual = re.findall(r'\s'+re.escape(name)+r'\s+[^=\n]*=\s*(\d+)\b', text)
+        require(actual and all(int(item) == value for item in actual),
+                'Actual SPS/PPS feature differs: '+name)
+    return expected
+
+
+def decode_argv(ffmpeg, clip):
+    return [str(ffmpeg), '-nostdin', '-hide_banner', '-loglevel', 'error', '-xerror',
+            '-hwaccel', 'none', '-threads', '1', '-filter_threads', '1', '-protocol_whitelist', 'file,pipe',
+            '-i', str(clip), '-map', '0:v:0', '-an', '-sn', '-dn', '-vf', 'format=nv12',
+            '-c:v', 'rawvideo', '-threads', '1', '-pix_fmt', 'nv12', '-fps_mode', 'passthrough',
+            '-f', 'rawvideo', 'pipe:1']
+
+
+def prepare(ffmpeg, ffprobe, output, *, ffmpeg_sha256, ffprobe_sha256):
+    started = time.monotonic()
+    ffmpeg, ffmpeg_pin = pinned_tool(ffmpeg, ffmpeg_sha256)
+    ffprobe, ffprobe_pin = pinned_tool(ffprobe, ffprobe_sha256)
+    output = Path(output).absolute()
+    require(not output.exists() and not output.is_symlink() and output.resolve() == output
+            and output.parent.is_dir(), 'Output must be a new canonical host directory')
+    forbidden = ('/dev', '/proc', '/sys', '/mnt', '/media', '/run/media', '/run/psx-media')
+    require(not any(output.is_relative_to(path) for path in map(Path, forbidden))
+            and not output.is_relative_to(REPO), 'Output must be outside source, devices and console media')
+    output.mkdir(mode=0o755)
+    receipt = {'schema_version': 1, 'status': 'running', 'hardware_acceptance': False,
+        'runtime_integration': False, 'scope': 'Optional host-prepared media; no PS4 decode or stability acceptance',
+        'generator': {'name': 'FFmpeg testsrc2', 'tool_path': str(Path(__file__).resolve()),
+                      'tool_sha256': digest(Path(__file__)), 'pixel_format': 'yuv420p'},
+        'ffmpeg': ffmpeg_pin, 'ffprobe': ffprobe_pin, 'commands': [], 'fixtures': {},
+        'limits': {'command_timeout_seconds': TIMEOUT, 'log_bytes_per_stream': LOG_LIMIT,
+                   'container_bytes_per_clip': CONTAINER_LIMIT, 'decoded_raw_files': False,
+                   'pipe_read_bytes': READ_BYTES, 'retained_raw_frame_buffers': 0}}
+
+    def save():
+        (output/'build-receipt.json').write_text(json.dumps(receipt, indent=2, sort_keys=True)+'\n')
+
+    def command(label, argv, directory=output, **kwargs):
+        record = {'label': label, 'argv': argv, 'timeout_seconds': kwargs.get('timeout', TIMEOUT)}
+        receipt['commands'].append(record)
+        save()
+        command_started = time.monotonic()
+        result = bounded_command(argv, **kwargs)
+        for name in ('stdout', 'stderr'):
+            if result[name]:
+                (directory/(label+'.'+name+'.txt')).write_bytes(result[name])
+        record.update({key: result[key] for key in ('returncode', 'stdout_bytes', 'stderr_bytes')})
+        record['elapsed_seconds'] = round(time.monotonic()-command_started, 6)
+        require(result['returncode'] == 0, 'Bounded host command failed: '+label)
+        return result
+
+    save()
+    try:
+        (output/'LICENSE').write_bytes((REPO/'diagnostics/LICENSE').read_bytes())
+        for path, pin, name in ((ffmpeg, ffmpeg_pin, 'ffmpeg'), (ffprobe, ffprobe_pin, 'ffprobe')):
+            raw = command(name+'-version', [str(path), '-version'], timeout=10)['stdout']
+            require(raw.startswith((name+' version ').encode()), 'Unexpected host tool version output')
+            pin.update(version=raw.decode(errors='replace'), version_sha256=hashlib.sha256(raw).hexdigest())
+        for profile, (width, height, level, bitrate) in PROFILES.items():
+            directory = output/profile
+            directory.mkdir(mode=0o755)
+            mp4, annex = directory/'clip.mp4', directory/'clip.h264'
+            frame_bytes = width*height*3//2
+            pattern = f'testsrc2=size={width}x{height}:rate=30:duration=30'
+            item = {'status': 'running', 'width': width, 'height': height, 'frame_count': FRAMES,
+                    'duration_seconds': DURATION, 'frame_rate': '30/1', 'frame_bytes': frame_bytes,
+                    'hardware_acceptance': False, 'runtime_available': False,
+                    'generator': {'filter': pattern, 'filter_sha256': hashlib.sha256(pattern.encode()).hexdigest()},
+                    'encoding': {'profile': 'Constrained Baseline', 'level': level, 'ref': 1,
+                                 'cabac': 0, 'bframes': 0, 'gop': 60, 'software_threads': 2}}
+            receipt['fixtures'][profile] = item
+            command('encode', [str(ffmpeg), '-nostdin', '-hide_banner', '-loglevel', 'error', '-xerror', '-n',
+                '-filter_threads', '1', '-f', 'lavfi', '-i', pattern, '-map', '0:v:0', '-an', '-sn', '-dn',
+                '-frames:v', str(FRAMES), '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast',
+                '-crf', '23', '-pix_fmt', 'yuv420p', '-profile:v', 'baseline', '-level:v', str(level/10),
+                '-refs', '1', '-bf', '0', '-coder', '0', '-g', '60', '-keyint_min', '60', '-sc_threshold', '0',
+                '-x264-params', 'cabac=0:ref=1:bframes=0:scenecut=0:open-gop=0:weightp=0:force-cfr=1',
+                '-maxrate', bitrate, '-bufsize', str(int(bitrate[:-1])*2)+'k', '-fflags', '+bitexact',
+                '-flags:v', '+bitexact', '-map_metadata', '-1', '-video_track_timescale', '30000',
+                '-movflags', '+faststart', '-f', 'mp4', str(mp4)], directory, watched=mp4)
+            require(mp4.is_file() and 0 < mp4.stat().st_size <= CONTAINER_LIMIT, 'MP4 missing or exceeds 64 MiB')
+            probe = command('probe', [str(ffprobe), '-v', 'error', '-protocol_whitelist', 'file,pipe',
+                '-show_streams', '-show_format', '-show_frames', '-show_entries',
+                'stream=codec_name,codec_type,profile,width,height,level,pix_fmt,refs,has_b_frames,r_frame_rate,avg_frame_rate,nb_frames,field_order,time_base,duration,duration_ts:format=duration:frame=pts,pict_type,interlaced_frame',
+                '-of', 'json', str(mp4)], directory)
+            item['timeline'] = validate_probe(json.loads(probe['stdout']), width, height, level)
+            headers = command('headers', [str(ffmpeg), '-nostdin', '-hide_banner', '-loglevel', 'info', '-xerror',
+                '-protocol_whitelist', 'file,pipe', '-i', str(mp4), '-map', '0:v:0', '-an', '-c:v', 'copy',
+                '-bsf:v', 'trace_headers', '-frames:v', '1', '-f', 'null', '-'], directory)
+            item['headers'] = validate_headers(headers['stderr'].decode(errors='replace'), level)
+            command('annex-b', [str(ffmpeg), '-nostdin', '-hide_banner', '-loglevel', 'error', '-xerror', '-n',
+                '-protocol_whitelist', 'file,pipe', '-i', str(mp4), '-map', '0:v:0', '-an', '-sn', '-dn',
+                '-c:v', 'copy', '-bsf:v', 'h264_mp4toannexb', '-f', 'h264', str(annex)], directory, watched=annex)
+            require(annex.is_file() and 0 < annex.stat().st_size <= CONTAINER_LIMIT, 'Annex-B missing or exceeds 64 MiB')
+            native = FrameOracle(frame_bytes)
+            command('decode-annex-b', decode_argv(ffmpeg, annex), directory,
+                    stdout_limit=frame_bytes*FRAMES, sink=native)
+            item['software_reference'] = native.observations()
+            native.finish()
+            container = FrameOracle(frame_bytes, expected=native.hashes)
+            command('decode-mp4', decode_argv(ffmpeg, mp4), directory,
+                    stdout_limit=frame_bytes*FRAMES, sink=container)
+            item['container_software_oracle'] = container.observations()
+            container.finish()
+            require(container.whole.hexdigest() == native.whole.hexdigest(), 'Whole NV12 reference mismatch')
+            item['files'] = {path.name: {'bytes': path.stat().st_size, 'sha256': digest(path)} for path in (mp4, annex)}
+            md5 = directory/'reference-nv12.framemd5'
+            write_framemd5(md5, native.md5, frame_bytes)
+            item['reference_framemd5'] = {'path': md5.name, 'bytes': md5.stat().st_size, 'sha256': digest(md5)}
+            fixture = {'schema': 'psx-uvd-playback-fixture-v1', 'fixture_profile': 'native-'+profile+'-900',
+                'codec': 'h264', 'container': 'h264-annex-b', 'pixel_format': 'nv12',
+                'width': width, 'height': height, 'frame_count': FRAMES, 'frame_rate': '30/1',
+                'frame_bytes': frame_bytes, 'duration_seconds': DURATION, 'profile': 'Constrained Baseline',
+                'level': level, 'hardware_acceptance': False, 'runtime_available': False,
+                'clip': dict(path='clip.h264', **item['files']['clip.h264']),
+                'reference': {'bytes': native.bytes, 'sha256': native.whole.hexdigest()},
+                'frames': [{'index': index, 'bytes': frame_bytes, 'sha256': value, 'md5': native.md5[index]}
+                           for index, value in enumerate(native.hashes)],
+                'reference_framemd5': item['reference_framemd5'],
+                'mp4': dict(path='clip.mp4', **item['files']['clip.mp4']), **item['timeline'],
+                'generator': item['generator'], 'encoding': item['encoding'], 'headers': item['headers'],
+                'tool_sha256': receipt['generator']['tool_sha256'], 'source': 'Host-generated FFmpeg testsrc2; no acquired media'}
+            target = directory/'FIXTURE.json'
+            target.write_text(json.dumps(fixture, indent=2, sort_keys=True)+'\n')
+            item['fixture'] = {'path': profile+'/FIXTURE.json', 'bytes': target.stat().st_size, 'sha256': digest(target)}
+            item.update(status='READY', software_reference_verified=True)
+            (directory/'build-receipt.json').write_text(json.dumps(item, indent=2, sort_keys=True)+'\n')
+            save()
+        require(digest(ffmpeg) == ffmpeg_pin['sha256'] and digest(ffprobe) == ffprobe_pin['sha256']
+                and digest(Path(__file__)) == receipt['generator']['tool_sha256'], 'Host tools changed during preparation')
+        receipt.update(status='READY', elapsed_seconds=round(time.monotonic()-started, 6))
+        save()
+        return receipt
+    except BaseException as error:
+        receipt.update(status='FAIL', error=str(error)[:512], elapsed_seconds=round(time.monotonic()-started, 6))
+        save()
+        raise
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--ffmpeg', type=Path, required=True)
+    parser.add_argument('--ffmpeg-sha256', required=True)
+    parser.add_argument('--ffprobe', type=Path, required=True)
+    parser.add_argument('--ffprobe-sha256', required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args(argv)
+    receipt = prepare(args.ffmpeg, args.ffprobe, args.output,
+                      ffmpeg_sha256=args.ffmpeg_sha256, ffprobe_sha256=args.ffprobe_sha256)
+    fixtures = {name: {key: value[key] for key in ('status', 'width', 'height', 'frame_count', 'files', 'fixture', 'reference_framemd5')}
+                | {'reference_nv12_sha256': value['software_reference']['sha256']}
+                for name, value in receipt['fixtures'].items()}
+    print(json.dumps({'status': receipt['status'], 'hardware_acceptance': False,
+                      'output': str(args.output), 'elapsed_seconds': receipt['elapsed_seconds'],
+                      'fixtures': fixtures}, indent=2))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

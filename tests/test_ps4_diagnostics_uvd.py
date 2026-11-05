@@ -67,8 +67,61 @@ class FirmwareContractTests(unittest.TestCase):
         self.assertEqual(UVD.FIRMWARE['bytes'], 314168)
         self.assertEqual(UVD.FIRMWARE_CRC, 0xa465ba07)
 
+    def test_actual_alpha4_manifest_matches_frozen_dev3_pins_and_poweroff_policy(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha4.json').read_text())
+        self.assertEqual(UVD.select_contract(profile),UVD.ALPHA4)
+        self.assertEqual(profile['required_boot_arguments'],UVD.POWEROFF_BOOT_ARGUMENTS)
+        self.assertEqual(profile['uvd_poweroff_experiment'],UVD.POWEROFF_EXPERIMENT)
+        self.assertFalse(profile['uvd_lifecycle_sources_unchanged'])
+        for key in ('kernel_release','kernel_sha256','config_sha256','modules_sha256'):
+            self.assertNotEqual(UVD.ALPHA4[key],UVD.ALPHA3[key])
+
 
 class UVDTests(unittest.TestCase):
+    def frozen_alpha4(self):
+        return dict(copy.deepcopy(UVD.ALPHA4),kernel_sha256='ab'*32,config_sha256='cd'*32,
+                    modules_sha256='ef'*32,build_status='frozen')
+
+    def test_alpha4_pending_contract_and_narrow_opt_in_cannot_borrow_old_pins_or_change_guards(self):
+        pending=dict(UVD.ALPHA4,kernel_sha256=None,config_sha256=None,modules_sha256=None)
+        with mock.patch.object(UVD,'ALPHA4',pending),self.assertRaisesRegex(ValueError,'pins are pending'):
+            UVD.select_contract(copy.deepcopy(pending))
+        selected=self.frozen_alpha4()
+        with mock.patch.object(UVD,'ALPHA4',selected):
+            self.assertEqual(UVD.select_contract(copy.deepcopy(selected)),selected)
+            for key,value in (('kernel_sha256',UVD.ALPHA3['kernel_sha256']),
+                              ('uvd_lifecycle_sources_unchanged',True),('console_loglevel',3)):
+                wrong=copy.deepcopy(selected);wrong[key]=value
+                with self.subTest(key=key),self.assertRaisesRegex(ValueError,'exact frozen'):
+                    UVD.select_contract(wrong)
+            for key,value in (('retain_dma',False),('read_only',False),('test_value',True)):
+                wrong=copy.deepcopy(selected);wrong['uvd_poweroff_experiment'][key]=value
+                with self.subTest(key=key),self.assertRaises(ValueError):UVD.select_contract(wrong)
+        for contract in (UVD.ALPHA,UVD.ALPHA2,UVD.ALPHA3):
+            self.assertEqual(UVD.select_contract(copy.deepcopy(contract)),contract)
+
+    def test_alpha4_requires_effective_unique_poweroff_gate_without_consuming_attempt(self):
+        selected=self.frozen_alpha4()
+        self.manifest.update(copy.deepcopy(selected))
+        self.manifest['required_boot_arguments']=list(UVD.POWEROFF_BOOT_ARGUMENTS)
+        self.manifest['manifest_validation']['observed_kernel_release']=selected['kernel_release']
+        self.write('/proc/sys/kernel/osrelease',selected['kernel_release'])
+        self.runner.catalogue['expected_kernel_release']=selected['kernel_release']
+        self.save_manifest()
+        with mock.patch.object(UVD,'ALPHA4',selected):
+            # The ordinary three gates are insufficient for this separate profile.
+            self.assertEqual(self.run_uvd()['status'],'BLOCKED')
+            self.write('/proc/cmdline',' '.join(UVD.POWEROFF_BOOT_ARGUMENTS))
+            self.write('/sys/module/amdgpu/parameters/ps4_uvd_poff','N')
+            self.assertEqual(self.run_uvd()['status'],'BLOCKED')
+            self.write('/sys/module/amdgpu/parameters/ps4_uvd_poff','Y')
+            self.write('/proc/cmdline',' '.join(UVD.POWEROFF_BOOT_ARGUMENTS+['amdgpu.ps4_uvd_poff=0']))
+            self.assertEqual(self.run_uvd()['status'],'BLOCKED')
+            self.write('/proc/cmdline',' '.join(UVD.POWEROFF_BOOT_ARGUMENTS))
+            self.assertEqual(UVD.preflight(self.runner)[0]['kernel_release'],selected['kernel_release'])
+        self.assertEqual(self.calls,[])
+        self.assertFalse((self.base.results/'uvd-attempts').exists())
+
     def test_pending_or_unknown_variants_cannot_become_an_accepted_contract(self):
         pending = dict(UVD.ALPHA2, kernel_sha256=None, config_sha256=None, modules_sha256=None)
         with mock.patch.object(UVD, 'ALPHA2', pending):

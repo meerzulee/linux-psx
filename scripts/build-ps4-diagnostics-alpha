@@ -47,6 +47,11 @@ VARIANTS = {
         'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
         'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
     },
+    'ps4-baikal-diagnostics-uvd-alpha4': {
+        'kernel_release': '7.2.11-psx-ps4-baikal-uvd-runtime-dev3', 'image_version': 'alpha4',
+        'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
+        'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
+    },
 }
 BASE_FIRMWARE = {'path': '/usr/lib/firmware/amdgpu/liverpool_uvd.bin', 'bytes': 232752,
                  'sha256': '30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9'}
@@ -65,6 +70,10 @@ POWEROFF_SHA256 = 'cb01d71ad7e12144ee7f014fe5385e37f7e239b2f2f3ee065b5ec7e0a0de2
 MIB = 1024 * 1024
 CAP = 1024 * MIB
 UVD_ARGS = ('amdgpu.ps4_uvd_runtime=1', 'amdgpu.ps4_uvd_ready=1', 'amdgpu.ps4_uvd_poll_state=1')
+UVD_POWEROFF_ARGS = UVD_ARGS + ('amdgpu.ps4_uvd_poff=1',)
+UVD_POWEROFF_EXPERIMENT = {'parameter': 'amdgpu.ps4_uvd_poff', 'default': 0, 'test_value': 1,
+    'read_only': True, 'system_power_off_only': True, 'retain_dma': True,
+    'reboot_suspend_remove_reset_guards_unchanged': True, 'hardware_acceptance': False}
 BROWSER_PREFS = ('media.hardware-video-decoding.enabled', 'media.hardware-video-decoding.force-enabled', 'media.ffmpeg.vaapi.enabled')
 PATH_RE = re.compile(r'/[A-Za-z0-9._+/-]+\Z')
 
@@ -101,27 +110,55 @@ def os_release(profile):
             f'IMAGE_ID=ps4-baikal-diagnostics\nIMAGE_VERSION={profile["image_version"]}\n').encode()
 
 
+def validate_poweroff_experiment(value):
+    require(isinstance(value, dict) and set(value) == set(UVD_POWEROFF_EXPERIMENT)
+            and all(type(value[key]) is type(expected) and value[key] == expected
+                    for key, expected in UVD_POWEROFF_EXPERIMENT.items()),
+            'Alpha4 requires the exact default-off read-only SYSTEM_POWER_OFF experiment; DMA and other lifecycle guards retained')
+
+
+def validate_package_lifecycle(profile, runtime, package):
+    version = profile['image_version']
+    if version == 'alpha4':
+        for receipt in (runtime, package):
+            require(receipt.get('uvd_lifecycle_sources_unchanged') is False,
+                    'Alpha4 package must explicitly declare changed UVD lifecycle sources')
+            validate_poweroff_experiment(receipt.get('uvd_poweroff_experiment'))
+    elif version in ('alpha2', 'alpha3'):
+        require(all(receipt.get('uvd_lifecycle_sources_unchanged') is True
+                    and 'uvd_poweroff_experiment' not in receipt for receipt in (runtime, package)),
+                'Alpha2/3 package must preserve unchanged UVD lifecycle sources')
+
+
 def validate_profile(profile):
     require(isinstance(profile, dict), 'Alpha profile must be an object')
     variant = VARIANTS.get(profile.get('profile'))
     require(variant is not None and profile.get('kernel_release') == variant['kernel_release']
             and profile.get('image_version') == variant['image_version'], 'Unknown or mismatched frozen alpha profile/release')
-    if variant['image_version'] in ('alpha2', 'alpha3'):
-        require(profile.get('build_status') == 'frozen', 'Alpha2 kernel inputs are pending; freeze reviewed artifact pins before assembly')
+    poweroff = variant['image_version'] == 'alpha4'
+    if variant['image_version'] in ('alpha2', 'alpha3', 'alpha4'):
+        require(profile.get('build_status') == 'frozen', 'Alpha kernel inputs are pending; freeze reviewed artifact pins before assembly')
         require(profile.get('product_name') == 'Diagnostix', 'Alpha2 product_name must be Diagnostix')
         fix = profile.get('poweroff_fix', {})
         require(isinstance(fix, dict) and fix.get('patch') == POWEROFF_PATCH and fix.get('sha256') == POWEROFF_SHA256
-                and fix.get('uvd_shutdown_park_unchanged') is True and fix.get('hardware_acceptance') is False,
-                'Alpha2 requires the exact ICC patch with unchanged UVD shutdown park')
+                and fix.get('uvd_shutdown_park_unchanged') is (not poweroff) and fix.get('hardware_acceptance') is False,
+                'Alpha requires the exact ICC patch and variant-specific UVD shutdown park policy')
     else:
         require(profile.get('build_status') in (None, 'frozen'), 'Alpha1 inputs are not frozen')
         require('poweroff_fix' not in profile and profile.get('product_name') in (None, 'psX Diagnostics'),
                 'Alpha1 keeps its original kernel policy and product identity')
+    if poweroff:
+        validate_poweroff_experiment(profile.get('uvd_poweroff_experiment'))
+        require(profile.get('uvd_lifecycle_sources_unchanged') is False and profile.get('console_loglevel') == 7,
+                'Alpha4 must explicitly record changed UVD lifecycle sources and serial loglevel7')
+    else:
+        require('uvd_poweroff_experiment' not in profile, 'Historical alpha profiles cannot opt into the alpha4 power-off experiment')
+    required_args = UVD_POWEROFF_ARGS if poweroff else UVD_ARGS
     require(profile.get('alpha_base') == BASE_IDENTITY, 'Alpha variants require the exact ordinary native3 base')
     require(profile.get('root_format') == 'ext4-ro-loop' and profile.get('ui_backend') == 'ratatui'
             and profile.get('hardware_acceptance') is False and profile.get('uvd_runtime') is True
             and profile.get('maximum_boot_set_bytes') == CAP and profile.get('vram_mib') == 1024
-            and profile.get('mts_autoarm') == 1 and profile.get('required_boot_arguments') == list(UVD_ARGS)
+            and profile.get('mts_autoarm') == 1 and profile.get('required_boot_arguments') == list(required_args)
             and type(profile.get('module_count')) is int and profile['module_count'] == 41, 'Alpha policy differs')
     for key in ('kernel_sha256', 'config_sha256', 'modules_sha256', 'mesa_archive_sha256', 'mesa_manifest_sha256',
                 'snapshot_sums_sha256', 'firmware_manifest_sha256'):
@@ -132,7 +169,7 @@ def validate_profile(profile):
         require(profile[key] == BASE_IDENTITY[key], 'Alpha must preserve the ordinary base Mesa/snapshot')
     inputs = profile.get('alpha_inputs', {})
     require(isinstance(inputs, dict) and isinstance(inputs.get('legacy_package'), dict), 'Missing frozen package inputs')
-    if variant['image_version'] == 'alpha3':
+    if variant['image_version'] in ('alpha3', 'alpha4'):
         require(inputs.get('base_root_firmware') == BASE_FIRMWARE and inputs.get('root_firmware') == UVD_FIRMWARE,
                 'Alpha3 requires distinct stock-base and corrected runtime firmware pins')
     package = inputs['legacy_package']; release = variant['kernel_release']
@@ -451,12 +488,30 @@ def alpha_catalogue(data, release=ALPHA_RELEASE):
     return encoded(value)
 
 
-def alpha_bootargs(data):
+def alpha_bootargs(data, *, poweroff_experiment=False):
+    require(type(poweroff_experiment) is bool, 'Power-off boot policy must be an explicit boolean')
     text = data.decode()
     require(not any(token.startswith(('amdgpu.ps4_uvd_', 'amdgpu.ps4_uvd_runtime')) for token in text.split()), 'Base already contains UVD arguments')
     for exact in ('libata.force=1.00:disable', 'psx_mts_net.autoarm=1', 'psx.diag_uuid=@USB_UUID@'):
         require(text.split().count(exact) == 1, 'Base boot policy differs')
-    return (text.rstrip() + ' ' + ' '.join(UVD_ARGS) + '\n').encode()
+    if not poweroff_experiment:
+        return (text.rstrip() + ' ' + ' '.join(UVD_ARGS) + '\n').encode()
+    tokens = text.split()
+    require(tokens.count('earlycon=uart8250,mmio32,0xC890E000,115200n8') == 1
+            and tokens.count('keep_bootcon') == 1 and tokens.count('8250.nr_uarts=0') == 1,
+            'Alpha4 requires the existing early serial console policy')
+    loglevels = [i for i, token in enumerate(tokens) if token.startswith('loglevel=')]
+    require(len(loglevels) == 1 and re.fullmatch(r'loglevel=[0-7]', tokens[loglevels[0]])
+            and tokens.count('ignore_loglevel') <= 1, 'Alpha4 requires one bounded kernel loglevel')
+    tokens[loglevels[0]] = 'loglevel=7'
+    tokens.extend(UVD_POWEROFF_ARGS)
+    stage = load('psx_alpha_bootargs_stage', REPO / 'scripts/stage-ps4-diagnostics-usb')
+    def rendered():
+        return stage.render_bootargs(' '.join(tokens)+'\n', 'FFFF-FFFF', {'ui_backend': 'ratatui'}, epoch=4102444799)
+    if len(rendered()) > 511 and 'ignore_loglevel' in tokens:
+        tokens.remove('ignore_loglevel')
+    require(len(rendered()) <= 511, 'Alpha4 FAT32 UUID/clock-rendered bootargs exceed the 511-byte loader limit')
+    return (' '.join(tokens)+'\n').encode()
 
 
 def copy_regular(source, destination):
@@ -528,6 +583,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     require(runtime.get('source_receipt_sha256') == package_pins[variant['source_receipt']]['sha256']
             and runtime.get('link_receipt_sha256') == package_pins[variant['link_receipt']]['sha256'],
             'Runtime source/link receipt identity differs from selected variant')
+    validate_package_lifecycle(profile, runtime, json.loads((package / 'PACKAGE.json').read_text()))
     modules = module_files(package / archive_name, release, parser, profile['module_count'])
     module_pins = json.loads((package / 'MODULES.json').read_text())
     ko = {p.removeprefix('/usr/'): data for p, data in modules.items() if p.endswith('.ko')}
@@ -624,14 +680,16 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
         frontend['psx-diagnostics-tui'] = image.executable_input(regular(tui))
         source_facts['tui-binary'] = {'source_sha256': sha(frontend['psx-diagnostics-tui']), 'path': '/usr/bin/psx-diagnostics-tui'}
     frontend_facts = image.frontend_manifest(frontend, original['snapshot_sums_sha256'])
-    bootargs = alpha_bootargs((base / 'bootargs.template.txt').read_bytes())
+    bootargs = alpha_bootargs((base / 'bootargs.template.txt').read_bytes(),
+                             poweroff_experiment=profile['image_version'] == 'alpha4')
     metadata = copy.deepcopy(original)
     for key in ('initramfs_sha256', 'rootfs_sha256', 'frontend_refresh', 'rootfs_unpacked_bytes'):
         metadata.pop(key, None)
     for key in ('profile', 'kernel_release', 'kernel_sha256', 'config_sha256', 'modules_sha256', 'source_commit', 'module_count',
                 'image_version', 'uvd_runtime', 'uvd_diagnostic', 'alpha_policy', 'alpha_inputs', 'required_boot_arguments'):
         metadata[key] = copy.deepcopy(profile[key])
-    for key in ('product_name', 'poweroff_fix', 'build_status', 'native3_baseline', 'uvd_firmware_contract', 'firmware_correction'):
+    for key in ('product_name', 'poweroff_fix', 'build_status', 'native3_baseline', 'uvd_firmware_contract', 'firmware_correction',
+                'uvd_poweroff_experiment', 'uvd_lifecycle_sources_unchanged', 'console_loglevel'):
         if key in profile:
             metadata[key] = copy.deepcopy(profile[key])
     imported = {'schema_version': 1, 'origin': 'Frozen experimental package imported without rebuilding or changing its receipts',
@@ -748,7 +806,10 @@ def build(prepared, *, plan_only=False):
         'UVD runtime is enabled; one explicit bounded AVC attempt per boot. Terminal faults require physical power-off and rollback.\n'
         'Firefox hardware video decoding is disabled. Chromium/Wayland providers require separately matched alpha identities.\n'
         'Test plan: psx-qualify. No qualification command starts tests automatically.\n'
-        'The complete corresponding-source archive is identified in source-pins.json and retained separately.\n')
+        'The complete corresponding-source archive is identified in source-pins.json and retained separately.\n' +
+        ('Alpha4 explicitly opts into an experimental SYSTEM_POWER_OFF-only exception with DMA retained.\n'
+         'Reboot, suspend, removal and reset guards remain unchanged; no generic UI power controls are enabled.\n'
+         if p['profile']['image_version'] == 'alpha4' else ''))
     firmware = {name: item.data for name, item in p['seed'].items() if name.startswith('lib/firmware/') and stat.S_ISREG(item.mode)}
     if p.get('firmware_data') is not None:
         firmware[UVD_FIRMWARE_MEMBER] = p['firmware_data']

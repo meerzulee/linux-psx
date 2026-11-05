@@ -66,6 +66,42 @@ def evidence(frames=120):
             'expected_fixture': fixture(frames)}
 
 
+class MediaCacheLimitsTests(unittest.TestCase):
+    def test_block_rounding_and_strict_power_of_two_headroom_cover_boundary_and_26mb_clip(self):
+        mib = 1024**2
+        for size, expected in ((1, 8), (88796, 8), (mib, 8),
+                               (8*mib-32768, 8), (8*mib-1, 16), (8*mib, 16),
+                               (16*mib-32768, 16), (16*mib-1, 32), (16*mib, 32),
+                               (26008330, 32), (128*mib-32768, 128)):
+            with self.subTest(size=size):
+                limits = B.media_cache_limits(size)
+                self.assertEqual(limits['file_limit_bytes'], expected*mib)
+                self.assertEqual(limits['cache_block_bytes'], 32768)
+                self.assertEqual(limits['rounded_cache_bytes'] % 32768, 0)
+                self.assertGreaterEqual(limits['rounded_cache_bytes'], size)
+                self.assertGreater(limits['file_limit_bytes'], limits['rounded_cache_bytes'])
+                self.assertEqual(limits['log_budget_bytes'], 8*mib)
+                self.assertEqual(limits['trace_budget_bytes'], 5*mib)
+
+    def test_invalid_or_block_rounded_oversized_media_is_rejected(self):
+        for size in (None, True, False, '26008330', 1.0, 0, -1, 128*1024**2-1,
+                     128*1024**2, 129*1024**2):
+            with self.subTest(size=size), self.assertRaises(ValueError): B.media_cache_limits(size)
+
+    def test_launch_accepts_only_reviewed_numeric_limits_and_default_stays_8m(self):
+        runtime = B.RUNTIME_PARENT/'fixture'
+        self.assertIn('--property=LimitFSIZE=8M', B.launch_command(runtime, 'http://127.0.0.1:1234/'))
+        limit = B.media_cache_limits(26008330)['file_limit_bytes']
+        argv = B.launch_command(runtime, 'http://127.0.0.1:1234/', file_limit_bytes=limit)
+        self.assertIn('--property=LimitFSIZE=32M', argv)
+        self.assertIn('--property=MemoryMax=1G', argv)
+        self.assertIn('--property=User=psx', argv)
+        self.assertEqual(sum(value.startswith('--property=LimitFSIZE=') for value in argv), 1)
+        for value in ('32M', True, 32.0, 0, 7*1024**2, 16*1024**2-1, 256*1024**2):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                B.launch_command(runtime, 'http://127.0.0.1:1234/', file_limit_bytes=value)
+
+
 class ClassifierTests(unittest.TestCase):
     def test_continuous_900_frame_profile_needs_all_900_frames_and_same_hardware_proof(self):
         item = evidence(900)
@@ -465,7 +501,7 @@ class RuntimeStorageTests(unittest.TestCase):
         original = runtime.with_name('retained'); runtime.rename(original); runtime.symlink_to(original)
         with self.assertRaisesRegex(ValueError, 'path changed'): B.sample_runtime_space(runtime, self.budget)
 
-    def test_run_refuses_wrong_filesystem_and_insufficient_space_before_consuming_attempt(self):
+    def test_run_refuses_media_filesystem_or_space_preflight_before_consuming_attempt(self):
         results = self.root/'results'; results.mkdir()
         identity = {'boot_id': '7dbc7b84-3969-4c09-a67e-dcb6b0ed796e', 'manifest_sha256': 'a'*64}
         runner = SimpleNamespace(lock=mock.MagicMock(), identity=lambda: identity,
@@ -491,13 +527,14 @@ class RuntimeStorageTests(unittest.TestCase):
                 return SimpleNamespace(lstat=lambda: SimpleNamespace(st_mode=0o100600, st_uid=1000))
             return Path(path)
         # Only unrelated host/device preflight is synthetic; the storage guard is real.
-        for low_space in (False, True):
+        for scenario in ('wrong_filesystem', 'low_space', 'invalid_media'):
+            low_space = scenario == 'low_space'
             mount = self.mount if low_space else self.mount.replace('tmpfs tmpfs', 'ext4 /dev/sda')
             self.statvfs.return_value = self.accounting(159 if low_space else 200)
             def prepare(manifest, run_id, budget):
                 return original_prepare(manifest, run_id, budget, root=self.root, owner=owner,
                     browser_uid=owner, browser_gid=group, mountinfo=mount)
-            with self.subTest(low_space=low_space), mock.patch.object(B, 'RESULTS', results), \
+            with self.subTest(scenario=scenario), mock.patch.object(B, 'RESULTS', results), \
                  mock.patch.object(B.os, 'geteuid', return_value=0), mock.patch.object(B, 'Path', side_effect=fixed_path), \
                  mock.patch.object(B, 'runtime_modules', return_value=(diagnostics, adapter)), \
                  mock.patch.object(B, 'bounded', side_effect=bounded), \
@@ -507,10 +544,14 @@ class RuntimeStorageTests(unittest.TestCase):
                  mock.patch.object(B, 'prepare_egl_selection', return_value={}), \
                  mock.patch.object(B, 'prepare_runtime_storage', side_effect=prepare) as allocation, \
                  mock.patch.object(B, 'server', side_effect=AssertionError('server started')) as server:
-                record = B.run(SimpleNamespace(results_dir=results), {})
+                record = B.run(SimpleNamespace(results_dir=results), {'clip': b'' if scenario == 'invalid_media' else b'clip'})
                 self.assertEqual(record['status'], 'BLOCKED')
                 self.assertFalse(record['stop_required'])
-                allocation.assert_called_once(); adapter.create_marker.assert_not_called(); server.assert_not_called()
+                if scenario == 'invalid_media': allocation.assert_not_called()
+                else:
+                    allocation.assert_called_once()
+                    self.assertEqual(record['media_cache_limits']['file_limit_bytes'], 8*1024**2)
+                adapter.create_marker.assert_not_called(); server.assert_not_called()
                 self.assertEqual(json.loads((Path(record['result_directory'])/'result.json').read_text())['status'], 'BLOCKED')
                 self.assertFalse(self.parent.exists())
 

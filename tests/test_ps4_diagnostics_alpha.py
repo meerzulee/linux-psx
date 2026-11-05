@@ -24,6 +24,112 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def alpha4(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha3.json').read_text())
+        old=profile['kernel_release'];release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha4']['kernel_release']
+        profile.update(profile='ps4-baikal-diagnostics-uvd-alpha4',image_version='alpha4',kernel_release=release,
+            console_loglevel=7,uvd_lifecycle_sources_unchanged=False,
+            uvd_poweroff_experiment=copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT))
+        profile['poweroff_fix']['uvd_shutdown_park_unchanged']=False
+        profile['required_boot_arguments']=list(APP.UVD_POWEROFF_ARGS)
+        # Synthetic frozen profile only: production alpha4 pins stay pending until
+        # the primary verifies the actual newly built dev3 kernel/package bytes.
+        profile['alpha_inputs']['legacy_package']={name.replace(old,release):pin
+            for name,pin in profile['alpha_inputs']['legacy_package'].items()}
+        return profile
+
+    def serial_bootargs(self):
+        return (b'earlycon=uart8250,mmio32,0xC890E000,115200n8 console=tty0 keep_bootcon '
+            b'8250.nr_uarts=0 panic=0 loglevel=3 printk.devkmsg=on amdgpu.dc=0 '
+            b'video=HDMI-A-1:1920x1080@60D drm.edid_firmware=edid/1920x1080.bin '
+            b'pci=nocrs intremap=off libata.force=1.00:disable psx_mts_net.autoarm=1 '
+            b'net.ifnames=0 consoleblank=0 psx.diag_uuid=@USB_UUID@ systemd.show_status=false\n')
+
+    def test_alpha4_is_separate_matched_dev3_contract_without_weakening_old_profiles(self):
+        profile=self.alpha4()
+        variant=APP.validate_profile(profile)
+        self.assertEqual(variant['kernel_release'],'7.2.11-psx-ps4-baikal-uvd-runtime-dev3')
+        self.assertEqual(profile['alpha_base'],APP.BASE_IDENTITY)
+        self.assertEqual(profile['alpha_inputs']['root_firmware'],APP.UVD_FIRMWARE)
+        self.assertEqual(profile['alpha_inputs']['base_root_firmware'],APP.BASE_FIRMWARE)
+        self.assertEqual(profile['maximum_boot_set_bytes'],APP.CAP)
+        for version in ('alpha1','alpha2','alpha3'):
+            historical=json.loads((ROOT/f'manifests/ps4-diagnostics-uvd-{version}.json').read_text())
+            APP.validate_profile(historical)
+            historical['uvd_poweroff_experiment']=copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT)
+            with self.subTest(version=version),self.assertRaisesRegex(ValueError,'Historical'):
+                APP.validate_profile(historical)
+
+    def test_alpha4_requires_exact_opt_in_source_change_and_four_boot_arguments(self):
+        for field,value in (('default',1),('test_value',0),('test_value',True),('read_only',False),
+                            ('retain_dma',False),('system_power_off_only',False),('hardware_acceptance',True),
+                            ('reboot_suspend_remove_reset_guards_unchanged',False)):
+            profile=self.alpha4();profile['uvd_poweroff_experiment'][field]=value
+            with self.subTest(field=field,value=value),self.assertRaisesRegex(ValueError,'exact default-off'):
+                APP.validate_profile(profile)
+        for changes in ({'uvd_lifecycle_sources_unchanged':True},{'console_loglevel':3},
+                        {'kernel_release':APP.ALPHA_RELEASE},{'required_boot_arguments':list(APP.UVD_ARGS)}):
+            profile=self.alpha4();profile.update(changes)
+            with self.subTest(changes=changes),self.assertRaises(ValueError):APP.validate_profile(profile)
+        profile=self.alpha4();profile['poweroff_fix']['uvd_shutdown_park_unchanged']=True
+        with self.assertRaisesRegex(ValueError,'ICC patch'):APP.validate_profile(profile)
+        profile=self.alpha4();pins=profile['alpha_inputs']['legacy_package']
+        key='modules-'+profile['kernel_release']+'.tar.zst'
+        pins[key.replace('dev3','dev2')]=pins.pop(key)
+        with self.assertRaisesRegex(ValueError,'Incomplete'):APP.validate_profile(profile)
+
+    def test_alpha4_pending_profile_refuses_before_tools_inputs_or_output(self):
+        with tempfile.TemporaryDirectory(dir='/var/tmp')as temp:
+            root=Path(temp)
+            pending=root/'pending.json'
+            value=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha4.json').read_text())
+            value.update(build_status='pending-new-kernel',kernel_sha256=None,config_sha256=None,modules_sha256=None)
+            pending.write_bytes(APP.encoded(value))
+            with mock.patch.object(APP,'validate_paths',side_effect=AssertionError('must not inspect inputs')), \
+                 mock.patch.object(APP,'load',side_effect=AssertionError('must not load tools')):
+                with self.assertRaisesRegex(ValueError,'pending'):
+                    APP.prepare(root/'base',root/'package',root/'fixture',pending,root/'output')
+            self.assertFalse((root/'output').exists())
+
+    def test_package_and_runtime_lifecycle_receipts_must_agree_with_narrow_experiment(self):
+        profile=self.alpha4()
+        receipt={'uvd_lifecycle_sources_unchanged':False,'uvd_poweroff_experiment':copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT)}
+        APP.validate_package_lifecycle(profile,receipt,copy.deepcopy(receipt))
+        for key in ('runtime','package'):
+            for changed in ({'uvd_lifecycle_sources_unchanged':True},
+                            {'uvd_lifecycle_sources_unchanged':None}, {'uvd_poweroff_experiment':{}},
+                            {'uvd_poweroff_experiment':dict(APP.UVD_POWEROFF_EXPERIMENT,retain_dma=False)}):
+                runtime=copy.deepcopy(receipt);package=copy.deepcopy(receipt)
+                (runtime if key=='runtime'else package).update(changed)
+                with self.subTest(key=key,changed=changed),self.assertRaises(ValueError):
+                    APP.validate_package_lifecycle(profile,runtime,package)
+        for version in ('alpha2','alpha3'):
+            old={'image_version':version};unchanged={'uvd_lifecycle_sources_unchanged':True}
+            APP.validate_package_lifecycle(old,unchanged,unchanged)
+            with self.assertRaisesRegex(ValueError,'unchanged'):
+                APP.validate_package_lifecycle(old,receipt,receipt)
+
+    def test_alpha4_serial_and_sata_policy_survive_real_clock_uuid_render_within_loader_limit(self):
+        source=self.serial_bootargs()
+        before=source.decode().split()
+        result=APP.alpha_bootargs(source,poweroff_experiment=True)
+        tokens=result.decode().split()
+        self.assertEqual(set(tokens)-set(before),set(APP.UVD_POWEROFF_ARGS)|{'loglevel=7'})
+        self.assertEqual(set(before)-set(tokens),{'loglevel=3'})
+        self.assertEqual([v for v in tokens if v.startswith('libata.')],[v for v in before if v.startswith('libata.')])
+        for token in APP.UVD_POWEROFF_ARGS:self.assertEqual(tokens.count(token),1)
+        stage=APP.load('alpha4_render_test',ROOT/'scripts/stage-ps4-diagnostics-usb')
+        rendered=stage.render_bootargs(result.decode(),'ABCD-1234',{'ui_backend':'ratatui'},epoch=4102444799)
+        self.assertLessEqual(len(rendered),511)
+        with_ignore=source.rstrip()+b' ignore_loglevel\n'
+        updated=APP.alpha_bootargs(with_ignore,poweroff_experiment=True)
+        self.assertNotIn(b'ignore_loglevel',updated)
+        self.assertEqual(updated,result)
+        with self.assertRaisesRegex(ValueError,'511-byte'):
+            APP.alpha_bootargs(source.rstrip()+b' unrelated='+b'x'*40+b'\n',poweroff_experiment=True)
+        with self.assertRaisesRegex(ValueError,'serial'):
+            APP.alpha_bootargs(source.replace(b'keep_bootcon ',b''),poweroff_experiment=True)
+
     def test_actual_cpio_readback_rejects_stock_missing_or_symlink_firmware(self):
         parser=APP.load('alpha3_cpio_fixture',ROOT/'scripts/ps4-diagnostics-archive')
         expected=b'synthetic corrected payload'

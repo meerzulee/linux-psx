@@ -53,6 +53,8 @@ bool amdgpu_ps4_uvd_runtime_reserve(struct amdgpu_device *adev,
 struct amdgpu_ps4_uvd_jobs *
 amdgpu_ps4_uvd_runtime_jobs(struct amdgpu_ring *ring);
 void amdgpu_ps4_uvd_runtime_fault(struct amdgpu_device *adev, int error);
+/* True only for the opt-in PCI shutdown return; all DMA backing is retained. */
+bool amdgpu_ps4_uvd_runtime_poweroff(struct amdgpu_device *adev);
 int amdgpu_ps4_uvd_runtime_drain_jobs(struct amdgpu_device *adev);
 int amdgpu_ps4_uvd_runtime_before_submit(struct amdgpu_ring *ring);
 bool amdgpu_ps4_uvd_runtime_observe(struct amdgpu_ring *ring, u32 seq);

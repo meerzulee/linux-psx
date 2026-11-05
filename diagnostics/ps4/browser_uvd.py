@@ -30,7 +30,7 @@ import time
 import uuid
 
 TEST_ID = 'uvd.browser.firefox'
-TEST_VERSION = 4
+TEST_VERSION = 5
 FIXTURE_PROFILES = {'canonical-120': (120, 4), 'continuous-900': (900, 30)}
 UNIT = 'psx-browser-uvd.service'
 RESULTS = Path('/run/psx-media/psx-diagnostics/results')
@@ -43,6 +43,9 @@ EGL_LIBRARY = '/opt/psx-mesa/usr/lib/libEGL_mesa.so.0'
 EGL_SELECTION = (json.dumps({'file_format_version': '1.0.0', 'ICD': {'library_path': EGL_LIBRARY}})+'\n').encode()
 MAX_LOG = 8 * 1024**2
 MAX_TRACE = 5 * 1024**2
+MEDIA_CACHE_BLOCK = 32768
+DEFAULT_FILE_LIMIT = 8*1024**2
+MAX_FILE_LIMIT = 128*1024**2
 TIMEOUT = 60
 RUNTIME_PARENT = Path('/var/lib/psx-diagnostics/browser-uvd')
 RUNTIME_CAPACITY = 512*1024**2
@@ -81,6 +84,21 @@ BAD_DECODE = re.compile(r'vaSyncSurface failed|vaExportSurfaceHandle.*fail|'
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def media_cache_limits(clip_bytes):
+    """Leave a strict block-rounded margin; this does not widen input profiles."""
+    require(type(clip_bytes) is int and 0 < clip_bytes < MAX_FILE_LIMIT,
+            'Media clip byte count must be a positive integer below the file-limit cap')
+    rounded = ((clip_bytes+MEDIA_CACHE_BLOCK-1)//MEDIA_CACHE_BLOCK)*MEDIA_CACHE_BLOCK
+    limit = DEFAULT_FILE_LIMIT
+    while limit <= rounded:
+        limit *= 2
+    require(limit <= MAX_FILE_LIMIT, 'Block-rounded media cache requires a file limit above 128 MiB')
+    return {'clip_bytes':clip_bytes,'cache_block_bytes':MEDIA_CACHE_BLOCK,'rounded_cache_bytes':rounded,
+            'file_limit_bytes':limit,'file_limit_mib':limit//1024**2,
+            'default_file_limit_bytes':DEFAULT_FILE_LIMIT,'maximum_file_limit_bytes':MAX_FILE_LIMIT,
+            'log_budget_bytes':MAX_LOG,'trace_budget_bytes':MAX_TRACE}
 
 
 def sha(data):
@@ -646,7 +664,9 @@ def observe_processes(main_pid, seen, driver, root=Path('/proc')):
     require(len(seen) <= 128, 'Browser process budget exceeded')
 
 
-def launch_command(runtime, url):
+def launch_command(runtime, url, *, file_limit_bytes=DEFAULT_FILE_LIMIT):
+    require(type(file_limit_bytes) is int and DEFAULT_FILE_LIMIT <= file_limit_bytes <= MAX_FILE_LIMIT
+            and file_limit_bytes & (file_limit_bytes-1) == 0, 'Unreviewed browser per-file limit')
     logs = runtime/'logs'
     private_environment = ['HOME='+str(runtime/'home'),'XDG_CACHE_HOME='+str(runtime/'cache'),
                            'XDG_CONFIG_HOME='+str(runtime/'config'),'XDG_DATA_HOME='+str(runtime/'data'),
@@ -656,7 +676,7 @@ def launch_command(runtime, url):
     argv = ['/usr/bin/systemd-run', '--quiet', '--unit='+UNIT, '--service-type=exec',
             '--property=User=psx', '--property=Group=psx', '--property=RuntimeMaxSec=60',
             '--property=KillMode=control-group', '--property=TimeoutStopSec=8', '--property=LimitCORE=0',
-            '--property=LimitFSIZE=8M', '--property=TasksMax=512', '--property=MemoryMax=1G',
+            '--property=LimitFSIZE='+str(file_limit_bytes//1024**2)+'M', '--property=TasksMax=512', '--property=MemoryMax=1G',
             '--property=StandardOutput=append:'+str(logs/'console.log'),
             '--property=StandardError=append:'+str(logs/'console.log'),
             *('--setenv='+e for e in environment), '--', '/usr/bin/python3', '/opt/psx-mesa-tools/with-mesa.py',
@@ -742,6 +762,7 @@ def run(args, data):
         seen = {}
         try:
             require(uvd.stop_reason(runner) is None, 'UVD already reserved; no retry')
+            record['media_cache_limits'] = media_cache_limits(len(data['clip']))
             identity, session, paths, _, _ = uvd.preflight(runner)
             manifest = uvd.document(uvd.local(runner, runner.manifest_path), runner)
             require(manifest['profile'] == uvd.ALPHA3['profile'] and manifest['rootfs_sha256'] == ROOT_SHA,
@@ -794,7 +815,8 @@ def run(args, data):
             record['preferences'] = PREFS
             record['passive_fences'] = {'available': False, 'reason': 'No source-reviewed passive fence interface is available; no debugfs probes or mounts performed.'}
             started = time.monotonic(); launched = True
-            checked_command(runner, launch_command(runtime, http.protocol.origin+'/'), 5)
+            checked_command(runner, launch_command(runtime, http.protocol.origin+'/',
+                            file_limit_bytes=record['media_cache_limits']['file_limit_bytes']), 5)
             main_pid = int(checked_command(runner, ['/usr/bin/systemctl', 'show', UNIT, '-p', 'MainPID', '--value']))
             require(main_pid > 0, 'Firefox service did not retain a main process')
             complete = True
@@ -884,6 +906,7 @@ def main(argv=None):
     if not args.run:
         result = {'test_id': TEST_ID, 'test_version': TEST_VERSION, 'run': False, 'hardware_acceptance': False,
                   'inputs': {k: sha(v) for k, v in data.items()}, 'timeout_seconds': TIMEOUT,
+                  'media_cache_limits':media_cache_limits(len(data['clip'])),
                   'fixture': fixture_spec(json.loads(data['fixture'])),
                   'planned_runtime_storage':{'directory':str(RUNTIME_PARENT),'filesystem':'tmpfs',
                       'capacity_bytes':RUNTIME_CAPACITY,'required_free_before_intent_bytes':RUNTIME_MIN_FREE,

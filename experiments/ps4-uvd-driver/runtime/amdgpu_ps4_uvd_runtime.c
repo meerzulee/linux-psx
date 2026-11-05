@@ -28,9 +28,12 @@
  * Packet callbacks adapt Linux uvd_v5_0.c (Linux MIT notices retained in the
  * corresponding-source package). Runtime mapping/coexistence remain untested.
  */
+#include <linux/cache.h>
 #include <linux/delay.h>
+#include <linux/kexec.h>
 #include <linux/ktime.h>
 #include <linux/moduleparam.h>
+#include <linux/reboot.h>
 #include <linux/wait.h>
 #include "amdgpu.h"
 #include "amdgpu_ps4_uvd_runtime.h"
@@ -44,6 +47,11 @@ static bool ps4_uvd_runtime;
 module_param_named(ps4_uvd_runtime, ps4_uvd_runtime, bool, 0444);
 MODULE_PARM_DESC(ps4_uvd_runtime,
 	"Experimental Liverpool UVD userspace queue; cold boot only, retains DMA on failure (default 0)");
+
+static bool ps4_uvd_poff __ro_after_init;
+module_param_named(ps4_uvd_poff, ps4_uvd_poff, bool, 0444);
+MODULE_PARM_DESC(ps4_uvd_poff,
+	"Experimental power-off only: retain UVD DMA and skip shutdown teardown for ICC power-off (default 0)");
 
 static const struct amdgpu_ring_funcs ps4_uvd_ring_funcs;
 static DECLARE_WAIT_QUEUE_HEAD(ps4_uvd_retained_wait);
@@ -119,6 +127,24 @@ void amdgpu_ps4_uvd_runtime_fault(struct amdgpu_device *adev, int error)
 	ps4_uvd_close(adev, error);
 	if (s->jobs.initialized)
 		amdgpu_ps4_uvd_jobs_fault(&s->jobs, error);
+}
+
+/* Only the PCI shutdown callback may use this exception. Returning there
+ * preserves the device, firmware, page tables and DMA-reachable BO backing
+ * while the normal system power-off path proceeds to ICC. This is not a
+ * quiescence proof or permission for fini, removal, suspend or reboot.
+ */
+bool amdgpu_ps4_uvd_runtime_poweroff(struct amdgpu_device *adev)
+{
+	if (!ps4_uvd_poff || system_state != SYSTEM_POWER_OFF ||
+	    reboot_force || kexec_in_progress ||
+	    !amdgpu_ps4_uvd_runtime_retain(adev))
+		return false;
+
+	amdgpu_ps4_uvd_runtime_fault(adev, -ESHUTDOWN);
+	dev_warn(adev->dev,
+		"PS4_UVD_RUNTIME EXPERIMENTAL_POWEROFF retained=1 teardown=0; continuing to system power-off\n");
+	return true;
 }
 
 void amdgpu_ps4_uvd_runtime_park(struct amdgpu_device *adev, const char *reason)

@@ -2308,8 +2308,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
-      "destination_bytes": 39296,
+      "destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
+      "destination_bytes": 43631,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2389,6 +2389,13 @@
           "prior_destination_sha256": "f9a04d8604b3ff91efb1be1ed39077ea15b1561386d1a7099be006a0c456ed01",
           "destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
           "destination_bytes": 39296,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "d2e27bdcbf3a9cd3eb27dec465046feb8ab701c0105af02cf243c21ed59f6815",
+          "destination_sha256": "0146eef1548635fc3ef7522d61a6149a6a13dee68d524f83768b27a25ae20a09",
+          "destination_bytes": 43631,
           "mode": "0644"
         }
       ]
@@ -2545,8 +2552,8 @@
     },
     {
       "path": "diagnostics/ps4/uvd.py",
-      "destination_sha256": "1f4c3e626599dda9e8d32a25f2e6ea4ab74cb71fe755810a7fce7330c7ca3e27",
-      "destination_bytes": 20881,
+      "destination_sha256": "39a37493d66e97fd2c1f2a0d1e7d79299e541900eef9a38406b9e2a9ce7ddbc1",
+      "destination_bytes": 22504,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2570,6 +2577,13 @@
           "prior_destination_sha256": "79e68383cf3cedd4fa64484b54c904b5821fd07c6aa88cce5598cfb56e05671c",
           "destination_sha256": "1f4c3e626599dda9e8d32a25f2e6ea4ab74cb71fe755810a7fce7330c7ca3e27",
           "destination_bytes": 20881,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "1f4c3e626599dda9e8d32a25f2e6ea4ab74cb71fe755810a7fce7330c7ca3e27",
+          "destination_sha256": "39a37493d66e97fd2c1f2a0d1e7d79299e541900eef9a38406b9e2a9ce7ddbc1",
+          "destination_bytes": 22504,
           "mode": "0644"
         }
       ]
@@ -2622,8 +2636,8 @@
     },
     {
       "path": "scripts/build-ps4-diagnostics-alpha",
-      "destination_sha256": "488ddd9df5e95067cf0df8a649ac0ce7cdf2202df08e489bebbe040b703cad0b",
-      "destination_bytes": 52788,
+      "destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
+      "destination_bytes": 56990,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2640,6 +2654,13 @@
           "prior_destination_sha256": "95a95e17ae9734a0f019ca49d8054c8365b127d2865c4af1c99e97c5ec3531b7",
           "destination_sha256": "488ddd9df5e95067cf0df8a649ac0ce7cdf2202df08e489bebbe040b703cad0b",
           "destination_bytes": 52788,
+          "mode": "0755"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "488ddd9df5e95067cf0df8a649ac0ce7cdf2202df08e489bebbe040b703cad0b",
+          "destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
+          "destination_bytes": 56990,
           "mode": "0755"
         }
       ]
@@ -2670,8 +2691,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha.py",
-      "destination_sha256": "0d8fdb4d8f0bbbc4b73f888e3b09778b191a1dbd14fd358faf9024d1e5df7b8a",
-      "destination_bytes": 23881,
+      "destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
+      "destination_bytes": 31433,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2688,6 +2709,13 @@
           "prior_destination_sha256": "bdf04706a435950b914d57fb6631be0c31984d9cfa559dd1b3fa4ba5b58852b3",
           "destination_sha256": "0d8fdb4d8f0bbbc4b73f888e3b09778b191a1dbd14fd358faf9024d1e5df7b8a",
           "destination_bytes": 23881,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "0d8fdb4d8f0bbbc4b73f888e3b09778b191a1dbd14fd358faf9024d1e5df7b8a",
+          "destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
+          "destination_bytes": 31433,
           "mode": "0644"
         }
       ]
@@ -2735,8 +2763,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
-      "destination_sha256": "e26e9b6cbfa7ac80967ce1557e1c9c603add81a2504c7df9be82accd52430761",
-      "destination_bytes": 26441,
+      "destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
+      "destination_bytes": 30119,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2760,6 +2788,13 @@
           "prior_destination_sha256": "9c2438e070f3fef447824935defcba4fb76afebd43f0210b8edaaa7b37172920",
           "destination_sha256": "e26e9b6cbfa7ac80967ce1557e1c9c603add81a2504c7df9be82accd52430761",
           "destination_bytes": 26441,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "e26e9b6cbfa7ac80967ce1557e1c9c603add81a2504c7df9be82accd52430761",
+          "destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
+          "destination_bytes": 30119,
           "mode": "0644"
         }
       ]
@@ -2814,8 +2849,8 @@
     },
     {
       "path": "diagnostics/ps4/browser_uvd.py",
-      "destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
-      "destination_bytes": 54600,
+      "destination_sha256": "983029a288afb98749b027105d1ac1c7b414f8ffcc670758d51f9596c4a6576e",
+      "destination_bytes": 56111,
       "mode": "0644",
       "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2825,6 +2860,13 @@
           "prior_destination_sha256": "244353938877862aaa54d2e07c49d7a90eb30d17bf140f84aeb8eaed18700701",
           "destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
           "destination_bytes": 54600,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "9df58688b2a5425cdc951bd486a472e3ee7c2b305ef2f73e7ca3990c0d79f49b",
+          "destination_sha256": "983029a288afb98749b027105d1ac1c7b414f8ffcc670758d51f9596c4a6576e",
+          "destination_bytes": 56111,
           "mode": "0644"
         }
       ]
@@ -2847,8 +2889,8 @@
     },
     {
       "path": "tests/test_ps4_browser_uvd.py",
-      "destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
-      "destination_bytes": 39554,
+      "destination_sha256": "c2fa63cb8061aa3e4dfe3f7884f510276e05e91afe818dacd2c8276c6a8edd95",
+      "destination_bytes": 42186,
       "mode": "0644",
       "purpose": "Add guarded browser AVC trials and exact offline4s/30s fixtures; preserve observed Firefox hardware handoff failure and review process-local EGL selection correction without hardware promotion.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2858,6 +2900,13 @@
           "prior_destination_sha256": "24b71e512c6b4daad33c9c7c955102c286e2c3e673698fe2afded6201ae16183",
           "destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
           "destination_bytes": 39554,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+          "prior_destination_sha256": "4acbca851334f5a96c49d399613ff8e1b76b4c7d65950e7450b3210ec92ca6c1",
+          "destination_sha256": "c2fa63cb8061aa3e4dfe3f7884f510276e05e91afe818dacd2c8276c6a8edd95",
+          "destination_bytes": 42186,
           "mode": "0644"
         }
       ]
@@ -2886,6 +2935,30 @@
           "mode": "0644"
         }
       ]
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha4.json",
+      "destination_sha256": "ba67c37af6e53eead829bd08c98d8addb3cca3887d7e42bbc7dcc4303755c59b",
+      "destination_bytes": 12350,
+      "mode": "0644",
+      "purpose": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "scripts/prepare-ps4-video-fixtures",
+      "destination_sha256": "e6a6ef97598ca342f146efb6d18ca17f2ca723c48929ebca63704661c9ec683e",
+      "destination_bytes": 21109,
+      "mode": "0755",
+      "purpose": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_video_fixtures.py",
+      "destination_sha256": "b9d267d579b683191dd79cbf6f86d14c3c5989395ccceefbd413eee00dd50ab0",
+      "destination_bytes": 13320,
+      "mode": "0644",
+      "purpose": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+      "origin": "New Linux psX source after diagnostic import"
     }
   ],
   "ownership_updates": [
@@ -3258,6 +3331,22 @@
         "tests/test_ps4_browser_uvd.py",
         "diagnostics/SESSIONS.md",
         "docs/PS4-DIAGNOSTIC-BROWSER-UVD.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add explicit default-off retained-DMA power-off experiment with matched dev3 alpha4, native video fixtures and cache-size correction; preserve frozen older variants and record bounded EXP013-015 evidence.",
+      "paths": [
+        "diagnostics/ps4/browser_uvd.py",
+        "tests/test_ps4_browser_uvd.py",
+        "diagnostics/ps4/uvd.py",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "scripts/build-ps4-diagnostics-alpha",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "manifests/ps4-diagnostics-uvd-alpha4.json",
+        "scripts/prepare-ps4-video-fixtures",
+        "tests/test_ps4_video_fixtures.py",
+        "diagnostics/SESSIONS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

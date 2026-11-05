@@ -1,0 +1,43 @@
+--- a/content/gpu/gpu_main.cc
++++ b/content/gpu/gpu_main.cc
+@@ -7,6 +7,7 @@
+ #include <stdlib.h>
+ 
+ #include <memory>
++#include <string_view>
+ #include <tuple>
+ #include <utility>
+ 
+@@ -515,9 +516,17 @@
+     sandbox::policy::SandboxLinux::GetInstance()->StopThread(trace_thread);
+   }
+ 
+-  // SandboxLinux::InitializeSandbox() must always be called
+-  // with only one thread.
++  // The default remains single-threaded sandbox initialization. The explicit
++  // PS4 experiment opt-in uses the existing TSYNC path for driver-created
++  // threads, without changing namespace, broker, or syscall policy settings.
++  bool psx_gpu_tsync_opt_in = false;
++#if BUILDFLAG(IS_LINUX)
++  const char* psx_gpu_tsync = getenv("PSX_CHROMIUM_GPU_TSYNC");
++  psx_gpu_tsync_opt_in =
++      psx_gpu_tsync && std::string_view(psx_gpu_tsync) == "1";
++#endif
+   sandbox::policy::SandboxLinux::Options sandbox_options;
++  sandbox_options.allow_threads_during_sandbox_init = psx_gpu_tsync_opt_in;
+   if (gpu_info) {
+     // We have to enable sandbox settings for all GPUs in the system
+     // for Chrome to be able to access/use them.
+@@ -562,6 +571,12 @@
+           *base::CommandLine::ForCurrentProcess()),
+       base::BindOnce(GpuPreSandboxHook), sandbox_options);
+ 
++  if (psx_gpu_tsync_opt_in) {
++    CHECK(res) << "PS4 TSYNC experiment requires successful GPU sandbox setup";
++    CHECK(sandbox::policy::SandboxLinux::GetInstance()->seccomp_bpf_started())
++        << "PS4 TSYNC experiment requires an installed seccomp-BPF filter";
++  }
++
+   if (watchdog_thread) {
+     watchdog_thread->Start();
+   }

@@ -58,6 +58,19 @@ ALPHA2 = dict(ALPHA, profile="ps4-baikal-diagnostics-uvd-alpha2",
                   "hardware_acceptance": False,
               })
 ALPHA3 = dict(ALPHA2, profile="ps4-baikal-diagnostics-uvd-alpha3", image_version="alpha3")
+POWEROFF_EXPERIMENT = {"parameter": "amdgpu.ps4_uvd_poff", "default": 0, "test_value": 1,
+    "read_only": True, "system_power_off_only": True, "retain_dma": True,
+    "reboot_suspend_remove_reset_guards_unchanged": True, "hardware_acceptance": False}
+# Matched dev3 package independently read back after the scoped power-off build.
+# This does not relax the immutable post-attempt stop or add a power command.
+ALPHA4 = dict(ALPHA3, profile="ps4-baikal-diagnostics-uvd-alpha4", image_version="alpha4",
+              kernel_release="7.2.11-psx-ps4-baikal-uvd-runtime-dev3",
+              kernel_sha256="01fa05f683c4c36ae83678f09cf3df502ddb0731dc73f2530cdb05fbe317804d",
+              config_sha256="e4ae5561870aa34c9eafad0dcb9de3eaf77c4a8248237134d7dfcd0e76aa93fe",
+              modules_sha256="603a4b9453fba5462c702102afab335a857d01d707cf945f7a8809ec5640396c",
+              build_status="frozen", console_loglevel=7,
+              poweroff_fix=dict(ALPHA3["poweroff_fix"], uvd_shutdown_park_unchanged=False),
+              uvd_lifecycle_sources_unchanged=False, uvd_poweroff_experiment=POWEROFF_EXPERIMENT)
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -76,6 +89,7 @@ FIRMWARE = {"path": "/usr/lib/firmware/amdgpu/liverpool_uvd.bin", "bytes": 31416
 FIRMWARE_CRC = 0xa465ba07
 BOOT_ARGUMENTS = ["amdgpu.ps4_uvd_runtime=1", "amdgpu.ps4_uvd_ready=1",
                   "amdgpu.ps4_uvd_poll_state=1"]
+POWEROFF_BOOT_ARGUMENTS = BOOT_ARGUMENTS + ["amdgpu.ps4_uvd_poff=1"]
 SESSION = "/run/psx-diagnostics/uvd-session.json"
 OUTER_TIMEOUT = 120  # 60s decode plus four bounded 10s identity queries and I/O.
 KERNEL_FAULT = re.compile(
@@ -194,7 +208,8 @@ def sync(path):
 
 def select_contract(manifest):
     require(isinstance(manifest, dict), "UVD manifest must be an object")
-    selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3}.get(manifest.get("profile"))
+    selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3,
+                ALPHA4["profile"]: ALPHA4}.get(manifest.get("profile"))
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -202,6 +217,10 @@ def select_contract(manifest):
                 and len(set(value)) > 1, "UVD alpha artifact pins are pending")
     require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
             "This is not the exact frozen UVD alpha artifact profile")
+    if selected["image_version"] == "alpha4":
+        policy = manifest["uvd_poweroff_experiment"]
+        require(all(type(policy.get(key)) is type(value) and policy[key] == value
+                    for key, value in POWEROFF_EXPERIMENT.items()), "Alpha4 power-off experiment policy types differ")
     return selected
 
 
@@ -210,10 +229,11 @@ def preflight(runner):
     require(identity["release_matches"], "Alpha kernel/catalogue release mismatch")
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
-    select_contract(manifest)
+    selected = select_contract(manifest)
+    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] == "alpha4" else BOOT_ARGUMENTS
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
-            manifest.get("required_boot_arguments") == BOOT_ARGUMENTS and
+            manifest.get("required_boot_arguments") == arguments and
             alpha_inputs.get("root_firmware") == FIRMWARE,
             "Alpha UVD inputs/boot policy differ")
     validation = manifest.get("manifest_validation", {})
@@ -223,7 +243,7 @@ def preflight(runner):
             all(re.fullmatch(r"[0-9a-f]{64}", str(manifest.get(key, ""))) for key in
                 ("initramfs_sha256", "rootfs_sha256")), "Verified root/boot-set contract is missing")
     cmdline = runner.fs.text("/proc/cmdline") or ""
-    for argument in BOOT_ARGUMENTS:
+    for argument in arguments:
         key = argument.split("=", 1)[0]
         require([token for token in cmdline.split() if token.split("=", 1)[0] == key] == [argument],
                 "Required UVD boot gate is missing or duplicated: " + key)

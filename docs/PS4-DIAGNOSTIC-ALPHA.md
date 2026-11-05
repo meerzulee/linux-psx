@@ -53,10 +53,21 @@ that prevented GPU initialization from completing.
 The corrected package preserves those checks, all three UVD gates and every
 VMID, clock and retained-DMA restriction. Assembly is not boot qualification.
 
-The ICC fix does not remove the UVD shutdown park. Power-off validation uses
+In dev1/dev2, the ICC fix does not remove the UVD shutdown park. Power-off validation uses
 a separate boot of this combined kernel with all three UVD gates disabled;
 the UVD-enabled boot ends with physical recovery. A successful TCP disconnect
 or power command return is not operator-observed power-off acceptance.
+
+The separate [alpha4 profile](../manifests/ps4-diagnostics-uvd-alpha4.json)
+uses the complete matched dev3 package and the same corrected firmware. It
+adds the default-off `amdgpu.ps4_uvd_poff=1` experimental boot option alongside
+the three UVD gates. Only normal system power-off may return from AMDGPU PCI
+shutdown without teardown; DMA backing stays allocated and every other
+lifecycle guard remains. Kernel compilation, all 41 matching modules and
+complete source/module archive readbacks passed. Hardware power-off remains
+unqualified until the captured UVD-then-power-off experiment observes physical
+power removal and healthy subsequent startup. See the [power-off candidate
+details](UVD.md#default-off-dev3-power-off-test-candidate).
 
 The alpha assembler creates a new regular ext4 image offline from the exact
 ordinary root, replaces its entire kernel-module tree, and installs the alpha

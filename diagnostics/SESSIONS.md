@@ -575,3 +575,67 @@ outside Git; one completed test is not stability qualification.
   Private evidence: `output/ps4-diagnostix-chromium-uvd2/`.
   Continuous capture remains running. No broad UVD, browser or kernel stability
   promotion follows from these short, small-resolution same-boot trials.
+
+## EXP-20261105-013 — dev2 native 1080p pixel oracle passes
+
+- On the existing corrected alpha3/dev2 boot, the owner explicitly requested
+  further stability investigation. A separate exclusive intent preserved all
+  preceding intents/results; the public runner's one-attempt rule was unchanged.
+  Kernel, matching modules, root, firmware and pinned Mesa remained fixed.
+- One forced FFmpeg VAAPI/hardware-download decode processed the native
+  1920x1080, 30 fps, 30-second AVC fixture with no software fallback. All 900
+  per-frame hashes and the complete 2,799,360,000-byte NV12 output matched the
+  independently generated software reference, SHA256
+  `b88dd37166f35cdfaa60aa130e65cbb8ac4ba0c959d0dc8d30b74e83bde44790`.
+  The actual decoder process mapped the pinned VA driver.
+- Verdict: **native 1080p decode pixel-oracle PASS**, scoped to this unpaced
+  component check. It does not measure browser presentation, real-time speed,
+  endurance, encoding, lifecycle safety or another cold boot. The result retains
+  `stop_required=true` and `hardware_acceptance=false`.
+- UART session closed with completed continuity, 1,444 bytes and no continuity
+  errors. Reviewed context contained no terminal UVD/GPU fault. Raw logs and
+  machine-specific receipts remain private. These dev2 observations do not
+  qualify a newly built kernel.
+
+## EXP-20261105-014 — native Firefox playback hits the harness file limit
+
+- Tested paced Firefox 154 playback of the same 900-frame native 1080p fixture
+  under a separate owner-authorized intent. The fixed dev2 kernel, decoder,
+  firmware and Mesa identities remained unchanged; no earlier intent was
+  removed. Profile and logs used the monitored RAM pool.
+- The page stopped near 19.217 seconds with media error 3. Complete RDD logs
+  contain 580 successful VA-API frame outputs, ending at PTS 19.300000 seconds,
+  and zero software frames. The DMA-BUF surface pool stayed bounded at eight;
+  no VA-API or DMA-BUF failure was recorded. The console instead reported
+  `ReadCacheFile failed` and `Sample data read failed` with `NS_ERROR_FAILURE`.
+- The 26,008,330-byte MP4 used Firefox's separate file-backed media cache.
+  Packet 579 ended at byte 16,752,570; packet 580 was the first to cross byte
+  16,777,216, exactly the trial's `LimitFSIZE=16M`. Available RAM stayed above
+  290 MB. This identifies a harness per-file limit, not storage exhaustion or
+  a demonstrated UVD decoder regression. Root status remains INCONCLUSIVE;
+  the page recorded one dropped frame before the incomplete playback ended.
+- UART session closed with completed continuity, 2,527 bytes and no continuity
+  errors or observed terminal UVD/GPU fault. The next comparison changes only
+  the per-file limit; the failed result and its immutable stop intent remain.
+  Raw evidence and machine-specific paths are withheld from this summary.
+
+## EXP-20261105-015 — native Firefox hardware playback completes; one drop remains
+
+- Changed only the trial's per-file size limit from 16 MiB to 32 MiB. Kept the
+  same native 1080p MP4, Firefox, hardware decoder preferences, sandbox, kernel,
+  firmware, Mesa and independent trace/total-log budgets. A separate exclusive
+  intent preserved the preceding experiment under the owner's explicit scope.
+- The page ended at 30 seconds with 900 total frames and 900 presented frames.
+  Complete decoder logs contain 900 distinct VA-API frame timestamps and zero
+  software frames. The page still reported one dropped frame; its unavailable
+  corruption counter remains unknown. The earlier media-cache error did not
+  recur. This controlled comparison confirms the harness file-limit diagnosis.
+- Verdict: **complete 30-second native 1080p Firefox hardware playback
+  observed**. Root status remains INCONCLUSIVE under the strict zero-drop and
+  capture criteria. Browser output pixels were not compared with the native
+  oracle, and this short same-boot observation does not establish endurance,
+  lifecycle safety, encoding or stable support. The stop intent remains.
+- UART session closed with completed continuity, 4,332 bytes and no continuity
+  errors. Reviewed context contained Wi-Fi scan messages and no terminal
+  UVD/GPU fault. Raw logs remain private. EXP013–015 apply to the tested dev2
+  artifact set and cannot qualify the separate dev3 power-off candidate.
