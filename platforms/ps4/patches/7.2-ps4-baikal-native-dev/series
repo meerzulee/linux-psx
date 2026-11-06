@@ -95,3 +95,6 @@
 
 # Contributor PR #4 power-off handler; maintainer pending/forced-send guard.
 0200-ps4-drivers/0001-ps4-bpcie-icc-power-off-before-acpi.patch
+
+# Ordinary Baikal restart uses atomic ICC after x86 machine shutdown.
+0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch

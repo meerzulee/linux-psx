@@ -7,9 +7,9 @@ import shlex
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET = "7.2-ps4-baikal-native-dev"
-RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
-SERIES = "4af6932ac7670cb73b264797ddcdf761ae631c53a691b21381282cf1ad46cbf9"
-PATCHSET = "326d5704659305b127693ccd15183849678e6db1d8dd8d3f8cdae643dbf0536c"
+RELEASE = "7.2.11-psx-ps4-baikal-native-dev4"
+SERIES = "edd6283acfe102422bc9f4bc4de22f562e7c55e23bc8ae3c5d78e8d271935d46"
+PATCHSET = "4c578be6a10fc794d70dabd2ab3ce3c0e866aaa9b925c81014f37d55d392f9d9"
 NATIVE = "e6e799c9d82618f1c92abfaa801cb49613feb4d4f4f033bdd79e5d5f3a0ee9b3"
 UNDERSCAN = "e6cb81ca268b02dcbaccec2f13a63e82015f838942d8dd30ffafe5fa0168930c"
 
@@ -55,8 +55,8 @@ def check_target(root=ROOT):
                     "series_sha256": base["series_sha256"], "active_patch_count": 63,
                     "ordered_patchset_sha256": base["ordered_patchset_sha256"]}, "native 7.2 base target pin differs")
     patches = record["patches"]
-    require(len(patches) == record["active_patch_count"] == 73 and len(base["patches"]) == 63,
-            "native 7.2 requires exactly 63 base patches, native autoload, underscan and eight focused additions")
+    require(len(patches) == record["active_patch_count"] == 74 and len(base["patches"]) == 63,
+            "native 7.2 requires exactly 63 base patches, native autoload, underscan and nine focused additions")
     require(all({k: item[k] for k in ("entry", "path", "sha256")} ==
                     {k: prefix[k] for k in ("entry", "path", "sha256")}
                 for item, prefix in zip(base["patches"], patches[:63])), "native 7.2 canonical prefix differs")
@@ -81,7 +81,7 @@ def check_target(root=ROOT):
             and any(p["path"] == native["path"] and p["sha256"] == NATIVE for p in source["patches"]),
             "native 7.2 autoload patch must remain the unchanged 6.18 addition")
     additions = record["psx_additions"]
-    require(len(additions) == 9
+    require(len(additions) == 10
             and patches[64]["path"] == additions[0]["path"] ==
                 "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch"
             and patches[64]["sha256"] == additions[0]["sha256"] == UNDERSCAN
@@ -102,20 +102,21 @@ def check_target(root=ROOT):
         "0500-network-mt7668/0001-mt76x8-bound-config-command-inputs.patch",
         "0300-gpu-liverpool/0038-amdgpu-ps4-program-audio-dto.patch",
         "0200-ps4-drivers/0001-ps4-bpcie-icc-power-off-before-acpi.patch",
+        "0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch",
     ]
     for index, entry in enumerate(local_entries, 66):
         require(patches[index]["path"] == additions[index - 64]["path"] ==
                     "platforms/ps4/patches/7.2-ps4-baikal/" + entry
                 and patches[index]["sha256"] == additions[index - 64]["sha256"],
                 "native 7.2 focused platform fix is missing its separate provenance")
-    audio = additions[-2]
+    audio = additions[-3]
     require(audio["source_issue"] == "https://github.com/meerzulee/linux-psx/issues/6"
             and audio["source_path"] == "platforms/ps4/patches/7.2-ps4/0175-drm-amdgpu-ps4-program-audio-dto.patch"
             and audio["source_commit"] == "ec926348cdd188fdffbbf7d3a930185004084894"
             and digest(root / audio["source_path"]) == audio["source_sha256"] ==
                 "4691ee521b13ebc3cd7f88f6d2ffe5264127a053a528234cfbb1846a44a01352",
             "native 7.2 audio adaptation must preserve the original psX source identity")
-    poweroff = additions[-1]
+    poweroff = additions[-2]
     require(poweroff["author"] == "suds-mcduff"
             and poweroff["source_pull_request"] == "https://github.com/meerzulee/linux-psx/pull/4"
             and poweroff["source_commit"] == "16c43fcd090c95669374c27cbb2df835326d259a"
@@ -123,7 +124,7 @@ def check_target(root=ROOT):
             "native 7.2 power-off must retain the guarded contributor patch and original authorship")
     original = (root / base_env["CONFIG_FILE"]).read_bytes()
     expected_config = original.replace(b'CONFIG_LOCALVERSION="-psx-ps4-baikal-dev1"',
-                                       b'CONFIG_LOCALVERSION="-psx-ps4-baikal-native-dev3"')
+                                       b'CONFIG_LOCALVERSION="-psx-ps4-baikal-native-dev4"')
     require(original != expected_config and (root / env["CONFIG_FILE"]).read_bytes() == expected_config,
             "native 7.2 config changes beyond LOCALVERSION")
     require(record["firmware"] == {"embedded": False, "bundled": False}

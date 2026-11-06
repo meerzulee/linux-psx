@@ -42,7 +42,7 @@ class Native72ProvenanceTests(unittest.TestCase):
                 item["sha256"] = hashlib.sha256((self.root / name).read_bytes()).hexdigest()
 
     def test_exact_tested_native_inputs_are_accepted(self):
-        self.assertEqual(APP.check_target(self.root), 73)
+        self.assertEqual(APP.check_target(self.root), 74)
 
     def test_rehashed_hardware_config_change_is_rejected(self):
         name = self.record["config"]["path"]

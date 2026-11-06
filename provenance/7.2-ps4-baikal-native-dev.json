@@ -3,8 +3,8 @@
   "created_on": "2026-10-18",
   "target": "7.2-ps4-baikal-native-dev",
   "platform": "ps4-baikal",
-  "status": "experimental platform defaults, bounded error/lifetime paths, native audio DTO and contributor Baikal power-off candidate; dev3 has no hardware acceptance",
-  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+  "status": "experimental atomic Baikal restart and retained contributor power-off; native-dev4 has no hardware acceptance",
+  "kernel_release": "7.2.11-psx-ps4-baikal-native-dev4",
   "source_date_epoch": 1792195200,
   "upstream": {
     "repository": "https://github.com/gregkh/linux.git",
@@ -22,9 +22,9 @@
   },
   "series_path": "platforms/ps4/patches/7.2-ps4-baikal-native-dev/series",
   "patches_dir": "platforms/ps4/patches/7.2-ps4-baikal",
-  "series_sha256": "4af6932ac7670cb73b264797ddcdf761ae631c53a691b21381282cf1ad46cbf9",
-  "active_patch_count": 73,
-  "ordered_patchset_sha256": "326d5704659305b127693ccd15183849678e6db1d8dd8d3f8cdae643dbf0536c",
+  "series_sha256": "edd6283acfe102422bc9f4bc4de22f562e7c55e23bc8ae3c5d78e8d271935d46",
+  "active_patch_count": 74,
+  "ordered_patchset_sha256": "4c578be6a10fc794d70dabd2ab3ce3c0e866aaa9b925c81014f37d55d392f9d9",
   "patches": [
     {
       "subject": "x86: add PS4 platform support (Linux 6.15)",
@@ -793,6 +793,15 @@
       "source_sha256": "d14450783777b161a8e98d990c7f5d62c7d1cd64f90c25cb13561648208d47d3",
       "adaptation_commit": "ce3f76b796881123af46aff0b4a969a8cde9f985",
       "source_merge_commit": "a1bd219a12d73d8339515e09c658f7614e847b86"
+    },
+    {
+      "subject": "ps4: register atomic Baikal restart and refuse sleeping fallback",
+      "origin": "linux-psx-independent-fix",
+      "entry": "0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch",
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch",
+      "sha256": "205fa678d28315ac813e870aeb19add85d643d6f79cb0180f42dd5530802f40f",
+      "change": "new follow-up to the unchanged contributor power-off patch",
+      "note": "Register a non-sleeping normal restart handler and refuse legacy Baikal sleeping fallback; exact existing reset bytes, one atomic request, bounded busy wait and refusal markers. No UVD teardown or hardware acceptance."
     }
   ],
   "native_autoload": {
@@ -806,11 +815,11 @@
   "inputs": [
     {
       "path": "targets/7.2-ps4-baikal-native-dev.env",
-      "sha256": "70b263ce7d3ab635550911fba8495d65328b6c7997b032061057edbbd86278bf"
+      "sha256": "833d6b2bf222cd90ae8ecae0a3af975e56b6c04170e2b4398e9876aca5ecdaa2"
     },
     {
       "path": "platforms/ps4/config/7.2-psx-baikal-native-dev.config",
-      "sha256": "bf69745861ab21a356c0bb3ad700b74d0b5efb8badfdf9f38108837b639fd98c"
+      "sha256": "aede12cddd8134cce7d820d044ae7075e9d101feefb6b3457c723ee00924461b"
     },
     {
       "path": "platforms/ps4/config/fragments/mt7668.config",
@@ -826,7 +835,7 @@
     "derived_from": "platforms/ps4/config/7.2-psx-baikal.config",
     "method": "copy the canonical 7.2 Baikal config; replace only CONFIG_LOCALVERSION; use the same fragments and olddefconfig",
     "changes": [
-      "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-native-dev3\""
+      "CONFIG_LOCALVERSION=\"-psx-ps4-baikal-native-dev4\""
     ],
     "resolved_delta_from_first_boot": [
       "CONFIG_LOCALVERSION only"
@@ -860,7 +869,7 @@
     "kernel_release": "7.2.11-psx-ps4-baikal-native-dev1"
   },
   "hardware_evidence": {
-    "this_target": "Historical dev1 local-build evidence only. The dev3 candidate adds overridable PCI/interrupt-remapping platform defaults and has no hardware boot or acceptance result.",
+    "this_target": "Historical dev1 local-build evidence only. Native-dev4 adds atomic ICC terminal restart; no hardware boot or power acceptance for this candidate.",
     "experiment": "EXP-20261018-004",
     "date": "2026-10-18",
     "console": "PS4 Slim / Baikal B1 / Orbis 12.02",
@@ -894,7 +903,7 @@
     "ordered_patchset_sha256": "ac72dc67aaf232eb43f2116d7003808b43d95b9072d2a6e51225124bb2bf0d91",
     "scope": "Historical dev1 source/artifacts; the dev2 HDMI addition does not inherit its hardware evidence."
   },
-  "updated_on": "2026-11-03",
+  "updated_on": "2026-11-06",
   "psx_additions": [
     {
       "path": "platforms/ps4/patches/6.18-baikal-mts2/0300-gpu-liverpool/0001-amdgpu-ps4-bridge-honour-underscan-properties.patch",
@@ -972,80 +981,61 @@
       "adaptation": "Meerzulee follow-up ce3f76b796881123af46aff0b4a969a8cde9f985: reject reboot_force and READ_ONCE(reply_pending) before shared request/reply mutation. Original author, date, assistance disclosure and sign-off retained.",
       "scope": "Baikal final POWER_OFF handler runs before ACPI without mutexes or reply waits and returns NOTIFY_DONE for fallback. CPU/object verification only; combined patch has no hardware result. Reboot and timed-out ICC recovery remain separate.",
       "source_merge_commit": "a1bd219a12d73d8339515e09c658f7614e847b86"
+    },
+    {
+      "path": "platforms/ps4/patches/7.2-ps4-baikal/0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch",
+      "sha256": "205fa678d28315ac813e870aeb19add85d643d6f79cb0180f42dd5530802f40f",
+      "author": "Linux psX contributors",
+      "license": "GPL-2.0-only, as the PS4 platform drivers it changes",
+      "scope": "Register a non-sleeping normal restart handler and refuse legacy Baikal sleeping fallback; exact existing reset bytes, one atomic request, bounded busy wait and refusal markers. No UVD teardown or hardware acceptance.",
+      "build_context": "Normal Linux SYSTEM_RESTART after x86 machine_shutdown; forced/emergency/kexec paths are not qualified.",
+      "preserved_contribution": {
+        "pull_request": "https://github.com/meerzulee/linux-psx/pull/4",
+        "author": "suds-mcduff",
+        "sha256": "cb01d71ad7e12144ee7f014fe5385e37f7e239b2f2f3ee065b5ec7e0a0de219a"
+      }
     }
   ],
   "validation": {
-    "scope": "CPU/source, complete native kernel/modules build and local runtime/corresponding-source packaging; no hardware boot or acceptance",
-    "make_check": "PASS: 38 repository unit tests, Mesa source/host checks, frozen provenance/import checks,294patch audit coverage and shell syntax checks",
+    "scope": "Main-series source integration and CPU checks, with affected ICC sources compiled in the complete combined runtime-dev5 kernel. Standalone native-dev4 full link and physical qualification remain pending.",
+    "atomic_restart_cpu_cases": "PASS: actual patched callbacks; all terminal/context/mutex/pending combinations, fixed reset bytes, one send, paired handlers and no Baikal sleeping fallback.",
+    "full_kernel_compilation": false,
+    "hardware_boot": false,
+    "hardware_power_acceptance": false,
     "ordered_patch_application": {
       "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
-      "patches": 73,
-      "result": "PASS"
-    },
-    "audio_dto": {
-      "source_issue": "https://github.com/meerzulee/linux-psx/issues/6",
-      "cpu_cases": "PASS: Liverpool/Gladius, ordinary ASIC, CRTC source, changed pixel clock, fallback and zero/negative DTO-write guards",
-      "object_compilation": "PASS: drivers/gpu/drm/amd/amdgpu/dce_v8_0.o with native target config; compiler GCC16.2.1",
-      "source_select_shift": "0, checked against pinned dce_8_0_sh_mask.h",
-      "independent_review": "GPT-6 Astra maximum reasoning: no source blocker; hardware acoustics and complete invalid-mode validation are outside this patch",
-      "native_48khz": "unresolved; no acoustic acceptance"
-    },
-    "prior_71_patch_validation": {
-      "scope": "source/CPU and affected compilation units only; no complete kernel link, packaged binary or hardware result",
-      "make_check": "PASS: 36 repository unit tests, Mesa source/host checks, frozen import/provenance checks, complete294patch audit coverage and shell syntax checks",
-      "ordered_patch_application": {
-        "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
-        "patches": 71,
-        "result": "PASS"
-      },
-      "boot_default_policy": "PASS: actual PCI/IR policy functions, runtime PS4 gate, explicit overrides and option ordering",
-      "error_path_tests": "PASS: actual APCIE/BPCIE command functions, stopped/unstable/wrapped timer behavior, proc payload and firmware record boundaries",
-      "independent_review": "GPT-6 Astra maximum reasoning: no source correctness blocker found in the six focused native additions; parser/tokenization limitations preserved separately",
-      "targeted_compilation": {
-        "result": "PASS",
-        "compiler_scope": "native Linux x86-64; checked-in native config resolved via olddefconfig for affected-unit compilation, not a complete packaged build",
-        "units": [
-          "arch/x86/platform/ps4/ps4.o",
-          "arch/x86/platform/ps4/calibrate.o",
-          "arch/x86/pci/acpi.o",
-          "drivers/iommu/irq_remapping.o",
-          "drivers/ps4/ps4-apcie-icc.o",
-          "drivers/ps4/ps4-bpcie-icc.o",
-          "drivers/ps4/ps4-apcie.o",
-          "drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.o",
-          "drivers/net/wireless/mediatek/mt76x8/ (complete subtree)"
-        ],
-        "warnings": "Existing source warnings remain; this is not a warning-free or full-kernel build claim."
-      },
-      "full_kernel_compilation": false,
-      "hardware_boot": false
-    },
-    "full_kernel_compilation": true,
-    "hardware_boot": false,
-    "poweroff": {
-      "source_pull_request": "https://github.com/meerzulee/linux-psx/pull/4",
-      "source_head_commit": "8db898e3ede47a2c39a64d1abf86cfbfd55779fa",
-      "cpu_cases": "PASS: actual sender with CPU-only mailbox mocks covers missing controller, successful send, pending reply, helper error and forced shutdown; original sender fails the pending-state assertion",
-      "object_compilation": "PASS: drivers/ps4/ps4-bpcie-icc.o with native dev3 config, GCC16.2.1; existing driver warnings remain",
-      "independent_review": "GPT-6 Astra maximum reasoning and primary source audit found no source merge blocker",
-      "hardware_poweroff": false,
-      "reboot": "unresolved; unchanged by this patch",
-      "source_merge_commit": "a1bd219a12d73d8339515e09c658f7614e847b86"
-    },
-    "complete_native_build": {
+      "patches": 74,
       "result": "PASS",
-      "source_commit": "c8495a51e0bad4851015cd5d34ee61b2fde87e44",
-      "compiler": "GCC16.2.1",
-      "jobs": 3,
-      "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
-      "resolved_config_sha256": "ed529f99c6bbce733f0df8c6f6d57ac9136561013b86ecdb9e72d7ae75065526",
+      "scope": "All active patches applied in order to every touched upstream file from pinned Git tree; source-only verification.",
+      "receipt": "/var/tmp/psx-native74-application-20261106-03/RESULT.json"
+    },
+    "make_check": "PASS: repository source/provenance/Mesa checks and 51 kernel/release tests",
+    "combined_runtime_dev5_build": {
+      "release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev5",
+      "result": "PASS_PACKAGE",
+      "kernel_sha256": "4b628855f41d5740609607fdac528f189ba3c056e31791ab69da746c51f3c6f8",
+      "config_sha256": "0b62a6638da83e415aab58e2164a35aa1aebca60b77a6763812abc230e12bfb2",
       "matching_modules": 41,
-      "module_archive": "modules-7.2.11-psx-ps4-baikal-native-dev3.tar.zst",
-      "corresponding_source_packaging": "PASS",
-      "runtime_and_source_checksums": "PASS",
-      "receipt": "output/finish-current-20261103/build-package-receipt.json",
-      "hardware_boot": false,
-      "published": false
+      "module_archive_sha256": "5dcd3e005999df31066870cafab2d8fe6f064fec8b8f3029c64fd162148153cc",
+      "source_archive_sha256": "57bcfa61ce2e1146b63bbc92ae7a8c0053ecd43f9de5f865b55c20432f94de1c",
+      "compiler": "GCC 16.2.1",
+      "jobs": 16,
+      "kernel_compile_seconds": 375.473,
+      "scope": "Full experimental UVD/SATA derivative with the identical new main-series ICC patch; not a standalone native-dev4 binary or hardware result.",
+      "hardware_boot": true,
+      "hardware_evidence": {
+        "experiment": "EXP-20261106-017",
+        "boot_id": "6f30b822-acb5-495b-ba31-5691993144e0",
+        "uart_continuity": "completed",
+        "console_scope": "Recorded Baikal console / Orbis12.02; no other-model qualification",
+        "uvd": "PASS:120 exact forced-VAAPI reference frames",
+        "normal_restart": "PASS: retained healthy UVD, atomic ICC submission, observed Orbis return",
+        "userspace_shutdown_wait_seconds": 90.343,
+        "software_poweroff": "PASS: EXP-20261106-018, exact120 UVD frames, retained UVD handoff, ICC command, owner observed light/fans off",
+        "repeated_stability": false,
+        "software_poweroff_boot": "f5f376da-6004-4755-aa41-2fe87ed9a198",
+        "userspace_wait_cause": "Observed psx-rescue.service waiting90s in stop-sigterm; interactive Bash on tty2 remained in do_select. Userspace correction is separate from this unchanged kernel."
+      }
     }
   },
   "previous_native_dev2": {
@@ -1055,5 +1045,86 @@
     "ordered_patchset_sha256": "19cfa85153d930828a5ce1a5e067dc2fb05430efa44209907edb6cb8ba158a1c",
     "source_commit": "2138063970722631aa0a7cb7f034ba3e11b82507",
     "scope": "Historical 65-patch source baseline; the new platform defaults require fresh hardware validation."
+  },
+  "previous_native_dev3": {
+    "kernel_release": "7.2.11-psx-ps4-baikal-native-dev3",
+    "active_patch_count": 73,
+    "series_sha256": "4af6932ac7670cb73b264797ddcdf761ae631c53a691b21381282cf1ad46cbf9",
+    "ordered_patchset_sha256": "326d5704659305b127693ccd15183849678e6db1d8dd8d3f8cdae643dbf0536c",
+    "validation": {
+      "scope": "CPU/source, complete native kernel/modules build and local runtime/corresponding-source packaging; no hardware boot or acceptance",
+      "make_check": "PASS: 38 repository unit tests, Mesa source/host checks, frozen provenance/import checks,294patch audit coverage and shell syntax checks",
+      "ordered_patch_application": {
+        "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
+        "patches": 73,
+        "result": "PASS"
+      },
+      "audio_dto": {
+        "source_issue": "https://github.com/meerzulee/linux-psx/issues/6",
+        "cpu_cases": "PASS: Liverpool/Gladius, ordinary ASIC, CRTC source, changed pixel clock, fallback and zero/negative DTO-write guards",
+        "object_compilation": "PASS: drivers/gpu/drm/amd/amdgpu/dce_v8_0.o with native target config; compiler GCC16.2.1",
+        "source_select_shift": "0, checked against pinned dce_8_0_sh_mask.h",
+        "independent_review": "GPT-6 Astra maximum reasoning: no source blocker; hardware acoustics and complete invalid-mode validation are outside this patch",
+        "native_48khz": "unresolved; no acoustic acceptance"
+      },
+      "prior_71_patch_validation": {
+        "scope": "source/CPU and affected compilation units only; no complete kernel link, packaged binary or hardware result",
+        "make_check": "PASS: 36 repository unit tests, Mesa source/host checks, frozen import/provenance checks, complete294patch audit coverage and shell syntax checks",
+        "ordered_patch_application": {
+          "upstream_commit": "a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea",
+          "patches": 71,
+          "result": "PASS"
+        },
+        "boot_default_policy": "PASS: actual PCI/IR policy functions, runtime PS4 gate, explicit overrides and option ordering",
+        "error_path_tests": "PASS: actual APCIE/BPCIE command functions, stopped/unstable/wrapped timer behavior, proc payload and firmware record boundaries",
+        "independent_review": "GPT-6 Astra maximum reasoning: no source correctness blocker found in the six focused native additions; parser/tokenization limitations preserved separately",
+        "targeted_compilation": {
+          "result": "PASS",
+          "compiler_scope": "native Linux x86-64; checked-in native config resolved via olddefconfig for affected-unit compilation, not a complete packaged build",
+          "units": [
+            "arch/x86/platform/ps4/ps4.o",
+            "arch/x86/platform/ps4/calibrate.o",
+            "arch/x86/pci/acpi.o",
+            "drivers/iommu/irq_remapping.o",
+            "drivers/ps4/ps4-apcie-icc.o",
+            "drivers/ps4/ps4-bpcie-icc.o",
+            "drivers/ps4/ps4-apcie.o",
+            "drivers/gpu/drm/amd/amdgpu/amdgpu_connectors.o",
+            "drivers/net/wireless/mediatek/mt76x8/ (complete subtree)"
+          ],
+          "warnings": "Existing source warnings remain; this is not a warning-free or full-kernel build claim."
+        },
+        "full_kernel_compilation": false,
+        "hardware_boot": false
+      },
+      "full_kernel_compilation": true,
+      "hardware_boot": false,
+      "poweroff": {
+        "source_pull_request": "https://github.com/meerzulee/linux-psx/pull/4",
+        "source_head_commit": "8db898e3ede47a2c39a64d1abf86cfbfd55779fa",
+        "cpu_cases": "PASS: actual sender with CPU-only mailbox mocks covers missing controller, successful send, pending reply, helper error and forced shutdown; original sender fails the pending-state assertion",
+        "object_compilation": "PASS: drivers/ps4/ps4-bpcie-icc.o with native dev3 config, GCC16.2.1; existing driver warnings remain",
+        "independent_review": "GPT-6 Astra maximum reasoning and primary source audit found no source merge blocker",
+        "hardware_poweroff": false,
+        "reboot": "unresolved; unchanged by this patch",
+        "source_merge_commit": "a1bd219a12d73d8339515e09c658f7614e847b86"
+      },
+      "complete_native_build": {
+        "result": "PASS",
+        "source_commit": "c8495a51e0bad4851015cd5d34ee61b2fde87e44",
+        "compiler": "GCC16.2.1",
+        "jobs": 3,
+        "kernel_sha256": "82dadf0821d5e7a7d06c16bd855dc2205adeeefd31ed79f3326f8ee584024fb0",
+        "resolved_config_sha256": "ed529f99c6bbce733f0df8c6f6d57ac9136561013b86ecdb9e72d7ae75065526",
+        "matching_modules": 41,
+        "module_archive": "modules-7.2.11-psx-ps4-baikal-native-dev3.tar.zst",
+        "corresponding_source_packaging": "PASS",
+        "runtime_and_source_checksums": "PASS",
+        "receipt": "output/finish-current-20261103/build-package-receipt.json",
+        "hardware_boot": false,
+        "published": false
+      }
+    },
+    "scope": "Historical native-dev3 build and test evidence only; preserved separately from dev4 atomic restart source."
   }
 }

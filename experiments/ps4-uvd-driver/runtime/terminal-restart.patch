@@ -1,0 +1,93 @@
+From: psX Linux contributors
+Subject: [PATCH] drm/amdgpu: retain failed started UVD state for terminal restart
+
+SPDX-License-Identifier: MIT
+
+Canceling a running decoder can fault its queue before an operator's terminal
+ordinary restart reaches amdgpu_pci_shutdown(). The dev5 healthy/first-close
+restriction then deliberately parks instead of reaching the atomic ICC reset.
+
+Keep the existing immutable opt-in, SYSTEM_RESTART, built-in Liverpool,
+entered-backing, started-runtime and initialized-jobs requirements. Also require
+the exact UVD IP block to have completed hw_init; started alone precedes the
+boot ring test and cannot establish that boundary. Permit an
+already-closed or failed queue by invoking the existing idempotent fault path.
+It blocks further WPTR publication, preserves latched errors and quarantines
+entered leases. Return without normal AMDGPU teardown, as on the existing
+power-off terminal handoff. The platform's registered atomic ICC handler is
+still required; no attempt to reset or recover the GPU in place is made here.
+
+Power-off, failed-startup, forced/kexec, suspend, removal and reset guards are
+unchanged. No DMA drain or physical faulted-restart acceptance is claimed.
+Apply only after the frozen dev5 retained-restart.patch; preserve that input.
+
+Base: exact 7.2.11-psx-ps4-baikal-uvd-runtime-dev5
+Base-SHA256: 685e10d862634337217b4647b960b8b0e4613a95cceb59589e013d081fe5f534  drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+---
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+@@ -155,48 +155,47 @@
+ 		return false;
+ 
+ 	amdgpu_ps4_uvd_runtime_fault(adev, -ESHUTDOWN);
+ 	dev_warn(adev->dev,
+ 		"PS4_UVD_RUNTIME EXPERIMENTAL_POWEROFF retained=1 teardown=0; continuing to system power-off\n");
+ 	return true;
+ }
+ 
+-/* Ordinary restart may retain backing until the platform ICC reset, but
+- * only from a started, previously healthy runtime. This is no DMA drain or
+- * permission to suspend, kexec, unbind, free, rearm or reset the GPU in place.
++/* Terminal ordinary restart retains backing until the platform ICC reset.
++ * A canceled process may already have closed or faulted this started runtime;
++ * neither state permits teardown, but both permit the same terminal handoff.
++ * Failed startup, forced restart, kexec and in-place lifecycle paths stay out.
+  * The historical power-off exception above deliberately keeps its semantics.
+  */
+ bool amdgpu_ps4_uvd_runtime_restart(struct amdgpu_device *adev)
+ {
+ 	struct amdgpu_ps4_uvd_runtime *s = &adev->ps4_uvd_runtime;
+-	unsigned long flags;
+-	bool admitted;
++	struct amdgpu_ip_block *ip;
+ 
+ 	if (!ps4_uvd_poff || system_state != SYSTEM_RESTART ||
+ 	    reboot_force || kexec_in_progress ||
+ 	    !amdgpu_ps4_uvd_runtime_retain(adev) ||
+ 	    !READ_ONCE(s->started) || !READ_ONCE(s->jobs.initialized))
+ 		return false;
+ 
+-	/* A job fault sets closed before calling back to the runtime. Serialize
+-	 * that window and claim failed==0 under the existing publication lock.
+-	 * Lock order is jobs.lock then publish_lock; all existing fault paths
+-	 * release either lock before acquiring the other or invoking callbacks.
++	/* started precedes the boot ring test; core marks hw only after the
++	 * complete UVD hw_init returns success. A failed startup still parks.
+ 	 */
+-	spin_lock_irqsave(&s->jobs.lock, flags);
+-	admitted = !s->jobs.closed && ps4_uvd_begin_close(adev, -ESHUTDOWN);
+-	spin_unlock_irqrestore(&s->jobs.lock, flags);
+-	if (!admitted)
++	ip = amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_UVD);
++	if (!ip || ip->version != &ps4_uvd_ip_block || !READ_ONCE(ip->status.hw))
+ 		return false;
+ 
+-	ps4_uvd_finish_close(adev, -ESHUTDOWN);
+-	amdgpu_ps4_uvd_jobs_fault(&s->jobs, -ESHUTDOWN);
++	/* Idempotent closure blocks WPTR publication and quarantines every
++	 * entered lease. Existing runtime and job errors remain latched. Do not
++	 * wait for a healthy/first-close owner, drain, reset or free any backing.
++	 */
++	amdgpu_ps4_uvd_runtime_fault(adev, -ESHUTDOWN);
+ 	dev_warn(adev->dev,
+-		"PS4_UVD_RUNTIME EXPERIMENTAL_RESTART retained=1 teardown=0; continuing to platform reset\n");
++		"PS4_UVD_RUNTIME EXPERIMENTAL_RESTART retained=1 teardown=0 failed_allowed=1; continuing to platform reset\n");
+ 	return true;
+ }
+ 
+ void amdgpu_ps4_uvd_runtime_park(struct amdgpu_device *adev, const char *reason)
+ {
+ 	amdgpu_ps4_uvd_runtime_fault(adev, -ESHUTDOWN);
+ 	dev_err(adev->dev,
+ 		"PS4_UVD_RUNTIME RETAINED reason=%s; cleanup blocked, full poweroff required\n",

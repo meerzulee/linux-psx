@@ -72,8 +72,11 @@ Linux 7.2.11 native dev2. The original
 [contribution](https://github.com/meerzulee/linux-psx/commit/16c43fcd090c95669374c27cbb2df835326d259a)
 retains its author, sign-off and assistance disclosure. Meerzulee's follow-up
 rejects forced shutdown and pending replies before changing shared ICC state.
-The patch is enabled in the local native dev3 source candidate. The combined change needs its own hardware validation and
-does not establish reboot support.
+The patch remains unchanged in the native series. Linux psX's separate dev4
+follow-up adds an atomic Baikal restart handler and prevents its legacy final
+fallback from sleeping or submitting a second command. The original power-off
+contribution retains its author and exact bytes. Each new artifact needs its
+own hardware validation.
 
 ## MTS2 Ethernet migration
 

@@ -348,9 +348,31 @@ local clone of the pinned v7.2.11 commit. The artifacts stay local. The
 OrbStack candidate identified above passed EXP-20261018-001; the native build
 has not been booted.
 
-## Current native Baikal dev3 — platform boot defaults
+## Current native Baikal dev4 — atomic restart
 
-The native target now builds `7.2.11-psx-ps4-baikal-native-dev3`: the exact
+The main native target now builds `7.2.11-psx-ps4-baikal-native-dev4`, with
+74 ordered patches. A separate follow-up preserves the original contributor
+power-off patch and registers Baikal's normal restart on the atomic sys-off
+chain. The old final restart used a mutex and sleeping reply wait after x86
+had stopped other CPUs and timers. The new callback sends the same six reset
+bytes once, rejects an occupied mailbox, uses a bounded busy wait, and logs
+submission or refusal. Baikal's legacy fallback cannot resend or enter the
+sleeping command transport. Aeolia/Belize behavior is unchanged.
+
+All 74 patches apply to the pinned upstream source. Actual callback CPU tests
+pass; compilation and fresh hardware qualification are recorded separately.
+The main target remains independent of Diagnostix and its packages.
+
+The combined Diagnostix candidate is runtime-dev5/alpha6. It also permits the
+PCI shutdown callback to retain a started, healthy UVD runtime through an
+explicitly enabled ordinary restart. UVD stays enabled; backing remains
+allocated until the platform power transition. This establishes neither DMA
+drain nor suspend, kexec, removal or reset support. See
+[the Power test record](PS4-DIAGNOSTIC-POWER.md).
+
+## Historical native Baikal dev3 — platform boot defaults
+
+The native dev3 target built `7.2.11-psx-ps4-baikal-native-dev3`: the exact
 65-patch dev2 source baseline at `2138063`, followed by eight focused
 patches (73 total). It defaults to ignoring ACPI PCI host-bridge windows
 and disabling interrupt remapping only on a selected PS4 platform. Explicit

@@ -1,0 +1,139 @@
+From: psX Linux contributors
+Subject: [PATCH] drm/amdgpu: retain PS4 UVD backing for opted-in ordinary restart
+
+SPDX-License-Identifier: MIT
+
+Allow the PCI shutdown callback to return for a started, healthy runtime
+only when ordinary SYSTEM_RESTART uses the existing immutable ps4_uvd_poff
+opt-in. Close publication atomically while excluding an already-closed job
+queue. Keep every DMA-reachable allocation and existing power-off behavior.
+No DMA drain, in-place reset, rearm, teardown or hardware acceptance follows.
+Requires the separate PS4 ICC atomic terminal-restart integration.
+
+Base: exact 7.2.11-psx-ps4-baikal-uvd-runtime-dev4
+Base-SHA256: 23f7858cd813327d5adc760c3771e76950cec4964a1964dc8203ea566b296afc  drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+Base-SHA256: e7de118c7631385546743942fc0dec2a4f82bef19acb4563641212d19c2e028a  drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h
+Base-SHA256: d08c1a736322f2b4f1c99f798962138a63d330308bf5a4c19165ce426a168845  drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.c
+@@ -51,7 +51,7 @@
+ static bool ps4_uvd_poff __ro_after_init;
+ module_param_named(ps4_uvd_poff, ps4_uvd_poff, bool, 0444);
+ MODULE_PARM_DESC(ps4_uvd_poff,
+-	"Experimental power-off only: retain UVD DMA and skip shutdown teardown for ICC power-off (default 0)");
++	"Experimental terminal power-off/restart: retain UVD DMA and skip shutdown teardown for ICC (default 0)");
+ 
+ static const struct amdgpu_ring_funcs ps4_uvd_ring_funcs;
+ static DECLARE_WAIT_QUEUE_HEAD(ps4_uvd_retained_wait);
+@@ -98,9 +98,9 @@
+ 	return &ring->adev->ps4_uvd_runtime.jobs;
+ }
+ 
+-static void ps4_uvd_close(void *arg, int error)
+-{
+-	struct amdgpu_device *adev = arg;
++/* The winning transition also excludes a concurrent WPTR publication. */
++static bool ps4_uvd_begin_close(struct amdgpu_device *adev, int error)
++{
+ 	struct amdgpu_ps4_uvd_runtime *s = &adev->ps4_uvd_runtime;
+ 	unsigned long flags;
+ 	bool first;
+@@ -108,8 +108,13 @@
+ 	spin_lock_irqsave(&s->publish_lock, flags);
+ 	first = !atomic_cmpxchg(&s->failed, 0, error ? error : -EIO);
+ 	spin_unlock_irqrestore(&s->publish_lock, flags);
+-	if (!first)
+-		return;
++	return first;
++}
++
++static void ps4_uvd_finish_close(struct amdgpu_device *adev, int error)
++{
++	struct amdgpu_ps4_uvd_runtime *s = &adev->ps4_uvd_runtime;
++
+ 	WRITE_ONCE(adev->uvd.inst[0].ring.sched.ready, false);
+ 	if (s->poll_initialized)
+ 		cancel_delayed_work(&s->poll_work);
+@@ -118,6 +123,14 @@
+ 		error);
+ }
+ 
++static void ps4_uvd_close(void *arg, int error)
++{
++	struct amdgpu_device *adev = arg;
++
++	if (ps4_uvd_begin_close(adev, error))
++		ps4_uvd_finish_close(adev, error);
++}
++
+ void amdgpu_ps4_uvd_runtime_fault(struct amdgpu_device *adev, int error)
+ {
+ 	struct amdgpu_ps4_uvd_runtime *s = &adev->ps4_uvd_runtime;
+@@ -144,6 +157,41 @@
+ 	amdgpu_ps4_uvd_runtime_fault(adev, -ESHUTDOWN);
+ 	dev_warn(adev->dev,
+ 		"PS4_UVD_RUNTIME EXPERIMENTAL_POWEROFF retained=1 teardown=0; continuing to system power-off\n");
++	return true;
++}
++
++/* Ordinary restart may retain backing until the platform ICC reset, but
++ * only from a started, previously healthy runtime. This is no DMA drain or
++ * permission to suspend, kexec, unbind, free, rearm or reset the GPU in place.
++ * The historical power-off exception above deliberately keeps its semantics.
++ */
++bool amdgpu_ps4_uvd_runtime_restart(struct amdgpu_device *adev)
++{
++	struct amdgpu_ps4_uvd_runtime *s = &adev->ps4_uvd_runtime;
++	unsigned long flags;
++	bool admitted;
++
++	if (!ps4_uvd_poff || system_state != SYSTEM_RESTART ||
++	    reboot_force || kexec_in_progress ||
++	    !amdgpu_ps4_uvd_runtime_retain(adev) ||
++	    !READ_ONCE(s->started) || !READ_ONCE(s->jobs.initialized))
++		return false;
++
++	/* A job fault sets closed before calling back to the runtime. Serialize
++	 * that window and claim failed==0 under the existing publication lock.
++	 * Lock order is jobs.lock then publish_lock; all existing fault paths
++	 * release either lock before acquiring the other or invoking callbacks.
++	 */
++	spin_lock_irqsave(&s->jobs.lock, flags);
++	admitted = !s->jobs.closed && ps4_uvd_begin_close(adev, -ESHUTDOWN);
++	spin_unlock_irqrestore(&s->jobs.lock, flags);
++	if (!admitted)
++		return false;
++
++	ps4_uvd_finish_close(adev, -ESHUTDOWN);
++	amdgpu_ps4_uvd_jobs_fault(&s->jobs, -ESHUTDOWN);
++	dev_warn(adev->dev,
++		"PS4_UVD_RUNTIME EXPERIMENTAL_RESTART retained=1 teardown=0; continuing to platform reset\n");
+ 	return true;
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_ps4_uvd_runtime.h
+@@ -55,6 +55,7 @@
+ void amdgpu_ps4_uvd_runtime_fault(struct amdgpu_device *adev, int error);
+ /* True only for the opt-in PCI shutdown return; all DMA backing is retained. */
+ bool amdgpu_ps4_uvd_runtime_poweroff(struct amdgpu_device *adev);
++bool amdgpu_ps4_uvd_runtime_restart(struct amdgpu_device *adev);
+ int amdgpu_ps4_uvd_runtime_drain_jobs(struct amdgpu_device *adev);
+ int amdgpu_ps4_uvd_runtime_before_submit(struct amdgpu_ring *ring);
+ bool amdgpu_ps4_uvd_runtime_observe(struct amdgpu_ring *ring, u32 seq);
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -2616,7 +2616,8 @@
+ 	struct amdgpu_device *adev = drm_to_adev(dev);
+ 
+ 	if (amdgpu_ps4_uvd_runtime_retain(adev)) {
+-		if (amdgpu_ps4_uvd_runtime_poweroff(adev))
++		if (amdgpu_ps4_uvd_runtime_poweroff(adev) ||
++		    amdgpu_ps4_uvd_runtime_restart(adev))
+ 			return;
+ 		amdgpu_ps4_uvd_runtime_park(adev, "amdgpu_pci_shutdown");
+ 	}
