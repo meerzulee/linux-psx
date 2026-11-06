@@ -1528,8 +1528,8 @@
     },
     {
       "path": "platforms/ps4/docs/INTERNAL-STORAGE.md",
-      "size": 4512,
-      "sha256": "9874d3cecb9c6ef41287ad8aaf2c6361b9dd5789e96158a9dd5f774cf9788326",
+      "size": 6621,
+      "sha256": "c9218870f259ad26cd81861257f87b78316ca3152b0443b5538d1e1efa634293",
       "post_migration_adaptations": [
         {
           "date": "2026-11-03",
@@ -1545,6 +1545,12 @@
           "source_issues": [
             "https://github.com/meerzulee/linux-psx/issues/5"
           ]
+        },
+        {
+          "date": "2026-11-06",
+          "previous_size": 4512,
+          "previous_sha256": "9874d3cecb9c6ef41287ad8aaf2c6361b9dd5789e96158a9dd5f774cf9788326",
+          "reason": "Record the owner-requested Toshiba HDD identity and exact dev4 read-only verification baseline; link the sourced SATA/USB comparison. Preserve historical input identities and do not promote storage acceptance."
         }
       ]
     },

@@ -2336,8 +2336,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "066f248e0b82b19e1c8a495274d7e4f29e9899fd7796ff5d4d9122722e4057d3",
-      "destination_bytes": 11006,
+      "destination_sha256": "1fb650748d827949128a155d6cbf292e3644f84705f07815f8efd00412418ac1",
+      "destination_bytes": 11107,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -2395,6 +2395,13 @@
           "prior_destination_sha256": "4b18cbb7953a0b33b451a4e2f1ec0ebadd4e8b21bd5f75013e7c82f8326c3dc7",
           "destination_sha256": "066f248e0b82b19e1c8a495274d7e4f29e9899fd7796ff5d4d9122722e4057d3",
           "destination_bytes": 11006,
+          "mode": "0644"
+        },
+        {
+          "reason": "Link the compact README screenshot gallery and sourced SATA/USB comparison; no runtime, boot-set or hardware acceptance changes.",
+          "prior_destination_sha256": "066f248e0b82b19e1c8a495274d7e4f29e9899fd7796ff5d4d9122722e4057d3",
+          "destination_sha256": "1fb650748d827949128a155d6cbf292e3644f84705f07815f8efd00412418ac1",
+          "destination_bytes": 11107,
           "mode": "0644"
         }
       ]
@@ -3797,6 +3804,13 @@
       "paths": [
         "diagnostics/SESSIONS.md",
         "docs/PS4-DIAGNOSTIC-ALPHA.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Link the compact README screenshot gallery and sourced SATA/USB comparison; no runtime, boot-set or hardware acceptance changes.",
+      "paths": [
+        "docs/DIAGNOSTICS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

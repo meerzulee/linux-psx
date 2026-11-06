@@ -13,6 +13,40 @@ Baikal AHCI/SATA
   -> Linux root
 ```
 
+## Owner's installed HDD (recorded 2026-11-06)
+
+This is the drive observed in the owner's Baikal console during the completed
+[EXP-20261105-019/020 captures](../../../diagnostics/SESSIONS.md#exp-20261105-019--dev4-internal-sata-enumeration-and-read-only-usb-root-boot).
+
+| Property | Recorded value |
+| --- | --- |
+| Model | **TOSHIBA MQ01ABD050**, mechanical HDD |
+| Capacity | **500 GB**; 500,107,862,016 bytes |
+| Spindle speed | **5,400 RPM**, per [Toshiba's model specifications](https://news.toshiba.com/press-releases/press-release-details/2011/Toshiba-Boosts-Performance-with-Industry-Leading-Areal-Density-on-1TB-25-Inch-Hard-Disk-Drive-for-PC-and-Consumer-Electronics-Applications/default.aspx) |
+| Logical / physical sector size | 512 / 4,096 bytes |
+| Controller / ATA port | PCI `0000:00:14.7`, port 0 (`ata1`) |
+| Command queue | NCQ enabled, depth 32 |
+| Dev4 test link | 1.5 Gbit/s, forced by `libata.force=1:1.5Gbps` |
+
+The dev4 baseline used `7.2.11-psx-ps4-baikal-uvd-runtime-dev4`, the Orbis
+PHY profile, `libahci.ps4_probe_ms=5` and legacy polling disabled. The internal
+disk and its observed partitions were protected read-only. Two direct-read
+passes over three 8 MiB regions returned matching hashes: 48 MiB in 2.499
+seconds, **19.2 MiB/s (about 20.1 MB/s)** including verification overhead.
+This measures short read repeatability; sustained sequential throughput,
+random I/O, a matching USB benchmark and faster negotiated links remain to be
+tested. The older hybrid
+result below used a different build and test size, so it is a separate baseline.
+
+For future tests, identify the disk through its controller and ATA ancestry
+and check the model and capacity; `/dev/sdb` was its name on these boots and
+can change. Keep each benchmark's kernel, negotiated link rate, completion
+settings, request size, offsets, duration and cache-bypass method with its
+result. Record a replacement SSD as a new device before comparing it.
+
+See the [SATA/USB storage comparison](../../../docs/PS4-STORAGE-COMPARISON.md)
+for example drive ratings, interface ceilings and the separate measured results.
+
 ## Current hybrid result (2026-10-22)
 
 The internal Toshiba HDD was detected as `/dev/sdb` and used behind an ext4

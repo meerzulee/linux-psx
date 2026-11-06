@@ -14,6 +14,9 @@ optional seeded owner key or explicit [local key enrollment](PS4-DIAGNOSTIC-SSH-
 Unseeded images begin with root locked and password access disabled.
 Graphics/browser tests start only when selected.
 
+[Console screenshots](images/README.md) ·
+[SATA/USB storage comparison](PS4-STORAGE-COMPARISON.md)
+
 The [import receipt](../provenance/diagnostics-import.json) records the source
 commit, pending-byte hashes, licenses and repository-local adaptations. The
 original source was retained during review. [Detailed image notes](PS4-DIAGNOSTIC-IMAGE.md)
