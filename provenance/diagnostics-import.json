@@ -2439,8 +2439,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "e698da02f2388e17a025ccd614100bc31bc00444647755b0ebdded2dcb8c165d",
-      "destination_bytes": 54135,
+      "destination_sha256": "57e0db06a6e0ffdc247ecc932f9ebb09be1ce5c88cf377f31019b4e5d6f62233",
+      "destination_bytes": 59168,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2555,6 +2555,13 @@
           "prior_destination_sha256": "ccde3d9d0a466efa14b2225dd66e89f4828bc8ac89b2a583660e9af51a5ee8af",
           "destination_sha256": "e698da02f2388e17a025ccd614100bc31bc00444647755b0ebdded2dcb8c165d",
           "destination_bytes": 54135,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261106-001 through 004: inconclusive benchmark launches, scoped task-state inspection and completed exact-artifact read measurements; preserve negative findings and avoid write/endurance or storage stability promotion.",
+          "prior_destination_sha256": "e698da02f2388e17a025ccd614100bc31bc00444647755b0ebdded2dcb8c165d",
+          "destination_sha256": "57e0db06a6e0ffdc247ecc932f9ebb09be1ce5c88cf377f31019b4e5d6f62233",
+          "destination_bytes": 59168,
           "mode": "0644"
         }
       ]
@@ -3811,6 +3818,13 @@
       "reason": "Link the compact README screenshot gallery and sourced SATA/USB comparison; no runtime, boot-set or hardware acceptance changes.",
       "paths": [
         "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261106-001 through 004: inconclusive benchmark launches, scoped task-state inspection and completed exact-artifact read measurements; preserve negative findings and avoid write/endurance or storage stability promotion.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

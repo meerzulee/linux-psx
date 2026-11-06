@@ -58,12 +58,50 @@ it is not a measured speed or promise for our PS4 USB driver.
 | [EXP-20261105-019/020](../diagnostics/SESSIONS.md#exp-20261105-019--dev4-internal-sata-enumeration-and-read-only-usb-root-boot) | Owner's Toshiba MQ01ABD050; two direct reads of three 8 MiB regions on dev4 | 48 MiB verified in 2.499 s: **19.2 MiB/s, about 20.1 MB/s** | Repeatability run includes topology/read-only checks and SHA256 hashing; it is not a sustained sequential-throughput benchmark. |
 | [Historical hybrid test](../platforms/ps4/docs/INTERNAL-STORAGE.md#current-hybrid-result-2026-10-22) | Internal Toshiba HDD; different build, 256 MiB direct read | **About 62 MB/s** | Separate build and method; not a before/after performance comparison. |
 | [Contributor report, issue #5](https://github.com/meerzulee/linux-psx/issues/5) | Crucial CT500BX500 SSD, another Baikal Slim; dev2 + PR #4, custom internal-root mapping, 6 Gb/s link | **306 MB/s direct read; 253 MB/s write** | Contributor observations on different artifacts; short tests, no current-build or endurance qualification. |
-| Current diagnostic USB | Owner's 16 GB Transcend flash drive | **Matching benchmark pending** | Negotiated USB rate and a comparable throughput run still need recording. |
+| [Current USB/HDD comparison](#current-read-benchmark-2026-11-06) | Same dev4 boot; direct sequential and small random reads | **USB 105.9–106.8 MB/s; HDD 69.0–73.1 MB/s** | Read-only, two short sequential passes; detailed method and limits below. |
 
 The 20.1 MB/s verification result therefore does not establish the HDD's
 maximum, a SATA/USB winner, or a driver speed improvement. See the
 [installed HDD inventory](../platforms/ps4/docs/INTERNAL-STORAGE.md#owners-installed-hdd-recorded-2026-11-06)
 for its model, capacity, geometry and recorded test settings.
+
+## Current read benchmark (2026-11-06)
+
+[EXP-20261106-004](../diagnostics/SESSIONS.md#exp-20261106-004--usb-and-internal-hdd-read-benchmark)
+completed on the unchanged beta1 dev4 boot. The
+[reviewed JSON results](evidence/PS4-STORAGE-20261106.json) preserve the exact
+artifact identities, timings, offsets and method.
+
+| Source | Sequential passes, MB/s | 4 KiB random reads, IOPS | Median latency, ms | 95th percentile, ms |
+| --- | ---: | ---: | ---: | ---: |
+| Transcend 16 GB diagnostic USB | **106.8 / 105.9** | **1,380** | **0.708** | **0.880** |
+| Toshiba MQ01ABD050 internal HDD | **69.0 / 73.1** | **105** | **9.678** | **15.989** |
+
+USB negotiated **5 Gb/s**, using `usb-storage`; the HDD used the existing
+**1.5 Gb/s** SATA profile with NCQ depth 32. Both had a 256 KiB block-layer
+request limit. The USB was about **1.50× faster sequentially** and **13.18×
+faster by random-read IOPS** in these selected ranges.
+
+Each device received two 256 MiB sequential passes with 1 MiB userspace
+requests. There was one outstanding userspace read; the kernel could split it
+into smaller device requests, with NCQ still enabled. Sequential rates use
+I/O-call time, excluding guard checks, hashing and report emission. Each random
+run lasted eight seconds, using 4 KiB direct reads, a fixed seed and a 512 MiB
+address window.
+
+The USB test read the actual ext4 root-image file on FAT32; the HDD test read
+raw blocks near the middle of the disk. `O_DIRECT` bypassed the host page
+cache, but drive caches were not flushed and neither pass is claimed cold.
+All 16 observed internal disk/partition nodes remained read-only. No kernel
+or storage fault matched the run's guard; raw device data was not retained.
+The complete SHA256-framed result arrived through UART with completed capture
+continuity. Earlier start/transport attempts are preserved as inconclusive
+harness observations, rather than disk failures.
+
+This is a short read comparison on one existing boot. It does not qualify
+write speed, endurance, other disk regions, internal installation or storage
+stability. The results support keeping the current USB for Diagnostix; a full
+writable Linux installation still needs write-performance and endurance checks.
 
 ## Choosing a layout
 
@@ -80,16 +118,16 @@ recovery but does not make those writes qualified. Follow the
 [internal-storage record](../platforms/ps4/docs/INTERNAL-STORAGE.md); no
 formatting, partition changes or automatic expansion are implied here.
 
-## Next comparable read benchmark
+## Further benchmarks
 
 Use one bounded UART experiment on an identified running boot. Record the
 kernel/boot-set identities, both device models, negotiated SATA/USB rates,
 USB storage driver, request limits and queue settings. Keep the internal disk
 and partitions read-only and verify the UVD stop guard before active work.
 
-Measure equal-sized sequential reads with the same request size and cache-bypass
-method. Add bounded 4 KiB random reads with the same queue depth and recorded
-address span to help assess desktop responsiveness. Time I/O separately from
-hashing and metadata checks; record warm-drive-cache effects, offsets, counts
-and elapsed time. Compare USB and SATA on that same build before claiming a
-speed advantage. Stop on I/O errors, topology changes or the declared timeout.
+Repeat the recorded read method across fresh boots and additional address
+ranges before generalizing. Keep userspace request depth distinct from device
+NCQ depth. Time I/O separately from hashing and metadata checks, and retain
+the actual cache policy. Write tests require a separately identified disposable
+target or validated reserved image; the raw Orbis disk remains protected.
+Stop on I/O errors, topology changes or the declared timeout.

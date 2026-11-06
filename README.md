@@ -52,6 +52,10 @@ Example manufacturer peaks, **read / write in MB/s**; these are not PS4 benchmar
 | USB SSD — Samsung T9 4 TB | **2,000 / 2,000** | **500 MB/s** on a 5 Gb/s USB link |
 | 128 GB USB flash — original Kingston Kyson | **200 / 60** | **500 MB/s** USB ceiling; drive performance differs |
 
+**Measured reads on our PS4:** diagnostic USB **106 MB/s**, internal HDD
+**71 MB/s**; small random reads **1,380 / 105 IOPS**.
+[Read-only benchmark and scope](docs/PS4-STORAGE-COMPARISON.md#current-read-benchmark-2026-11-06).
+
 [Specifications, actual results and benchmark plan →](docs/PS4-STORAGE-COMPARISON.md)
 
 ## Diagnostix

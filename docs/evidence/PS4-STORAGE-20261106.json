@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "experiment_id": "EXP-20261106-004",
+  "date": "2026-11-06",
+  "status": "PASS_SCOPED_READ_BENCHMARK",
+  "console": "PS4 Slim, Baikal B1",
+  "kernel_release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev4",
+  "release": "v7.2.11-psx-ps4-baikal-beta1",
+  "artifacts": {
+    "kernel_sha256": "9b3842def11f0638601f60ab7659eb8fa9c4c7e5cb81bab64d25f301ad826d37",
+    "config_sha256": "50676ba45e8535e1f7a3fd9f8eeab73fa7f841e255c1ccf846fda652d499dba0",
+    "modules_sha256": "fcda424b74177ec2316e58187d1c1c86e6e521782094cad77a6cdcb8fdc32dcc",
+    "rootfs_sha256": "f37178423962f672c4161095c14fd7870c609c818724ae690650c4ac77a61dfb",
+    "initramfs_sha256": "c4c8ccd5157de33456b4dd579e2fb6bd77761a29b51313f58ae281d90ecc447a"
+  },
+  "worker_source_sha256": "6d492319f8bd1ff9f524f159a54181b469826cd4c010d43796e135031df87fde",
+  "same_boot_cpu_ram_pass": true,
+  "sources": {
+    "usb": {
+      "model": "Transcend 16GB",
+      "link_Mbps": 5000,
+      "driver": "usb-storage",
+      "source": "Current ext4 root-image file on USB FAT32",
+      "file_bytes": 1048576000,
+      "max_sectors_kb": 256
+    },
+    "hdd": {
+      "model": "TOSHIBA MQ01ABD050",
+      "scsi_model": "TOSHIBA MQ01ABD0",
+      "bytes": 500107862016,
+      "link_Gbps": 1.5,
+      "NCQ_depth": 32,
+      "read_only_members": 16,
+      "source": "Raw internal block device",
+      "max_sectors_kb": 256
+    }
+  },
+  "method": {
+    "descriptor_flags": [
+      "O_RDONLY",
+      "O_DIRECT",
+      "O_NOFOLLOW"
+    ],
+    "sequential_bytes_per_pass": 268435456,
+    "sequential_passes_per_device": 2,
+    "sequential_request_bytes": 1048576,
+    "sequential_order": [
+      "usb1",
+      "hdd1",
+      "usb2",
+      "hdd2"
+    ],
+    "userspace_outstanding_requests": 1,
+    "device_queue_note": "The block layer may split a 1 MiB request at 256 KiB; hardware NCQ remains enabled, so this does not force device queue depth 1",
+    "random_request_bytes": 4096,
+    "random_seconds_per_device": 8,
+    "random_window_bytes": 536870912,
+    "random_seed_hex": "0x505358",
+    "host_page_cache_bypassed": true,
+    "drive_cache_flushed": false,
+    "timing": "Sequential I/O syscall time excludes guard checks and report/UART emission; random IOPS use elapsed random-loop time",
+    "random_window_base_offsets": {
+      "usb": 67108864,
+      "hdd": 250053931008
+    }
+  },
+  "results": [
+    {
+      "device": "usb",
+      "test": "sequential",
+      "pass": 1,
+      "bytes": 268435456,
+      "request_bytes": 1048576,
+      "offset": 67108864,
+      "io_seconds": 2.513550052033679,
+      "wall_seconds": 2.5879129729946726,
+      "MB_s": 106.79534938355914,
+      "MiB_s": 101.84798181873239,
+      "userspace_queue_depth": 1
+    },
+    {
+      "device": "hdd",
+      "test": "sequential",
+      "pass": 1,
+      "bytes": 268435456,
+      "request_bytes": 1048576,
+      "offset": 250053931008,
+      "io_seconds": 3.8884233459830284,
+      "wall_seconds": 3.9627441670018015,
+      "MB_s": 69.0345243084989,
+      "MiB_s": 65.83645277833834,
+      "userspace_queue_depth": 1
+    },
+    {
+      "device": "usb",
+      "test": "sequential",
+      "pass": 2,
+      "bytes": 268435456,
+      "request_bytes": 1048576,
+      "offset": 67108864,
+      "io_seconds": 2.5344449771146174,
+      "wall_seconds": 2.6062403910036664,
+      "MB_s": 105.9148880421168,
+      "MiB_s": 101.00830845081025,
+      "userspace_queue_depth": 1
+    },
+    {
+      "device": "hdd",
+      "test": "sequential",
+      "pass": 2,
+      "bytes": 268435456,
+      "request_bytes": 1048576,
+      "offset": 250053931008,
+      "io_seconds": 3.6707244390127016,
+      "wall_seconds": 3.7449647640023613,
+      "MB_s": 73.12874078670964,
+      "MiB_s": 69.74100187941517,
+      "userspace_queue_depth": 1
+    },
+    {
+      "device": "usb",
+      "test": "random4k",
+      "window_bytes": 536870912,
+      "requests": 11037,
+      "seconds": 8.000220631998673,
+      "IOPS": 1379.5869523716694,
+      "MB_s": 5.650788156914358,
+      "p50_ms": 0.7080280047375709,
+      "p95_ms": 0.8801080039120279,
+      "max_ms": 3.551873996912036,
+      "userspace_queue_depth": 1
+    },
+    {
+      "device": "hdd",
+      "test": "random4k",
+      "window_bytes": 536870912,
+      "requests": 838,
+      "seconds": 8.003867667997838,
+      "IOPS": 104.69938219376198,
+      "MB_s": 0.42884866946564904,
+      "p50_ms": 9.677600995928515,
+      "p95_ms": 15.989398998499382,
+      "max_ms": 24.156478000804782,
+      "userspace_queue_depth": 1
+    }
+  ],
+  "summary": {
+    "usb": {
+      "sequential_MB_s": [
+        106.79534938355914,
+        105.9148880421168
+      ],
+      "combined_sequential_MB_s": 106.35329648701763,
+      "random_IOPS": 1379.5869523716694,
+      "median_ms": 0.7080280047375709,
+      "p95_ms": 0.8801080039120279
+    },
+    "hdd": {
+      "sequential_MB_s": [
+        69.0345243084989,
+        73.12874078670964
+      ],
+      "combined_sequential_MB_s": 71.02267706230634,
+      "random_IOPS": 104.69938219376198,
+      "median_ms": 9.677600995928515,
+      "p95_ms": 15.989398998499382
+    },
+    "sequential_ratio": 1.4974554731824126,
+    "random_IOPS_ratio": 13.17664845260057
+  },
+  "uart": {
+    "continuity": "completed",
+    "bytes": 18618,
+    "result_transport": "SHA256-verified chunked UART frames via kernel log",
+    "complete_payload_sha256": "a19a53f48be26e6894b2de9decab0724df84265ea8d5338c2ad2743c67fce682"
+  },
+  "limits": [
+    "One existing boot on one console; no cold-boot/endurance promotion",
+    "USB file versus raw HDD; different underlying filesystem path and address ranges",
+    "No write benchmark or internal-root/install qualification",
+    "No drive-cache flush; neither pass is claimed cold",
+    "No software or hardware data-content reference was tested in this throughput run"
+  ],
+  "internal_disk_writes": false,
+  "stability_claim": false
+}

@@ -47,6 +47,13 @@ result. Record a replacement SSD as a new device before comparing it.
 See the [SATA/USB storage comparison](../../../docs/PS4-STORAGE-COMPARISON.md)
 for example drive ratings, interface ceilings and the separate measured results.
 
+The later [EXP-20261106-004 read benchmark](../../../docs/PS4-STORAGE-COMPARISON.md#current-read-benchmark-2026-11-06)
+measured **69.0 and 73.1 MB/s** in two 256 MiB sequential HDD passes, excluding
+verification/report overhead from the I/O timer. Windowed 4 KiB random reads
+measured **105 IOPS** with 9.678 ms median latency. This used the same dev4
+artifact and 1.5 Gbit/s link, with the disk and partitions still read-only;
+it adds short read-performance evidence without qualifying writes or stability.
+
 ## Current hybrid result (2026-10-22)
 
 The internal Toshiba HDD was detected as `/dev/sdb` and used behind an ext4

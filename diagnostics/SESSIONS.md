@@ -797,3 +797,79 @@ outside Git; one completed test is not stability qualification.
   report remains INCONCLUSIVE pending observation. No audible PASS or native
   48 kHz claim is assigned. Bounded UART completed, 254,827 bytes, without
   continuity errors. Private reports and raw captures remain local.
+
+## EXP-20261106-001 — comparative read benchmark start inconclusive
+
+- Same dev4 boot and artifact declarations as EXP-20261105-022. USB identity,
+  the 5 Gb/s `usb-storage` link, the 1.5 Gb/s HDD link, all 16 read-only HDD
+  members and same-boot CPU/RAM receipts were verified.
+- The host sent the start fence but received no worker start, I/O progress or
+  result. The host stopped its SSH transport at 175 seconds. Completed UART
+  continuity retained 361 bytes of existing wireless scan messages; silence
+  does not prove that a read started or completed. No speed or disk failure
+  is inferred. Private plans and logs retain the model-name guard correction
+  and connection failures separately from the attempted benchmark.
+- Verdict: **INCONCLUSIVE**. Next attempt changes start control and result
+  observability; it must check previous-worker quiescence before new I/O.
+  UART context: `20261106_134050_963043-exp-20261106-001-readonly-usb-root-image-versus-internal-hdd-per-82eaea81.md`.
+
+## EXP-20261106-002 — direct benchmark launch remained unacknowledged
+
+- Removed the second network-input fence and prepared RAM-only result storage
+  plus direct serial phase frames. No launch/start/result frame arrived through
+  SSH or UART before the 210-second host limit. The authenticated TCP command
+  was acknowledged, but its execution stage remained unknown.
+- The owner reported that Diagnostix still responded. Completed UART retained
+  1,167 bytes of wireless scan/P2P diagnostics, with no benchmark measurement.
+  The host terminated its SSH transport; worker quiescence still needed checking.
+- Verdict: **INCONCLUSIVE**, without a storage-failure or speed claim.
+  UART context: `20261106_140223_265310-exp-20261106-002-direct-readonly-usb-and-hdd-benchmark-with-inde-c1bd59af.md`.
+
+## EXP-20261106-003 — kernel-log task-state inspection
+
+- A shell-builtin probe wrote selected Python/SSH/shell task states and kernel
+  stacks through `/dev/kmsg`. Both BEGIN and END arrived through UART; SSH
+  returned only BEGIN. The snapshot contained the diagnostic controller and
+  SSH/shell tasks, with no previous benchmark Python worker remaining.
+- This establishes snapshot quiescence of those workers and a working result
+  path; it does not establish the root cause of the earlier SSH or launch stalls.
+  No storage workload, driver reset or power action was performed.
+- Verdict: **PASS for scoped task-state inspection**. Completed UART: 3,747
+  bytes. Context: `20261106_141213_146582-exp-20261106-003-inspect-stalled-benchmark-task-state-through-sh-1cb3d529.md`.
+
+## EXP-20261106-004 — USB and internal HDD read benchmark
+
+- Direct launch used kernel-log phase/results instead of opening the serial
+  device or waiting for a second SSH input fence. Before data I/O it verified
+  previous-worker quiescence, the same-boot CPU/RAM receipts, the unchanged
+  dev4 manifest and the internal read-only/no-holder/no-mount guards. All four
+  UVD/power gates remained enabled; no decoder was started.
+- Kernel: `7.2.11-psx-ps4-baikal-uvd-runtime-dev4`, SHA256
+  `9b3842def11f0638601f60ab7659eb8fa9c4c7e5cb81bab64d25f301ad826d37`.
+  The reviewed [JSON evidence](../docs/evidence/PS4-STORAGE-20261106.json)
+  preserves config, modules, root/initramfs identities, offsets and exact timings.
+- Sequential reads: two 256 MiB passes per device, 1 MiB userspace requests,
+  `O_RDONLY|O_DIRECT`, one outstanding userspace request. The block layer could
+  split requests at 256 KiB; HDD NCQ stayed enabled at depth 32. I/O timing
+  excluded guard checks and report emission. Both drive caches remained intact.
+
+| Device | Sequential passes, MB/s | 4 KiB random reads, IOPS | Median / 95th percentile, ms |
+| --- | ---: | ---: | ---: |
+| Transcend 16 GB USB, 5 Gb/s, `usb-storage` | 106.8 / 105.9 | 1,380 | 0.708 / 0.880 |
+| Toshiba MQ01ABD050 HDD, 1.5 Gb/s | 69.0 / 73.1 | 105 | 9.678 / 15.989 |
+
+- Random reads used eight seconds per device, 4 KiB requests and a fixed seed
+  within a 512 MiB window. USB read the actual ext4 root-image file on FAT32;
+  HDD read raw blocks near its middle. OS page cache was bypassed, neither pass
+  is claimed cold, and no raw user data was retained or internal disk written.
+- No kernel/storage fault matched the run guard. The full result was received
+  as SHA256-verified UART chunks after descriptors/locks closed; the shell
+  reported exit status 0. Capture continuity completed, 18,618 bytes, unchanged
+  logger generation/epoch. Context:
+  `20261106_141719_546039-exp-20261106-004-direct-readonly-usb-and-hdd-benchmark-with-inde-4f7f1071.md`.
+- Verdict: **PASS for this short read comparison**: USB about 1.50x faster
+  sequentially and 13.18x by random-read IOPS in these ranges. This does not
+  qualify writes, sustained load, additional boots, installation or stability.
+  Kernel/boot files and driver settings were unchanged. Private exact source,
+  failed attempts and decoded reports remain under the matching ignored
+  `output/ps4-storage-benchmark-20261106-00*/` directories.
