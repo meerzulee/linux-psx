@@ -22,14 +22,14 @@ individual recorded builds; fresh builds and other consoles need their own tests
 
 | Feature | Baikal B1 | Aeolia | Belize |
 | --- | --- | --- | --- |
-| Linux 7.2 | ✅ Booted | ⏳ | ⏳ |
+| Linux 7.2 | ✅ Booted, including local UVD dev6 | ⏳ | ⏳ |
 | OpenGL / display | ✅ Liverpool, 4.6, 1080p60 | ⏳ | ⏳ |
 | Vulkan / Mesa candidate | 🧪 Reference pixels and dev5 tests | ⏳ | ⏳ |
 | UVD / H.264 decode | 🧪 1080p, 900-frame reference match | ⏳ | ⏳ |
 | VCE encoding | ⏳ | ⏳ | ⏳ |
 | Ethernet | 🧪 DHCP / traffic; intermittent SSH stalls under investigation | ⏳ | ⏳ |
 | External USB root | ✅ Read/write boot | ⏳ | ⏳ |
-| Internal SATA | 🧪 Reads; historical hybrid RW | ⏳ | ⏳ |
+| Internal SATA | 🧪 71 MB/s read benchmark; writes unqualified | ⏳ | ⏳ |
 | Wi-Fi / Bluetooth audio | ✅ Reported with external firmware | ⏳ | ⏳ |
 | HDMI audio | 🧪 44.1 kHz command; audible check deferred; 48 kHz open | ⏳ | ⏳ |
 | Temperature / fan | 🧪 Historical temperature readings; fan unqualified | ⏳ | ⏳ |
@@ -75,6 +75,7 @@ OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
 
 Network setup and GPU inventory. [Capture and privacy-edit notes](docs/images/README.md).
 
+[Public image kit and local firmware setup](docs/DIAGNOSTIX-RELEASE.md) ·
 [Image and setup guide](docs/DIAGNOSTICS.md) ·
 [Source](diagnostics/) · [TUI](diagnostics/ps4/tui/) ·
 [Test scenarios](docs/PS4-DIAGNOSTIC-ALPHA.md) ·

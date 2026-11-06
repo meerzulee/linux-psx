@@ -4012,6 +4012,30 @@
           "mode": "0644"
         }
       ]
+    },
+    {
+      "path": "scripts/prepare-ps4-diagnostics-public",
+      "destination_sha256": "b0bdf5089fddbccf57af3198337ddeffefe5d4cdf00c633a64250dcfc32fd18f",
+      "destination_bytes": 37594,
+      "mode": "0644",
+      "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_public.py",
+      "destination_sha256": "d373781ac7d028b2ab25693ce44c99ac772cb95f660568a773fff8b7ba135d40",
+      "destination_bytes": 10020,
+      "mode": "0644",
+      "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "docs/DIAGNOSTIX-RELEASE.md",
+      "destination_sha256": "6cc4607e05a31348dc4385507c0ddd6943c11382578eacd42ba687d3efbeae87",
+      "destination_bytes": 6304,
+      "mode": "0644",
+      "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
+      "origin": "New Linux psX source after diagnostic import"
     }
   ],
   "ownership_updates": [
@@ -4783,6 +4807,15 @@
       "paths": [
         "diagnostics/ps4/controller.py",
         "tests/test_ps4_diagnostics_power_immediate.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
+      "paths": [
+        "scripts/prepare-ps4-diagnostics-public",
+        "tests/test_ps4_diagnostics_public.py",
+        "docs/DIAGNOSTIX-RELEASE.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

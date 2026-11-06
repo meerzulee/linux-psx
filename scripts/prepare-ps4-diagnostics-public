@@ -1,0 +1,596 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Prepare an inert firmware-free template, or finalize it with local inputs.
+
+Host regular files only. No mounts, device writes, console connection or upload.
+Every operation defaults to a read-only plan; --apply creates NEW output only.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+
+sys.dont_write_bytecode = True
+REPO = Path(__file__).resolve().parents[1]
+MIB = 1024 * 1024
+SOURCES = {
+    'busybox-1.37.0.tar.bz2': {'url': 'https://busybox.net/downloads/busybox-1.37.0.tar.bz2',
+        'bytes': 2565764, 'sha256': '3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4'},
+    'musl-1.2.5.tar.gz': {'url': 'https://musl.libc.org/releases/musl-1.2.5.tar.gz',
+        'bytes': 1080786, 'sha256': 'a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4'},
+}
+APPLETS = ('ash sh mount umount mkdir cat cp chmod losetup chroot printf sleep mdev blkid '
+           'sha256sum date awk gzip tar readlink uname switch_root ls sync modprobe ip udhcpc '
+           'reboot poweroff wc blockdev test [ [[ echo true false cut head tail grep sed find stat tr dd').split()
+OPTIONS = ('BUSYBOX ASH SH_IS_ASH ASH_JOB_CONTROL ASH_BASH_COMPAT ASH_ALIAS ASH_RANDOM_SUPPORT '
+    'ASH_EXPAND_PRMT ASH_ECHO ASH_PRINTF ASH_TEST ASH_CMDCMD ASH_GETOPTS ASH_BUILTIN_ECHO '
+    'FEATURE_SH_MATH FEATURE_SH_MATH_64 FEATURE_SH_STANDALONE FEATURE_PREFER_APPLETS '
+    'STATIC LFS LONG_OPTS DESKTOP SHOW_USAGE FEATURE_VERBOSE_USAGE '
+    'MOUNT FEATURE_MOUNT_FLAGS FEATURE_MOUNT_FSTAB FEATURE_MOUNT_LOOP UMOUNT FEATURE_UMOUNT_ALL '
+    'MKDIR CAT CP FEATURE_PRESERVE_HARDLINKS CHMOD LOSETUP CHROOT PRINTF SLEEP FEATURE_FANCY_SLEEP '
+    'MDEV BLKID FEATURE_BLKID_TYPE FEATURE_VOLUMEID_EXT FEATURE_VOLUMEID_FAT '
+    'SHA256SUM FEATURE_MD5_SHA1_SUM_CHECK DATE FEATURE_DATE_ISOFMT AWK GZIP GUNZIP TAR '
+    'FEATURE_TAR_CREATE FEATURE_TAR_GNU_EXTENSIONS FEATURE_SEAMLESS_GZ READLINK FEATURE_READLINK_FOLLOW '
+    'UNAME SWITCH_ROOT LS SYNC FEATURE_SYNC_FANCY MODPROBE FEATURE_MODPROBE_BLACKLIST '
+    'IP FEATURE_IP_ADDRESS FEATURE_IP_LINK FEATURE_IP_ROUTE UDHCPC '
+    'REBOOT POWEROFF HALT WC BLOCKDEV TEST TEST1 TEST2 ECHO TRUE FALSE CUT HEAD TAIL GREP SED FIND STAT TR DD').split()
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def digest(path):
+    with Path(path).open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+def encoded(value):
+    return (json.dumps(value, indent=2, sort_keys=True) + '\n').encode()
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+def modules():
+    return (load('psx_public_alpha', REPO/'scripts/build-ps4-diagnostics-alpha'),
+            load('psx_public_archive', REPO/'scripts/ps4-diagnostics-archive'),
+            load('psx_public_stage', REPO/'scripts/stage-ps4-diagnostics-usb'))
+
+
+def regular(path):
+    path = Path(path).absolute()
+    require(path.resolve() == path and path.is_file() and not path.is_symlink(), 'Expected canonical regular input')
+    return path
+
+
+def new_output(path, inputs=()):
+    path = Path(path).absolute()
+    require(path.resolve() == path and not path.exists() and path.parent.is_dir(), 'Output must be a NEW canonical directory')
+    require(not any(path.is_relative_to(Path(p).resolve()) or Path(p).resolve().is_relative_to(path) for p in inputs), 'Output overlaps an input')
+    require(not any(path.is_relative_to(p) for p in (Path('/dev'),Path('/proc'),Path('/sys'),REPO/'scripts',REPO/'rootfs',REPO/'diagnostics',REPO/'manifests')), 'Unsafe output destination')
+    return path
+
+
+def pin(path, expected):
+    path = regular(path)
+    require(path.stat().st_size == expected['bytes'] and digest(path) == expected['sha256'], 'Input pin differs: ' + path.name)
+    return path
+
+
+def run(command, *, cwd=None, log=None, input=None, timeout=180):
+    result = subprocess.run([str(x) for x in command], cwd=cwd, input=input, capture_output=True,
+                            timeout=timeout, env=dict(os.environ, TMPDIR='/var/tmp', LC_ALL='C'))
+    if log: Path(log).write_bytes(result.stdout + result.stderr)
+    require(result.returncode == 0, 'Host command failed: ' + str(command[0]) + '\n' + result.stderr.decode(errors='replace')[-1500:])
+    return result.stdout
+
+
+def build_busybox(sources, output, *, apply=False, jobs=2):
+    sources = Path(sources).resolve(strict=True); output = new_output(output, [sources])
+    for name, facts in SOURCES.items(): pin(sources/name, facts)
+    require(type(jobs) is int and 1 <= jobs <= 16, 'Build jobs must be 1–16')
+    plan = {'action':'build-static-busybox', 'source_pins':SOURCES, 'jobs':jobs, 'apply':apply}
+    if not apply: return plan
+    output.mkdir(mode=0o755); (output/'sources').mkdir(); (output/'licenses').mkdir(); work=output/'work'; work.mkdir()
+    for name in SOURCES:
+        shutil.copyfile(sources/name, output/'sources'/name)
+        with tarfile.open(sources/name) as archive: archive.extractall(work, filter='data')
+    musl=work/'musl-1.2.5'; busy=work/'busybox-1.37.0'; prefix=work/'musl-toolchain'
+    run(['./configure','--disable-shared','--enable-static','--prefix='+str(prefix)],cwd=musl,log=work/'musl-configure.log')
+    run(['make',f'-j{jobs}'],cwd=musl,log=work/'musl-build.log')
+    run(['make','install'],cwd=musl,log=work/'musl-install.log')
+    # Source headers are preserved alongside their actual bytes for relinking.
+    headers=work/'linux-uapi-headers'; headers.mkdir()
+    for name in ('linux','asm','asm-generic'):
+        source=Path('/usr/include')/name
+        require(source.is_dir(), 'Native Linux UAPI headers are required')
+        shutil.copytree(source, headers/name, symlinks=False)
+        shutil.copytree(source, prefix/'include'/name, symlinks=False)
+    with tarfile.open(output/'sources/linux-uapi-headers.tar.gz','w:gz') as archive:
+        def public_header(info):
+            info.uid=info.gid=0; info.uname=info.gname=''; info.mtime=1792195200
+            return info
+        archive.add(headers,arcname='linux-uapi-headers',filter=public_header)
+    run(['make','allnoconfig'],cwd=busy,log=work/'busybox-configure.log')
+    config=(busy/'.config').read_text()
+    for option in OPTIONS:
+        token='CONFIG_'+option
+        if re.search(r'(?m)^(?:# '+re.escape(token)+r' is not set|'+re.escape(token)+r'=)',config):
+            config=re.sub(r'(?m)^(?:# '+re.escape(token)+r' is not set|'+re.escape(token)+r'=.*)$',token+'=y',config)
+    config=config.replace('CONFIG_SH_IS_NONE=y','# CONFIG_SH_IS_NONE is not set')
+    (busy/'.config').write_text(config)
+    compiler=prefix/'bin/musl-gcc'
+    run(['make','oldconfig','CC='+str(compiler)],cwd=busy,input=b'\n'*400,log=work/'busybox-oldconfig.log')
+    run(['make',f'-j{jobs}','CC='+str(compiler)],cwd=busy,log=work/'busybox-build.log')
+    applets=run([busy/'busybox','--list']).decode().splitlines()
+    require(set(APPLETS) <= set(applets),'Required initramfs applets missing: '+str(sorted(set(APPLETS)-set(applets))))
+    alpha,archive,_=modules(); archive.validate_busybox((busy/'busybox').read_bytes())
+    shutil.copyfile(busy/'busybox',output/'busybox'); (output/'busybox').chmod(0o755)
+    shutil.copyfile(busy/'.config',output/'sources/busybox.config')
+    shutil.copyfile(busy/'LICENSE',output/'licenses/BusyBox-GPL-2.0.txt')
+    shutil.copyfile(musl/'COPYRIGHT',output/'licenses/musl-COPYRIGHT.txt')
+    shutil.copyfile(Path(__file__),output/'sources/prepare-ps4-diagnostics-public')
+    receipt={'schema':1,'sources':SOURCES,'busybox':{'bytes':(output/'busybox').stat().st_size,'sha256':digest(output/'busybox')},
+        'config_sha256':digest(output/'sources/busybox.config'),'applets':applets,'static':True,'libc':'musl1.2.5',
+        'compiler':run(['gcc','--version']).decode().splitlines()[0], 'hardware_acceptance':False,
+        'rebuild':'Use the bundled preparation script build-busybox command with the two pinned upstream archives.'}
+    receipt['files']={str(p.relative_to(output)):digest(p) for folder in ('sources','licenses') for p in (output/folder).rglob('*') if p.is_file()}
+    (output/'BUSYBOX.json').write_bytes(encoded(receipt))
+    return receipt
+
+
+def safe_relative(name):
+    require(isinstance(name,str),'Package member must be a string')
+    path=PurePosixPath(name)
+    require(isinstance(name,str) and not path.is_absolute() and '..' not in path.parts
+            and str(path)==name and name not in ('','.') and not any(c in name for c in '\n\r\0'), 'Unsafe package member')
+    return name
+
+
+def verified_kit(root):
+    root=Path(root).resolve(strict=True)
+    receipt=json.loads(regular(root/'BUSYBOX.json').read_text())
+    require(receipt.get('sources')==SOURCES and receipt.get('static') is True
+            and receipt.get('hardware_acceptance') is False, 'BusyBox source/receipt contract differs')
+    pin(root/'busybox',receipt['busybox'])
+    require(set(APPLETS)<=set(receipt['applets']), 'BusyBox receipt lacks required applets')
+    for name,value in receipt['files'].items():
+        safe_relative(name);require(digest(regular(root/name))==value,'BusyBox source/notice changed')
+    for name,facts in SOURCES.items():pin(root/'sources'/name,facts)
+    require(digest(root/'sources/busybox.config')==receipt['config_sha256'],'BusyBox config differs')
+    _,archive,_=modules();archive.validate_busybox((root/'busybox').read_bytes())
+    return receipt
+
+
+def copied_kit(source, destination, receipt):
+    destination.mkdir()
+    for name in ['busybox','BUSYBOX.json',*receipt['files']]:
+        safe_relative(name);target=destination/name;target.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(source/name,target)
+    (destination/'busybox').chmod(0o755)
+
+
+def firmware_contract(entries):
+    result={}
+    for entry in entries:
+        name=entry.name.decode()
+        if name.startswith('lib/firmware/') and not stat.S_ISDIR(entry.mode):
+            require(stat.S_ISREG(entry.mode),'Firmware links/special files need a separate audit')
+            relative=safe_relative(name.removeprefix('lib/firmware/'))
+            result[relative]={'bytes':len(entry.data),'sha256':sha(entry.data)}
+    require(result and 'amdgpu/liverpool_uvd.bin' in result,'Expected explicit local firmware inputs')
+    return result
+
+
+def local_firmware(directory, contract):
+    directory=Path(directory).resolve(strict=True)
+    result={}
+    for name,facts in contract.items():
+        safe_relative(name);path=directory/name
+        require(path.resolve()==path and path.is_relative_to(directory),'Firmware path escaped through a symlink')
+        result[name]=pin(path,facts).read_bytes()
+    return result
+
+
+def public_metadata(profile, source, *, template):
+    # Start from the versioned profile, never the private build's receipt tree.
+    result=copy.deepcopy(profile)
+    for key in ('ssh_authorized_key_sha256','ssh_authorized_key_fingerprint'):
+        result.pop(key,None)
+    result.update(ssh_setup_required=True,ssh_authorized_key_sha256=None,ssh_authorized_key_fingerprint=None,
+        hardware_acceptance=False,rootfs_file='psx-diagnostics/rootfs.ext4',rootfs_image_bytes=source['rootfs_image_bytes'],
+        frontend_overrides=copy.deepcopy(source['frontend_overrides']),tui_sha256=source['tui_sha256'],
+        rootfs_tui_sha256=source.get('rootfs_tui_sha256',source['tui_sha256']),
+        frontend_revision='public-template' if template else 'public-local-finalized',
+        public_distribution={'schema':1,'template':template,'bootable':not template,
+            'firmware_included':not template,'owner_seed':False,'fresh_filesystem':True,'hardware_acceptance':False})
+    # Operational paths in a profile are public. Private machine/build paths are not.
+    require(not re.search(r'/(?:Users|home)/[^/\s"\\]+/|/run/media/',json.dumps(result)), 'Profile contains a private machine path')
+    return result
+
+
+def remove_path(path):
+    if path.is_symlink() or path.is_file():path.unlink()
+    elif path.exists():shutil.rmtree(path)
+
+
+def rooted(root, relative):
+    safe_relative(relative);path=root/relative
+    require(path.parent.resolve().is_relative_to(root),'Root operation traverses an external symlink')
+    return path
+
+
+def clean_write(root, relative, data, mode=0o644):
+    path=rooted(root,relative)
+    if path.is_symlink():path.unlink()
+    require(not path.exists() or path.is_file(),'Expected regular sanitation target')
+    path.write_bytes(data);path.chmod(mode)
+
+
+def scrub_fixture(root, metadata):
+    directory=root/'usr/share/psx-diagnostics/uvd';manifest=directory/'FIXTURE.json'
+    require(manifest.is_file() and not manifest.is_symlink(),'Canonical fixture is missing')
+    old_pin=digest(manifest);value=json.loads(manifest.read_text())
+    require(old_pin==metadata['uvd_diagnostic']['fixture_sha256'],'Canonical fixture input pin differs')
+    def sanitize(value):
+        if isinstance(value,dict):return {k:sanitize(v) for k,v in value.items()}
+        if isinstance(value,list):return [sanitize(v) for v in value]
+        if isinstance(value,str) and value.startswith(('/Users/','/home/')):return PurePosixPath(value).name
+        return value
+    value=sanitize(value)
+    changed=[]
+    for evidence in value.get('evidence',[]):
+        name=safe_relative(evidence['path']);path=directory/name
+        original=path.read_bytes()
+        try:text=original.decode()
+        except UnicodeDecodeError:continue
+        # Evidence text may contain the same recorded command paths. Preserve
+        # authors/license notices; only machine absolute paths are rewritten.
+        text=re.sub(r'/(?:Users|home)/[^\s"\x00]+',lambda m:PurePosixPath(m.group()).name,text)
+        if text.encode()!=original:
+            path.write_text(text);evidence['sha256']=sha(text.encode())
+            if 'bytes' in evidence:evidence['bytes']=len(text.encode())
+            changed.append(name)
+    manifest.write_bytes(encoded(value));new_pin=digest(manifest)
+    adapter=root/'opt/psx-diagnostics/uvd.py';before=adapter.read_bytes()
+    require(before.count(old_pin.encode())==1,'UVD fixture pin is not unique in the installed adapter')
+    after=before.replace(old_pin.encode(),new_pin.encode(),1);compile(after,str(adapter),'exec');adapter.write_bytes(after)
+    metadata['uvd_diagnostic']['fixture_sha256']=new_pin
+    # Existing pins for clip and pixel oracles remain exact.
+    for item in [value['clip'],value['reference'],*value['frames'],*value.get('evidence',[])]:
+        data=(directory/safe_relative(item['path'])).read_bytes()
+        require(sha(data)==item['sha256'],'Sanitized fixture asset checksum differs')
+    sums=''.join(f'{digest(path)}  {path.relative_to(directory)}\n' for path in sorted(directory.rglob('*'))
+                 if path.is_file() and path.name!='SHA256SUMS')
+    (directory/'SHA256SUMS').write_text(sums)
+    result={'old_fixture_sha256':old_pin,'fixture_sha256':new_pin,'adapter_source_sha256':sha(before),
+            'adapter_installed_sha256':sha(after),'changed_evidence':changed,
+            'clip_and_pixel_oracles_unchanged':True,'hardware_acceptance':False}
+    metadata['public_fixture_adaptation']=result
+    return result
+
+
+def sanitize_tree(root, metadata, licenses, *, template, firmware=None):
+    root=Path(root).resolve(strict=True)
+    for relative in ('usr/lib/firmware','root','home/psx','var/log','var/cache','var/lib/NetworkManager',
+                     'var/lib/psx-diagnostics','var/lib/systemd/coredump','var/lib/systemd/random-seed',
+                     'usr/share/psx-diagnostics/alpha-base-boot-set.json'):
+        remove_path(rooted(root,relative))
+    for relative in ('root','home/psx','var/log','var/cache','var/lib/NetworkManager','usr/lib/firmware'):
+        rooted(root,relative).mkdir(parents=True,exist_ok=True)
+    os.chown(root/'home/psx',1000,1000)
+    for path in (root/'etc/ssh').glob('ssh_host_*'):remove_path(path)
+    for path in (root/'etc/NetworkManager/system-connections').iterdir():
+        if path.name!='psx-wired.nmconnection':remove_path(path)
+    remove_path(root/'etc/systemd/system/multi-user.target.wants/sshd.service')
+    for name in ('external-boot-set.json','expected-boot-set.json'):
+        remove_path(root/'etc/psx-diagnostics'/name)
+    clean_write(root,'etc/psx-diagnostics/authorized_keys',b'',0o600)
+    clean_write(root,'etc/machine-id',b'');clean_write(root,'etc/hostname',b'psx-diagnostics\n')
+    shadow=root/'etc/shadow'
+    lines=shadow.read_text().splitlines()
+    for i,line in enumerate(lines):
+        fields=line.split(':')
+        require(len(fields)>=2,'Malformed shadow entry')
+        fields[1]='!';lines[i]=':'.join(fields)
+    shadow.write_text('\n'.join(lines)+'\n');shadow.chmod(0o600)
+    notice=root/'usr/share/licenses/psx-diagnostics';notice.mkdir(parents=True,exist_ok=True)
+    (notice/'LICENSE').write_bytes((REPO/'diagnostics/LICENSE').read_bytes())
+    for name in ('BusyBox-GPL-2.0.txt','musl-COPYRIGHT.txt'):
+        (notice/name).write_bytes((licenses/name).read_bytes())
+    if template:scrub_fixture(root,metadata)
+    else:
+        require(firmware is not None,'Finalization needs local firmware')
+        for name,data in firmware.items():
+            path=rooted(root,'usr/lib/firmware/'+safe_relative(name));path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(data);path.chmod(0o644)
+    # Clear per-install SSH/clock identity; source author/license notices remain.
+    metadata.pop('rootfs_sha256',None);metadata.pop('initramfs_sha256',None)
+    (root/'etc/psx-diagnostics/boot-set.json').write_bytes(encoded(metadata))
+
+
+def private_tokens(tree):
+    tokens=[]
+    for relative in ('etc/psx-diagnostics/authorized_keys','etc/machine-id'):
+        path=rooted(tree,relative)
+        if path.is_file() and not path.is_symlink():
+            data=path.read_bytes().strip()
+            if len(data)>=16:tokens.append(data)
+    old=tree/'etc/psx-diagnostics/boot-set.json'
+    if old.is_file():
+        value=json.loads(old.read_text())
+        for key in ('ssh_authorized_key_fingerprint','ssh_authorized_key_sha256'):
+            if isinstance(value.get(key),str):tokens.append(value[key].encode())
+    fixture=tree/'usr/share/psx-diagnostics/uvd/FIXTURE.json'
+    if fixture.is_file():
+        tokens.extend(set(re.findall(rb'/(?:Users|home)/[^/\s"\\]+/',fixture.read_bytes())))
+    return tokens
+
+
+def audit_private_tokens(tree, tokens):
+    tokens=[token for token in tokens if token]
+    if not tokens:return
+    overlap=max(map(len,tokens))-1
+    for path in tree.rglob('*'):
+        if path.is_symlink() or not path.is_file():continue
+        previous=b''
+        with path.open('rb') as stream:
+            while data:=stream.read(MIB):
+                data=previous+data
+                require(not any(token in data for token in tokens),'Private identity remains in '+str(path.relative_to(tree)))
+                previous=data[-overlap:] if overlap else b''
+
+
+def fresh_root(source, output, metadata, licenses, *, template, firmware_dir=None, firmware_pins=None):
+    """Run inside fakeroot so rdump->mkfs preserves source uid/gid/modes."""
+    alpha,_,_=modules();source=regular(source);output=Path(output).absolute()
+    require(output.resolve()==output and not output.exists() and output.parent.is_dir()
+            and not any(output.is_relative_to(p) for p in (Path('/dev'),Path('/proc'),Path('/sys'))),
+            'Fresh root must be a new canonical ordinary file')
+    root_bytes=source.stat().st_size
+    alpha.fsck(source)
+    with tempfile.TemporaryDirectory(prefix='psx-public-root-',dir='/var/tmp') as temporary:
+        tree=Path(temporary)/'tree';tree.mkdir()
+        alpha.RootImage(source).debug('rdump / '+str(tree))
+        identities=private_tokens(tree)
+        firmware=local_firmware(firmware_dir,firmware_pins) if not template else None
+        sanitize_tree(tree,metadata,Path(licenses),template=template,firmware=firmware)
+        audit_private_tokens(tree,identities)
+        with output.open('xb') as stream:stream.truncate(root_bytes)
+        run(['mkfs.ext4','-q','-F','-b','1024','-O','^has_journal','-d',tree,output],timeout=300)
+    alpha.fsck(output)
+    reader=alpha.RootImage(output)
+    require(reader.read('/etc/psx-diagnostics/authorized_keys')==b'' and reader.read('/etc/machine-id')==b'', 'Public identity sanitization failed')
+    require(reader.entry('/home/psx')['uid']==1000,'Fresh image lost unprivileged home ownership')
+    observed=reader.walk('/usr/lib/firmware')
+    regulars={name:entry for name,entry in observed.items() if stat.S_ISREG(entry['mode'])}
+    if template:require(not regulars,'Template root still contains firmware')
+    else:
+        require(set(regulars)=={'/usr/lib/firmware/'+name for name in firmware_pins},'Final root firmware inventory differs')
+        for name,pin_ in firmware_pins.items():
+            require(sha(reader.read('/usr/lib/firmware/'+name))==pin_['sha256'],'Final root firmware readback differs')
+    return metadata
+
+
+def rewrap_cpio(entries, archive, busybox, metadata, root_sha, firmware, output, epoch, notices=None):
+    items={entry.name.decode():entry for entry in entries}
+    require(len(items)==len(entries),'Duplicate CPIO members')
+    items={name:entry for name,entry in items.items() if name!='TRAILER!!!' and not name.startswith('lib/firmware/')}
+    replacements={'bin/busybox':(busybox,stat.S_IFREG|0o755),
+        'etc/psx-diagnostics-expected.json':(encoded(metadata),stat.S_IFREG|0o644)}
+    for name,data in (notices or {}).items():
+        replacements['usr/share/licenses/psx-initramfs/'+safe_relative(name)]=(data,stat.S_IFREG|0o644)
+    env=items['etc/psx-diagnostics.env'].data.decode()
+    require(len(re.findall(r"(?m)^ROOTFS_SHA256='[0-9a-f]{64}'$",env))==1,'Root hash environment missing')
+    env=re.sub(r"(?m)^ROOTFS_SHA256='[0-9a-f]{64}'$","ROOTFS_SHA256='"+root_sha+"'",env)
+    replacements['etc/psx-diagnostics.env']=(env.encode(),stat.S_IFREG|0o644)
+    for name,data in firmware.items():replacements['lib/firmware/'+safe_relative(name)]=(data,stat.S_IFREG|0o644)
+    files={name:(entry.data,entry.mode) for name,entry in items.items()
+           if not stat.S_ISDIR(entry.mode) and not stat.S_ISCHR(entry.mode)}
+    files.update(replacements)
+    # Keep only applet links supported by the newly built static tool.
+    for name,(data,mode) in list(files.items()):
+        if stat.S_ISLNK(mode) and b'busybox' in data and PurePosixPath(name).name not in APPLETS:del files[name]
+    for applet in APPLETS:files['bin/'+applet]=(b'/bin/busybox',stat.S_IFLNK|0o777)
+    directories={'.','dev','proc','sys','run','newroot','tmp'}
+    for name in files:directories.update(str(p) for p in PurePosixPath(name).parents if str(p)!='.')
+    chunks=[];ino=1
+    for name in sorted(directories,key=lambda x:(x.count('/'),x)):
+        if name=='.':continue
+        chunks.append(archive.entry(ino,stat.S_IFDIR|0o755,2,epoch,name));ino+=1
+    for name,(data,mode) in sorted(files.items()):
+        chunks.append(archive.entry(ino,mode,1,epoch,name,data));ino+=1
+    for name,major,minor,permissions in (('dev/console',5,1,0o600),('dev/null',1,3,0o666)):
+        node=bytearray(archive.entry(ino,stat.S_IFCHR|permissions,1,epoch,name))
+        node[78:86]=f'{major:08X}'.encode();node[86:94]=f'{minor:08X}'.encode()
+        chunks.append(node);ino+=1
+    chunks.append(archive.entry(ino,0,1,epoch,'TRAILER!!!'))
+    output.write_bytes(gzip.compress(b''.join(chunks),compresslevel=9,mtime=epoch))
+    actual,_=archive.parse_newc(gzip.decompress(output.read_bytes()))
+    found={e.name.decode():e for e in actual}
+    require(found['bin/busybox'].data==busybox,'BusyBox CPIO readback differs')
+    require(json.loads(found['etc/psx-diagnostics-expected.json'].data)==metadata,'CPIO contract differs')
+    require({n for n,e in found.items() if n.startswith('lib/firmware/') and stat.S_ISREG(e.mode)}
+            =={'lib/firmware/'+n for n in firmware},'CPIO firmware set differs')
+    for name,data in firmware.items():require(found['lib/firmware/'+name].data==data,'CPIO firmware bytes differ')
+
+
+def filesystem_worker(args):
+    request=json.loads(regular(args.request).read_text())
+    require(Path(request['response'])==args.request.parent/'response.json'
+            and not Path(request['response']).exists(),'Unexpected filesystem response path')
+    metadata=fresh_root(Path(request['source']),Path(request['output']),request['metadata'],Path(request['licenses']),
+        template=request['template'],firmware_dir=request.get('firmware_dir'),firmware_pins=request.get('firmware_pins'))
+    Path(request['response']).write_bytes(encoded(metadata))
+    return {'filesystem':'PASS'}
+
+
+def rebuild(source, output, metadata, licenses, *, template, firmware_dir=None, firmware_pins=None):
+    with tempfile.TemporaryDirectory(prefix='psx-public-request-',dir='/var/tmp') as temporary:
+        temporary=Path(temporary);response=temporary/'response.json'
+        request={'source':str(source),'output':str(output),'metadata':metadata,'licenses':str(licenses),
+            'template':template,'response':str(response),'firmware_dir':str(firmware_dir) if firmware_dir else None,
+            'firmware_pins':firmware_pins}
+        path=temporary/'request.json';path.write_bytes(encoded(request))
+        run(['fakeroot','--',sys.executable,Path(__file__).resolve(),'_filesystem','--request',path],timeout=600)
+        return json.loads(response.read_text())
+
+
+def hashes(directory):
+    return {str(p.relative_to(directory)):digest(p) for p in sorted(directory.rglob('*')) if p.is_file() and not p.is_symlink()}
+
+
+def prepare_template(source, kit, profile_path, output, *, apply=False):
+    alpha,archive,stage=modules();source=Path(source).resolve(strict=True);kit=Path(kit).resolve(strict=True)
+    output=new_output(output,[source,kit]);profile=json.loads(regular(profile_path).read_text());alpha.validate_profile(profile)
+    require(profile['image_version']=='alpha7','Only the separately frozen alpha7 public derivative is supported')
+    files,original=stage.source_files(source)
+    require(all(original[k]==profile[k] for k in ('profile','kernel_release','kernel_sha256','config_sha256','modules_sha256')),'Source/profile identity differs')
+    bb=verified_kit(kit);entries,_=archive.parse_newc(gzip.decompress((source/'initramfs.cpio.gz').read_bytes()))
+    image=load('psx_public_image_contract',REPO/'scripts/build-ps4-diagnostics')
+    by_name={entry.name.decode():entry for entry in entries}
+    require(len(by_name)==len(entries),'Duplicate source CPIO member')
+    require(json.loads(by_name['etc/psx-diagnostics-expected.json'].data)==
+            {k:v for k,v in original.items() if k!='initramfs_sha256'},'Private CPIO/external contracts differ')
+    frontend={name:by_name['psx-frontend/'+name].data for name in image.FRONTEND_FILES}
+    require(len(frontend)==29 and image.frontend_manifest(frontend,original['snapshot_sums_sha256'])==original['frontend_overrides'],
+            'Private frontend contract differs from the fixed29assets')
+    allowed={'init','bin/busybox','etc/psx-diagnostics.env','etc/psx-diagnostics-expected.json',
+             'etc/psx-frontend.tsv','etc/psx-sata-readonly'}|{'psx-frontend/'+name for name in frontend}
+    for name,entry in by_name.items():
+        if stat.S_ISREG(entry.mode):require(name in allowed or name.startswith('lib/firmware/'),'Unexpected source CPIO payload')
+        elif stat.S_ISLNK(entry.mode):require(b'busybox' in entry.data,'Unexpected CPIO link')
+        elif stat.S_ISCHR(entry.mode):
+            device={'dev/console':(5,1,0o600),'dev/null':(1,3,0o666)}.get(name)
+            require(device is not None and (int(entry.header[78:86],16),int(entry.header[86:94],16),stat.S_IMODE(entry.mode))==device
+                    and not entry.data,'Unexpected CPIO device node')
+        else:require(stat.S_ISDIR(entry.mode) or name=='TRAILER!!!','Unexpected CPIO special file')
+    firmware=firmware_contract(entries)
+    root_reader=alpha.RootImage(source/original['rootfs_file'])
+    root_firmware={name.removeprefix('/usr/lib/firmware/'):item for name,item in root_reader.walk('/usr/lib/firmware').items()
+                   if stat.S_ISREG(item['mode'])}
+    require(set(root_firmware)==set(firmware),'Root/CPIO firmware inventories differ')
+    for name,facts in firmware.items():
+        require(sha(root_reader.read('/usr/lib/firmware/'+name))==facts['sha256'],'Root/CPIO firmware bytes differ')
+    plan={'action':'new-firmware-free-unbootable-template','profile':profile['profile'],'firmware_files_removed':len(firmware),
+        'new_busybox_sha256':bb['busybox']['sha256'],'apply':apply,'hardware_acceptance':False}
+    if not apply:return plan
+    output.mkdir(mode=0o755);(output/'template').mkdir();(output/'kernel').mkdir()
+    copied_kit(kit,output/'busybox-kit',bb)
+    metadata=public_metadata(profile,original,template=True)
+    metadata=rebuild(source/original['rootfs_file'],output/'template/rootfs.ext4',metadata,kit/'licenses',template=True)
+    metadata['rootfs_sha256']=digest(output/'template/rootfs.ext4')
+    notices={p.name:p.read_bytes() for p in (kit/'licenses').iterdir() if p.is_file()}
+    notices['Diagnostix-MIT.txt']=(REPO/'diagnostics/LICENSE').read_bytes()
+    rewrap_cpio(entries,archive,(kit/'busybox').read_bytes(),metadata,metadata['rootfs_sha256'],{},
+                output/'template/initramfs.template.cpio.gz',profile['source_date_epoch'],notices)
+    for old,new in [('bzImage','bzImage'),('psx-diagnostics/config','config'),
+                    (f"psx-diagnostics/modules-{profile['kernel_release']}.tar.zst",f"modules-{profile['kernel_release']}.tar.zst")]:
+        require(old in files,'Missing complete kernel component');shutil.copyfile(source/old,output/'kernel'/new)
+    for name in ('bootargs.template.txt','vram.txt'):shutil.copyfile(source/name,output/'template'/name)
+    (output/'PROFILE.json').write_bytes(encoded(metadata))
+    source_name=f"source-{profile['kernel_release']}.tar.zst"
+    (output/'KERNEL-SOURCE.json').write_bytes(encoded({'schema':1,'kernel_release':profile['kernel_release'],
+        'source_archive':source_name,**profile['alpha_inputs']['legacy_package'][source_name],
+        'source_commit':profile['source_commit'],'policy':'The complete corresponding-source archive accompanies the public kernel kit.'}))
+    (output/'FIRMWARE-REQUIRED.json').write_bytes(encoded({'schema':1,'files':firmware,'policy':'Obtain locally under applicable rights; no firmware bytes are distributed.'}))
+    (output/'README.txt').write_text('Diagnostix firmware-free IMAGE TEMPLATE. NOT BOOTABLE and not a USB image.\n'
+        'Use the matching Linux psX source preparation tool finalize command with local hash-matched firmware.\n'
+        'No shared SSH key/password; enroll from the console after local finalization.\n'
+        'Kernel/source kit and BusyBox/musl source/config/notices must accompany this template.\n'
+        'No hardware acceptance is inherited by the sanitized root/new initramfs.\n')
+    manifest={'schema':1,'kind':'diagnostix-firmware-free-template','bootable':False,'hardware_acceptance':False,
+        'profile':profile['profile'],'files':hashes(output),'adaptation':metadata['public_fixture_adaptation']}
+    core_bytes=sum(p.stat().st_size for folder in ('template','kernel') for p in (output/folder).rglob('*') if p.is_file())
+    require(core_bytes+MIB<=alpha.CAP,'Public template core exceeds1GiB with reserve')
+    manifest['core_bytes']=core_bytes
+    (output/'TEMPLATE.json').write_bytes(encoded(manifest))
+    require(stage.source_files(source)[0]==files,'Private source changed during template preparation')
+    return dict(plan,status='PASS_HOST_TEMPLATE',template_sha256=digest(output/'TEMPLATE.json'))
+
+
+def finalize(template, firmware_dir, output, *, apply=False):
+    alpha,archive,stage=modules();template=Path(template).resolve(strict=True);output=new_output(output,[template,firmware_dir])
+    record=json.loads(regular(template/'TEMPLATE.json').read_text())
+    require(record.get('schema')==1 and record.get('kind')=='diagnostix-firmware-free-template'
+            and record.get('bootable') is False and record.get('hardware_acceptance') is False,'Not a public template')
+    for name,value in record['files'].items():require(digest(regular(template/safe_relative(name)))==value,'Template member changed')
+    profile=json.loads((template/'PROFILE.json').read_text());require(profile['profile']==record['profile'],'Template profile differs')
+    firmware_pins=json.loads((template/'FIRMWARE-REQUIRED.json').read_text())['files']
+    firmware=local_firmware(firmware_dir,firmware_pins);verified_kit(template/'busybox-kit')
+    alpha.prepare_firmware(profile,Path(firmware_dir)/'amdgpu/liverpool_uvd.bin')
+    plan={'action':'finalize-new-local-boot-set','profile':profile['profile'],'apply':apply,'hardware_acceptance':False}
+    if not apply:return plan
+    output.mkdir(mode=0o755);boot=output/'boot-set';(boot/'psx-diagnostics').mkdir(parents=True)
+    metadata=copy.deepcopy(profile);metadata['public_distribution'].update(template=False,bootable=True,firmware_included=True)
+    metadata['frontend_revision']='public-local-finalized'
+    metadata=rebuild(template/'template/rootfs.ext4',boot/'psx-diagnostics/rootfs.ext4',metadata,template/'busybox-kit/licenses',
+                     template=False,firmware_dir=Path(firmware_dir).resolve(),firmware_pins=firmware_pins)
+    metadata['rootfs_sha256']=digest(boot/'psx-diagnostics/rootfs.ext4')
+    entries,_=archive.parse_newc(gzip.decompress((template/'template/initramfs.template.cpio.gz').read_bytes()))
+    rewrap_cpio(entries,archive,(template/'busybox-kit/busybox').read_bytes(),metadata,metadata['rootfs_sha256'],firmware,
+                boot/'initramfs.cpio.gz',profile['source_date_epoch'])
+    external=dict(metadata,initramfs_sha256=digest(boot/'initramfs.cpio.gz'))
+    (boot/'psx-diagnostics/boot-set.json').write_bytes(encoded(external))
+    shutil.copyfile(template/'kernel/bzImage',boot/'bzImage')
+    for name in ('config',f"modules-{profile['kernel_release']}.tar.zst"):
+        shutil.copyfile(template/'kernel'/name,boot/'psx-diagnostics'/name)
+    for name in ('bootargs.template.txt','vram.txt'):shutil.copyfile(template/'template'/name,boot/name)
+    (boot/'psx-diagnostics/version.txt').write_text(profile['kernel_release']+'\n')
+    shutil.copyfile(template/'KERNEL-SOURCE.json',boot/'psx-diagnostics/source-pins.json')
+    (boot/'psx-diagnostics/README.txt').write_text('Locally finalized private firmware-bearing Diagnostix boot set. Do not redistribute.\nNo hardware acceptance is claimed.\n')
+    sums=hashes(boot);(boot/'SHA256SUMS').write_text(stage.installed_sums(sums))
+    require(sum(p.stat().st_size for p in boot.rglob('*') if p.is_file())+MIB<=alpha.CAP,'Finalized core exceeds1GiB with reserve')
+    stage.source_files(boot)
+    (output/'FINALIZED.json').write_bytes(encoded({'schema':1,'template_sha256':digest(template/'TEMPLATE.json'),
+        'rootfs_sha256':metadata['rootfs_sha256'],'initramfs_sha256':external['initramfs_sha256'],
+        'hardware_acceptance':False,'firmware_scope':'local private inputs; do not redistribute this output'}))
+    return dict(plan,status='PASS_HOST_LOCAL_FINALIZATION',rootfs_sha256=metadata['rootfs_sha256'],initramfs_sha256=external['initramfs_sha256'])
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__); sub=parser.add_subparsers(dest='operation',required=True)
+    bb=sub.add_parser('build-busybox'); bb.add_argument('--sources',type=Path,required=True); bb.add_argument('--output',type=Path,required=True)
+    bb.add_argument('--jobs',type=int,default=2); bb.add_argument('--apply',action='store_true')
+    public=sub.add_parser('template'); public.add_argument('--source',type=Path,required=True);public.add_argument('--busybox-kit',type=Path,required=True)
+    public.add_argument('--profile',type=Path,required=True);public.add_argument('--output',type=Path,required=True);public.add_argument('--apply',action='store_true')
+    local=sub.add_parser('finalize');local.add_argument('--template',type=Path,required=True);local.add_argument('--firmware-dir',type=Path,required=True)
+    local.add_argument('--output',type=Path,required=True);local.add_argument('--apply',action='store_true')
+    worker=sub.add_parser('_filesystem',help=argparse.SUPPRESS);worker.add_argument('--request',type=Path,required=True)
+    args=parser.parse_args()
+    if args.operation=='build-busybox': result=build_busybox(args.sources,args.output,apply=args.apply,jobs=args.jobs)
+    elif args.operation=='template':result=prepare_template(args.source,args.busybox_kit,args.profile,args.output,apply=args.apply)
+    elif args.operation=='finalize':result=finalize(args.template,args.firmware_dir,args.output,apply=args.apply)
+    else:result=filesystem_worker(args)
+    print(json.dumps(result,indent=2))
+
+
+if __name__=='__main__':
+    try: main()
+    except (OSError,ValueError,subprocess.SubprocessError) as error:
+        raise SystemExit('Public preparation: '+str(error))
