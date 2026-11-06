@@ -30,7 +30,7 @@ class BrowserReportsTests(unittest.TestCase):
 
     def test_completion_keeps_start_time_server_mode_and_browser_specific_title(self):
         for ua,title in [('Mozilla Firefox/154.0','Firefox 154'),('Mozilla Chrome/151.0.0','Chromium 151')]:
-            with self.subTest(ua=ua),mock.patch.object(APP.subprocess,'run',side_effect=AssertionError('live display')):
+            with self.subTest(ua=ua),mock.patch.object(self.controller,'_cancellable_capture',side_effect=AssertionError('live display')):
                 marker=self.controller.browser_start({'test_id':'browser.animation'})
                 path=self.root/'results'/marker['run_id']/'result.json'
                 started=json.loads(path.read_text())
@@ -49,7 +49,7 @@ class BrowserReportsTests(unittest.TestCase):
         response=SimpleNamespace(stdout=json.dumps({'available':True,'width':1920,'height':1080,'configured_refresh_hz':60}))
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
              mock.patch.object(APP.Path,'is_file',return_value=True), \
-             mock.patch.object(APP.subprocess,'run',return_value=response) as run:
+             mock.patch.object(self.controller,'_cancellable_capture',return_value=response) as run:
             mode=self.controller.browser_display_mode()
             self.assertTrue(mode['available'])
             self.assertEqual(run.call_args.args[0],['/usr/bin/python3','/run/psx-frontend/wait-graphics-wm','--display-info'])
@@ -58,13 +58,13 @@ class BrowserReportsTests(unittest.TestCase):
             self.assertIn('not a physical',mode['scope'])
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
              mock.patch.object(APP.Path,'is_file',return_value=True), \
-             mock.patch.object(APP.subprocess,'run',side_effect=subprocess.TimeoutExpired('fixed-probe',3)):
+             mock.patch.object(self.controller,'_cancellable_capture',side_effect=subprocess.TimeoutExpired('fixed-probe',3)):
             self.assertFalse(self.controller.browser_display_mode()['available'])
 
     def test_invalid_display_probe_never_becomes_a_configured_rate(self):
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
              mock.patch.object(APP.Path,'is_file',return_value=True), \
-             mock.patch.object(APP.subprocess,'run',return_value=SimpleNamespace(stdout='{"available":true,"width":1920,"height":1080,"configured_refresh_hz":-1}')):
+             mock.patch.object(self.controller,'_cancellable_capture',return_value=SimpleNamespace(stdout='{"available":true,"width":1920,"height":1080,"configured_refresh_hz":-1}')):
             self.assertFalse(self.controller.browser_display_mode()['available'])
 
     def test_chromium_is_a_fixed_guarded_graphics_action(self):
@@ -80,14 +80,14 @@ class BrowserReportsTests(unittest.TestCase):
 
     def test_chromium_preparation_is_bounded_and_precedes_graphical_launch(self):
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
-             mock.patch.object(APP.Path,'is_file',return_value=True),mock.patch.object(APP.subprocess,'run') as run:
+             mock.patch.object(APP.Path,'is_file',return_value=True),mock.patch.object(self.controller,'_cancellable_capture') as run:
             self.controller.launch_graphics('chromium-manual')
         self.assertEqual(run.call_args_list[0].args[0],['/usr/bin/python3','/run/psx-frontend/prepare-chromium-provider'])
         self.assertEqual(run.call_args_list[0].kwargs['timeout'],60)
         self.assertEqual(run.call_args_list[1].args[0][-1],'chromium')
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
              mock.patch.object(APP.Path,'is_file',return_value=True), \
-             mock.patch.object(APP.subprocess,'run',side_effect=subprocess.CalledProcessError(1,'prepare')) as run:
+             mock.patch.object(self.controller,'_cancellable_capture',side_effect=subprocess.CalledProcessError(1,'prepare')) as run:
             with self.assertRaises(subprocess.CalledProcessError):self.controller.launch_graphics('chromium-manual')
         self.assertEqual(run.call_count,1)
 

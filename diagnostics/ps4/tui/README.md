@@ -35,7 +35,21 @@ For a host preview with sample data and no controller connection:
 
 Demo screens are marked clearly and never report a hardware PASS. They only
 simulate the interface state. Ordinary launch always starts on the network
-screen; choosing Continue opens the remaining diagnostic areas.
+screen; choosing Continue opens the read-only Overview. It lists hardware and
+recent test status for this boot. F7 switches between Overview and Advanced;
+Advanced contains the existing tabbed controls. Enter on an Overview row opens
+its Advanced area without starting a test. Switching views preserves active
+jobs, saved reports and Settings selections.
+
+Passed applies only to saved functional receipts: native pixel checks for
+OpenGL/Vulkan, exact AVC reference decoding for UVD, and operator-confirmed
+44.1 kHz for audio. Detection, addresses and API enumeration cannot pass a
+component. Not tested means no matching result in the current cache; earlier
+boots do not turn rows green. Blocked, unsupported, deferred and inconclusive
+remain distinct. The optional `overview_results` cache retains latest per-test
+summaries beyond the ordinary recent-report list. No check starts automatically.
+Nerd Font icons appear in the known graphical terminal; VT/SSH uses plain
+markers with the same readable status labels.
 
 ## Controls
 
@@ -51,6 +65,7 @@ screen; choosing Continue opens the remaining diagnostic areas.
 | F3 | Quick CPU/RAM check |
 | F4 | Saved reports |
 | F5 | Refresh controller state |
+| F7 | Switch Overview / Advanced |
 | Ctrl+L | Clear old screen/scrollback contents and repaint the interface |
 | V | Details of the last completed action |
 | Q | Exit confirmation; does not power off the console |

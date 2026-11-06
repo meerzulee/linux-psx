@@ -24,6 +24,9 @@ REPO = Path(__file__).resolve().parents[1]
 ALPHA_UI_PROFILE = 'ps4-baikal-diagnostics-uvd-alpha3'
 ALPHA_UI_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev2'
 ALPHA_UI_ROOT_SHA256 = '9312ebc229f0b12a9d8586e266dc02da757b302db07a3d4878941d20d8a4ec33'
+ALPHA_POWER_UI_PROFILE = 'ps4-baikal-diagnostics-uvd-alpha5'
+ALPHA_POWER_UI_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev4'
+ALPHA_POWER_UI_ROOT_SHA256 = 'f37178423962f672c4161095c14fd7870c609c818724ae690650c4ac77a61dfb'
 
 
 def load(name, path):
@@ -52,19 +55,23 @@ def replace_cpio_payload(entry, data):
     return header + entry.prefix[110:] + data + b'\0' * ((-len(data)) % 4)
 
 
-def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parser, files, metadata):
+def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parser, files, metadata, power_only=False):
     source_sums_sha256 = stage.digest(base / 'SHA256SUMS')
-    if (metadata.get('profile') != ALPHA_UI_PROFILE or metadata.get('kernel_release') != ALPHA_UI_RELEASE
-            or metadata.get('image_version') != 'alpha3' or metadata.get('uvd_runtime') is not True
-            or metadata.get('rootfs_sha256') != ALPHA_UI_ROOT_SHA256):
-        raise ValueError('--alpha-ui-only requires the exact frozen alpha3 profile, dev2 kernel and root')
+    profile, release, version, root_pin = (
+        (ALPHA_POWER_UI_PROFILE, ALPHA_POWER_UI_RELEASE, 'alpha5', ALPHA_POWER_UI_ROOT_SHA256) if power_only
+        else (ALPHA_UI_PROFILE, ALPHA_UI_RELEASE, 'alpha3', ALPHA_UI_ROOT_SHA256))
+    if (metadata.get('profile') != profile or metadata.get('kernel_release') != release
+            or metadata.get('image_version') != version or metadata.get('uvd_runtime') is not True
+            or metadata.get('rootfs_sha256') != root_pin):
+        raise ValueError('Alpha refresh requires its exact frozen profile, kernel and root')
     if output.exists() or output.is_symlink():
         raise ValueError('UI refresh requires a new output directory')
     policy = load('psx_frontend_alpha_uvd', REPO / 'diagnostics/ps4/uvd.py')
     policy.select_contract(metadata)
+    arguments = policy.POWEROFF_BOOT_ARGUMENTS if power_only else policy.BOOT_ARGUMENTS
     if (metadata.get('alpha_inputs', {}).get('root_firmware') != policy.FIRMWARE
-            or metadata.get('required_boot_arguments') != policy.BOOT_ARGUMENTS):
-        raise ValueError('Alpha3 firmware or UVD boot policy differs')
+            or metadata.get('required_boot_arguments') != arguments):
+        raise ValueError('Alpha firmware or UVD boot policy differs')
     compressed = (base / 'initramfs.cpio.gz').read_bytes()
     entries, trailer = parser.parse_newc(gzip.decompress(compressed))
     seed = {entry.name.decode(): entry for entry in entries}
@@ -95,19 +102,28 @@ def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parse
         raise ValueError('Alpha3 root and initramfs firmware differ')
     policy.validate_firmware(root_data)
     tui_data = image.executable_input(tui)
-    if tui_data == frontend['psx-diagnostics-tui']:
+    controller_data = (REPO / 'diagnostics/ps4/controller.py').read_bytes() if power_only else None
+    updates = {'psx-diagnostics-tui': tui_data}
+    if power_only:
+        updates['controller.py'] = controller_data
+        updates = {name: data for name, data in updates.items() if data != frontend[name]}
+    if not power_only and tui_data == frontend['psx-diagnostics-tui']:
         raise ValueError('The replacement TUI is unchanged')
-    frontend['psx-diagnostics-tui'] = tui_data
+    if not updates:
+        raise ValueError('The replacement power frontend is unchanged')
+    frontend.update(updates)
+    changed_assets = sorted(updates)
     facts = image.frontend_manifest(frontend, metadata.get('snapshot_sums_sha256'))
     expected = copy.deepcopy(expected_old)
     expected.update(frontend_overrides=facts, frontend_revision=revision, tui_sha256=sha(tui_data),
                     frontend_refresh={'base_boot_set_sha256': files['psx-diagnostics/boot-set.json'],
                         'base_initramfs_sha256': files['initramfs.cpio.gz'], 'tool_sha256': stage.digest(Path(__file__)),
-                        'root_image_unchanged': True, 'kernel_unchanged': True, 'alpha_ui_only': True,
-                        'changed_frontend_assets': ['psx-diagnostics-tui']})
-    replacements = {'psx-frontend/psx-diagnostics-tui': tui_data,
-                    'etc/psx-frontend.tsv': frontend_table(facts),
-                    'etc/psx-diagnostics-expected.json': (json.dumps(expected, sort_keys=True) + '\n').encode()}
+                        'root_image_unchanged': True, 'kernel_unchanged': True,
+                        'alpha_power_only' if power_only else 'alpha_ui_only': True,
+                        'changed_frontend_assets': changed_assets})
+    replacements = {'psx-frontend/' + name: data for name, data in updates.items()}
+    replacements.update({'etc/psx-frontend.tsv': frontend_table(facts),
+                    'etc/psx-diagnostics-expected.json': (json.dumps(expected, sort_keys=True) + '\n').encode()})
     raw = b''.join(replace_cpio_payload(entry, replacements[entry.name.decode()])
                    if entry.name.decode() in replacements else entry.raw for entry in entries) + trailer
     rewritten, new_trailer = parser.parse_newc(raw)
@@ -118,14 +134,16 @@ def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parse
     final_seed = {e.name.decode(): e for e in rewritten}
     if policy.validate_firmware(final_seed['lib/firmware/amdgpu/liverpool_uvd.bin'].data) != firmware_facts:
         raise ValueError('UI refresh changed firmware')
-    plan = {'profile': metadata['profile'], 'revision': revision, 'alpha_ui_only': True,
+    plan = {'profile': metadata['profile'], 'revision': revision,
+            'alpha_power_only' if power_only else 'alpha_ui_only': True,
             'frontend_bytes': facts['total_bytes'], 'frontend_ram_limit_bytes': facts['ram_limit_bytes'],
             'rootfs_sha256': metadata['rootfs_sha256'], 'root_image_unchanged': True, 'kernel_unchanged': True,
-            'changed_frontend_assets': ['psx-diagnostics-tui'], 'changed_cpio_entries': sorted(changed),
+            'changed_frontend_assets': changed_assets, 'changed_cpio_entries': sorted(changed),
             'firmware_unchanged': firmware_facts, 'build_epoch_preserved': True,
             'output': str(output), 'hardware_acceptance': False}
     if (stage.source_files(base)[0] != files or stage.digest(base / 'SHA256SUMS') != source_sums_sha256
-            or image.executable_input(tui) != tui_data):
+            or image.executable_input(tui) != tui_data
+            or (power_only and (REPO / 'diagnostics/ps4/controller.py').read_bytes() != controller_data)):
         raise ValueError('Alpha UI inputs changed during verification')
     if plan_only:
         return dict(plan, plan_only=True)
@@ -152,7 +170,8 @@ def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parse
     if any(final_files[name] != pin for name, pin in files.items() if name not in mutable):
         raise ValueError('UI refresh changed a non-frontend boot-set file')
     if (stage.source_files(base)[0] != files or stage.digest(base / 'SHA256SUMS') != source_sums_sha256
-            or image.executable_input(tui) != tui_data):
+            or image.executable_input(tui) != tui_data
+            or (power_only and (REPO / 'diagnostics/ps4/controller.py').read_bytes() != controller_data)):
         raise ValueError('Alpha UI inputs changed during packaging')
     total = sum((output / name).stat().st_size for name in final_files) + (output / 'SHA256SUMS').stat().st_size
     if total + 1024**2 > min(final['maximum_boot_set_bytes'], 1024**3):
@@ -163,7 +182,7 @@ def refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parse
     return plan
 
 
-def refresh(base, tui, output, revision='olive1', plan_only=False, snapshot=None, runtime_library_dir=None, alpha_ui_only=False):
+def refresh(base, tui, output, revision='olive1', plan_only=False, snapshot=None, runtime_library_dir=None, alpha_ui_only=False, alpha_power_only=False):
     base = Path(base).resolve(strict=True)
     output = Path(output).resolve()
     if output == base or output.is_relative_to(base) or base.is_relative_to(output):
@@ -176,10 +195,12 @@ def refresh(base, tui, output, revision='olive1', plan_only=False, snapshot=None
     files, metadata = stage.source_files(base)
     if metadata.get('root_format') != 'ext4-ro-loop' or not image.console_profile(metadata):
         raise ValueError('Frontend refresh requires the verified read-only console profile')
-    if alpha_ui_only:
+    if alpha_ui_only and alpha_power_only:
+        raise ValueError('Choose exactly one alpha refresh scope')
+    if alpha_ui_only or alpha_power_only:
         if snapshot is not None or runtime_library_dir is not None:
             raise ValueError('--alpha-ui-only preserves installed assets; do not supply runtime libraries')
-        return refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parser, files, metadata)
+        return refresh_alpha_ui(base, tui, output, revision, plan_only, stage, image, parser, files, metadata, power_only=alpha_power_only)
     if metadata.get('uvd_runtime') is True:
         raise ValueError('Experimental UVD images require their alpha assembler; ordinary frontend sources carry native-dev3 release guards')
     frontend = {
@@ -272,14 +293,17 @@ def main():
     parser.add_argument('--tui-binary', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--revision', default='olive1')
-    parser.add_argument('--alpha-ui-only', action='store_true', help='Only replace the TUI in the exact frozen alpha3 image; preserve all other CPIO bytes')
+    alpha_mode = parser.add_mutually_exclusive_group()
+    alpha_mode.add_argument('--alpha-ui-only', action='store_true', help='Only replace the TUI in the exact frozen alpha3 image; preserve all other CPIO bytes')
+    alpha_mode.add_argument('--alpha-power-only', action='store_true', help='Only refresh controller/TUI in the frozen alpha5/dev4 boot set; preserve kernel, root and all other CPIO members')
     libraries = parser.add_mutually_exclusive_group()
     libraries.add_argument('--snapshot', type=Path, help='Extract the exact runtime providers from the pinned offline snapshot')
     libraries.add_argument('--runtime-library-dir', type=Path, help='Exact provider files and provider-receipt.json')
     parser.add_argument('--plan', action='store_true')
     args = parser.parse_args()
     result = refresh(args.base, args.tui_binary, args.output, args.revision, args.plan,
-                     snapshot=args.snapshot, runtime_library_dir=args.runtime_library_dir, alpha_ui_only=args.alpha_ui_only)
+                     snapshot=args.snapshot, runtime_library_dir=args.runtime_library_dir, alpha_ui_only=args.alpha_ui_only,
+                     alpha_power_only=args.alpha_power_only)
     print(json.dumps(result, indent=2))
 
 

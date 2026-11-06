@@ -79,6 +79,42 @@ ALPHA5 = dict(ALPHA4, profile="ps4-baikal-diagnostics-uvd-alpha5", image_version
               config_sha256="50676ba45e8535e1f7a3fd9f8eeab73fa7f841e255c1ccf846fda652d499dba0",
               modules_sha256="fcda424b74177ec2316e58187d1c1c86e6e521782094cad77a6cdcb8fdc32dcc",
               uvd_sources_unchanged_from_dev3=True, sata_policy="read-only-scoped-probe")
+RESTART_EXPERIMENT = {"parameter": "amdgpu.ps4_uvd_poff", "default": 0, "test_value": 1,
+    "read_only": True, "system_restart_only": True, "started_runtime_required": True,
+    "initialized_open_jobs_required": True, "healthy_runtime_required": True,
+    "first_close_required": True, "retain_dma": True, "forced_restart_refused": True,
+    "kexec_refused": True, "poweroff_semantics_unchanged": True,
+    "suspend_remove_reset_guards_unchanged": True, "hardware_acceptance": False}
+RESTART_FIX = {
+    "patch_path": "platforms/ps4/patches/7.2-ps4-baikal/0200-ps4-drivers/0004-ps4-bpcie-icc-atomic-restart.patch",
+    "patch_sha256": "205fa678d28315ac813e870aeb19add85d643d6f79cb0180f42dd5530802f40f",
+    "atomic_registered_restart": True, "legacy_baikal_fallback_disabled": True,
+    "hardware_acceptance": False}
+# Complete dev5 kernel/modules/source package independently verified and frozen.
+# This identity has source/build evidence, not hardware power acceptance.
+ALPHA6 = dict(ALPHA5, profile="ps4-baikal-diagnostics-uvd-alpha6", image_version="alpha6",
+              kernel_release="7.2.11-psx-ps4-baikal-uvd-runtime-dev5",
+              kernel_sha256='4b628855f41d5740609607fdac528f189ba3c056e31791ab69da746c51f3c6f8', config_sha256='0b62a6638da83e415aab58e2164a35aa1aebca60b77a6763812abc230e12bfb2', modules_sha256='5dcd3e005999df31066870cafab2d8fe6f064fec8b8f3029c64fd162148153cc',
+              uvd_sources_unchanged_from_dev3=False,
+              uvd_poweroff_experiment=dict(POWEROFF_EXPERIMENT,
+                  reboot_suspend_remove_reset_guards_unchanged=False),
+              inherited_uvd_poweroff_experiment=POWEROFF_EXPERIMENT,
+              uvd_restart_experiment=RESTART_EXPERIMENT, restart_fix=RESTART_FIX,
+              uvd_poweroff_semantics_unchanged_from_dev4=True,
+              uvd_restart_guards_unchanged_from_dev4=False)
+TERMINAL_RESTART_EXPERIMENT = dict(RESTART_EXPERIMENT,
+    healthy_runtime_required=False, initialized_open_jobs_required=False, first_close_required=False,
+    initialized_jobs_required=True, post_start_failure_permitted=True, startup_hw_init_completed_required=True)
+TERMINAL_RESTART_FIX = {
+    "patch_path": "experiments/ps4-uvd-driver/runtime/terminal-restart.patch",
+    "patch_sha256": "75aa87d67122c5208bfae293c50aa134382138f4ca7a23aa8f0bd609ce5f2324", "hardware_acceptance": False}
+ALPHA7 = dict(ALPHA6, profile="ps4-baikal-diagnostics-uvd-alpha7", image_version="alpha7",
+              kernel_release="7.2.11-psx-ps4-baikal-uvd-runtime-dev6",
+              kernel_sha256='a7264426ee3b2ffeb030a04bbd7ab070418ecf4c0272b83400b4d5f45473bff4', config_sha256='ee77a55ff46f9d201d71efb0b87adca4cb1f1bf253c301c9cd8da3b5c4a724ff', modules_sha256='0e50c537c2395154cff659d9722d165027d0ecea875dfcb14d32d798f9c9e14d',
+              uvd_restart_experiment=TERMINAL_RESTART_EXPERIMENT,
+              inherited_dev5_uvd_restart_experiment=RESTART_EXPERIMENT,
+              terminal_restart_fix=TERMINAL_RESTART_FIX)
+
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -217,7 +253,8 @@ def sync(path):
 def select_contract(manifest):
     require(isinstance(manifest, dict), "UVD manifest must be an object")
     selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3,
-                ALPHA4["profile"]: ALPHA4, ALPHA5["profile"]: ALPHA5}.get(manifest.get("profile"))
+                ALPHA4["profile"]: ALPHA4, ALPHA5["profile"]: ALPHA5,
+                ALPHA6["profile"]: ALPHA6, ALPHA7["profile"]: ALPHA7}.get(manifest.get("profile"))
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -225,10 +262,21 @@ def select_contract(manifest):
                 and len(set(value)) > 1, "UVD alpha artifact pins are pending")
     require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
             "This is not the exact frozen UVD alpha artifact profile")
-    if selected["image_version"] in ("alpha4", "alpha5"):
+    if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7"):
         policy = manifest["uvd_poweroff_experiment"]
+        expected = selected["uvd_poweroff_experiment"]
         require(all(type(policy.get(key)) is type(value) and policy[key] == value
-                    for key, value in POWEROFF_EXPERIMENT.items()), "Alpha4 power-off experiment policy types differ")
+                    for key, value in expected.items()), "Alpha power-off experiment policy types differ")
+    if selected["image_version"] in ("alpha6", "alpha7"):
+        for key in ("uvd_restart_experiment", "restart_fix", "inherited_uvd_poweroff_experiment"):
+            policy = manifest[key]
+            require(all(type(policy.get(name)) is type(value) and policy[name] == value
+                        for name, value in selected[key].items()),
+                    "Alpha6 retained restart policy types differ")
+        if selected["image_version"] == "alpha7":
+            for key in ("terminal_restart_fix", "inherited_dev5_uvd_restart_experiment"):
+                require(all(type(manifest[key].get(name)) is type(value) and manifest[key][name] == value
+                            for name, value in selected[key].items()), "Alpha7 terminal policy types differ")
     return selected
 
 
@@ -238,7 +286,7 @@ def preflight(runner):
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
     selected = select_contract(manifest)
-    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5") else BOOT_ARGUMENTS
+    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7") else BOOT_ARGUMENTS
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
             manifest.get("required_boot_arguments") == arguments and

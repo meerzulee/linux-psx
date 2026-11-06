@@ -100,6 +100,55 @@ class AlphaUIRefreshTests(unittest.TestCase):
     def refresh(self,**kwargs):
         return REFRESH.refresh(self.base,self.tui,self.output,revision='alpha3-nav1',alpha_ui_only=True,**kwargs)
 
+    def power_fixture(self):
+        self.policy.ALPHA5 = dict(self.policy.ALPHA5, kernel_sha256=sha((self.base/'bzImage').read_bytes()))
+        self.meta.update(copy.deepcopy(self.policy.ALPHA5), required_boot_arguments=self.policy.POWEROFF_BOOT_ARGUMENTS)
+        patch = mock.patch.object(REFRESH, 'ALPHA_POWER_UI_ROOT_SHA256', self.meta['rootfs_sha256'])
+        patch.start(); self.addCleanup(patch.stop)
+        self.write_base()
+
+    def test_power_refresh_changes_controller_tui_and_receipts_only_with_frozen_dev4_policy(self):
+        self.power_fixture()
+        before = {str(p.relative_to(self.base)):p.read_bytes() for p in self.base.rglob('*') if p.is_file()}
+        result = REFRESH.refresh(self.base,self.tui,self.output,revision='power1',alpha_power_only=True)
+        self.assertEqual(result['changed_frontend_assets'], ['controller.py','psx-diagnostics-tui'])
+        old, tail = CPIO.parse_newc(gzip.decompress(before['initramfs.cpio.gz']))
+        new, new_tail = CPIO.parse_newc(gzip.decompress((self.output/'initramfs.cpio.gz').read_bytes()))
+        changed = {a.name.decode() for a,b in zip(old,new) if a.raw != b.raw}
+        self.assertEqual(changed, {'psx-frontend/controller.py','psx-frontend/psx-diagnostics-tui',
+                                  'etc/psx-frontend.tsv','etc/psx-diagnostics-expected.json'})
+        self.assertEqual(tail,new_tail)
+        for name in ['bzImage','psx-diagnostics/rootfs.ext4','bootargs.template.txt','vram.txt']:
+            self.assertEqual((self.output/name).read_bytes(),before[name])
+        original=json.loads(before['psx-diagnostics/boot-set.json'])
+        current=json.loads((self.output/'psx-diagnostics/boot-set.json').read_text())
+        allowed={'frontend_overrides','frontend_revision','tui_sha256','frontend_refresh','initramfs_sha256'}
+        self.assertEqual({k:v for k,v in original.items() if k not in allowed},
+                         {k:v for k,v in current.items() if k not in allowed})
+        self.assertEqual((self.output/'initramfs.cpio.gz').read_bytes()[4:8],before['initramfs.cpio.gz'][4:8])
+        self.assertTrue(current['frontend_refresh']['alpha_power_only'])
+        for name,data in before.items():self.assertEqual((self.base/name).read_bytes(),data)
+
+    def test_power_refresh_plan_is_read_only_and_rejects_old_profile_or_changed_gates(self):
+        with self.assertRaises(ValueError):
+            REFRESH.refresh(self.base,self.tui,self.output,alpha_power_only=True)
+        self.assertFalse(self.output.exists())
+        self.power_fixture()
+        result=REFRESH.refresh(self.base,self.tui,self.output,plan_only=True,alpha_power_only=True)
+        self.assertTrue(result['plan_only']);self.assertFalse(self.output.exists())
+        self.meta['required_boot_arguments']=self.policy.BOOT_ARGUMENTS;self.write_base()
+        with self.assertRaisesRegex(ValueError,'boot policy'):
+            REFRESH.refresh(self.base,self.tui,self.output,alpha_power_only=True)
+        self.assertFalse(self.output.exists())
+
+    def test_power_controller_only_update_preserves_unchanged_tui_and_rejects_mixed_modes(self):
+        self.power_fixture()
+        self.tui.write_bytes(self.members['psx-frontend/psx-diagnostics-tui'][1])
+        with self.assertRaisesRegex(ValueError,'exactly one'):
+            REFRESH.refresh(self.base,self.tui,self.output,alpha_power_only=True,alpha_ui_only=True)
+        result=REFRESH.refresh(self.base,self.tui,self.output,alpha_power_only=True)
+        self.assertEqual(result['changed_frontend_assets'],['controller.py'])
+
     def test_only_tui_and_its_two_receipts_change_all_other_cpio_bytes_and_policy_remain(self):
         before={str(p.relative_to(self.base)):p.read_bytes()for p in self.base.rglob('*')if p.is_file()}
         result=self.refresh();self.assertEqual(result['status'],'PASS')

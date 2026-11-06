@@ -438,14 +438,171 @@ fn summary(app: &App, t: Theme) -> Vec<Line<'static>> {
             lines.push(line_pair("Creator", "meerzulee", t));
         }
         Category::Power => {
-            lines.push(line_pair("Shutdown", "Unavailable", t));
-            lines.push(line_pair("Reboot", "Unavailable", t));
+            for option in [model::PowerOption::Shutdown, model::PowerOption::Reboot] {
+                lines.push(line_pair(
+                    option.title(),
+                    if option.available(&app.state) {
+                        "Confirm to run"
+                    } else {
+                        "Unavailable"
+                    },
+                    t,
+                ));
+            }
             lines.push(Line::default());
-            lines.push(Line::from("Enter reads recovery guidance."));
-            lines.push(Line::from("No power action is performed."));
+            lines.push(Line::from("Power interrupts active tests immediately."));
+            lines.push(Line::from("Restart returns to Orbis through the kernel."));
         }
     }
     lines
+}
+
+fn overview_dashboard(frame: &mut Frame, app: &App, t: Theme, window: Rect) {
+    let border = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(t.line))
+        .style(t.base());
+    let inner = border.inner(window);
+    frame.render_widget(border, window);
+    let rows = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(2),
+        Constraint::Min(6),
+        Constraint::Length(2),
+        Constraint::Length(2),
+        Constraint::Length(2),
+    ])
+    .split(inner);
+    frame.render_widget(
+        Paragraph::new(if app.demo {
+            "Diagnostix · DEMO PREVIEW"
+        } else {
+            "Diagnostix"
+        })
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(t.text).add_modifier(Modifier::BOLD)),
+        rows[0],
+    );
+    let address = model::ip(&app.state);
+    let ssh = app.state.pointer("/ssh/enabled").and_then(Value::as_bool) == Some(true);
+    frame.render_widget(
+        Paragraph::new(format!(
+            "IP {}   |   SSH {}",
+            if address.is_empty() {
+                "Not connected"
+            } else {
+                &address
+            },
+            if ssh && !address.is_empty() {
+                "ready"
+            } else {
+                "waiting"
+            }
+        ))
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(t.muted)),
+        rows[1],
+    );
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(vec![
+                Span::styled(" Overview ", t.selected()),
+                Span::raw("  "),
+                Span::styled(" Advanced ", Style::default().fg(t.muted)),
+                Span::raw("  F7 switch"),
+            ]),
+            Line::styled("This boot · recent checks", Style::default().fg(t.muted)),
+        ])
+        .alignment(Alignment::Center),
+        rows[2],
+    );
+    let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(rows[3]);
+    frame.render_widget(
+        Paragraph::new(format!(
+            "  {:<20}{:<16}{}",
+            "Component", "Result", "Detected / scope"
+        ))
+        .style(Style::default().fg(t.line).add_modifier(Modifier::BOLD)),
+        parts[0],
+    );
+    let rich = crate::overview::rich_icons(
+        &std::env::var("TERM").unwrap_or_default(),
+        &std::env::var("DISPLAY").unwrap_or_default(),
+    );
+    let entries = crate::overview::entries(&app.state);
+    let selected = app.overview_selected.min(entries.len() - 1);
+    let items = entries
+        .iter()
+        .map(|entry| {
+            let label = format!("{} {}", entry.component.icon(rich), entry.component.title());
+            let status = format!("{} {}", entry.status.marker(rich), entry.status.label());
+            let color = match entry.status {
+                crate::overview::Status::Passed => t.line,
+                crate::overview::Status::Failed => Color::LightRed,
+                _ => t.muted,
+            };
+            ListItem::new(Line::from(vec![
+                Span::raw(format!("{label:<20}")),
+                Span::styled(format!("{status:<16}"), Style::default().fg(color)),
+                Span::raw(entry.detected.clone()),
+            ]))
+        })
+        .collect::<Vec<_>>();
+    let mut list = ListState::default()
+        .with_selected(Some(selected))
+        .with_offset(
+            app.overview_offset
+                .get()
+                .min(entries.len().saturating_sub(usize::from(parts[1].height))),
+        );
+    frame.render_stateful_widget(
+        List::new(items)
+            .style(Style::default().fg(t.text).bg(t.panel))
+            .highlight_style(t.selected())
+            .highlight_symbol("> "),
+        parts[1],
+        &mut list,
+    );
+    app.overview_offset.set(list.offset());
+    frame.render_widget(
+        Paragraph::new(format!(
+            "{}: {}",
+            entries[selected].component.title(),
+            entries[selected].component.scope()
+        ))
+        .style(Style::default().fg(t.muted))
+        .wrap(Wrap { trim: true }),
+        rows[4],
+    );
+    let activity = if !app.error.is_empty() {
+        app.error.clone()
+    } else if let Some(job) = &app.active_job {
+        format!(
+            "Running: {} · {}s",
+            job.title,
+            job.started.elapsed().as_secs()
+        )
+    } else if app.action_pending {
+        format!("Starting {}…", app.action_title)
+    } else {
+        app.notice.clone()
+    };
+    frame.render_widget(
+        Paragraph::new(activity)
+            .style(Style::default().fg(t.text))
+            .wrap(Wrap { trim: true }),
+        rows[5],
+    );
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from("↑↓ Select · Enter Open area · F7/A Advanced · F1 Help · Q Exit"),
+            Line::from("Not tested = no current saved result; detection alone cannot pass."),
+        ])
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(t.muted)),
+        rows[6],
+    );
 }
 
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -478,6 +635,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
         area.width.saturating_sub(4).min(140),
         area.height.saturating_sub(2).min(44),
     );
+    if !app.onboarding && app.overview {
+        overview_dashboard(frame, app, t, window);
+        overlays(frame, app, t);
+        return;
+    }
     let border = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(t.line))
@@ -495,7 +657,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
             Constraint::Length(2),
         ])
         .split(inner);
-    let title = if app.demo {
+    let title = if !app.onboarding {
+        if app.demo {
+            "Diagnostix · Advanced · DEMO PREVIEW · F7 Overview"
+        } else {
+            "Diagnostix · Advanced · F7 Overview"
+        }
+    } else if app.demo {
         "Diagnostix  ·  DEMO PREVIEW"
     } else {
         "Diagnostix"
@@ -602,6 +770,18 @@ pub fn draw(frame: &mut Frame, app: &App) {
                         Style::default().fg(t.muted),
                     ),
                 ])
+            } else if let crate::model::ActionKind::Power(option) = &a.kind {
+                ListItem::new(vec![
+                    Line::from(format!(" {}", option.title())),
+                    Line::styled(
+                        if option.available(&app.state) {
+                            "   Confirmation required"
+                        } else {
+                            "   Unavailable"
+                        },
+                        Style::default().fg(t.muted),
+                    ),
+                ])
             } else {
                 ListItem::new(format!(" {}", a.title))
             }
@@ -698,7 +878,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     } else if app.category() == Category::Reports && app.focus == Focus::Actions {
         "↑↓ Select   Up at top: Areas   Enter Open/toggle\n← Collapse   → Expand   Tab Areas   F4 Refresh   Q Exit"
     } else if app.category() == Category::Power {
-        "←→ Area   ↑↓ Select   Enter Read guidance   Esc Areas   F4 Reports   Q Exit"
+        "←→ Area   ↑↓ Select   Enter Review/confirm   Esc Areas   F4 Reports   Q Exit"
     } else if app.settings_tree_focused() {
         "↑↓ Select   Enter Open/apply   ← Collapse   → Expand\nTab Areas   F2 Network   F3 Core   F4 Reports   V Details   Q Exit"
     } else {
@@ -711,6 +891,10 @@ pub fn draw(frame: &mut Frame, app: &App) {
             .wrap(Wrap { trim: true }),
         rows[5],
     );
+    overlays(frame, app, t);
+}
+
+fn overlays(frame: &mut Frame, app: &App, t: Theme) {
     if let Some(value) = &app.report {
         report(frame, app, value, t);
     }
@@ -736,6 +920,33 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
     if app.ssh_dialog.is_some() {
         ssh_setup(frame, app, t);
+    }
+    if let Some(dialog) = &app.power_dialog {
+        let description = if dialog.operation == model::PowerOption::Shutdown {
+            "Shut down the console now."
+        } else {
+            "Experimental restart to Orbis."
+        };
+        let lines = vec![
+            Line::from(description),
+            Line::from("Running tests stop; pending report writes are skipped."),
+            Line::default(),
+            Line::from(if dialog.confirm_selected {
+                "  Cancel       [ Confirm ]  "
+            } else {
+                "[ Cancel ]       Confirm    "
+            }),
+            Line::default(),
+            Line::from("←/→ Choose   Enter Select   Esc Cancel"),
+        ];
+        modal(
+            frame,
+            &format!("{}?", dialog.operation.title()),
+            lines,
+            68,
+            10,
+            t,
+        );
     }
     if app.form.is_some() {
         form(frame, app, t);
@@ -1010,38 +1221,22 @@ fn modal(frame: &mut Frame, title: &str, lines: Vec<Line<'_>>, width: u16, heigh
 
 fn report(frame: &mut Frame, app: &App, value: &Value, t: Theme) {
     if value["view"] == "power_unavailable" {
-        let alpha = app
-            .state
-            .pointer("/identity/declared_artifacts/uvd_runtime")
-            .and_then(Value::as_bool)
-            == Some(true);
-        let mut lines = vec![
+        let lines = vec![
             Line::styled(
                 "Unavailable · no power action",
                 Style::default().fg(t.text).add_modifier(Modifier::BOLD),
             ),
             Line::default(),
-        ];
-        if alpha {
-            lines.extend([
-                Line::from("This UVD alpha enters the experimental decoder during boot."),
-                Line::from("It retains resources; shutdown/reset lifecycle is unqualified."),
-            ]);
-        } else {
-            lines.push(Line::from(
-                "Power/reset lifecycle needs a separate observed hardware test.",
-            ));
-        }
-        lines.extend([
+            Line::from(model::at(value, "/reason").to_owned()),
             Line::default(),
             Line::from("1. Finish tests and save/review your reports."),
             Line::from("2. Keep UART capture running through the power-off sequence."),
             Line::from("3. Follow the planned physical power-off and Orbis recovery."),
             Line::default(),
-            Line::from("Shutdown and reboot remain disabled in every profile."),
+            Line::from("No power action was sent. Unsupported builds remain guarded."),
             Line::default(),
             Line::from("Enter or Esc returns to Power"),
-        ]);
+        ];
         modal(
             frame,
             &format!("{} · unavailable", model::at(value, "/operation")),
@@ -1503,6 +1698,68 @@ mod tests {
         assert!(text.contains("80 x 24"));
     }
     #[test]
+    fn overview_fits_minimum_and_tv_screens_and_scrolls_to_power_without_losing_hints() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        for (width, height) in [(80, 24), (140, 40)] {
+            let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.overview = true;
+            app.state["identity"] = serde_json::json!({"boot_id":"now"});
+            app.state["overview_results"] = serde_json::json!([
+                {"test_id":"cpu.compute","run_id":"cpu","phase":"completed","status":"PASS","boot_id":"now"},
+                {"test_id":"memory.pattern","run_id":"ram","phase":"completed","status":"FAIL","boot_id":"now"}
+            ]);
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| draw(frame, &app)).unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            for expected in [
+                "Overview",
+                "Advanced",
+                "CPU",
+                "Memory",
+                "Passed",
+                "Failed",
+                "Not tested",
+                "recent checks",
+                "made by meerzulee",
+            ] {
+                assert!(
+                    text.contains(expected),
+                    "missing {expected} at {width}x{height}"
+                );
+            }
+            assert!(!text.contains("\"test_id\""));
+            app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
+            terminal.draw(|frame| draw(frame, &app)).unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            assert!(text.contains("Power"));
+            assert!(text.contains("Open area"));
+            assert!(text.contains("made by meerzulee"));
+            app.key(KeyEvent::new(KeyCode::F(7), KeyModifiers::NONE));
+            terminal.draw(|frame| draw(frame, &app)).unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            assert!(text.contains("F7 Overview"));
+        }
+    }
+    #[test]
     fn all_categories_remain_visible_on_the_smallest_dashboard() {
         let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
         app.onboarding = false;
@@ -1902,9 +2159,10 @@ mod tests {
                 .collect();
             for value in [
                 "Diagnostix",
-                "Shutdown · unavailable",
-                "Reboot · unavailable",
-                "Enter Read guidance",
+                "Shutdown",
+                "Reboot to Orbis",
+                "Unavailable",
+                "Enter Review/confirm",
                 "made by meerzulee",
             ] {
                 assert!(text.contains(value), "missing {value}");
@@ -1926,20 +2184,54 @@ mod tests {
                     "save/review your reports",
                     "Keep UART capture running",
                     "physical power-off and Orbis recovery",
-                    "disabled in every profile",
+                    "No power action was sent",
                     "Enter or Esc returns to Power",
                 ] {
                     assert!(text.contains(value), "missing {value}");
                 }
-                if runtime {
-                    assert!(text.contains("decoder during boot"));
-                } else {
-                    assert!(text.contains("separate observed hardware test"));
-                    assert!(!text.contains("decoder during boot"));
-                }
                 assert!(!text.contains("\"view\""));
                 app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             }
+        }
+    }
+
+    #[test]
+    fn supported_power_confirmation_and_cancel_fit_80x24_without_raw_data() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+        app.demo = false;
+        app.onboarding = false;
+        app.category = CATEGORIES
+            .iter()
+            .position(|item| *item == Category::Power)
+            .unwrap();
+        app.focus = Focus::Actions;
+        app.state["power"] =
+            serde_json::json!({"shutdown":{"available":true},"reboot-orbis":{"available":true}});
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        for index in 0..2 {
+            app.selected = index;
+            app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+            terminal.draw(|frame| draw(frame, &app)).unwrap();
+            let text: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect();
+            assert!(text.contains("[ Cancel ]"));
+            assert!(text.contains("Confirm"));
+            assert!(text.contains("Esc Cancel"));
+            assert!(text.contains("Running tests stop; pending report writes are skipped."));
+            assert!(text.contains("made by meerzulee"));
+            assert!(!text.contains("\"operation\""));
+            if index == 1 {
+                assert!(text.contains("Reboot to Orbis?"));
+                assert!(text.contains("Experimental restart to Orbis."));
+            }
+            app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+            assert!(app.power_dialog.is_none());
         }
     }
 }

@@ -2,6 +2,7 @@
 mod hardware;
 mod ipc;
 mod model;
+mod overview;
 mod ui;
 
 use crossterm::cursor::{MoveTo, Show};
@@ -39,6 +40,11 @@ pub struct Form {
     pub fields: Vec<String>,
     pub selected: usize,
     pub error: String,
+}
+
+pub struct PowerDialog {
+    pub operation: model::PowerOption,
+    pub confirm_selected: bool,
 }
 
 pub struct Job {
@@ -317,6 +323,9 @@ impl SshDialog {
 pub struct App {
     pub state: Value,
     pub onboarding: bool,
+    pub overview: bool,
+    pub overview_selected: usize,
+    pub overview_offset: Cell<usize>,
     pub category: usize,
     pub selected: usize,
     pub focus: Focus,
@@ -337,6 +346,7 @@ pub struct App {
     pub settings_offset: Cell<usize>,
     pub help: bool,
     pub exit_dialog: bool,
+    pub power_dialog: Option<PowerDialog>,
     pub demo: bool,
     pub ticks: u64,
     sender: Option<Sender<ipc::Request>>,
@@ -345,6 +355,7 @@ pub struct App {
     state_pending: bool,
     job_pending: bool,
     action_pending: bool,
+    power_pending: bool,
     action_title: String,
     last_state: Instant,
     last_job: Instant,
@@ -364,6 +375,9 @@ impl App {
         Self {
             state: if demo { model::demo_state() } else { json!({}) },
             onboarding: true,
+            overview: false,
+            overview_selected: 0,
+            overview_offset: Cell::new(0),
             category: 4,
             selected: 0,
             focus: Focus::Actions,
@@ -388,6 +402,7 @@ impl App {
             settings_offset: Cell::new(0),
             help: false,
             exit_dialog: false,
+            power_dialog: None,
             demo,
             ticks: 0,
             sender,
@@ -396,6 +411,7 @@ impl App {
             state_pending: false,
             job_pending: false,
             action_pending: false,
+            power_pending: false,
             action_title: String::new(),
             last_state: Instant::now()
                 .checked_sub(Duration::from_secs(10))
@@ -728,9 +744,9 @@ impl App {
     }
 
     fn run(&mut self, title: &str, action: &str, params: Value) {
-        if self.busy() {
+        if self.power_pending || (self.busy() && action != "power.execute") {
             self.notice =
-                "A test is already running. Review its result before starting another.".into();
+                "An action is already running. Power can interrupt a running test.".into();
             return;
         }
         if !self.connected && !self.demo {
@@ -743,6 +759,11 @@ impl App {
         self.action_title = title.into();
         self.notice = format!("Starting {title}…");
         self.action_pending = true;
+        if action == "power.execute" {
+            self.power_pending = true;
+            self.active_job = None;
+            self.job_pending = false;
+        }
         if self.demo {
             self.demo_action = Some((Instant::now(), action.into()));
         } else {
@@ -849,18 +870,35 @@ impl App {
                 self.report_scroll = 0;
             }
             ActionKind::Power(option) => {
-                self.report = Some(json!({"view":"power_unavailable","operation":option.title()}));
-                self.report_scroll = 0;
+                if !self.demo && option.available(&self.state) && !self.power_pending {
+                    self.power_dialog = Some(PowerDialog {
+                        operation: option,
+                        confirm_selected: false,
+                    });
+                } else {
+                    let reason = if self.demo {
+                        "Demo preview only; no power action executes.".into()
+                    } else if self.power_pending {
+                        "The confirmed power request is being dispatched.".into()
+                    } else {
+                        option.reason(&self.state)
+                    };
+                    self.report = Some(
+                        json!({"view":"power_unavailable","operation":option.title(),"reason":reason}),
+                    );
+                    self.report_scroll = 0;
+                }
             }
             ActionKind::ReportGroup(group) => {
                 self.report_expanded[group] = !self.report_expanded[group];
             }
             ActionKind::Continue => {
                 self.onboarding = false;
+                self.overview = true;
                 self.category = 0;
                 self.selected = 0;
                 self.focus = Focus::Categories;
-                self.notice = "Choose an area with Left / Right, then press Enter.".into();
+                self.notice = "Overview uses saved checks. Open Advanced to choose a test.".into();
             }
             ActionKind::Wifi(ssid) => {
                 self.form = Some(Form {
@@ -1058,6 +1096,30 @@ impl App {
             self.ssh_key(key);
             return false;
         }
+        if self.power_dialog.is_some() {
+            match key.code {
+                KeyCode::Esc | KeyCode::Char('n') => self.power_dialog = None,
+                KeyCode::Left | KeyCode::Right | KeyCode::Tab | KeyCode::BackTab => {
+                    let dialog = self.power_dialog.as_mut().unwrap();
+                    dialog.confirm_selected = !dialog.confirm_selected;
+                }
+                KeyCode::Enter => {
+                    let dialog = self.power_dialog.take().unwrap();
+                    if dialog.confirm_selected
+                        && !self.demo
+                        && dialog.operation.available(&self.state)
+                    {
+                        self.run(
+                            dialog.operation.title(),
+                            "power.execute",
+                            json!({"operation":dialog.operation.operation(),"confirm":true}),
+                        );
+                    }
+                }
+                _ => {}
+            }
+            return false;
+        }
         if self.hardware.is_some() {
             self.hardware_key(key);
             return false;
@@ -1083,6 +1145,63 @@ impl App {
                 KeyCode::Up => self.report_scroll = self.report_scroll.saturating_sub(1),
                 KeyCode::PageDown => self.report_scroll = self.report_scroll.saturating_add(10),
                 KeyCode::PageUp => self.report_scroll = self.report_scroll.saturating_sub(10),
+                _ => {}
+            }
+            return false;
+        }
+        if !self.onboarding && key.code == KeyCode::F(7) {
+            self.overview = !self.overview;
+            return false;
+        }
+        if !self.onboarding && self.overview {
+            match key.code {
+                KeyCode::Char('q') => self.exit_dialog = true,
+                KeyCode::F(1) => self.help = true,
+                KeyCode::Char('a' | 'A')
+                | KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::Tab
+                | KeyCode::Esc => self.overview = false,
+                KeyCode::Up => self.overview_selected = self.overview_selected.saturating_sub(1),
+                KeyCode::Down => {
+                    self.overview_selected =
+                        (self.overview_selected + 1).min(overview::COMPONENTS.len() - 1)
+                }
+                KeyCode::Home => self.overview_selected = 0,
+                KeyCode::End => self.overview_selected = overview::COMPONENTS.len() - 1,
+                KeyCode::PageUp => {
+                    self.overview_selected = self.overview_selected.saturating_sub(6)
+                }
+                KeyCode::PageDown => {
+                    self.overview_selected =
+                        (self.overview_selected + 6).min(overview::COMPONENTS.len() - 1)
+                }
+                KeyCode::F(5) => self.refresh(),
+                KeyCode::Enter | KeyCode::F(2) | KeyCode::F(3) | KeyCode::F(4) | KeyCode::F(6) => {
+                    let category = match key.code {
+                        KeyCode::F(2) => Category::Network,
+                        KeyCode::F(3) => Category::Cpu,
+                        KeyCode::F(4) => Category::Reports,
+                        KeyCode::F(6) => Category::Settings,
+                        _ => overview::COMPONENTS[self.overview_selected].category(),
+                    };
+                    self.overview = false;
+                    self.category = CATEGORIES
+                        .iter()
+                        .position(|value| *value == category)
+                        .unwrap_or(0);
+                    self.selected = 0;
+                    self.focus = Focus::Actions;
+                    if category == Category::Reports {
+                        self.send("results.list", json!({}));
+                    }
+                }
+                KeyCode::Char('v') => {
+                    if let Some(value) = &self.last_report {
+                        self.report = Some(value.clone());
+                        self.report_scroll = 0;
+                    }
+                }
                 _ => {}
             }
             return false;
@@ -1123,7 +1242,11 @@ impl App {
                         .position(|action| matches!(action.kind, ActionKind::Continue))
                         .unwrap_or(0);
                 } else {
-                    self.focus = Focus::Categories;
+                    if self.focus == Focus::Categories {
+                        self.overview = true;
+                    } else {
+                        self.focus = Focus::Categories;
+                    }
                 }
             }
             KeyCode::Tab | KeyCode::BackTab => {
@@ -1320,13 +1443,90 @@ impl App {
                 });
             }
         }
+        if result["retry_allowed"].as_bool() == Some(true) {
+            self.power_pending = false;
+        }
         self.last_report = Some(result);
         self.active_job = None;
         self.action_pending = false;
         self.refresh();
     }
 
+    fn refresh_power_request(&mut self) {
+        let Some(current) = self.state.pointer("/power/current_request") else {
+            return;
+        };
+        let boot = model::at(&self.state, "/identity/boot_id");
+        let run = model::at(current, "/run_id");
+        let test = model::at(current, "/test_id");
+        let message = model::at(current, "/message");
+        if boot.is_empty()
+            || model::at(current, "/boot_id") != boot
+            || run.is_empty()
+            || message.is_empty()
+            || !matches!(
+                test.as_str(),
+                "power.shutdown.request" | "power.reboot-orbis.request"
+            )
+            || model::at(current, "/status") != "INCONCLUSIVE"
+            || !matches!(
+                model::at(current, "/dispatch_state").as_str(),
+                "preparing"
+                    | "not_sent"
+                    | "issuing_forced_icc_restart"
+                    | "issuing_kernel_restart"
+                    | "issuing_shutdown"
+                    | "request_returned_physical_outcome_unobserved"
+                    | "failed_no_retry"
+            )
+        {
+            return;
+        }
+        if current["retry_allowed"].as_bool() == Some(true) {
+            self.power_pending = false;
+        }
+        let Some(previous) = self.last_report.as_mut() else {
+            return;
+        };
+        let previous_boot = model::at(previous, "/identity/boot_id");
+        let previous_boot = if previous_boot.is_empty() {
+            model::at(previous, "/boot_id")
+        } else {
+            previous_boot
+        };
+        if previous_boot != boot
+            || model::at(previous, "/run_id") != run
+            || model::at(previous, "/test_id") != test
+        {
+            return;
+        }
+        // This replaces the pre-dispatch snapshot only for the same power
+        // request. Ordinary completed jobs remain complete and are not polled.
+        let changed = ["message", "dispatch_state", "status"]
+            .iter()
+            .any(|key| previous[*key] != current[*key]);
+        if changed {
+            for key in ["message", "dispatch_state", "status"] {
+                previous[key] = current[key].clone();
+            }
+            self.notice = format!("{} · {message}", model::status_label("INCONCLUSIVE"));
+        }
+        if let Some(view) = self.report.as_mut() {
+            if model::at(view, "/run_id") == run && model::at(view, "/test_id") == test {
+                for key in ["message", "dispatch_state", "status"] {
+                    view[key] = current[key].clone();
+                }
+            }
+        }
+    }
+
     fn receive(&mut self, reply: ipc::Reply) {
+        // An interrupted job must not overwrite the terminal power request.
+        if self.power_pending
+            && !["power.execute", "state", "job.get"].contains(&reply.action.as_str())
+        {
+            return;
+        }
         if reply.action.starts_with("ssh.") {
             self.receive_ssh(reply);
             return;
@@ -1349,6 +1549,9 @@ impl App {
             Err(error) => {
                 self.error = error;
                 self.error_action = reply.action.clone();
+                if reply.action == "power.execute" {
+                    self.power_pending = false;
+                }
                 if reply.action == "state" {
                     self.connected = false;
                 } else if reply.action != "job.get" {
@@ -1391,7 +1594,7 @@ impl App {
                     }
                 }
                 self.selected = self.selected.min(self.actions().len().saturating_sub(1));
-                if self.active_job.is_none() {
+                if self.active_job.is_none() && !self.power_pending {
                     if let Some(job) = model::array(&self.state, "/jobs").iter().find(|j| {
                         ["running", "queued"].contains(&model::at(j, "/state").as_str())
                             && !j["id"].is_null()
@@ -1407,6 +1610,7 @@ impl App {
                             .unwrap_or_else(Instant::now);
                     }
                 }
+                self.refresh_power_request();
             }
             "results.list" => {
                 let fresh = if value.is_array() {
@@ -1418,6 +1622,14 @@ impl App {
                 self.action_pending = false;
             }
             "job.get" => {
+                if self.power_pending
+                    && self
+                        .active_job
+                        .as_ref()
+                        .is_none_or(|job| value["id"] != job.id)
+                {
+                    return;
+                }
                 let status = model::at(&value, "/state");
                 if [
                     "complete",
@@ -1727,6 +1939,63 @@ mod tests {
         });
         assert_eq!(app.active_job.as_ref().unwrap().id, "existing");
         assert!(app.busy());
+    }
+    #[test]
+    fn continue_opens_overview_and_advanced_switch_preserves_jobs_reports_and_selection() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        assert!(app.onboarding);
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Enter));
+        assert!(!app.onboarding);
+        assert!(app.overview);
+        app.active_job = Some(Job {
+            id: json!("working"),
+            title: "Existing check".into(),
+            started: Instant::now(),
+            data: json!({}),
+        });
+        app.last_report = Some(json!({"run_id":"saved"}));
+        app.report_expanded[0] = true;
+        app.settings_expanded[1] = true;
+        app.category = 8;
+        app.selected = 2;
+        app.focus = Focus::Actions;
+        app.key(key(KeyCode::Down));
+        assert_eq!(app.overview_selected, 1);
+        app.key(key(KeyCode::F(7)));
+        assert!(!app.overview);
+        assert_eq!(app.category, 8);
+        assert_eq!(app.selected, 2);
+        app.key(key(KeyCode::F(7)));
+        assert!(app.overview);
+        assert_eq!(app.overview_selected, 1);
+        assert_eq!(app.active_job.as_ref().unwrap().id, "working");
+        assert_eq!(app.last_report.as_ref().unwrap()["run_id"], "saved");
+        assert!(app.report_expanded[0]);
+        assert!(app.settings_expanded[1]);
+        assert_eq!(app.next_id, 0);
+        assert!(!app.action_pending);
+    }
+    #[test]
+    fn overview_component_navigation_only_opens_advanced_and_never_runs_a_test() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.onboarding = false;
+        app.overview = true;
+        app.key(key(KeyCode::End));
+        assert_eq!(app.overview_selected, overview::COMPONENTS.len() - 1);
+        app.key(key(KeyCode::Enter));
+        assert!(!app.overview);
+        assert!(app.category() == Category::Power);
+        assert!(app.power_dialog.is_none());
+        assert!(!app.action_pending);
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Esc));
+        assert!(app.overview);
+        app.key(key(KeyCode::Home));
+        app.key(key(KeyCode::Enter));
+        assert!(app.category() == Category::Cpu);
+        assert!(!app.action_pending);
+        assert_eq!(app.next_id, 0);
     }
     #[test]
     fn failed_job_keeps_its_error_report_available() {
@@ -2073,6 +2342,9 @@ mod tests {
             .unwrap();
         app.key(key(KeyCode::Enter));
         assert!(app.category() == Category::System);
+        assert!(app.overview);
+        app.key(key(KeyCode::F(7)));
+        assert!(!app.overview);
         for expected in [
             Category::Cpu,
             Category::Graphics,
@@ -2317,7 +2589,7 @@ mod tests {
             app.key(key(KeyCode::Left));
             assert!(app.category() == Category::Power);
             app.key(key(KeyCode::Enter));
-            for (index, operation) in ["Shutdown", "Reboot"].into_iter().enumerate() {
+            for (index, operation) in ["Shutdown", "Reboot to Orbis"].into_iter().enumerate() {
                 assert_eq!(app.selected, index);
                 assert!(app.actions()[index].title.contains("unavailable"));
                 assert!(!app.key(key(KeyCode::Enter)));
@@ -2342,6 +2614,177 @@ mod tests {
             app.key(key(KeyCode::Right));
             assert!(app.category() == Category::System);
         }
+    }
+
+    #[test]
+    fn power_confirmation_defaults_to_cancel_and_submits_once_only_after_explicit_choice() {
+        for (index, operation) in ["shutdown", "reboot-orbis"].into_iter().enumerate() {
+            let mut app = App::new(PathBuf::from("/unreachable"), true);
+            let (sender, receiver) = std::sync::mpsc::channel();
+            app.demo = false;
+            app.sender = Some(sender);
+            app.onboarding = false;
+            app.category = CATEGORIES
+                .iter()
+                .position(|item| *item == Category::Power)
+                .unwrap();
+            app.focus = Focus::Actions;
+            app.selected = index;
+            app.state["power"] =
+                json!({"shutdown":{"available":true},"reboot-orbis":{"available":true}});
+            app.key(key(KeyCode::Enter));
+            assert!(!app.power_dialog.as_ref().unwrap().confirm_selected);
+            assert!(receiver.try_recv().is_err());
+            app.key(key(KeyCode::Enter));
+            assert!(app.power_dialog.is_none());
+            assert!(receiver.try_recv().is_err());
+            app.key(key(KeyCode::Enter));
+            app.key(key(KeyCode::Right));
+            app.key(key(KeyCode::Esc));
+            assert!(receiver.try_recv().is_err());
+            app.key(key(KeyCode::Enter));
+            app.key(key(KeyCode::Right));
+            app.key(key(KeyCode::Enter));
+            let request = receiver.try_recv().unwrap();
+            assert_eq!(request.action, "power.execute");
+            assert_eq!(
+                request.params,
+                json!({"operation":operation,"confirm":true})
+            );
+            assert!(app.action_pending);
+            app.key(key(KeyCode::Enter));
+            assert!(receiver.try_recv().is_err());
+        }
+    }
+    #[test]
+    fn confirmed_power_preempts_active_work_and_ignores_late_test_reply() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        app.demo = false;
+        app.sender = Some(sender);
+        app.connected = true;
+        app.onboarding = false;
+        app.category = CATEGORIES
+            .iter()
+            .position(|item| *item == Category::Power)
+            .unwrap();
+        app.focus = Focus::Actions;
+        app.state["power"] = json!({"shutdown":{"available":true}});
+        app.action_pending = true;
+        app.active_job = Some(Job {
+            id: json!("old-test"),
+            title: "Test".into(),
+            started: Instant::now(),
+            data: Value::Null,
+        });
+        app.key(key(KeyCode::Enter));
+        assert!(app.power_dialog.is_some());
+        assert!(!app.power_dialog.as_ref().unwrap().confirm_selected);
+        app.key(key(KeyCode::Right));
+        app.key(key(KeyCode::Enter));
+        assert_eq!(receiver.try_recv().unwrap().action, "power.execute");
+        assert!(app.power_pending);
+        assert!(app.active_job.is_none());
+        app.receive(ipc::Reply {
+            action: "test.run".into(),
+            result: Ok(json!({"id":"old-test"})),
+        });
+        assert!(app.active_job.is_none());
+        app.key(key(KeyCode::Enter));
+        assert!(receiver.try_recv().is_err());
+    }
+
+    #[test]
+    fn completed_power_snapshot_refreshes_from_current_dispatch_without_polling_or_resubmitting() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        let pending = json!({"run_id":"power-run","test_id":"power.reboot-orbis.request",
+            "identity":{"boot_id":"current-boot"},"status":"INCONCLUSIVE","phase":"completed",
+            "message":"Reports saved; confirmed power request is pending."});
+        app.complete_job(json!({"state":"completed","result":pending}));
+        app.report = app.last_report.clone();
+        assert!(app.notice.contains("pending"));
+        let (sender, requests) = std::sync::mpsc::channel();
+        app.demo = false;
+        app.sender = Some(sender);
+        let original_id = app.next_id;
+        for (stage, message) in [
+            (
+                "preparing",
+                "Preparing the confirmed power request. Reports are saved.",
+            ),
+            (
+                "request_returned_physical_outcome_unobserved",
+                "Power request sent; physical outcome is unobserved.",
+            ),
+            (
+                "failed_no_retry",
+                "Power request failed: storage could not become read-only. Do not retry.",
+            ),
+        ] {
+            app.receive(ipc::Reply {action:"state".into(), result:Ok(json!({
+                "identity":{"boot_id":"current-boot"},
+                "jobs":[{"id":"completed-power-job","state":"completed","result":pending}],
+                "power":{"current_request":{"run_id":"power-run","test_id":"power.reboot-orbis.request",
+                    "boot_id":"current-boot","status":"INCONCLUSIVE","dispatch_state":stage,"message":message}}
+            }))});
+            assert!(app.notice.contains(message));
+            assert_eq!(app.last_report.as_ref().unwrap()["dispatch_state"], stage);
+            assert_eq!(app.report.as_ref().unwrap()["message"], message);
+            assert_eq!(app.last_report.as_ref().unwrap()["status"], "INCONCLUSIVE");
+            assert!(app.active_job.is_none());
+            assert!(!app.action_pending);
+            assert!(!app.job_pending);
+            assert_eq!(app.next_id, original_id);
+            assert!(requests.try_recv().is_err());
+        }
+        app.notice = "Reports navigation hint".into();
+        app.receive(ipc::Reply {
+            action: "state".into(),
+            result: Ok(app.state.clone()),
+        });
+        assert_eq!(app.notice, "Reports navigation hint");
+        assert_eq!(
+            app.last_report.as_ref().unwrap()["dispatch_state"],
+            "failed_no_retry"
+        );
+        assert!(requests.try_recv().is_err());
+    }
+    #[test]
+    fn power_refresh_ignores_foreign_requests_and_does_not_reopen_completed_ordinary_jobs() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        let pending = json!({"run_id":"power-run","test_id":"power.shutdown.request",
+            "identity":{"boot_id":"current-boot"},"status":"INCONCLUSIVE","message":"Pending"});
+        app.complete_job(json!({"state":"completed","result":pending}));
+        let before = app.notice.clone();
+        for (run, boot, status) in [
+            ("foreign-run", "current-boot", "INCONCLUSIVE"),
+            ("power-run", "old-boot", "INCONCLUSIVE"),
+            ("power-run", "current-boot", "PASS"),
+        ] {
+            app.receive(ipc::Reply {action:"state".into(),result:Ok(json!({
+                "identity":{"boot_id":"current-boot"},"power":{"current_request":{
+                    "run_id":run,"test_id":"power.shutdown.request","boot_id":boot,
+                    "status":status,"dispatch_state":"failed_no_retry","message":"Wrong outcome"}}
+            }))});
+            assert_eq!(app.notice, before);
+            assert_eq!(app.last_report.as_ref().unwrap()["message"], "Pending");
+            assert!(app.active_job.is_none());
+        }
+        app.complete_job(
+            json!({"state":"completed","result":{"run_id":"cpu-run","test_id":"cpu.compute",
+            "identity":{"boot_id":"current-boot"},"status":"PASS","message":"CPU passed"}}),
+        );
+        let ordinary_notice = app.notice.clone();
+        app.receive(ipc::Reply {action:"state".into(),result:Ok(json!({
+            "identity":{"boot_id":"current-boot"},"jobs":[{"id":"old-cpu","state":"completed"}],
+            "power":{"current_request":{"run_id":"power-run","test_id":"power.shutdown.request",
+                "boot_id":"current-boot","status":"INCONCLUSIVE","dispatch_state":"failed_no_retry",
+                "message":"Power failed"}}
+        }))});
+        assert_eq!(app.notice, ordinary_notice);
+        assert_eq!(app.last_report.as_ref().unwrap()["test_id"], "cpu.compute");
+        assert!(app.active_job.is_none());
+        assert!(!app.job_pending);
     }
     #[test]
     fn uvd_scenarios_are_readable_plan_rows_and_never_start_a_workload() {

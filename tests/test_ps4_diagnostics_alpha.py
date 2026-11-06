@@ -24,6 +24,164 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def alpha7(self):
+        profile=self.alpha6();old=profile['kernel_release']
+        release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha7']['kernel_release']
+        profile.update(profile='ps4-baikal-diagnostics-uvd-alpha7',image_version='alpha7',kernel_release=release,
+            uvd_restart_experiment=copy.deepcopy(APP.UVD_TERMINAL_RESTART_EXPERIMENT),
+            inherited_dev5_uvd_restart_experiment=copy.deepcopy(APP.UVD_RESTART_EXPERIMENT),
+            terminal_restart_fix=copy.deepcopy(APP.TERMINAL_RESTART_FIX))
+        profile['alpha_inputs']['legacy_package']={name.replace(old,release):pin
+            for name,pin in profile['alpha_inputs']['legacy_package'].items()}
+        return profile
+
+    def test_alpha7_exact_terminal_policy_requires_completed_startup_and_preserves_dev5(self):
+        profile=self.alpha7()
+        self.assertEqual(APP.validate_profile(profile)['image_version'],'alpha7')
+        fields=('uvd_lifecycle_sources_unchanged','uvd_poweroff_experiment','restart_fix',
+                'uvd_restart_experiment','inherited_uvd_poweroff_experiment','uvd_sources_unchanged_from_dev3',
+                'uvd_poweroff_semantics_unchanged_from_dev4','uvd_restart_guards_unchanged_from_dev4',
+                'terminal_restart_fix','inherited_dev5_uvd_restart_experiment')
+        receipt={key:copy.deepcopy(profile[key]) for key in fields}
+        APP.validate_package_lifecycle(profile,receipt,copy.deepcopy(receipt))
+        for field in ('uvd_restart_experiment','inherited_dev5_uvd_restart_experiment','terminal_restart_fix'):
+            for key in profile[field]:
+                changed=copy.deepcopy(profile);changed[field].pop(key)
+                with self.subTest(field=field,key=key),self.assertRaises(ValueError):APP.validate_profile(changed)
+        for key in ('startup_hw_init_completed_required','initialized_jobs_required','retain_dma','forced_restart_refused'):
+            changed=copy.deepcopy(profile);changed['uvd_restart_experiment'][key]=False
+            with self.subTest(key=key),self.assertRaises(ValueError):APP.validate_profile(changed)
+        changed=self.alpha6();changed['terminal_restart_fix']=profile['terminal_restart_fix']
+        with self.assertRaises(ValueError):APP.validate_profile(changed)
+
+    def alpha6(self):
+        profile=self.alpha5();old=profile['kernel_release']
+        release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha6']['kernel_release']
+        profile.update(profile='ps4-baikal-diagnostics-uvd-alpha6',image_version='alpha6',kernel_release=release,
+            restart_fix=copy.deepcopy(APP.RESTART_FIX),uvd_restart_experiment=copy.deepcopy(APP.UVD_RESTART_EXPERIMENT),
+            inherited_uvd_poweroff_experiment=copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT),
+            uvd_sources_unchanged_from_dev3=False,uvd_poweroff_semantics_unchanged_from_dev4=True,
+            uvd_restart_guards_unchanged_from_dev4=False)
+        profile['uvd_poweroff_experiment']['reboot_suspend_remove_reset_guards_unchanged']=False
+        # Synthetic identity values validate policy only; real assembly still
+        # requires independently frozen kernel/package/adapter byte identities.
+        profile['alpha_inputs']['legacy_package']={name.replace(old,release):pin
+            for name,pin in profile['alpha_inputs']['legacy_package'].items()}
+        return profile
+
+    def test_alpha6_requires_distinct_dev5_and_exact_retained_restart_policy(self):
+        profile=self.alpha6()
+        self.assertEqual(APP.validate_profile(profile)['kernel_release'],'7.2.11-psx-ps4-baikal-uvd-runtime-dev5')
+        self.assertEqual(profile['required_boot_arguments'],list(APP.UVD_POWEROFF_ARGS))
+        self.assertEqual(profile['required_sata_boot_arguments'],list(APP.SATA_ARGS))
+        self.assertEqual(profile['alpha_base'],APP.BASE_IDENTITY)
+        for key,value in (('kernel_release',self.alpha5()['kernel_release']), ('build_status','pending'),
+                          ('uvd_sources_unchanged_from_dev3',True), ('uvd_poweroff_semantics_unchanged_from_dev4',False),
+                          ('uvd_restart_guards_unchanged_from_dev4',True), ('boot_clock_start_timesyncd',True)):
+            with self.subTest(key=key),self.assertRaises(ValueError):
+                APP.validate_profile(dict(profile,**{key:value}))
+        for field in ('restart_fix','uvd_restart_experiment','inherited_uvd_poweroff_experiment'):
+            for bad in (None,[],{},dict(profile[field],unexpected=True)):
+                with self.subTest(field=field,bad=bad),self.assertRaisesRegex(ValueError,'restart contract'):
+                    APP.validate_profile(dict(profile,**{field:bad}))
+        for key,value in (('healthy_runtime_required',False),('first_close_required',False),
+                          ('forced_restart_refused',False),('kexec_refused',False),('retain_dma',False),
+                          ('default',1),('test_value',True),('hardware_acceptance',True)):
+            changed=copy.deepcopy(profile);changed['uvd_restart_experiment'][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'restart contract'):
+                APP.validate_profile(changed)
+        changed=copy.deepcopy(profile);changed['uvd_poweroff_experiment']['reboot_suspend_remove_reset_guards_unchanged']=True
+        with self.assertRaisesRegex(ValueError,'exact default-off'):
+            APP.validate_profile(changed)
+        for key,value in (('patch_sha256','1a'*32),('atomic_registered_restart',False),
+                          ('legacy_baikal_fallback_disabled',False),('hardware_acceptance',True)):
+            changed=copy.deepcopy(profile);changed['restart_fix'][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'restart contract'):
+                APP.validate_profile(changed)
+
+    def test_alpha6_policies_cannot_be_added_to_frozen_historical_profiles(self):
+        for version in range(1,6):
+            original=json.loads((ROOT/f'manifests/ps4-diagnostics-uvd-alpha{version}.json').read_text())
+            APP.validate_profile(original)
+            for key in ('restart_fix','uvd_restart_experiment'):
+                changed=copy.deepcopy(original);changed[key]=self.alpha6()[key]
+                with self.subTest(version=version,key=key),self.assertRaisesRegex(ValueError,'Historical'):
+                    APP.validate_profile(changed)
+
+    def test_alpha6_both_package_receipts_require_truthful_active_and_inherited_policy(self):
+        profile=self.alpha6()
+        fields=('uvd_lifecycle_sources_unchanged','uvd_poweroff_experiment','restart_fix',
+                'uvd_restart_experiment','inherited_uvd_poweroff_experiment','uvd_sources_unchanged_from_dev3',
+                'uvd_poweroff_semantics_unchanged_from_dev4','uvd_restart_guards_unchanged_from_dev4')
+        receipt={key:copy.deepcopy(profile[key]) for key in fields}
+        APP.validate_package_lifecycle(profile,receipt,copy.deepcopy(receipt))
+        for key in fields:
+            for first in (True,False):
+                changed=copy.deepcopy(receipt);changed.pop(key)
+                with self.subTest(key=key,first=first),self.assertRaises(ValueError):
+                    APP.validate_package_lifecycle(profile,changed if first else receipt,receipt if first else changed)
+        historical={'uvd_lifecycle_sources_unchanged':False,'uvd_sources_unchanged_from_dev3':True,
+                    'uvd_poweroff_experiment':copy.deepcopy(APP.UVD_POWEROFF_EXPERIMENT)}
+        with self.assertRaises(ValueError):
+            APP.validate_package_lifecycle(profile,historical,historical)
+        # Even a receipt with unchanged old power-off fields must not conceal
+        # the new restart policy behind an alpha5 label.
+        changed=dict(historical,uvd_restart_experiment=APP.UVD_RESTART_EXPERIMENT)
+        with self.assertRaisesRegex(ValueError,'Historical'):
+            APP.validate_package_lifecycle(self.alpha5(),changed,historical)
+
+    def test_alpha6_pending_pins_refuse_before_input_tools_or_output(self):
+        for changes in ({'build_status':'pending-package','kernel_sha256':None},
+                        {'kernel_sha256':None},{'modules_sha256':'0'*64}):
+            profile=dict(self.alpha6(),**changes)
+            with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
+                root=Path(temp);path=root/'pending.json';path.write_bytes(APP.encoded(profile))
+                with mock.patch.object(APP,'validate_paths',side_effect=AssertionError('input access')),\
+                     mock.patch.object(APP,'load',side_effect=AssertionError('runtime access')):
+                    with self.subTest(changes=changes),self.assertRaises(ValueError):
+                        APP.prepare(root/'base',root/'package',root/'fixture',path,root/'output')
+                self.assertFalse((root/'output').exists())
+
+    def test_alpha6_clock_render_preserves_exact_alpha5_sata_gates_and_loader_budget(self):
+        old=APP.alpha_bootargs(self.serial_bootargs(),poweroff_experiment=True,sata_probe=True)
+        new=APP.alpha_bootargs(self.serial_bootargs(),poweroff_experiment=True,sata_probe=True,profile=self.alpha6()['profile'])
+        self.assertEqual(new,old)
+        stage=APP.load('alpha6_clock_renderer',ROOT/'scripts/stage-ps4-diagnostics-usb')
+        rendered=stage.render_bootargs(new.decode(),'FFFF-FFFF',dict(self.alpha6(),ui_backend='ratatui'),epoch=4102444799)
+        self.assertEqual(len(rendered),507)
+        for token in (*APP.SATA_ARGS,*APP.UVD_POWEROFF_ARGS,'panic=0','keep_bootcon','time=4102444799'):
+            self.assertEqual(rendered.decode().split().count(token),1)
+        self.assertNotIn(b'systemd.wants=systemd-timesyncd.service',rendered)
+        for profile in ('ps4-baikal-diagnostics-uvd-alpha4','unknown','ps4-baikal-diagnostics-uvd-alpha8'):
+            with self.subTest(profile=profile),self.assertRaisesRegex(ValueError,'only the scoped'):
+                stage.render_bootargs(new.decode(),'FFFF-FFFF',{'ui_backend':'ratatui','profile':profile,
+                    'boot_clock_start_timesyncd':False},epoch=4102444799)
+
+    def test_alpha7_real_clock_profile_keeps_the_existing_loader_budget(self):
+        profile=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha7.json').read_text())
+        template=APP.alpha_bootargs(self.serial_bootargs(),poweroff_experiment=True,sata_probe=True,profile=profile['profile'])
+        stage=APP.load('alpha7_clock',ROOT/'scripts/stage-ps4-diagnostics-usb')
+        actual=stage.render_bootargs(template.decode(),'FFFF-FFFF',dict(profile,ui_backend='ratatui'),epoch=4102444799)
+        self.assertEqual(len(actual),507)
+        self.assertIn(b'amdgpu.ps4_uvd_poff=1',actual)
+
+    def test_alpha6_requires_current_uvd_adapter_to_accept_frozen_profile_before_assembly(self):
+        profile=self.alpha6()
+        policy=mock.Mock(FIRMWARE=APP.UVD_FIRMWARE)
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temp:
+            firmware=Path(temp)/'input.bin';firmware.write_bytes(b'synthetic firmware input')
+            with mock.patch.object(APP,'pinned'),mock.patch.object(APP,'load',return_value=policy):
+                policy.select_contract.side_effect=ValueError('adapter still has old frozen profiles')
+                with self.assertRaisesRegex(ValueError,'old frozen'):
+                    APP.prepare_firmware(profile,firmware)
+                policy.validate_firmware.assert_not_called()
+                policy.select_contract.side_effect=None;policy.select_contract.return_value={'profile':'wrong'}
+                with self.assertRaisesRegex(ValueError,'does not support'):
+                    APP.prepare_firmware(profile,firmware)
+                policy.select_contract.return_value=profile;policy.validate_firmware.return_value={'verified':True}
+                path,data,facts=APP.prepare_firmware(profile,firmware)
+                self.assertEqual((path,data,facts),(firmware,b'synthetic firmware input',{'verified':True}))
+
     def alpha5(self):
         profile=self.alpha4();old=profile['kernel_release']
         release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha5']['kernel_release']

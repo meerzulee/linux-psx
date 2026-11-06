@@ -14,6 +14,13 @@ optional seeded owner key or explicit [local key enrollment](PS4-DIAGNOSTIC-SSH-
 Unseeded images begin with root locked and password access disabled.
 Graphics/browser tests start only when selected.
 
+After network setup, **Overview** shows detected hardware and scoped saved
+checks from the current boot, with icons and text status labels. Missing data,
+untested checks, failures and inconclusive results stay distinct. **F7** opens
+the existing tabbed **Advanced** interface; selecting an Overview component
+opens its area without starting a test. Job state and saved reports survive
+switching views. Rich Nerd Font icons have a text fallback on the Linux VT.
+
 [Console screenshots](images/README.md) ·
 [SATA/USB storage comparison](PS4-STORAGE-COMPARISON.md)
 
@@ -32,6 +39,11 @@ UVD alpha images so native-dev3 helper guards cannot overwrite alpha guards.
 The explicit `--alpha-ui-only` mode accepts the frozen alpha3 boot set and
 changes only the TUI binary and its receipts; all other initramfs entries,
 firmware, kernel, root image and UVD gates remain unchanged.
+The separate `--alpha-power-only` mode accepts the frozen alpha5/dev4 set and
+refreshes only its controller/TUI and receipts. The
+[Power menu](PS4-DIAGNOSTIC-POWER.md) offers confirmed Shutdown and experimental
+Reboot to Orbis on the reviewed power profiles; it saves reports first and
+keeps unsupported builds and active auxiliary-memory experiments guarded.
 
 The separate [browser UVD prototype](PS4-DIAGNOSTIC-BROWSER-UVD.md) prepares
 offline four- or 30-second AVC clips and runs only on an explicit hardware

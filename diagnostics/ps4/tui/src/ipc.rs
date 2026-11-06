@@ -107,17 +107,36 @@ fn exchange(socket: &Path, request: &Request) -> Result<Value, String> {
 
 pub fn worker(socket: std::path::PathBuf) -> (Sender<Request>, Receiver<Reply>) {
     let (sender, requests) = mpsc::channel::<Request>();
+    let (normal, normal_requests) = mpsc::channel::<Request>();
+    let (power, power_requests) = mpsc::channel::<Request>();
     let (responses, receiver) = mpsc::channel();
+    for queue in [normal_requests, power_requests] {
+        let socket = socket.clone();
+        let responses = responses.clone();
+        thread::spawn(move || {
+            for request in queue {
+                let result = exchange(&socket, &request);
+                if responses
+                    .send(Reply {
+                        action: request.action,
+                        result,
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+    }
+    // Keep confirmed Power independent of a slow state/report/SSH exchange.
     thread::spawn(move || {
         for request in requests {
-            let result = exchange(&socket, &request);
-            if responses
-                .send(Reply {
-                    action: request.action,
-                    result,
-                })
-                .is_err()
-            {
+            let queue = if request.action == "power.execute" {
+                &power
+            } else {
+                &normal
+            };
+            if queue.send(request).is_err() {
                 break;
             }
         }
@@ -128,6 +147,66 @@ pub fn worker(socket: std::path::PathBuf) -> (Sender<Request>, Receiver<Reply>) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn power_exchange_does_not_wait_for_a_blocked_state_exchange() {
+        use std::os::unix::net::UnixListener;
+        let path =
+            std::env::temp_dir().join(format!("psx-power-priority-{}.sock", std::process::id()));
+        let listener = UnixListener::bind(&path).unwrap();
+        let (ready, state_started) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut state, _) = listener.accept().unwrap();
+            let mut line = String::new();
+            BufReader::new(state.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&line).unwrap()["action"],
+                "state"
+            );
+            ready.send(()).unwrap();
+            let blocked = thread::spawn(move || {
+                wait.recv_timeout(Duration::from_secs(4)).unwrap();
+                state.write_all(b"{\"ok\":true,\"data\":{}}\n").unwrap();
+            });
+            let (mut power, _) = listener.accept().unwrap();
+            line.clear();
+            BufReader::new(power.try_clone().unwrap())
+                .read_line(&mut line)
+                .unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&line).unwrap()["action"],
+                "power.execute"
+            );
+            power
+                .write_all(b"{\"ok\":true,\"data\":{\"id\":\"power\"}}\n")
+                .unwrap();
+            blocked.join().unwrap();
+        });
+        let (sender, responses) = worker(path.clone());
+        sender
+            .send(Request {
+                id: 1,
+                action: "state".into(),
+                params: json!({}),
+            })
+            .unwrap();
+        state_started.recv_timeout(Duration::from_secs(2)).unwrap();
+        sender
+            .send(Request {
+                id: 2,
+                action: "power.execute".into(),
+                params: json!({"operation":"shutdown","confirm":true}),
+            })
+            .unwrap();
+        let result = responses.recv_timeout(Duration::from_secs(2));
+        release.send(()).unwrap();
+        server.join().unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(result.unwrap().action, "power.execute");
+    }
+
     #[test]
     fn errors_and_oversized_responses_never_become_success() {
         assert!(decode(br#"{"ok":false,"error":"not connected"}"#).is_err());

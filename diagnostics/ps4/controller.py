@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import ctypes
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import importlib.util
 import hmac
@@ -15,10 +18,12 @@ import os
 from pathlib import Path
 import re
 import secrets
+import signal
 import socketserver
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -43,6 +48,30 @@ DIAGNOSTICS_UNIT = 'psx-diagnostics-graphics@diagnostics.service'
 UVD_SCENARIOS = {'canonical-120': ('uvd.avc', 'Canonical 120-frame AVC reference'),
                  'native720-900': ('uvd.native720', 'Native 720p30 900-frame AVC reference'),
                  'native1080-900': ('uvd.native1080', 'Native 1080p30 900-frame AVC reference')}
+POWER_OPERATIONS = {'shutdown': 'Shutdown', 'reboot-orbis': 'Reboot to Orbis'}
+POWER_PROFILES = ('ps4-baikal-diagnostics-uvd-alpha4', 'ps4-baikal-diagnostics-uvd-alpha5',
+                  'ps4-baikal-diagnostics-uvd-alpha6')
+KERNEL_RESTART_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev5'
+IMMEDIATE_POWER_PROFILES = {
+    '7.2.11-psx-ps4-baikal-uvd-runtime-dev6': 'ps4-baikal-diagnostics-uvd-alpha7',
+}
+IMMEDIATE_POWER_RECORD = '/run/psx-power/power-dispatch.json'
+POWER_PHASES = {
+    'prepare.flush': ('Preparing: saving diagnostic reports.', 'Preparing: diagnostic reports saved.'),
+    'dispatch.lock': ('Preparing: checking the diagnostic lock.', 'Preparing: diagnostic lock acquired.'),
+    'dispatch.guard': ('Preparing: checking the confirmed request.', 'Preparing: power checks returned.'),
+    'dispatch.flush': ('Preparing: flushing reports before power dispatch.', 'Preparing: report flush returned.'),
+    'dispatch.mounts': ('Preparing: checking storage mounts.', 'Preparing: storage mounts checked.'),
+    'dispatch.sync': ('Preparing: synchronizing storage.', 'Preparing: storage sync returned.'),
+    'dispatch.remount': ('Preparing: making the USB read-only.', 'Preparing: USB remount returned.'),
+    'dispatch.remount.verify': ('Preparing: verifying read-only storage.', 'Preparing: read-only storage verified.'),
+    'dispatch.icc': ('Requesting restart to Orbis; physical outcome is unobserved.',
+                     'Restart request returned; physical outcome is unobserved.'),
+    'dispatch.restart': ('Requesting Linux restart to Orbis; physical outcome is unobserved.',
+                        'Linux restart request accepted; physical outcome is unobserved.'),
+    'dispatch.shutdown': ('Requesting shutdown; physical outcome is unobserved.',
+                          'Shutdown request returned; physical outcome is unobserved.'),
+}
 EXTRA_TESTS = (
     {"id": "gpu.opengl.render", "title": "OpenGL reference pixels", "area": "Graphics", "kind": "functional", "timeout_seconds": 20,
      "description": "Render a small known image with the pinned Mesa stack and verify downloaded pixels."},
@@ -60,6 +89,29 @@ def safe_error(error):
     if isinstance(error, subprocess.SubprocessError):
         return "The selected tool failed; inspect its private diagnostic report."
     return str(error)[:1000]
+
+
+def _power_read_json(path):
+    """Bounded Power receipts, including roots with the legacy runner ABI."""
+    limit = 65536
+    path = Path(path).absolute()
+    if (path.resolve(strict=True) != path
+            or any(path.is_relative_to(root) for root in (Path('/dev'), Path('/proc'), Path('/sys')))
+            or not stat.S_ISREG(path.lstat().st_mode)):
+        raise ValueError('Power JSON must be a regular file without symlinks.')
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    with os.fdopen(descriptor, 'rb') as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ValueError('Power JSON exceeds its 64 KiB regular-file budget.')
+        raw = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+    if len(raw) > limit:
+        raise ValueError('Power JSON exceeds its 64 KiB budget.')
+    if (len(raw) != before.st_size
+            or (after.st_size, after.st_mtime_ns) != (before.st_size, before.st_mtime_ns)):
+        raise ValueError('Power JSON changed while reading.')
+    return decode(raw)
 
 
 class BusyError(ValueError):
@@ -92,43 +144,123 @@ class Jobs:
         self.guard = threading.Lock()
         self.active = None
         self.records = {}
+        self.revision = 0
+        self._finalizing = None
+        self.stopping = threading.Event()
 
-    def submit(self, title, function):
+    def submit(self, title, function, after_save=None):
         with self.guard:
+            if self.stopping.is_set():
+                raise BusyError('A confirmed power action has stopped diagnostic work.')
             if self.active:
                 raise BusyError("Another action is running; wait for its result.")
             identifier = uuid.uuid4().hex
             record = {"id": identifier, "title": title, "state": "running", "started_at": diagnostics.timestamp(),
                       "result": None, "error": None, "output": [], "hardware_acceptance": False}
-            self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-            diagnostics.atomic_json(self.directory / (identifier + ".json"), record)
+            # Reserve before storage I/O, keeping status available and excluding
+            # a second submit even if mkdir/fsync cannot return promptly.
             self.active = identifier
+            self.revision += 1
             self.records[identifier] = record
+            initial = dict(record, output=[])
+        try:
+            self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            diagnostics.atomic_json(self.directory / (identifier + ".json"), initial)
+        except Exception:
+            with self.guard:
+                self.records.pop(identifier, None)
+                if self.active == identifier:
+                    self.active = None
+                self.revision += 1
+            # A late fsync failure may leave a file; preserve it as evidence.
+            # No worker or post-save callback has started.
+            raise
+        with self.guard:
+            if self.stopping.is_set():
+                return {key: record[key] for key in ('id', 'state', 'title')} | {'job_id': identifier}
             while len(self.records) > 32:
                 del self.records[next(iter(self.records))]
         def work():
+            if self.stopping.is_set():
+                return
+            saved = False
             try:
                 value = function()
                 changes = {"state": "completed", "result": value}
             except Exception as error:
                 changes = {"state": "failed", "error": safe_error(error)}
             with self.guard:
-                record.update(changes, completed_at=diagnostics.timestamp())
-                try:
-                    diagnostics.atomic_json(self.directory / (identifier + ".json"), record)
-                except OSError:
-                    record.update(state="failed", error="The action finished but its report could not be saved.")
-                finally:
-                    self.active = None
+                if self.stopping.is_set():
+                    return
+                # Seal output at the same point the former locked save did.
+                # Late events must not mutate the snapshot being serialized.
+                self._finalizing = identifier
+                final = dict(record, **changes, completed_at=diagnostics.timestamp())
+                final["output"] = list(record["output"])
+            try:
+                diagnostics.atomic_json(self.directory / (identifier + ".json"), final)
+                saved = True
+            except Exception:
+                final.update(state="failed", error="The action finished but its report could not be saved.")
+            with self.guard:
+                if self.stopping.is_set():
+                    return
+                # Until the durable save returns, readers still see running and
+                # the active reservation still excludes another action.
+                record.update(final)
+                self.active = None
+                self._finalizing = None
+                self.revision += 1
+            # A confirmed power request may dispatch only after its final job
+            # record is durable. Ordinary jobs retain their existing behavior.
+            if saved and record['state'] == 'completed' and after_save is not None:
+                after_save(record['result'])
         threading.Thread(target=work, daemon=True, name="diagnostic-job").start()
         return {"id": identifier, "job_id": identifier, "state": "running", "title": title}
 
     def event(self, value):
         with self.guard:
-            if self.active:
+            if not self.stopping.is_set() and self.active and self._finalizing != self.active:
                 record = self.records[self.active]
                 record["output"].append(diagnostics.clean_terminal(json.dumps(value))[:1500])
                 record["output"] = record["output"][-40:]
+
+    def preempt(self):
+        """Memory-only cancellation; never wait for a worker or its storage."""
+        self.stopping.set()
+        with self.guard:
+            for record in self.records.values():
+                if record.get('state') == 'running':
+                    record.update(state='failed', completed_at=diagnostics.timestamp(),
+                                  error='Stopped by the confirmed power request; unsaved evidence may be lost.')
+            self.active = None
+            self._finalizing = None
+            self.revision += 1
+
+    def submit_now(self, title, function):
+        """Power-only RAM job; intentionally has no USB save or after-save gate."""
+        identifier = uuid.uuid4().hex
+        with self.guard:
+            record = {'id': identifier, 'title': title, 'state': 'running', 'started_at': diagnostics.timestamp(),
+                      'result': None, 'error': None, 'output': [], 'hardware_acceptance': False}
+            self.records[identifier] = record
+            self.active = identifier
+            self.revision += 1
+            while len(self.records) > 32:
+                del self.records[next(iter(self.records))]
+        def work():
+            try:
+                value = function(identifier)
+                changes = {'state': 'completed', 'result': value}
+            except Exception as error:
+                changes = {'state': 'failed', 'error': safe_error(error)}
+            with self.guard:
+                record.update(changes, completed_at=diagnostics.timestamp())
+                if self.active == identifier:
+                    self.active = None
+                self.revision += 1
+        threading.Thread(target=work, daemon=True, name='diagnostic-power').start()
+        return {'id': identifier, 'job_id': identifier, 'state': 'running', 'title': title}
 
     def get(self, identifier):
         with self.guard:
@@ -169,6 +301,20 @@ class Controller:
         self._network_snapshot = {"interfaces": [], "wifi": {"available": False, "enabled": False, "access_points": []}, "loading": True}
         self._ssh_snapshot = {"enabled": False, "port": 22, "login": "root"}
         self._monitor_started = False
+        self._power_status_cache = None
+        self._power_guard_lock = threading.Lock()
+        self._power_boot = None
+        self._power_now = None
+        self._power_uncertain = ''
+        self._worker_guard = threading.RLock()
+        self._launch_guard = threading.Lock()
+        self._workers = {}
+        self.runner.process_started = self._register_worker
+        self.runner.cancelled = self.jobs.stopping.is_set
+        self.runner.launch_guard = self._launch_guard
+        if getattr(self.network, 'executor', True) is None and not self.runner.fs.fixture:
+            self.network.executor = lambda argv, timeout: self._cancellable_capture(argv, timeout=timeout, text=True)
+        self._cache_power_boot()
 
     def sample_network(self):
         try:
@@ -191,7 +337,8 @@ class Controller:
             module = importlib.util.module_from_spec(spec)
             sys.modules[spec.name] = module
             spec.loader.exec_module(module)
-            self._ssh_access = module.SSHAccess(root_prefix=str(self.runner.fs.root))
+            self._ssh_access = module.SSHAccess(root_prefix=str(self.runner.fs.root),
+                executor=lambda argv, timeout, data: self._cancellable_capture(argv, timeout=timeout, input=data))
         return self._ssh_access
 
     def initialize_ssh(self):
@@ -227,9 +374,14 @@ class Controller:
         return None
 
     def ready(self):
+        if self.jobs.stopping.is_set():
+            raise ValueError('Diagnostics were stopped by a confirmed power request; only power and status remain available.')
         identity = self.runner.identity()
         if not identity["release_matches"] or not identity["boot_id"]:
             raise ValueError("This action requires the matching PS4 diagnostic kernel and boot manifest.")
+        power_intent = self._power_intent_path(identity)
+        if power_intent.exists() or power_intent.is_symlink():
+            raise ValueError('A power request is already recorded; only status/reports remain available.')
         uvd_stop = self.runner.uvd_stop_reason()
         if uvd_stop:
             raise ValueError(uvd_stop)
@@ -315,7 +467,7 @@ class Controller:
         records = {record["run_id"]: record for record in self.runner.results()}
         extra = {test["id"] for test in EXTRA_TESTS} | {
             "browser.canvas2d", "browser.webgl", "browser.animation", "browser.capabilities", "browser.video", "browser.batch", "wayland.native",
-            "uvd.native720", "uvd.native1080"}
+            "uvd.native720", "uvd.native1080", "power.shutdown.request", "power.reboot-orbis.request"}
         if self.results_dir.exists():
             for path in sorted(self.results_dir.glob("*/result.json"), reverse=True)[:200]:
                 try:
@@ -332,6 +484,9 @@ class Controller:
                     records[record['run_id']] = record
             except (OSError, ValueError, KeyError):
                 continue
+        power = self._power_dispatch_outcome(self.runner.identity(), include_pending=True)
+        if power:
+            records[power['run_id']] = power
         for record in records.values():
             record.pop("setup_failure_reviewed", None)
             record.pop("recovery_message", None)
@@ -355,7 +510,9 @@ class Controller:
         if self.runner.fs.fixture and not self._monitor_started:
             self.sample_network()
         network, ssh = self._network_snapshot, self._ssh_snapshot
-        results = self.results()[:30]
+        # Reuse the existing bounded report read for the hardware overview.
+        # Truncating first would hide a foundation PASS after browser traffic.
+        results = self.results()
         latest = {}
         identity = self.runner.identity()
         for result in results:
@@ -371,7 +528,816 @@ class Controller:
                                "available_bytes": memory.get("MemAvailable_kib", 0) * 1024}},
                 "inventory": inventory, "network": network, "ssh": ssh, "identity": identity,
                 "settings": self.display.state(),
-                "tests": tests, "results": [summary(record) for record in results], "jobs": self.jobs.list(), "hardware_acceptance": False}
+                "power": self.power_status(identity),
+                "tests": tests, "results": [summary(record) for record in results[:30]],
+                "overview_results": [summary(record) for record in latest.values()],
+                "jobs": self.jobs.list(), "hardware_acceptance": False}
+
+    def _power_intent_path(self, identity):
+        boot = identity.get('boot_id', '')
+        # Noncanonical fixture/ordinary boot IDs still fail exact power guards;
+        # keep this lookup a fixed safe filename for the ordinary ready path.
+        if not isinstance(boot, str) or not re.fullmatch(r'[a-zA-Z0-9-]{1,64}', boot):
+            boot = 'invalid-boot'
+        return self.results_dir / 'power-intents' / (boot + '.json')
+
+    def _cache_power_boot(self):
+        """One startup read of trusted identity; power never waits for USB I/O."""
+        self._power_boot = None
+        try:
+            identity = self.runner.identity()
+            release = identity.get('kernel_release')
+            if release not in IMMEDIATE_POWER_PROFILES:
+                return
+            def require(value, message):
+                if not value:
+                    raise ValueError(message)
+            require(identity.get('release_matches') and identity.get('manifest_available')
+                    and str(uuid.UUID(identity.get('boot_id', ''))) == identity['boot_id'], 'Unverified boot')
+            manifest = diagnostics.read_json(self.runner.fs.root / self.runner.manifest_path.lstrip('/'))
+            require(manifest.get('profile') == IMMEDIATE_POWER_PROFILES[release], 'Unmatched power profile')
+            adapter = self.runner.uvd_adapter()
+            adapter.select_contract(manifest)
+            validation = manifest.get('manifest_validation', {})
+            require(validation.get('embedded_root_contract_verified') is True
+                    and validation.get('observed_kernel_release') == release
+                    and validation.get('observed_media_initramfs_sha256') == manifest.get('initramfs_sha256')
+                    and manifest.get('required_boot_arguments') == adapter.POWEROFF_BOOT_ARGUMENTS,
+                    'Unverified root/initramfs contract')
+            tokens = (self.runner.fs.text('/proc/cmdline') or '').split()
+            for argument in adapter.POWEROFF_BOOT_ARGUMENTS:
+                key = argument.split('=')[0]
+                require([value for value in tokens if value.split('=')[0] == key] == [argument]
+                        and self.runner.fs.text('/sys/module/amdgpu/parameters/' + key.split('.')[1]) in ('Y', '1'),
+                        'Unmatched immutable power gate')
+            receipt = diagnostics.read_json(self.runner.fs.root / 'run/psx-media/psx-diagnostics/installed.json')
+            require(receipt.get('owner') == 'psx-diagnostics-usb-v1' and receipt.get('verified_readback') is True
+                    and receipt.get('profile') == manifest['profile'] and receipt.get('kernel_release') == release
+                    and ('image_version' not in receipt or receipt['image_version'] == manifest['image_version'])
+                    and all(re.fullmatch(r'[0-9a-f]{64}', str(manifest.get(key, '')))
+                            and receipt.get('files', {}).get(name) == manifest[key] for name, key in
+                        (('bzImage', 'kernel_sha256'), ('initramfs.cpio.gz', 'initramfs_sha256'),
+                         ('psx-diagnostics/rootfs.ext4', 'rootfs_sha256'))), 'Unmatched verified USB receipt')
+            self._power_boot = json.loads(json.dumps(identity))
+            self._restore_power_now()
+        except (OSError, ValueError, TypeError, KeyError, ImportError):
+            pass
+
+    def _restore_power_now(self):
+        try:
+            saved = _power_read_json(self.runner.fs.root / IMMEDIATE_POWER_RECORD.lstrip('/'))
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError, TypeError):
+            self._power_uncertain = 'The prior power outcome cannot be read; another request could duplicate it.'
+            return
+        if not isinstance(saved, dict) or saved.get('immediate') is not True or saved.get('identity') != self._power_boot:
+            return
+        operation = saved.get('operation')
+        valid = (isinstance(operation, str) and operation in POWER_OPERATIONS and saved.get('title') == POWER_OPERATIONS[operation]
+            and saved.get('test_id') == 'power.' + operation + '.request'
+            and re.fullmatch(r'[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}', str(saved.get('run_id', '')))
+            and re.fullmatch(r'[0-9a-f]{32}', str(saved.get('job_id', '')))
+            and saved.get('phase') == 'completed' and saved.get('status') == 'INCONCLUSIVE'
+            and saved.get('hardware_acceptance') is False and saved.get('stop_required') is True
+            and all(type(saved.get(key)) is bool for key in ('command_submitted', 'in_flight', 'retry_allowed', 'cancelled'))
+            and saved.get('dispatch_state') in ('preparing', 'issuing_shutdown', 'issuing_kernel_restart',
+                'request_returned_physical_outcome_unobserved', 'failed_no_retry')
+            and isinstance(saved.get('message'), str) and len(saved['message']) <= 1000
+            and type(saved.get('dispatch_deadline_monotonic')) in (int, float)
+            and math.isfinite(saved['dispatch_deadline_monotonic']))
+        if valid:
+            self._power_now = saved
+            self.jobs.stopping.set()
+        else:
+            self._power_uncertain = 'The prior power record is incomplete; another request could duplicate it.'
+
+    def _register_worker(self, process):
+        with self._worker_guard:
+            self._workers[process.pid] = process
+        if self.jobs.stopping.is_set():
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+        def unregister():
+            with self._worker_guard:
+                self._workers.pop(process.pid, None)
+        return unregister
+
+    def _cancellable_capture(self, argv, *, timeout, check=False, capture_output=True, text=False, env=None, input=None):
+        """Tracked fixed tools, anonymous RAM output, and no secret input logs."""
+        if self.runner.fs.fixture:
+            raise ValueError('Fixture roots never execute controller tools.')
+        if self.jobs.stopping.is_set():
+            raise ValueError('Diagnostic command cancelled by the confirmed power request')
+        data = input.encode() if isinstance(input, str) else input
+        if data is not None and (not isinstance(data, bytes) or len(data) > LIMIT):
+            raise ValueError('Private tool input exceeds its bound')
+        environment = {'PATH': '/usr/bin:/usr/sbin:/bin:/sbin', 'LC_ALL': 'C', 'LANG': 'C',
+                       'HOME': '/root', 'NM_CLI_COLOR': 'never'}
+        environment.update(env or {})
+        with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error, tempfile.TemporaryFile() as incoming:
+            if data is not None:
+                incoming.write(data); incoming.seek(0)
+            result = diagnostics.execute_process(argv, timeout,
+                Path('/proc/self/fd') / str(output.fileno()), Path('/proc/self/fd') / str(error.fileno()), environment,
+                process_started=self._register_worker, cancelled=self.jobs.stopping.is_set,
+                launch_guard=self._launch_guard, stdin=incoming if data is not None else None, preview_limit=LIMIT)
+        if result.interrupted:
+            raise ValueError('Diagnostic command cancelled by the confirmed power request')
+        if result.timed_out:
+            raise subprocess.TimeoutExpired(argv, timeout)
+        if result.output_limited:
+            raise ValueError('Controller tool output exceeded its bound')
+        response = subprocess.CompletedProcess(argv, result.returncode,
+            result.stdout if text else result.stdout.encode(), result.stderr if text else result.stderr.encode())
+        if check:
+            response.check_returncode()
+        return response
+
+    def _kill_power_workers(self):
+        self.jobs.stopping.set()
+        with self._worker_guard:
+            killed = 0
+            for process in self._workers.values():
+                if process.returncode is None:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        killed += 1
+                    except OSError:
+                        pass
+        return killed
+
+    def _kill_power_graphics(self):
+        """Signal only fixed graphical cgroups, never the controller or PID1."""
+        root = self.runner.fs.root / 'sys/fs/cgroup/system.slice'
+        killed = []
+        for unit in WAYLAND_UNITS:
+            parents = [root]
+            if '@' in unit:
+                template = unit.split('@', 1)[0].replace('-', '\\x2d')
+                parents.append(root / ('system-' + template + '.slice'))
+            for parent in parents:
+                path = parent / unit / 'cgroup.kill'
+                try:
+                    if path.resolve(strict=True) != path:
+                        continue
+                    descriptor = os.open(path, os.O_WRONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+                    try:
+                        if os.write(descriptor, b'1') == 1:
+                            killed.append(unit)
+                    finally:
+                        os.close(descriptor)
+                except (OSError, RuntimeError):
+                    continue
+        return killed
+
+    def _power_ram_record(self, record):
+        """Atomic RAM visibility/fence, deliberately without fsync or USB writes."""
+        if self._power_now is not record:
+            raise ValueError('A superseded power request was not sent.')
+        temporary = None
+        try:
+            parent = self.runner.fs.root / 'run/psx-power'
+            parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            info = parent.stat()
+            if parent.resolve() != parent or info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
+                raise ValueError('The power RAM directory is not protected.')
+            record['ram_record_saved'] = True
+            record.pop('ram_record_error', None)
+            data = (json.dumps(record) + '\n').encode()
+            if len(data) > 65536:
+                raise ValueError('The power RAM record exceeds its budget.')
+            temporary = parent / ('.power-' + uuid.uuid4().hex + '.json')
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+            with os.fdopen(descriptor, 'wb') as stream:
+                stream.write(data)
+            with self._power_guard_lock:
+                if self._power_now is not record:
+                    raise ValueError('A superseded power record cannot replace the current fence.')
+                os.replace(temporary, parent / 'power-dispatch.json')
+            return True
+        except (OSError, ValueError) as error:
+            record.update(ram_record_saved=False, ram_record_error=safe_error(error)[:300])
+            return False
+        finally:
+            if temporary is not None:
+                with contextlib.suppress(OSError):
+                    temporary.unlink(missing_ok=True)
+
+    def _power_kernel_call(self, operation):
+        if self.runner.fs.fixture or self.runner.fs.root != Path('/') or os.geteuid() != 0:
+            raise ValueError('Fixture roots never execute a power syscall.')
+        commands = {'shutdown': 0x4321FEDC, 'reboot-orbis': 0x01234567}
+        libc = ctypes.CDLL(None, use_errno=True)
+        reboot = libc.reboot
+        reboot.argtypes = [ctypes.c_int]
+        reboot.restype = ctypes.c_int
+        if reboot(commands[operation]) != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error))
+
+    def request_power_now(self, operation):
+        identity = self._power_boot
+        if identity is None:
+            raise ValueError('Immediate power needs the exact verified diagnostic boot.')
+        if self._power_uncertain:
+            raise ValueError(self._power_uncertain)
+        with self._power_guard_lock:
+            prior = self._power_now
+            if prior is None:
+                self._restore_power_now()
+                prior = self._power_now
+                if self._power_uncertain:
+                    raise ValueError(self._power_uncertain)
+            self._expire_power_now()
+            if prior and (prior.get('command_submitted') is True or prior.get('in_flight') is True):
+                identifier = prior['job_id']
+                with self.jobs.guard:
+                    self.jobs.records.setdefault(identifier, {'id': identifier, 'title': prior['title'],
+                        'state': 'completed', 'result': dict(prior), 'error': None, 'output': []})
+                return {'id': identifier, 'job_id': identifier, 'state': 'completed', 'title': prior['title']}
+            run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
+            record = {'schema_version': 1, 'run_id': run_id, 'test_id': 'power.' + operation + '.request',
+                'title': POWER_OPERATIONS[operation], 'identity': identity, 'operation': operation,
+                'phase': 'completed', 'status': 'INCONCLUSIVE', 'hardware_acceptance': False,
+                'stop_required': True, 'power_armed': True, 'immediate': True, 'in_flight': True,
+                'command_submitted': False, 'retry_allowed': False, 'dispatch_state': 'preparing',
+                'dispatch_deadline_monotonic': time.monotonic() + 5, 'cancelled': False,
+                'started_at': diagnostics.timestamp(),
+                'message': 'Stopping diagnostics now. Unsaved reports may be lost; physical outcome is unobserved.'}
+            self._power_now = record
+            self.jobs.preempt()
+            def dispatch(identifier):
+                record['job_id'] = identifier
+                entered_call = False
+                try:
+                    record['worker_groups_killed'] = self._kill_power_workers()
+                    record['graphics_units_killed'] = self._kill_power_graphics()
+                    with self._power_guard_lock:
+                        if (record['cancelled'] or self._power_now is not record
+                                or time.monotonic() >= record['dispatch_deadline_monotonic']):
+                            raise TimeoutError('Power preparation expired before submission.')
+                        record.update(command_submitted=True, in_flight=False,
+                            dispatch_state='issuing_shutdown' if operation == 'shutdown' else 'issuing_kernel_restart',
+                            message='Power requested now; physical outcome is unobserved. Unsaved reports may be lost.')
+                    self._power_ram_record(record)
+                    # Publish a completed RAM job before entering a kernel call
+                    # which may never return. No service/worker/USB wait occurs.
+                    with self.jobs.guard:
+                        self.jobs.records[identifier].update(state='completed', result=dict(record),
+                                                             completed_at=diagnostics.timestamp())
+                        if self.jobs.active == identifier:
+                            self.jobs.active = None
+                    entered_call = True
+                    self._power_kernel_call(operation)
+                    record.update(dispatch_state='request_returned_physical_outcome_unobserved')
+                except Exception as error:
+                    definite_refusal = isinstance(error, OSError) and error.errno in (1, 22, 38)
+                    retry = not entered_call or definite_refusal
+                    record.update(dispatch_state='failed_no_retry', command_submitted=not retry,
+                        retry_allowed=retry, message='Power request failed: ' + safe_error(error)[:300]
+                            + (' Request was not sent; confirm again to retry.' if retry else ' Outcome is uncertain; no duplicate request will be sent.'))
+                record['in_flight'] = False
+                record['completed_at'] = diagnostics.timestamp()
+                if self._power_now is record:
+                    try:
+                        self._power_ram_record(record)
+                    except (OSError, ValueError):
+                        pass
+                return record
+            job = self.jobs.submit_now(POWER_OPERATIONS[operation], dispatch)
+            record.setdefault('job_id', job['id'])
+            return job
+
+    def _expire_power_now(self):
+        record = self._power_now
+        if (record and record.get('immediate') is True and record.get('in_flight') is True
+                and record.get('command_submitted') is not True
+                and (time.monotonic() >= record.get('dispatch_deadline_monotonic', 0)
+                     or record.get('job_id') and record['job_id'] not in self.jobs.records)):
+            record.update(cancelled=True, in_flight=False, retry_allowed=True, dispatch_state='failed_no_retry',
+                          message='Power request was not submitted. Confirm again to retry.')
+
+    def _power_now_status(self):
+        if self._power_guard_lock.acquire(blocking=False):
+            try:
+                self._expire_power_now()
+            finally:
+                self._power_guard_lock.release()
+        record = self._power_now
+        blocked = bool(self._power_uncertain or record and (record.get('command_submitted') or record.get('in_flight')))
+        policy = {'available': not blocked, 'experimental': True,
+                  'reason': self._power_uncertain or (record['message'] if blocked else 'Stops diagnostics immediately; unsaved reports may be lost.')}
+        result = {operation: dict(policy, title=title) for operation, title in POWER_OPERATIONS.items()}
+        if record:
+            result['current_request'] = dict(summary(record), operation=record['operation'],
+                dispatch_state=record['dispatch_state'], retry_allowed=record.get('retry_allowed', False),
+                ram_record_saved=record.get('ram_record_saved', False), ram_record_error=record.get('ram_record_error'))
+        return result
+
+    def _power_records(self):
+        records, total = [], 0
+        for index, path in enumerate(self.results_dir.glob('*/result.json')):
+            if index >= 4096: raise ValueError('Power preparation needs a bounded reviewed report directory.')
+            total += path.stat().st_size
+            if total > 128 * 1024**2: raise ValueError('Power report review exceeds its 128 MiB budget.')
+            record = diagnostics.read_json(path)
+            if not isinstance(record, dict): raise ValueError('A saved report is malformed; inspect Reports first.')
+            records.append(record)
+        return records
+
+    def _power_guard(self, operation, *, within_job=False, ignore_run=None):
+        if operation not in POWER_OPERATIONS: raise ValueError('Choose Shutdown or Reboot to Orbis.')
+        auxiliary = self.runner.fs.root / 'sys/module/psx_sbram'
+        if auxiliary.exists() or auxiliary.is_symlink():
+            raise ValueError('Auxiliary-memory experiment active; use its recovery procedure.')
+        if self.jobs.active and not within_job: raise BusyError('Finish the current test before a power action.')
+        identity = self.runner.identity()
+        if (not identity.get('release_matches') or not identity.get('manifest_available')
+                or str(uuid.UUID(identity.get('boot_id', ''))) != identity.get('boot_id')):
+            raise ValueError('Power actions require the exact verified diagnostic boot.')
+        adapter = self.runner.uvd_adapter()
+        manifest = diagnostics.read_json(self.runner.fs.root / self.runner.manifest_path.lstrip('/'))
+        if manifest.get('profile') not in POWER_PROFILES:
+            raise ValueError('This build has no reviewed diagnostic power path.')
+        adapter.select_contract(manifest)
+        validation = manifest.get('manifest_validation', {})
+        if (not isinstance(validation, dict) or validation.get('embedded_root_contract_verified') is not True
+                or validation.get('observed_kernel_release') != identity['kernel_release']
+                or validation.get('observed_media_initramfs_sha256') != manifest.get('initramfs_sha256')
+                or any(not re.fullmatch(r'[0-9a-f]{64}', str(manifest.get(key, '')))
+                       for key in ('initramfs_sha256', 'rootfs_sha256'))
+                or manifest.get('required_boot_arguments') != adapter.POWEROFF_BOOT_ARGUMENTS):
+            raise ValueError('The running root/boot-set contract is not verified.')
+        args = (self.runner.fs.text('/proc/cmdline') or '').split()
+        for argument in adapter.POWEROFF_BOOT_ARGUMENTS:
+            key = argument.split('=')[0]
+            if ([value for value in args if value.split('=')[0] == key] != [argument]
+                    or self.runner.fs.text('/sys/module/amdgpu/parameters/' + key.split('.')[1]) not in ('Y', '1')):
+                raise ValueError('The experimental power-off gates are missing or ambiguous.')
+        intent = self._power_intent_path(identity)
+        if intent.exists() or intent.is_symlink():
+            reserved = diagnostics.read_json(intent)
+            if (not isinstance(reserved, dict) or reserved.get('run_id') != ignore_run
+                    or reserved.get('operation') != operation or reserved.get('power_armed') is not True
+                    or reserved.get('identity') != identity):
+                raise ValueError('A power request is already recorded; do not retry it.')
+        marker = adapter.marker_path(self.runner, identity['boot_id'])
+        uvd_intent = diagnostics.read_json(marker) if marker.exists() or marker.is_symlink() else None
+        if uvd_intent is not None and (not isinstance(uvd_intent, dict)
+                or uvd_intent.get('schema_version') != 1 or uvd_intent.get('boot_id') != identity['boot_id']
+                or not isinstance(uvd_intent.get('run_id'), str) or not uvd_intent['run_id']
+                or uvd_intent.get('stop_required') is not True):
+            raise ValueError('The UVD attempt is malformed; use physical recovery.')
+        records = self._power_records()
+        matching_uvd = None
+        for record in records:
+            if not isinstance(record.get('identity'), dict):
+                raise ValueError('A saved report identity is malformed; inspect Reports first.')
+            if record.get('identity', {}).get('boot_id') != identity['boot_id'] or record.get('run_id') == ignore_run: continue
+            if record.get('phase') != 'completed': raise ValueError('A report is unfinished; inspect Reports before a power action.')
+            if record.get('test_id') == 'browser.batch' and record.get('closed') is not True:
+                raise ValueError('A browser batch has not durably confirmed closing; wait for its final report.')
+            post_uvd = (uvd_intent and record.get('run_id') == uvd_intent.get('run_id')
+                and record.get('test_id') in ('uvd.avc', 'uvd.native720', 'uvd.native1080')
+                and record.get('status') == 'PASS' and record.get('hardware_acceptance') is False
+                and all(record.get('identity', {}).get(key) == identity.get(key) for key in
+                    ('boot_id', 'kernel_release', 'manifest_sha256', 'runner_sha256', 'catalogue_sha256')))
+            if post_uvd: matching_uvd = record
+            if record.get('stop_required') and not post_uvd and not self.reviewed_setup_failure(record):
+                raise ValueError('A saved fault requires physical recovery; power actions are unavailable.')
+        if uvd_intent and (not matching_uvd or uvd_intent.get('manifest_sha256') != identity['manifest_sha256']):
+            raise ValueError('The UVD attempt has no matching completed PASS; use physical recovery.')
+        batch = self._browser_batch
+        if (batch and batch['record'].get('identity', {}).get('boot_id') == identity['boot_id']
+                and (not batch['finished'] or batch['record'].get('stop_required') or batch['record'].get('closed') is not True)):
+            raise ValueError('Finish the browser batch and inspect any error before a power action.')
+        media = self.runner.fs.root / 'run/psx-media/psx-diagnostics/installed.json'
+        receipt = diagnostics.read_json(media)
+        if (not isinstance(receipt, dict) or not isinstance(receipt.get('files'), dict)
+                or receipt.get('owner') != 'psx-diagnostics-usb-v1' or receipt.get('verified_readback') is not True
+                or receipt.get('profile') != manifest.get('profile')
+                or 'image_version' in receipt and receipt['image_version'] != manifest.get('image_version')
+                or receipt.get('kernel_release') != identity['kernel_release']
+                or any(receipt.get('files', {}).get(name) != manifest.get(key) for name, key in
+                    (('bzImage', 'kernel_sha256'), ('initramfs.cpio.gz', 'initramfs_sha256'),
+                     ('psx-diagnostics/rootfs.ext4', 'rootfs_sha256')))):
+            raise ValueError('The diagnostic USB ownership receipt does not match this boot.')
+        return identity
+
+    def power_status(self, identity=None):
+        if self._power_boot is not None:
+            return self._power_now_status()
+        # Both operations have the same eligibility policy. Inspect saved
+        # history only after an action/identity change or the short cache TTL.
+        # Confirmation and dispatch always reread all guards independently.
+        identity = identity or self.runner.identity()
+        auxiliary = self.runner.fs.root / 'sys/module/psx_sbram'
+        intent = self._power_intent_path(identity)
+        batch = self._browser_batch
+        # Dispatch happens after the durable job snapshot. Its small current
+        # outcome must stay fresh even while the eligibility scan is cached.
+        dispatch = self._power_dispatch_outcome(identity, include_pending=True)
+        key = (self.jobs.revision, identity.get('boot_id'), identity.get('manifest_sha256'),
+               identity.get('release_matches'), auxiliary.exists() or auxiliary.is_symlink(),
+               intent.exists() or intent.is_symlink(),
+               (batch['finished'], batch['record'].get('stop_required'), batch['record'].get('closed')) if batch else None,
+               (dispatch['dispatch_state'], dispatch['message']) if dispatch else None)
+        now = time.monotonic()
+        cached = self._power_status_cache
+        if cached and cached[0] == key and now < cached[1]:
+            return cached[2]
+        try:
+            self._power_guard('shutdown')
+            policy = {'available': True, 'experimental': True}
+        except (OSError, ValueError, ImportError, KeyError, TypeError) as error:
+            policy = {'available': False, 'reason': safe_error(error)}
+        if dispatch and dispatch['dispatch_state'] == 'failed_no_retry':
+            policy = {'available': False, 'reason': dispatch['message']}
+        result = {operation: dict(policy, title=title) for operation, title in POWER_OPERATIONS.items()}
+        if dispatch:
+            current = summary(dispatch)
+            current.update(operation=dispatch['operation'], dispatch_state=dispatch['dispatch_state'])
+            messages = {
+                'preparing': 'Preparing the confirmed power request. Reports are saved.',
+                'not_sent': 'Preparing the power request: synchronizing storage.',
+                'issuing_forced_icc_restart': 'Requesting a restart to Orbis; physical outcome is unobserved.',
+                'issuing_kernel_restart': 'Requesting Linux restart to Orbis; physical outcome is unobserved.',
+                'issuing_shutdown': 'Requesting shutdown; physical outcome is unobserved.',
+                'request_returned_physical_outcome_unobserved': 'Power request sent; physical outcome is unobserved.',
+            }
+            if dispatch.get('dispatch_phase') in POWER_PHASES:
+                current.update(dispatch_phase=dispatch['dispatch_phase'],
+                               dispatch_phase_state=dispatch['dispatch_phase_state'])
+                current['message'] = dispatch['message']
+            else:
+                current['message'] = messages.get(dispatch['dispatch_state'], dispatch['message'])
+            result['current_request'] = current
+        self._power_status_cache = (key, now + 5, result)
+        return result
+
+    def _power_dispatch_outcome(self, identity, *, include_pending=False):
+        """Only the bounded, reserved current-boot outcome can replace a report."""
+        if self._power_now and self._power_now.get('identity') == identity:
+            return dict(self._power_now)
+        try:
+            intent = _power_read_json(self._power_intent_path(identity))
+            if (not isinstance(intent, dict) or intent.get('power_armed') is not True
+                    or intent.get('operation') not in POWER_OPERATIONS
+                    or intent.get('phase') != 'completed' or intent.get('status') != 'INCONCLUSIVE'
+                    or intent.get('hardware_acceptance') is not False or intent.get('stop_required') is not True
+                    or intent.get('test_id') != 'power.' + intent['operation'] + '.request'
+                    or not isinstance(intent.get('identity'), dict)
+                    or any(intent['identity'].get(key) != identity.get(key) for key in
+                           ('boot_id', 'kernel_release', 'manifest_sha256', 'runner_sha256', 'catalogue_sha256'))
+                    or not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}', str(intent.get('run_id', '')))):
+                return None
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        # The USB report is an optional fallback if the RAM outcome could not
+        # be written. Never remount a read-only USB merely to update a report.
+        for path in (self.runner.fs.root / 'run/psx-diagnostics/power-dispatch.json',
+                     self.results_dir / intent['run_id'] / 'result.json'):
+            try:
+                record = _power_read_json(path)
+                if (not isinstance(record, dict) or record.get('identity') != intent['identity']
+                        or record.get('run_id') != intent['run_id'] or record.get('operation') != intent['operation']
+                        or record.get('test_id') != 'power.' + intent['operation'] + '.request'
+                        or record.get('hardware_acceptance') is not False or record.get('stop_required') is not True
+                        or record.get('phase') != 'completed' or record.get('status') != 'INCONCLUSIVE'
+                        or record.get('dispatch_state') not in ('preparing', 'not_sent', 'issuing_forced_icc_restart', 'issuing_kernel_restart',
+                            'issuing_shutdown', 'request_returned_physical_outcome_unobserved', 'failed_no_retry')
+                        or 'dispatch_phase' in record and (record['dispatch_phase'] not in POWER_PHASES
+                            or record.get('dispatch_phase_state') not in ('started', 'returned', 'failed'))
+                        or not isinstance(record.get('message'), str) or len(record['message']) > 1000):
+                    continue
+                return record
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+        if include_pending:
+            return dict(intent, dispatch_state='preparing',
+                        message='Preparing the confirmed power request. Reports are saved.')
+        return None
+
+    def _power_phase(self, outcome, phase, state):
+        """Fixed data-only progress before/after a call, never a retry/deadline."""
+        if phase not in POWER_PHASES or state not in ('started', 'returned', 'failed'):
+            raise ValueError('Unknown power progress phase')
+        outcome.update(dispatch_phase=phase, dispatch_phase_state=state,
+                       dispatch_phase_at=diagnostics.timestamp(), dispatch_monotonic_ns=time.monotonic_ns())
+        if state != 'failed':
+            outcome['message'] = POWER_PHASES[phase][state == 'returned']
+        path = self.runner.fs.root / 'run/psx-diagnostics/power-dispatch.json'
+        outcome['uart_marker_written'] = False
+        diagnostics.atomic_json(path, outcome)
+        self._power_status_cache = None
+        line = (f"PSX_POWER_V1 boot={outcome['identity']['boot_id']} run={outcome['run_id']} "
+                f"operation={outcome['operation']} phase={phase} state={state} "
+                f"monotonic_ns={outcome['dispatch_monotonic_ns']} physical=unobserved\n").encode('ascii')
+        # Kernel INFO follows the existing UART console. Nonblocking, bounded
+        # writes never use a host device from a synthetic root, even when a
+        # dispatch test deliberately clears FixtureFS.fixture.
+        written = False
+        if not self.runner.fs.fixture and self.runner.fs.root == Path('/') and len(line) <= 512:
+            try:
+                fd = os.open('/dev/kmsg', os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW)
+                try:
+                    if stat.S_ISCHR(os.fstat(fd).st_mode):
+                        written = os.write(fd, b'<6>' + line) == len(line) + 3
+                finally:
+                    os.close(fd)
+            except OSError:
+                pass
+        if written:
+            outcome['uart_marker_written'] = True
+            diagnostics.atomic_json(path, outcome)
+
+    @contextlib.contextmanager
+    def _power_dispatch_lock(self):
+        # Same flock as Runner.lock(), but a read-only fd must survive the FAT
+        # remount. Runner.lock() opens for append and would keep a writer open.
+        path = self.results_dir / '.runner.lock'
+        if path.resolve() != path: raise ValueError('The diagnostic lock path contains a symlink.')
+        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode): raise ValueError('The diagnostic lock is not a regular file.')
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise ValueError('Another diagnostic run owns this results directory; power was not sent.') from error
+            try:
+                yield
+            finally:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+    def _power_flush(self):
+        directories, count = set(), 0
+        for base, dirs, files in os.walk(self.results_dir, followlinks=False):
+            directory = Path(base)
+            if directory.resolve() != directory or any((directory / name).is_symlink() for name in dirs):
+                raise ValueError('Report directories contain a symlink; power preparation stopped.')
+            directories.add(directory)
+            for name in files:
+                count += 1
+                if count > 32768: raise ValueError('Too many report files to flush in this action.')
+                path = directory / name
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                try:
+                    if not stat.S_ISREG(os.fstat(fd).st_mode): raise ValueError('Report entry is not a regular file.')
+                    os.fsync(fd)
+                finally: os.close(fd)
+        for directory in sorted(directories, key=lambda path: len(path.parts), reverse=True):
+            diagnostics.fsync_directory(directory)
+
+    def prepare_power(self, operation):
+        identity = self._power_guard(operation, within_job=True)
+        run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
+        with self.runner.lock():
+            directory = self.results_dir / run_id; directory.mkdir(mode=0o700)
+            record = {'schema_version': 1, 'run_id': run_id, 'test_id': 'power.' + operation + '.request',
+                'title': POWER_OPERATIONS[operation], 'identity': identity, 'phase': 'running', 'status': 'INCONCLUSIVE',
+                'started_at': diagnostics.timestamp(), 'message': 'Checking the confirmed power request.',
+                'power_armed': False, 'operation': operation, 'stop_required': False, 'hardware_acceptance': False,
+                'result_directory': str(directory)}
+            kernel_restart = identity['kernel_release'] == KERNEL_RESTART_RELEASE
+            record['power_path'] = ('software-poweroff' if operation == 'shutdown' else
+                                    'kernel-restart' if kernel_restart else 'forced-icc-restart')
+            record['limitations'] = ('Experimental retained-DMA power-off; wider cleanup and repeated cycles are unproved.'
+                if operation == 'shutdown' else
+                'Ordinary Linux reboot retains UVD backing until the atomic Baikal ICC restart. Hardware qualification is pending.'
+                if kernel_restart else
+                'Linux reboot teardown is skipped. One dev3 sequence was observed; dev4 preserves the ICC source path but has no separate observed restart acceptance.')
+            record['operator_evidence'] = 'Keep UART capture through the planned power experiment; a returned command or lost connection does not prove the physical outcome.'
+            diagnostics.atomic_json(directory / 'result.json', record)
+            self.runner.log = diagnostics.Evidence(directory, self.jobs.event)
+            self.runner.commands = []
+            try:
+                states = self._wayland_states()
+                if any(value != 'inactive' for name, value in states.items() if name != DIAGNOSTICS_UNIT):
+                    raise ValueError('Close browser and graphics tests before a power action.')
+                self._power_mounts()
+            except (OSError, ValueError, subprocess.SubprocessError) as error:
+                record.update(phase='completed', status='BLOCKED', message=safe_error(error),
+                    completed_at=diagnostics.timestamp(), commands=self.runner.commands)
+                diagnostics.atomic_json(directory / 'result.json', record)
+                return record
+            record.update(phase='completed', power_armed=True, stop_required=True,
+                completed_at=diagnostics.timestamp(), commands=self.runner.commands,
+                message='Reports saved; confirmed power request is pending. Physical outcome is not observed.')
+            diagnostics.atomic_json(directory / 'result.json', record)
+            path = self._power_intent_path(identity); path.parent.mkdir(mode=0o700, exist_ok=True)
+            parent = path.parent.stat()
+            if (path.parent.resolve() != path.parent or parent.st_uid != (os.geteuid() if self.runner.fs.fixture else 0)
+                    or parent.st_mode & 0o077):
+                raise ValueError('Power intent directory is not private.')
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, 'w') as stream:
+                json.dump(record, stream); stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
+            diagnostics.fsync_directory(path.parent)
+            progress = dict(record, dispatch_state='preparing')
+            self._power_phase(progress, 'prepare.flush', 'started')
+            try:
+                self._power_flush()
+            except (OSError, ValueError) as error:
+                progress.update(dispatch_state='failed_no_retry',
+                    message='Power preparation failed: ' + safe_error(error)[:300] + ' Do not retry; use recovery.')
+                try:
+                    self._power_phase(progress, 'prepare.flush', 'failed')
+                except OSError:
+                    pass
+                raise
+            self._power_phase(progress, 'prepare.flush', 'returned')
+        return record
+
+    def _power_mounts(self):
+        raw = self.runner.fs.data('/proc/self/mountinfo', 1024**2 + 1)
+        if raw is None or len(raw) > 1024**2: raise ValueError('Mount evidence is missing or exceeds its limit.')
+        text = raw.decode('utf-8', 'replace')
+        result = {}
+        for line in text.splitlines():
+            fields = line.split()
+            if len(fields) < 10 or '-' not in fields: raise ValueError('Mount evidence is incomplete.')
+            separator = fields.index('-')
+            if separator < 6 or len(fields) != separator + 4: raise ValueError('Mount evidence is incomplete.')
+            mountpoint = fields[4]
+            if mountpoint in ('/', '/run/psx-media'):
+                if mountpoint in result: raise ValueError('Mount evidence is ambiguous.')
+                result[mountpoint] = (set(fields[5].split(',')), fields[separator + 1], fields[separator + 2])
+        if ('/' not in result or '/run/psx-media' not in result or 'ro' not in result['/'][0]
+                or result['/'][1] != 'ext4' or not re.fullmatch(r'/dev/loop[0-9]+', result['/'][2])
+                or result['/run/psx-media'][1] != 'vfat'):
+            raise ValueError('Power actions require the reviewed read-only loop root and diagnostic FAT USB.')
+        return result
+
+    @contextlib.contextmanager
+    def _power_icc_device(self):
+        """Open only the protected ICC node on the reviewed device mount."""
+        if self.runner.fs.fixture or self.runner.fs.root != Path('/'):
+            raise ValueError('Fixture roots never open the ICC power device.')
+        node = '/dev/psx-diagnostics-power/icc'
+        raw = self.runner.fs.data('/proc/self/mountinfo', 1024**2 + 1)
+        if raw is None or len(raw) > 1024**2:
+            raise ValueError('ICC device mount evidence is missing or exceeds its limit.')
+        device_mount = None
+        for line in raw.decode('utf-8', 'strict').splitlines():
+            fields = line.split()
+            if len(fields) < 10 or '-' not in fields:
+                raise ValueError('ICC device mount evidence is incomplete.')
+            separator = fields.index('-')
+            if separator < 6 or len(fields) != separator + 4:
+                raise ValueError('ICC device mount evidence is incomplete.')
+            mountpoint = fields[4]
+            if mountpoint == '/dev':
+                if device_mount is not None:
+                    raise ValueError('ICC device mount evidence is ambiguous.')
+                device_mount = (fields[3], fields[separator + 1],
+                                set(fields[5].split(',')) | set(fields[separator + 3].split(',')))
+            elif mountpoint != '/' and (node == mountpoint or node.startswith(mountpoint.rstrip('/') + '/')):
+                raise ValueError('The ICC power path has an unexpected covering mount.')
+        if (device_mount is None or device_mount[:2] != ('/', 'devtmpfs')
+                or 'rw' not in device_mount[2] or {'ro', 'nodev'} & device_mount[2]):
+            raise ValueError('The ICC power device requires writable /dev devtmpfs without nodev.')
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        expected_device = os.makedev(73, 0)
+
+        def valid_node(info):
+            return (stat.S_ISCHR(info.st_mode) and info.st_uid == 0 and info.st_gid == 0
+                    and stat.S_IMODE(info.st_mode) == 0o600 and info.st_rdev == expected_device)
+
+        with contextlib.ExitStack() as cleanup:
+            dev_fd = os.open('/dev', directory_flags)
+            cleanup.callback(os.close, dev_fd)
+            dev = os.fstat(dev_fd)
+            if (not stat.S_ISDIR(dev.st_mode) or dev.st_uid != 0 or dev.st_gid != 0
+                    or dev.st_mode & 0o022):
+                raise ValueError('The device directory is not protected.')
+            try: os.mkdir('psx-diagnostics-power', 0o700, dir_fd=dev_fd)
+            except FileExistsError: pass
+            parent_fd = os.open('psx-diagnostics-power', directory_flags, dir_fd=dev_fd)
+            cleanup.callback(os.close, parent_fd)
+            parent = os.fstat(parent_fd)
+            if (not stat.S_ISDIR(parent.st_mode) or parent.st_uid != 0 or parent.st_gid != 0
+                    or stat.S_IMODE(parent.st_mode) != 0o700 or parent.st_dev != dev.st_dev):
+                raise ValueError('The ICC power directory is not protected.')
+            try: info = os.stat('icc', dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                os.mknod('icc', stat.S_IFCHR | 0o600, expected_device, dir_fd=parent_fd)
+                info = os.stat('icc', dir_fd=parent_fd, follow_symlinks=False)
+            if not valid_node(info) or info.st_dev != parent.st_dev:
+                raise ValueError('The fixed ICC power node is not protected.')
+            descriptor = os.open('icc', os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+            cleanup.callback(os.close, descriptor)
+            opened = os.fstat(descriptor)
+            if not valid_node(opened) or (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+                raise ValueError('The opened ICC power node differs from the protected node.')
+            yield descriptor
+
+    def _power_icc_restart(self):
+        if self.runner.fs.fixture or self.runner.fs.root != Path('/'):
+            raise ValueError('Fixture roots never execute ICC or power commands.')
+        if not re.search(r'^\s*73\s+icc\s*$', self.runner.fs.text('/proc/devices') or '', re.M):
+            raise ValueError('The fixed ICC character driver is absent.')
+        for index, process in enumerate(path for path in Path('/proc').iterdir() if path.name.isdigit()):
+            if index >= 8192: raise ValueError('ICC caller inventory exceeds its limit.')
+            try:
+                for number, entry in enumerate((process / 'fd').iterdir()):
+                    if number >= 4096: raise ValueError('ICC descriptor inventory exceeds its limit.')
+                    try: info = entry.stat()
+                    except FileNotFoundError: continue
+                    if stat.S_ISCHR(info.st_mode) and os.major(info.st_rdev) == 73:
+                        raise ValueError('Another ICC caller is active; restart was not sent.')
+            except FileNotFoundError: continue
+        class Command(ctypes.Structure):
+            _fields_ = [('major', ctypes.c_uint8), ('minor', ctypes.c_uint16), ('data', ctypes.c_void_p),
+                       ('length', ctypes.c_uint16), ('reply', ctypes.c_void_p), ('reply_length', ctypes.c_uint16)]
+        if ctypes.sizeof(Command) != 40: raise ValueError('ICC command ABI differs.')
+        payload = ctypes.create_string_buffer(bytes.fromhex('000102000100'))
+        command = Command(4, 1, ctypes.addressof(payload), 6, None, 0)
+        with self._power_icc_device() as descriptor:
+            fcntl.ioctl(descriptor, 0xc0284901, bytearray(bytes(command)), True)
+
+    def dispatch_power(self, record):
+        if not record.get('power_armed'): return
+        outcome = dict(record, dispatch_state='not_sent')
+        path = self.runner.fs.root / 'run/psx-diagnostics/power-dispatch.json'
+        errors = (OSError, ValueError, ImportError, KeyError, TypeError, subprocess.SubprocessError)
+        def failed(error):
+            reason = ('A power preparation command failed or timed out.' if isinstance(error, subprocess.SubprocessError)
+                      else safe_error(error)[:300])
+            outcome.update(dispatch_state='failed_no_retry', message='Power request failed: ' + reason + ' Do not retry; use recovery.')
+            try:
+                self._power_phase(outcome, outcome.get('dispatch_phase', 'dispatch.lock'), 'failed')
+            except OSError:
+                pass
+        try:
+            if self.runner.fs.fixture: raise ValueError('Fixture roots never execute actual power commands.')
+            self._power_phase(outcome, 'dispatch.lock', 'started')
+            with self._power_dispatch_lock():
+                try:
+                    self._power_phase(outcome, 'dispatch.lock', 'returned')
+                    self._power_phase(outcome, 'dispatch.guard', 'started')
+                    self._power_guard(record['operation'], ignore_run=record['run_id'])
+                    self._power_phase(outcome, 'dispatch.guard', 'returned')
+                    self._power_phase(outcome, 'dispatch.flush', 'started')
+                    self._power_flush()
+                    self._power_phase(outcome, 'dispatch.flush', 'returned')
+                    self._power_phase(outcome, 'dispatch.mounts', 'started')
+                    mounts = self._power_mounts()
+                    self._power_phase(outcome, 'dispatch.mounts', 'returned')
+                    def checked(argv):
+                        subprocess.run(argv, check=True, timeout=30, stdin=subprocess.DEVNULL,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    self._power_phase(outcome, 'dispatch.sync', 'started')
+                    checked(['/usr/bin/sync'])
+                    self._power_phase(outcome, 'dispatch.sync', 'returned')
+                    if record['operation'] == 'reboot-orbis':
+                        if 'rw' in mounts['/run/psx-media'][0]:
+                            self._power_phase(outcome, 'dispatch.remount', 'started')
+                            checked(['/usr/bin/mount', '-o', 'remount,ro', '/run/psx-media'])
+                            self._power_phase(outcome, 'dispatch.remount', 'returned')
+                        self._power_phase(outcome, 'dispatch.remount.verify', 'started')
+                        if 'ro' not in self._power_mounts()['/run/psx-media'][0]:
+                            raise ValueError('The diagnostic USB did not become read-only; restart was not sent.')
+                        self._power_phase(outcome, 'dispatch.remount.verify', 'returned')
+                        if record['identity']['kernel_release'] == KERNEL_RESTART_RELEASE:
+                            outcome['dispatch_state'] = 'issuing_kernel_restart'
+                            self._power_phase(outcome, 'dispatch.restart', 'started')
+                            checked(['/usr/bin/systemctl', 'reboot', '--no-block'])
+                            self._power_phase(outcome, 'dispatch.restart', 'returned')
+                        else:
+                            outcome['dispatch_state'] = 'issuing_forced_icc_restart'
+                            self._power_phase(outcome, 'dispatch.icc', 'started')
+                            self._power_icc_restart()
+                            self._power_phase(outcome, 'dispatch.icc', 'returned')
+                    else:
+                        outcome['dispatch_state'] = 'issuing_shutdown'
+                        self._power_phase(outcome, 'dispatch.shutdown', 'started')
+                        checked(['/usr/bin/systemctl', 'poweroff', '--no-block'])
+                        self._power_phase(outcome, 'dispatch.shutdown', 'returned')
+                    outcome.update(dispatch_state='request_returned_physical_outcome_unobserved',
+                                   message='Power request sent; physical outcome is not observed.')
+                except errors as error:
+                    failed(error)
+                if outcome['dispatch_state'] == 'failed_no_retry':
+                    try:
+                        if 'rw' in self._power_mounts()['/run/psx-media'][0]:
+                            report = self.results_dir / record['run_id'] / 'result.json'
+                            original = _power_read_json(report)
+                            if original.get('identity') == record['identity'] and original.get('run_id') == record['run_id']:
+                                diagnostics.atomic_json(report, outcome)
+                    except errors:
+                        pass
+        except errors as error:
+            failed(error)
+        try:
+            diagnostics.atomic_json(path, outcome)
+        except OSError:
+            pass
+        with self.jobs.guard:
+            record.update(outcome)
+        self._power_status_cache = None
 
     def core_prerequisites(self, selected_id, allow_run=True, cpu_only=False):
         """Core checks are a functional baseline, never hardware qualification.
@@ -712,7 +1678,7 @@ class Controller:
             prepare = Path('/run/psx-frontend/prepare-chromium-provider')
             if not prepare.is_file():
                 prepare = Path('/usr/lib/psx-diagnostics/prepare-chromium-provider')
-            subprocess.run(['/usr/bin/python3', str(prepare)], check=True, timeout=60, capture_output=True)
+            self._cancellable_capture(['/usr/bin/python3', str(prepare)], check=True, timeout=60, capture_output=True)
         nonce = secrets.token_urlsafe(24) if automatic else None
         if automatic:
             batch_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
@@ -732,7 +1698,7 @@ class Controller:
                                        'record': record, 'service': None, 'run_ids': [], 'claimed': False,
                                        'deadline': time.monotonic() + 90, 'finished': False}
         try:
-            launched = subprocess.run([str(helper), *(['--automatic'] if automatic else []), app], check=True, timeout=15, capture_output=True)
+            launched = self._cancellable_capture([str(helper), *(['--automatic'] if automatic else []), app], check=True, timeout=15, capture_output=True)
             if automatic:
                 if not isinstance(launched.stdout, (str, bytes)) or len(launched.stdout) > 16384:
                     raise ValueError('Invalid graphical launcher receipt')
@@ -872,8 +1838,8 @@ class Controller:
             allowed = {f'psx-diagnostics-{kind}{app}.service' for kind in ('window-', 'graphics@') for app in ('browser', 'chromium')}
             if service in allowed:
                 try:
-                    subprocess.run(['/usr/bin/systemctl', 'stop', service], check=True, timeout=12,
-                                   stdin=subprocess.DEVNULL, capture_output=True)
+                    self._cancellable_capture(['/usr/bin/systemctl', 'stop', service], check=True, timeout=12,
+                                              capture_output=True)
                     record['closed'] = True
                 except (OSError, subprocess.SubprocessError):
                     close_error = 'The browser service did not confirm closure.'
@@ -919,7 +1885,7 @@ class Controller:
             return self._finish_browser_batch(batch, report['error'])
 
     def request(self, action, params=None):
-        if isinstance(action, str) and action in ("state", "job.get", "results.list"):
+        if isinstance(action, str) and action in ("state", "job.get", "results.list", "power.execute"):
             return self._request(action, params)
         with self.action_guard:
             return self._request(action, params)
@@ -932,12 +1898,15 @@ class Controller:
                    "test.run": {"test_id", "parameters", "retry_reason"}, "network.scan": set(),
                    "network.wifi.connect": {"ssid", "password"}, "network.ethernet.connect": set(),
                    "network.wifi.disconnect": set(), "network.ethernet.disconnect": set(),
-                   "graphics.launch": {"app"}, "graphics.wayland": set(), "uvd.scenario": {"scenario"}, "result.observe": {"run_id", "answer"},
+                   "graphics.launch": {"app"}, "graphics.wayland": set(), "uvd.scenario": {"scenario"},
+                   "power.execute": {"operation", "confirm"}, "result.observe": {"run_id", "answer"},
                    "settings.set": {"theme", "font_family", "font_size"},
                    "ssh.info": set(), "ssh.github.preview": {"username"}, "ssh.github.add": {"preview_id"},
                    "ssh.password.enable": set(), "ssh.password.disable": set()}
         if action not in allowed or set(params) - allowed[action]:
             raise ValueError("Unknown action or parameter")
+        if action not in ('state', 'results.list', 'job.get', 'ssh.info'):
+            self._power_status_cache = None
         if action == "state":
             return self.state()
         if action == "results.list":
@@ -945,12 +1914,25 @@ class Controller:
         if action == "job.get":
             return self.jobs.get(params.get("id"))
         if action == "result.observe":
+            intent = self._power_intent_path(self.runner.identity())
+            if intent.exists() or intent.is_symlink():
+                raise ValueError('A power request is already recorded; report changes are unavailable.')
             return self.runner.observe(params.get("run_id", ""), params.get("answer", ""))
         if action == 'ssh.info':
             if self._ssh_setup_error:
                 return {'login': 'root', 'setup_available': False, 'password_enabled': False,
                         'key_fingerprints': [], 'github_available': False, 'message': self._ssh_setup_error}
             return self.ssh_access().info()
+        if action == 'power.execute':
+            operation = params.get('operation')
+            if (not isinstance(operation, str) or operation not in POWER_OPERATIONS
+                    or params.get('confirm') is not True):
+                raise ValueError('Choose one power action and confirm it explicitly.')
+            if self._power_boot is not None:
+                return self.request_power_now(operation)
+            self._power_guard(operation)
+            return self.jobs.submit(POWER_OPERATIONS[operation], lambda: self.prepare_power(operation),
+                                    after_save=self.dispatch_power)
         self.ready()
         if action.startswith('ssh.'):
             if self.jobs.active:
@@ -1024,9 +2006,9 @@ class Controller:
         if not helper.is_file():
             helper = Path('/usr/lib/psx-diagnostics/wait-graphics-wm')
         try:
-            response = subprocess.run(['/usr/bin/python3', str(helper), '--display-info'],
+            response = self._cancellable_capture(['/usr/bin/python3', str(helper), '--display-info'],
                 env={'PATH': '/usr/bin:/bin', 'HOME': '/root', 'DISPLAY': ':0',
-                     'XAUTHORITY': '/run/psx-desktop/Xauthority'}, stdin=subprocess.DEVNULL,
+                     'XAUTHORITY': '/run/psx-desktop/Xauthority'},
                 capture_output=True, text=True, timeout=3, check=True)
             if len(response.stdout) > 16384:
                 raise ValueError('Display report exceeds its bound')
@@ -1073,6 +2055,7 @@ class Controller:
                      message="Browser-local result; inspect renderer and client identity.",
                      browser_user_agent=user_agent[:512], evidence_scope="The browser that submitted this report; remote clients do not measure the console GPU.")
         diagnostics.atomic_json(directory / "result.json", value)
+        self._power_status_cache = None
         return value
 
     def browser_start(self, report, user_agent='', local=False):
@@ -1115,6 +2098,7 @@ class Controller:
                 self._browser_batch['run_ids'].append(run_id)
                 self._browser_batch['record']['run_ids'] = list(self._browser_batch['run_ids'])
                 diagnostics.atomic_json(self.results_dir / batch_id / 'batch.json', self._browser_batch['record'])
+        self._power_status_cache = None
         return {"run_id": run_id, "display_mode": display_mode}
 
 

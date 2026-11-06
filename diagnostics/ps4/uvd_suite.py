@@ -274,8 +274,9 @@ def run(runner, scenario, *, bundle=BUNDLE):
     try:
         identity, session, paths, harness, _ = adapter.preflight(runner)
         manifest = adapter.document(adapter.local(runner, runner.manifest_path), runner)
-        require(manifest.get('profile') in (PROFILE, 'ps4-baikal-diagnostics-uvd-alpha5'),
-                'Native scenario requires the exact matched alpha4/alpha5 build')
+        require(manifest.get('profile') in (PROFILE, 'ps4-baikal-diagnostics-uvd-alpha5',
+                                          'ps4-baikal-diagnostics-uvd-alpha6', 'ps4-baikal-diagnostics-uvd-alpha7'),
+                'Native scenario requires the exact matched alpha4/alpha5/alpha6/alpha7 build')
         native_paths, fixture, md5, inputs = verify_native(adapter, runner, scenario, bundle)
         require(not runner.fs.fixture, 'Fixture roots never spawn a real decoder')
         output = runner.log.directory / 'uvd-native-reference'

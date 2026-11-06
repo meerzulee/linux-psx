@@ -35,7 +35,7 @@ class AutoRunTests(unittest.TestCase):
         return SimpleNamespace(stdout=json.dumps({'started':True,'mode':app,'service':'psx-diagnostics-window-'+app+'.service'}))
 
     def test_nonce_is_local_family_specific_once_only_and_manual_modes_never_grant(self):
-        with mock.patch.object(APP.subprocess,'run',side_effect=self.receipt) as run:
+        with mock.patch.object(self.controller,'_cancellable_capture',side_effect=self.receipt) as run:
             self.controller.launch_graphics('chromium')
         self.assertEqual(run.call_args.args[0][-1],'chromium')
         self.assertIsNone(self.controller.browser_session('Firefox/154',True)['auto_run'])
@@ -44,9 +44,9 @@ class AutoRunTests(unittest.TestCase):
         self.assertEqual(grant['suite'],'baseline');self.assertRegex(grant['nonce'],r'^[A-Za-z0-9_-]{32}$')
         self.assertLessEqual(grant['expires_in_seconds'],60)
         self.assertIsNone(self.controller.browser_session('Chrome/151',True)['auto_run'])
-        with mock.patch.object(APP.subprocess,'run'):
+        with mock.patch.object(self.controller,'_cancellable_capture'):
             self.controller._finish_browser_batch(self.controller._browser_batch,'Fixture test finished')
-        with mock.patch.object(APP.subprocess,'run') as run:self.controller.launch_graphics('browser-manual')
+        with mock.patch.object(self.controller,'_cancellable_capture') as run:self.controller.launch_graphics('browser-manual')
         self.assertEqual(run.call_args.args[0][-1],'browser')
         self.assertIsNone(self.controller.browser_session('Firefox/154',True)['auto_run'])
 
@@ -55,20 +55,20 @@ class AutoRunTests(unittest.TestCase):
             pending=self.controller.browser_session('Firefox/154',True)
             self.assertTrue(pending['auto_pending']);self.assertIsNone(pending['auto_run'])
             return self.receipt(*_,**__)
-        with mock.patch.object(APP.subprocess,'run',side_effect=launch):self.controller.launch_graphics('browser')
+        with mock.patch.object(self.controller,'_cancellable_capture',side_effect=launch):self.controller.launch_graphics('browser')
         self.controller.jobs.active='launch-job'
         self.assertTrue(self.controller.browser_session('Firefox/154',True)['auto_pending'])
         self.controller.jobs.active=None
         self.assertIsNotNone(self.controller.browser_session('Firefox/154',True)['auto_run'])
 
     def test_expired_or_failed_launch_cannot_grant_or_replay(self):
-        with mock.patch.object(APP.time,'monotonic',return_value=100),mock.patch.object(APP.subprocess,'run',side_effect=self.receipt):
+        with mock.patch.object(APP.time,'monotonic',return_value=100),mock.patch.object(self.controller,'_cancellable_capture',side_effect=self.receipt):
             self.controller.launch_graphics('browser')
         with mock.patch.object(APP.time,'monotonic',return_value=161):
             self.assertIsNone(self.controller.browser_session('Firefox/154',True)['auto_run'])
-        with mock.patch.object(APP.subprocess,'run'):
+        with mock.patch.object(self.controller,'_cancellable_capture'):
             self.controller._finish_browser_batch(self.controller._browser_batch,'Fixture deadline expired')
-        with mock.patch.object(APP.subprocess,'run',side_effect=subprocess.CalledProcessError(1,'launch')):
+        with mock.patch.object(self.controller,'_cancellable_capture',side_effect=subprocess.CalledProcessError(1,'launch')):
             with self.assertRaises(subprocess.CalledProcessError):self.controller.launch_graphics('browser')
         self.assertIsNone(self.controller.browser_session('Firefox/154',True)['auto_run'])
 
@@ -83,7 +83,7 @@ class AutoRunTests(unittest.TestCase):
         self.assertNotIn('--no-sandbox',command)
 
     def test_protondb_is_manual_and_creates_no_browser_reports_or_auto_intent(self):
-        with mock.patch.object(APP.subprocess,'run',side_effect=self.receipt) as run:
+        with mock.patch.object(self.controller,'_cancellable_capture',side_effect=self.receipt) as run:
             result=self.controller.launch_graphics('protondb')
         self.assertEqual(run.call_count,1)
         self.assertEqual(run.call_args.args[0][-1],'protondb')
@@ -96,7 +96,7 @@ class AutoRunTests(unittest.TestCase):
 
     def test_protondb_uses_typed_launch_without_accepting_a_url_parameter(self):
         with mock.patch.object(self.controller.jobs,'submit',side_effect=lambda title,fn:fn()), \
-             mock.patch.object(APP.subprocess,'run',side_effect=self.receipt):
+             mock.patch.object(self.controller,'_cancellable_capture',side_effect=self.receipt):
             self.assertEqual(self.controller.request('graphics.launch',{'app':'protondb'})['app'],'protondb')
         with mock.patch.object(self.controller.jobs,'submit') as submit:
             with self.assertRaises(ValueError):self.controller.request('graphics.launch',{'app':'protondb','url':'https://example.invalid/'})

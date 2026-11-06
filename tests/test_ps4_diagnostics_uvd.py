@@ -33,6 +33,24 @@ def synthetic_firmware():
 
 
 class FirmwareContractTests(unittest.TestCase):
+    def test_alpha6_manifest_pins_combined_kernel_restart_and_preserved_poweroff(self):
+        profile = json.loads((ROOT / 'manifests/ps4-diagnostics-uvd-alpha6.json').read_text())
+        self.assertEqual(UVD.select_contract(profile), UVD.ALPHA6)
+        self.assertEqual(profile['required_boot_arguments'], UVD.POWEROFF_BOOT_ARGUMENTS)
+        self.assertEqual(profile['uvd_restart_experiment'], UVD.RESTART_EXPERIMENT)
+        self.assertTrue(profile['uvd_poweroff_semantics_unchanged_from_dev4'])
+        self.assertFalse(profile['uvd_sources_unchanged_from_dev3'])
+        self.assertFalse(profile['uvd_poweroff_experiment']['reboot_suspend_remove_reset_guards_unchanged'])
+        for key in ('kernel_sha256', 'config_sha256', 'modules_sha256'):
+            changed = dict(profile, **{key: 'fe' * 32})
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                UVD.select_contract(changed)
+        for key in ('healthy_runtime_required', 'first_close_required', 'retain_dma'):
+            changed = copy.deepcopy(profile)
+            changed['uvd_restart_experiment'][key] = 1
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, 'policy types'):
+                UVD.select_contract(changed)
+
     def test_alpha5_contract_keeps_dev3_poweroff_guards_and_distinct_sata_identity(self):
         selected = copy.deepcopy(UVD.ALPHA5)
         self.assertEqual(UVD.select_contract(selected), UVD.ALPHA5)
@@ -47,6 +65,21 @@ class FirmwareContractTests(unittest.TestCase):
             wrong = dict(selected, **{key: value})
             with self.subTest(key=key), self.assertRaises(ValueError):
                 UVD.select_contract(wrong)
+
+    def test_actual_alpha7_pins_and_terminal_policy_cannot_borrow_healthy_dev5_guards(self):
+        manifest=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha7.json').read_text())
+        self.assertEqual(UVD.select_contract(manifest),UVD.ALPHA7)
+        self.assertEqual(manifest['inherited_dev5_uvd_restart_experiment'],UVD.RESTART_EXPERIMENT)
+        self.assertFalse(manifest['uvd_restart_experiment']['healthy_runtime_required'])
+        self.assertTrue(manifest['uvd_restart_experiment']['startup_hw_init_completed_required'])
+        self.assertNotEqual(UVD.ALPHA7['kernel_sha256'],UVD.ALPHA6['kernel_sha256'])
+        for field in ('uvd_restart_experiment','inherited_dev5_uvd_restart_experiment','terminal_restart_fix'):
+            wrong=copy.deepcopy(manifest)
+            boolean=next(key for key,value in wrong[field].items() if type(value) is bool)
+            wrong[field][boolean]=int(wrong[field][boolean])
+            with self.subTest(field=field),self.assertRaises(ValueError):UVD.select_contract(wrong)
+        wrong=copy.deepcopy(manifest);wrong['uvd_restart_experiment']=copy.deepcopy(UVD.RESTART_EXPERIMENT)
+        with self.assertRaises(ValueError):UVD.select_contract(wrong)
 
     def test_exact_header_and_computed_crc_are_required_in_addition_to_hash(self):
         data, crc = synthetic_firmware()

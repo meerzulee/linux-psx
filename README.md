@@ -27,14 +27,17 @@ individual recorded builds; fresh builds and other consoles need their own tests
 | Vulkan / Mesa candidate | 🧪 Reference pixels and dev5 tests | ⏳ | ⏳ |
 | UVD / H.264 decode | 🧪 1080p, 900-frame reference match | ⏳ | ⏳ |
 | VCE encoding | ⏳ | ⏳ | ⏳ |
-| Ethernet | ✅ Native `psx0`, DHCP and traffic | ⏳ | ⏳ |
+| Ethernet | 🧪 DHCP / traffic; intermittent SSH stalls under investigation | ⏳ | ⏳ |
 | External USB root | ✅ Read/write boot | ⏳ | ⏳ |
 | Internal SATA | 🧪 Reads; historical hybrid RW | ⏳ | ⏳ |
 | Wi-Fi / Bluetooth audio | ✅ Reported with external firmware | ⏳ | ⏳ |
 | HDMI audio | 🧪 44.1 kHz command; audible check deferred; 48 kHz open | ⏳ | ⏳ |
 | Temperature / fan | 🧪 Historical temperature readings; fan unqualified | ⏳ | ⏳ |
 | Blu-ray / optical | 🧪 Device detected | ⏳ | ⏳ |
-| Power | 🧪 Power-off and forced restart observed | ⏳ | ⏳ |
+| Power | ✅ Shutdown / normal restart with UVD; ~1.1 s to ICC on dev5 | ⏳ | ⏳ |
+
+Power results: one corrected-image restart and one shutdown on this Slim;
+the new immediate Power path still needs its own hardware check.
 
 [Hardware evidence](diagnostics/SESSIONS.md) ·
 [Remaining tests](docs/CURRENT-FINISH-PLAN.md) ·
@@ -62,7 +65,7 @@ Example manufacturer peaks, **read / write in MB/s**; these are not PS4 benchmar
 
 A lightweight USB diagnostic system with a **1 GiB core boot-set cap**:
 network and SSH setup, readable hardware details, grouped reports, themes and
-font settings. Selected tests cover CPU/RAM, networking, X11/Wayland,
+font settings. A quick hardware Overview leads to the advanced tabbed tests. Selected tests cover CPU/RAM, networking, X11/Wayland,
 OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
 
 <p align="center">

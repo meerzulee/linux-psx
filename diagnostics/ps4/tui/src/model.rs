@@ -54,7 +54,7 @@ impl Category {
             Self::Storage => "Identify storage without opening or changing its contents.",
             Self::Reports => "Review this console's saved test results.",
             Self::Settings => "Choose a palette and graphical terminal font size.",
-            Self::Power => "Shutdown and reboot are unavailable in this build.",
+            Self::Power => "Save reports, then choose a confirmed power action.",
         }
     }
     pub fn compact_title(self) -> &'static str {
@@ -91,7 +91,7 @@ pub enum ActionKind {
     Report(Value),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PowerOption {
     Shutdown,
     Reboot,
@@ -100,8 +100,27 @@ impl PowerOption {
     pub fn title(self) -> &'static str {
         match self {
             Self::Shutdown => "Shutdown",
-            Self::Reboot => "Reboot",
+            Self::Reboot => "Reboot to Orbis",
         }
+    }
+    pub fn operation(self) -> &'static str {
+        match self {
+            Self::Shutdown => "shutdown",
+            Self::Reboot => "reboot-orbis",
+        }
+    }
+    pub fn available(self, state: &Value) -> bool {
+        state
+            .pointer(&format!("/power/{}/available", self.operation()))
+            .and_then(Value::as_bool)
+            == Some(true)
+    }
+    pub fn reason(self, state: &Value) -> String {
+        state
+            .pointer(&format!("/power/{}/reason", self.operation()))
+            .and_then(Value::as_str)
+            .unwrap_or("This build has no verified power path. Refresh controller status.")
+            .into()
     }
 }
 
@@ -597,8 +616,11 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
         Category::Power => [PowerOption::Shutdown, PowerOption::Reboot]
             .into_iter()
             .map(|option| Action {
-                title: format!("{} · unavailable", option.title()),
-                detail: "Power/reset lifecycle is unqualified. Enter explains report saving and physical recovery; it performs no power action.".into(),
+                title: if option.available(state) { option.title().into() } else { format!("{} · unavailable", option.title()) },
+                detail: if option.available(state) {
+                    if option == PowerOption::Shutdown { "Save reports and shut down. A confirmation is required; allow up to two minutes.".into() }
+                    else { "Save reports and force a restart to Orbis. Experimental; skips normal Linux reboot teardown. Confirmation required.".into() }
+                } else { option.reason(state) },
                 kind: ActionKind::Power(option),
             })
             .collect(),

@@ -6,6 +6,8 @@ Conflicts=getty@tty2.service
 [Service]
 Type=simple
 ExecStart=/usr/bin/bash --login
+# Interactive Bash ignores SIGTERM. Hang up its private rescue terminal on stop.
+KillSignal=SIGHUP
 StandardInput=tty
 StandardOutput=tty
 StandardError=tty

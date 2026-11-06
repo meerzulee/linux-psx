@@ -17,6 +17,25 @@ Diagnostix is the visible appliance name. Source and image builds remain in
 Linux psX, preserving the existing `psx-diagnostics` service, path and protocol
 identities. The Power tab explains the current restrictions; its Shutdown and
 Reboot controls do not execute commands on an unqualified build.
+The current frontend adds confirmed [Shutdown and Reboot to Orbis](PS4-DIAGNOSTIC-POWER.md)
+for the exact alpha4/alpha5/alpha6 power profiles; alpha7 adds immediate preemption. A dev4 update can replace only its
+controller and TUI with `refresh-ps4-diagnostics-frontend --alpha-power-only`,
+preserving the tested kernel, root, boot policy and all other CPIO members.
+
+The [alpha6 profile](../manifests/ps4-diagnostics-uvd-alpha6.json) pins
+runtime-dev5 and all 41 matching modules. Normal reboot after exact UVD decode
+and software Shutdown were observed on this Baikal Slim. The rescue-shell
+stop-signal fix removes the measured 90-second userspace wait; corrected-image
+acceptance to ICC takes about 1.1 seconds. See EXP-20261106-019/020.
+
+The new [alpha7 profile](../manifests/ps4-diagnostics-uvd-alpha7.json) pins
+runtime-dev6. Confirmed Power interrupts running tests, skips pending report
+writes and service-stop waits, and enters ordinary kernel power-off/restart.
+Its UVD terminal restart also permits a post-start failed or already-closed
+queue while retaining all backing. This new behavior is experimental and
+not yet hardware-qualified. Optional Chromium/Wayland providers still require
+their own matching identities. Public-image preparation is documented in the
+[release guide](DIAGNOSTIX-RELEASE.md).
 
 ## Frozen inputs
 

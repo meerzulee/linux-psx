@@ -23,7 +23,7 @@ class BatchTests(unittest.TestCase):
                       mock.patch.object(self.c,'core_prerequisites',return_value=None,create=True),
                       mock.patch.object(self.c.runner,'identity',return_value={'boot_id':'fixture','release_matches':True}),
                       mock.patch.object(self.c.runner.fs,'fixture',False),
-                      mock.patch.object(APP.subprocess,'run',side_effect=self.command)]:
+                      mock.patch.object(self.c,'_cancellable_capture',side_effect=self.command)]:
             patch.start();self.addCleanup(patch.stop)
 
     def command(self,argv,**kwargs):
@@ -56,7 +56,7 @@ class BatchTests(unittest.TestCase):
                 record=json.loads((self.c.results_dir/grant['batch_id']/'result.json').read_text())
                 self.assertEqual(record['run_ids'],ids);self.assertEqual(record['phase'],'completed')
             return original(argv,**kwargs)
-        with mock.patch.object(APP.subprocess,'run',side_effect=close_after_save):
+        with mock.patch.object(self.c,'_cancellable_capture',side_effect=close_after_save):
             reply=self.finish(grant,ids)
         self.assertTrue(reply['saved']);self.assertTrue(reply['closed']);self.assertEqual(reply['status'],'PASS')
         self.assertEqual(self.stops,['psx-diagnostics-window-browser.service'])
@@ -106,7 +106,7 @@ class BatchTests(unittest.TestCase):
     def test_launcher_cannot_authorize_closing_the_diagnostic_menu(self):
         response=subprocess.CompletedProcess([],0,stdout=json.dumps({'started':True,'mode':'browser',
             'service':'psx-diagnostics-graphics@diagnostics.service'}).encode())
-        with mock.patch.object(APP.subprocess,'run',return_value=response):
+        with mock.patch.object(self.c,'_cancellable_capture',return_value=response):
             with self.assertRaises(ValueError):self.c.launch_graphics('browser')
         self.assertEqual(self.stops,[])
         self.assertIsNone(self.c.browser_session(UA,True)['auto_run'])
@@ -124,7 +124,8 @@ class BatchTests(unittest.TestCase):
         grant=self.launch()
         marker=self.c.browser_start({'test_id':APP.BROWSER_STEPS[0],'batch_id':grant['batch_id'],'nonce':grant['nonce']},UA,True)
         restarted=APP.Controller(self.c.results_dir,self.root,network=SimpleNamespace())
-        with mock.patch.object(restarted.runner,'identity',return_value={'boot_id':'fixture','release_matches':True}):
+        with mock.patch.object(restarted.runner,'identity',return_value={'boot_id':'fixture','release_matches':True}), \
+             mock.patch.object(restarted,'_cancellable_capture',side_effect=self.command):
             restarted.recover_browser_batches()
         record=json.loads((self.c.results_dir/grant['batch_id']/'result.json').read_text())
         self.assertEqual(record['status'],'INCONCLUSIVE');self.assertTrue(record['closed'])

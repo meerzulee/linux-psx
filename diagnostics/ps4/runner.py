@@ -222,7 +222,9 @@ class CommandResult:
     elapsed_seconds: float = 0.0
 
 
-def execute_process(argv, timeout, stdout_path, stderr_path, env=None, progress=None):
+def execute_process(argv, timeout, stdout_path, stderr_path, env=None, progress=None,
+                    process_started=None, cancelled=None, launch_guard=None, stdin=None,
+                    preview_limit=PREVIEW_LIMIT):
     """Keep raw output on disk and kill the isolated process group at any exit.
 
     No shell is involved. Children may not intentionally escape their process
@@ -232,15 +234,25 @@ def execute_process(argv, timeout, stdout_path, stderr_path, env=None, progress=
     last_progress = 0
     timed_out = limited = interrupted = False
     process = None
+    unregister = None
     environment = {"PATH": ":".join(TOOL_DIRECTORIES), "LANG": "C.UTF-8",
                    "LC_ALL": "C.UTF-8", "HOME": "/nonexistent"}
     environment.update(env or {})
     with stdout_path.open("wb") as output, stderr_path.open("wb") as error:
         try:
-            process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=output,
-                                       stderr=error, env=environment, start_new_session=True,
-                                       close_fds=True, shell=False)
-            while process.poll() is None:
+            with launch_guard if launch_guard is not None else contextlib.nullcontext():
+                if cancelled and cancelled():
+                    interrupted = True
+                else:
+                    process = subprocess.Popen(argv, stdin=stdin if stdin is not None else subprocess.DEVNULL,
+                                               stdout=output, stderr=error, env=environment, start_new_session=True,
+                                               close_fds=True, shell=False)
+                    if process_started:
+                        unregister = process_started(process)
+            while process is not None and process.poll() is None:
+                if cancelled and cancelled():
+                    interrupted = True
+                    break
                 elapsed = time.monotonic() - started
                 timed_out = elapsed >= timeout
                 limited = max(stdout_path.stat().st_size, stderr_path.stat().st_size) > LOG_LIMIT
@@ -255,24 +267,28 @@ def execute_process(argv, timeout, stdout_path, stderr_path, env=None, progress=
         except OSError as exc:
             error.write(("Could not execute tool: " + str(exc) + "\n").encode())
         finally:
+            interrupted = interrupted or bool(cancelled and cancelled())
             if process is not None:
                 # Also stop descendants when their direct parent has exited.
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=0.25)
-                except subprocess.TimeoutExpired:
-                    pass
+                if not (cancelled and cancelled()):
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=0.25)
+                    except subprocess.TimeoutExpired:
+                        pass
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(process.pid, signal.SIGKILL)
                 process.wait(timeout=2)
+            if unregister:
+                unregister()
             output.flush()
             error.flush()
             os.fsync(output.fileno())
             os.fsync(error.fileno())
     def preview(path):
         with path.open("rb") as stream:
-            return stream.read(PREVIEW_LIMIT).decode("utf-8", "replace")
+            return stream.read(preview_limit).decode("utf-8", "replace")
     return CommandResult(process.returncode if process else None, preview(stdout_path),
                          preview(stderr_path), timed_out, limited, interrupted,
                          round(time.monotonic() - started, 3))
@@ -294,6 +310,9 @@ class Runner:
         self.session_path = session_receipt
         self.executor = executor
         self.callback = callback
+        self.process_started = None
+        self.cancelled = None
+        self.launch_guard = None
         self.commands = []
         self.log = None
 
@@ -508,6 +527,8 @@ class Runner:
             return record
 
     def command(self, argv, timeout, env=None):
+        if self.cancelled and self.cancelled():
+            raise ValueError('Diagnostic command cancelled by the confirmed power request')
         if self.fs.fixture and self.executor is None:
             raise ValueError("Fixture roots never execute real tools; inject a synthetic executor")
         number = len(self.commands) + 1
@@ -521,7 +542,9 @@ class Runner:
             result = execute_process(argv, timeout, output, error, env,
                                      progress=lambda elapsed: self.log.event(
                                          "command_progress", command_number=number,
-                                         elapsed_seconds=round(elapsed, 1), timeout_seconds=timeout))
+                                         elapsed_seconds=round(elapsed, 1), timeout_seconds=timeout),
+                                     process_started=self.process_started, cancelled=self.cancelled,
+                                     launch_guard=self.launch_guard)
         for path, content in ((output, result.stdout), (error, result.stderr)):
             if not path.exists():
                 with path.open("x", encoding="utf-8") as stream:

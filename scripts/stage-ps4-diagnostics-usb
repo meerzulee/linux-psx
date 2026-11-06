@@ -178,8 +178,9 @@ def render_bootargs(template, usb_uuid, metadata, epoch=None):
         clock_want = metadata.get("boot_clock_start_timesyncd", True)
         if type(clock_want) is not bool:
             raise ValueError("boot clock service policy must be boolean")
-        if not clock_want and metadata.get("profile") != "ps4-baikal-diagnostics-uvd-alpha5":
-            raise ValueError("only the scoped SATA alpha5 starts time sync through its root service")
+        if not clock_want and metadata.get("profile") not in (
+                "ps4-baikal-diagnostics-uvd-alpha5", "ps4-baikal-diagnostics-uvd-alpha6", "ps4-baikal-diagnostics-uvd-alpha7"):
+            raise ValueError("only the scoped SATA alpha5/6 starts time sync through its root service")
         if not clock_want:
             tokens = [token for token in tokens if token != ntp]
         elif ntp not in tokens:

@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "05f157e69f5c59f8b4b3c5f79225520d44bc7bc12eb1e79a7e494cfe03eafd23",
-      "destination_bytes": 78084,
+      "destination_sha256": "d5ba88ac850067ca331b6907fa4609ad9a725aa8f81136c6494ea21614802d6e",
+      "destination_bytes": 140200,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -85,6 +85,62 @@
           "prior_destination_sha256": "d19b6be521f588c0fe9be25bf37d674d8ace377a958cd5efb57a04a82a458d5f",
           "destination_sha256": "05f157e69f5c59f8b4b3c5f79225520d44bc7bc12eb1e79a7e494cfe03eafd23",
           "destination_bytes": 78084,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "05f157e69f5c59f8b4b3c5f79225520d44bc7bc12eb1e79a7e494cfe03eafd23",
+          "destination_sha256": "a54935d9d50db3e2ed06da2adbf23a01d4118819ff2afcf04920bcb50d4ed507",
+          "destination_bytes": 104262,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose current matching power dispatch status after job completion and preserve unrelated notices; record incident and pending capacity experiment without hardware acceptance",
+          "prior_destination_sha256": "a54935d9d50db3e2ed06da2adbf23a01d4118819ff2afcf04920bcb50d4ed507",
+          "destination_sha256": "833d557ea8766b44c91abba6497888276d41afec65f579089032035b5e3b80c0",
+          "destination_bytes": 105902,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose fixed power preparation and dispatch phases in RAM and UART while preserving confirmation, command, retained-DMA and no-retry rules; add blocked-flush responsiveness checks",
+          "prior_destination_sha256": "833d557ea8766b44c91abba6497888276d41afec65f579089032035b5e3b80c0",
+          "destination_sha256": "6c9aa99f731aaab58dd0f2a5d34062808dd8a00f2ce1b0cb9386a36c98b3d790",
+          "destination_bytes": 111593,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "6c9aa99f731aaab58dd0f2a5d34062808dd8a00f2ce1b0cb9386a36c98b3d790",
+          "destination_sha256": "10dedacadde290046215f297c56f29e969e13242fe2527d1ae8e297cc5e81edb",
+          "destination_bytes": 113008,
+          "mode": "0644"
+        },
+        {
+          "reason": "Fix confirmed ICC nodev failure with a protected devtmpfs node; read bounded Power receipts independently of the frozen legacy runner API; preserve identity and single-request guards",
+          "prior_destination_sha256": "10dedacadde290046215f297c56f29e969e13242fe2527d1ae8e297cc5e81edb",
+          "destination_sha256": "f5cdf55ef60d903e3a13b1595547975549a787686b6a5ba8d286bb0f228aae11",
+          "destination_bytes": 117408,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "f5cdf55ef60d903e3a13b1595547975549a787686b6a5ba8d286bb0f228aae11",
+          "destination_sha256": "83c0c1e22377359f9210c894c9a993291f740032a758f6eb1fda8e04e443dea3",
+          "destination_bytes": 118676,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "83c0c1e22377359f9210c894c9a993291f740032a758f6eb1fda8e04e443dea3",
+          "destination_sha256": "bda8dba3e51fde1eda5929affdf4ee1957dbb2dea0d31456269ecc873da0bae1",
+          "destination_bytes": 140331,
+          "mode": "0644"
+        },
+        {
+          "reason": "Latch power cancellation without waiting for a stalled Popen; keep launch and registered-worker locks separate and kill late registered children.",
+          "prior_destination_sha256": "bda8dba3e51fde1eda5929affdf4ee1957dbb2dea0d31456269ecc873da0bae1",
+          "destination_sha256": "d5ba88ac850067ca331b6907fa4609ad9a725aa8f81136c6494ea21614802d6e",
+          "destination_bytes": 140200,
           "mode": "0644"
         }
       ]
@@ -254,8 +310,8 @@
       "bytes": 53810,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2",
-      "destination_bytes": 56478,
+      "destination_sha256": "59430cdce796e78a04a64412561e02a3d2eb5a0741a9385028cd15ac77f25f77",
+      "destination_bytes": 57741,
       "destination_adaptations": [
         {
           "reason": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
@@ -269,6 +325,13 @@
           "prior_destination_sha256": "173860b9aa84f02896abc6cffe575ef932fbdc99652eb8d8a56d4a1767aff8d9",
           "destination_sha256": "5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2",
           "destination_bytes": 56478,
+          "mode": "0755"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "5a7a4c4b5d1f6fa855f68f5c060a615f809dfa44fa1939b786ad54312f6cf2b2",
+          "destination_sha256": "59430cdce796e78a04a64412561e02a3d2eb5a0741a9385028cd15ac77f25f77",
+          "destination_bytes": 57741,
           "mode": "0755"
         }
       ]
@@ -348,8 +411,17 @@
       "bytes": 4816,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "658b087763b1f2d157991ff9a1b86cd4c854ae6a9ff57f30a38c9c9ae0b1d7f8",
-      "destination_bytes": 4816
+      "destination_sha256": "a4cfd544fb316fdae72dd211cb7127cbbbe501ce7ebade15c1afc504878ba16f",
+      "destination_bytes": 5804,
+      "destination_adaptations": [
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "658b087763b1f2d157991ff9a1b86cd4c854ae6a9ff57f30a38c9c9ae0b1d7f8",
+          "destination_sha256": "a4cfd544fb316fdae72dd211cb7127cbbbe501ce7ebade15c1afc504878ba16f",
+          "destination_bytes": 5804,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "diagnostics/ps4/tui/src/ipc.rs",
@@ -361,14 +433,21 @@
       "bytes": 6027,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "8ed4215c46902cc7ab7a878bf6dcab9087b25ae2e934639531cb39615ee5700c",
-      "destination_bytes": 6405,
+      "destination_sha256": "e16130a8c6e8743b846be7493f141264c799cccbd2c1d628cbcd3dafd7eeeb8f",
+      "destination_bytes": 9459,
       "destination_adaptations": [
         {
           "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
           "prior_destination_sha256": "98e94a8af0d1f6084cb5f404e9e4e3d674efdc859ea9619d52ba5d3d616b15d6",
           "destination_sha256": "8ed4215c46902cc7ab7a878bf6dcab9087b25ae2e934639531cb39615ee5700c",
           "destination_bytes": 6405,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "8ed4215c46902cc7ab7a878bf6dcab9087b25ae2e934639531cb39615ee5700c",
+          "destination_sha256": "e16130a8c6e8743b846be7493f141264c799cccbd2c1d628cbcd3dafd7eeeb8f",
+          "destination_bytes": 9459,
           "mode": "0644"
         }
       ]
@@ -385,8 +464,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "c271733a64291348dc5d8e9f450d65466a4f703a42860bd4ed0387d9b18542e8",
-      "destination_bytes": 93011,
+      "destination_sha256": "2a3ba19c76d0feb3c7a9054adcca4353d283732e1087fa82f6a09440e4d7f500",
+      "destination_bytes": 112163,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -451,6 +530,41 @@
           "destination_sha256": "c271733a64291348dc5d8e9f450d65466a4f703a42860bd4ed0387d9b18542e8",
           "destination_bytes": 93011,
           "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "c271733a64291348dc5d8e9f450d65466a4f703a42860bd4ed0387d9b18542e8",
+          "destination_sha256": "8bde74290ba6d39fc5f0b3abfd7663afefb07494a3c25b82b3bccb0a53eea332",
+          "destination_bytes": 96763,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose current matching power dispatch status after job completion and preserve unrelated notices; record incident and pending capacity experiment without hardware acceptance",
+          "prior_destination_sha256": "8bde74290ba6d39fc5f0b3abfd7663afefb07494a3c25b82b3bccb0a53eea332",
+          "destination_sha256": "d8df09fe9b35169fd4a4e95f6c3f7e9b3ed0180f21f85be1a0fedd6b43334557",
+          "destination_bytes": 104125,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "d8df09fe9b35169fd4a4e95f6c3f7e9b3ed0180f21f85be1a0fedd6b43334557",
+          "destination_sha256": "23b7823f79bd3a6369ba6c27a05bda856fb4cfaf8d51265f5b4f0abe76aedad2",
+          "destination_bytes": 109531,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "23b7823f79bd3a6369ba6c27a05bda856fb4cfaf8d51265f5b4f0abe76aedad2",
+          "destination_sha256": "b9b311482efa13ae125a46961112977f9019454a90c2eefccc53508868513116",
+          "destination_bytes": 109578,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "b9b311482efa13ae125a46961112977f9019454a90c2eefccc53508868513116",
+          "destination_sha256": "2a3ba19c76d0feb3c7a9054adcca4353d283732e1087fa82f6a09440e4d7f500",
+          "destination_bytes": 112163,
+          "mode": "0644"
         }
       ]
     },
@@ -466,8 +580,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "5aa43df2d07dcf6fa5b8fe3d5acb157b83f1f6eadf00d0e1bc53ce26d76ed681",
-      "destination_bytes": 35717,
+      "destination_sha256": "399b5290915928bce03bad20ea07a3a5d51d1cd92bf395c12d326c03da37bbfc",
+      "destination_bytes": 36721,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -511,6 +625,13 @@
           "destination_sha256": "5aa43df2d07dcf6fa5b8fe3d5acb157b83f1f6eadf00d0e1bc53ce26d76ed681",
           "destination_bytes": 35717,
           "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "5aa43df2d07dcf6fa5b8fe3d5acb157b83f1f6eadf00d0e1bc53ce26d76ed681",
+          "destination_sha256": "399b5290915928bce03bad20ea07a3a5d51d1cd92bf395c12d326c03da37bbfc",
+          "destination_bytes": 36721,
+          "mode": "0644"
         }
       ]
     },
@@ -524,8 +645,8 @@
       "bytes": 39080,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "0e9fc8d76645fff73115293c7dab619425d3fabb9e066eddb4b3ac1267fa8281",
-      "destination_bytes": 70865,
+      "destination_sha256": "cb0decf57a672adea80c07dd5ae40e282f12130028e1ad888663f7d7daaa51c5",
+      "destination_bytes": 81521,
       "destination_adaptations": [
         {
           "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
@@ -574,6 +695,27 @@
           "prior_destination_sha256": "3830e0e22554838686bb5d097cc206fe382261f05db3ce94fee06461a917a3a1",
           "destination_sha256": "0e9fc8d76645fff73115293c7dab619425d3fabb9e066eddb4b3ac1267fa8281",
           "destination_bytes": 70865,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "0e9fc8d76645fff73115293c7dab619425d3fabb9e066eddb4b3ac1267fa8281",
+          "destination_sha256": "f7d12603534e6f0d1bda18d598eb26621e8c04206707ad5d3a0b669fb0d19b4f",
+          "destination_bytes": 73505,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "f7d12603534e6f0d1bda18d598eb26621e8c04206707ad5d3a0b669fb0d19b4f",
+          "destination_sha256": "a61aeeac0fb5dd33e4bac5499800fa16a22e983393793ffa332a3c59450a288a",
+          "destination_bytes": 81538,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "a61aeeac0fb5dd33e4bac5499800fa16a22e983393793ffa332a3c59450a288a",
+          "destination_sha256": "cb0decf57a672adea80c07dd5ae40e282f12130028e1ad888663f7d7daaa51c5",
+          "destination_bytes": 81521,
           "mode": "0644"
         }
       ]
@@ -1336,8 +1478,17 @@
       "bytes": 348,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "18c324d9af82b2b5fdd29e7afe03afe5fe37fc9937aa15113e07705a1914feda",
-      "destination_bytes": 348
+      "destination_sha256": "df31241b4a79e97b22cc819fc9f265e8d870c7c484becf96d8889fd0d514af00",
+      "destination_bytes": 447,
+      "destination_adaptations": [
+        {
+          "reason": "Fix observed90second tty2 rescue stop: configure SIGHUP for interactive login Bash, preserve timeouts and frozen alpha1-5; validate actual private PTY readiness and exit, record exact power hardware evidence",
+          "prior_destination_sha256": "18c324d9af82b2b5fdd29e7afe03afe5fe37fc9937aa15113e07705a1914feda",
+          "destination_sha256": "df31241b4a79e97b22cc819fc9f265e8d870c7c484becf96d8889fd0d514af00",
+          "destination_bytes": 447,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "rootfs/ps4-diagnostics/udhcpc-hook",
@@ -1589,8 +1740,8 @@
         "Use the repository-local diagnostic archive helper.",
         "Add the same two fixed Chromium RAM assets and carry the explicit snapshot receipt pin."
       ],
-      "destination_sha256": "1846acb50ca9e065c84389a3e6c6ad07c194216772ac9f7a70277bcc0a6ee5a5",
-      "destination_bytes": 17298,
+      "destination_sha256": "bb13fefdb5029e6280a39cf144e84fa1a74b0e108e825fda80b37f4867b7850d",
+      "destination_bytes": 19067,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1612,6 +1763,13 @@
           "destination_sha256": "1846acb50ca9e065c84389a3e6c6ad07c194216772ac9f7a70277bcc0a6ee5a5",
           "destination_bytes": 17298,
           "mode": "0755"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "1846acb50ca9e065c84389a3e6c6ad07c194216772ac9f7a70277bcc0a6ee5a5",
+          "destination_sha256": "bb13fefdb5029e6280a39cf144e84fa1a74b0e108e825fda80b37f4867b7850d",
+          "destination_bytes": 19067,
+          "mode": "0755"
         }
       ]
     },
@@ -1625,14 +1783,28 @@
       "bytes": 15242,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "af201f1ade74f045e9ac39fb8c7e2e87d77e6ac052925eaa8c7b5f07dc0d4e3a",
-      "destination_bytes": 15717,
+      "destination_sha256": "c63e36fc5ad019a9aea6ccceabe107f8e8d84f3f81344f6fd69cbc7ac83ab3fe",
+      "destination_bytes": 15816,
       "destination_adaptations": [
         {
           "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
           "prior_destination_sha256": "13885a073c21671f9121fa79c498cfe3d1d532069e7499cec9a2dcd50269dbeb",
           "destination_sha256": "af201f1ade74f045e9ac39fb8c7e2e87d77e6ac052925eaa8c7b5f07dc0d4e3a",
           "destination_bytes": 15717,
+          "mode": "0755"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "af201f1ade74f045e9ac39fb8c7e2e87d77e6ac052925eaa8c7b5f07dc0d4e3a",
+          "destination_sha256": "07d8fbf94631fd4abc3f2232d3df21ad3e7137f11a97b8951589e5fa08c1dd81",
+          "destination_bytes": 15779,
+          "mode": "0755"
+        },
+        {
+          "reason": "Permit the exact frozen alpha7 compact-clock profile and verify the unchanged 507-byte loader limit.",
+          "prior_destination_sha256": "07d8fbf94631fd4abc3f2232d3df21ad3e7137f11a97b8951589e5fa08c1dd81",
+          "destination_sha256": "c63e36fc5ad019a9aea6ccceabe107f8e8d84f3f81344f6fd69cbc7ac83ab3fe",
+          "destination_bytes": 15816,
           "mode": "0755"
         }
       ]
@@ -1723,8 +1895,8 @@
       "adaptations": [
         "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
       ],
-      "destination_sha256": "5b5a64fbb86dd035722e373fc4592e906ec05e741e8fefa8a06daa660d639e11",
-      "destination_bytes": 6231,
+      "destination_sha256": "244d64677b45461ed021aece4230182009da7b9e682606d6b5397372c2d5752e",
+      "destination_bytes": 6339,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -1739,6 +1911,13 @@
           "prior_destination_sha256": "d4878b924d167f9465938b73c5f893a4e0e68634836c14bc36d6835f6b0ac988",
           "destination_sha256": "5b5a64fbb86dd035722e373fc4592e906ec05e741e8fefa8a06daa660d639e11",
           "destination_bytes": 6231,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "5b5a64fbb86dd035722e373fc4592e906ec05e741e8fefa8a06daa660d639e11",
+          "destination_sha256": "244d64677b45461ed021aece4230182009da7b9e682606d6b5397372c2d5752e",
+          "destination_bytes": 6339,
           "mode": "0644"
         }
       ]
@@ -1930,8 +2109,8 @@
         "Use the local diagnostic-only archive/ELF helper, with no historical initramfs or PS5 builder dependency.",
         "Adapt paths to the repository-local standalone diagnostic archive helper and fixed frontend contract."
       ],
-      "destination_sha256": "74fa502ee174c9f30165ef4a5fdd1ce63b16172040c9a05938e7ad44548de83b",
-      "destination_bytes": 20581,
+      "destination_sha256": "e4bde4468cab7774157cebe84aa5fac61b86fe61942f7ff0bf443520e7b308bb",
+      "destination_bytes": 24135,
       "destination_adaptations": [
         {
           "reason": "Reserve the explicit 29th RAM-only SSH setup source asset with unchanged root/kernel, bind allowlist and payload/RAM limits; no auth feature deployment or image rebuild",
@@ -1952,6 +2131,13 @@
           "prior_destination_sha256": "3a1a64812d65ed5275d9c4fb4d558a6f9b5eacb1d185ecfbf28d90f4f95bf30e",
           "destination_sha256": "74fa502ee174c9f30165ef4a5fdd1ce63b16172040c9a05938e7ad44548de83b",
           "destination_bytes": 20581,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "74fa502ee174c9f30165ef4a5fdd1ce63b16172040c9a05938e7ad44548de83b",
+          "destination_sha256": "e4bde4468cab7774157cebe84aa5fac61b86fe61942f7ff0bf443520e7b308bb",
+          "destination_bytes": 24135,
           "mode": "0644"
         }
       ]
@@ -2294,8 +2480,8 @@
       "bytes": 4402,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "86c39bdc543dc59d43aa41cadafbb7baabb6aa6dfc7fb893ab86dcf98794da97",
-      "destination_bytes": 6539,
+      "destination_sha256": "f32fca7d5afbb42d0276890038ed6ae97f17804eae2a84ab20e764d7f200ce3c",
+      "destination_bytes": 6701,
       "destination_adaptations": [
         {
           "reason": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
@@ -2309,6 +2495,13 @@
           "prior_destination_sha256": "a00f8980f96cdb463ce5bb41ce77347e3d6afd42330f25181edf45a95470f234",
           "destination_sha256": "86c39bdc543dc59d43aa41cadafbb7baabb6aa6dfc7fb893ab86dcf98794da97",
           "destination_bytes": 6539,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "86c39bdc543dc59d43aa41cadafbb7baabb6aa6dfc7fb893ab86dcf98794da97",
+          "destination_sha256": "f32fca7d5afbb42d0276890038ed6ae97f17804eae2a84ab20e764d7f200ce3c",
+          "destination_bytes": 6701,
           "mode": "0644"
         }
       ]
@@ -2336,8 +2529,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "1fb650748d827949128a155d6cbf292e3644f84705f07815f8efd00412418ac1",
-      "destination_bytes": 11107,
+      "destination_sha256": "3eaa197a2c6189690f386b6b9109ee7392e65bbfc2220ca0b821bee0c960de9f",
+      "destination_bytes": 11929,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -2403,6 +2596,20 @@
           "destination_sha256": "1fb650748d827949128a155d6cbf292e3644f84705f07815f8efd00412418ac1",
           "destination_bytes": 11107,
           "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "1fb650748d827949128a155d6cbf292e3644f84705f07815f8efd00412418ac1",
+          "destination_sha256": "52c22e0779fd7ae6ae6e09f55b4635bbdcbb3bc8f387bb7524c6cc24de662ffd",
+          "destination_bytes": 11467,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified Overview and Power job-lock frontend staging with hardware boot/restart still pending; document Overview/Advanced navigation and evidence scope",
+          "prior_destination_sha256": "52c22e0779fd7ae6ae6e09f55b4635bbdcbb3bc8f387bb7524c6cc24de662ffd",
+          "destination_sha256": "3eaa197a2c6189690f386b6b9109ee7392e65bbfc2220ca0b821bee0c960de9f",
+          "destination_bytes": 11929,
+          "mode": "0644"
         }
       ]
     },
@@ -2439,8 +2646,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "57e0db06a6e0ffdc247ecc932f9ebb09be1ce5c88cf377f31019b4e5d6f62233",
-      "destination_bytes": 59168,
+      "destination_sha256": "35ea1cdc751f64ef4135ae8aa5f8cee33e7707e3a4ccb5293a29c4ac4b2508a3",
+      "destination_bytes": 107989,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2563,6 +2770,160 @@
           "destination_sha256": "57e0db06a6e0ffdc247ecc932f9ebb09be1ce5c88cf377f31019b4e5d6f62233",
           "destination_bytes": 59168,
           "mode": "0644"
+        },
+        {
+          "reason": "Record verified EXP-20261106-005 alpha5 Power frontend USB preparation, unchanged kernel/root/gates, pre-write capture restoration and pending boot/menu observation; no hardware acceptance.",
+          "prior_destination_sha256": "57e0db06a6e0ffdc247ecc932f9ebb09be1ce5c88cf377f31019b4e5d6f62233",
+          "destination_sha256": "490d9d4568dcc16642584c771e4c01474476295c93d2378ca9b0e267dbbba500",
+          "destination_bytes": 61784,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude completed EXP-20261106-005 with observed dev4 boot and owner-confirmed Power-menu navigation; record handoff overrun and SSH output stall separately, with no power/decode/DDR3 acceptance.",
+          "prior_destination_sha256": "490d9d4568dcc16642584c771e4c01474476295c93d2378ca9b0e267dbbba500",
+          "destination_sha256": "302644290e9b2028c3f98c97f4942465f9b35aafa49b2c9c4dc3e48fd691cf56",
+          "destination_bytes": 62559,
+          "mode": "0644"
+        },
+        {
+          "reason": "Preserve EXP006 packet-level wired SSH failure and inconclusive cause, owner cable action and zero-byte UART limitation; record bounded EXP007 alternate Wi-Fi observation as pending.",
+          "prior_destination_sha256": "302644290e9b2028c3f98c97f4942465f9b35aafa49b2c9c4dc3e48fd691cf56",
+          "destination_sha256": "785d40a2dca53319b168470c6c0064f9c95e252dc9069925647c9ba072a889a8",
+          "destination_bytes": 65302,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude EXP007 alternate-path inspection, EXP008 IPv4 restoration with wireless replies and EXP009 fully wired SSH failure. Preserve paired capture limits, exact route cleanup, unchanged retained DMA and unresolved outbound loss without speculative fixes or support promotion.",
+          "prior_destination_sha256": "785d40a2dca53319b168470c6c0064f9c95e252dc9069925647c9ba072a889a8",
+          "destination_sha256": "5c4057cfa0f3720e92a9ab0d61e1a04443656544fdb8c59d60a04d387c905f5b",
+          "destination_bytes": 69921,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record unexplained full power-off during uninstrumented DDR3 PCI preflight, absence of current Power intent, buffered-read/continuity limits and cached-metadata correction; no driver load, DMA or hardware acceptance.",
+          "prior_destination_sha256": "5c4057cfa0f3720e92a9ab0d61e1a04443656544fdb8c59d60a04d387c905f5b",
+          "destination_sha256": "9826089d72a921adf8eff13c251edd4ddb9a7950ad0a9762bfe83a8ff5962095",
+          "destination_bytes": 72571,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record authorized EXP010 matching dev4 module preparation, cached-only inspector tests, verified separate USB kit and pending bounded unarmed discovery; preserve failed host preparation and no-hardware-acceptance scope.",
+          "prior_destination_sha256": "9826089d72a921adf8eff13c251edd4ddb9a7950ad0a9762bfe83a8ff5962095",
+          "destination_sha256": "49f4d31491753a27de6817916d06a6d1b29906f914dca52e17ed64d1d47022d1",
+          "destination_bytes": 75484,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude EXP010 default-module lifecycle and timing overrun; record completed EXP011 inherited-master0x546 preentry refusal with no DMA, clean removal and measured main-memory totals. Preserve scope, PM-disabled fact and unresolved DDR3 capacity/ownership.",
+          "prior_destination_sha256": "49f4d31491753a27de6817916d06a6d1b29906f914dca52e17ed64d1d47022d1",
+          "destination_sha256": "4978c7edc6a7a33a79b554d056a4195235d8d3b7b93040e7686713140561ede4",
+          "destination_bytes": 79062,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record pending reboot report, observed shutdown trace and unresolved initiating path without a power acceptance claim",
+          "prior_destination_sha256": "4978c7edc6a7a33a79b554d056a4195235d8d3b7b93040e7686713140561ede4",
+          "destination_sha256": "fe451c2de9748a34325695558536583da70364b28ce5d8dfa0ba83d223344949",
+          "destination_bytes": 81093,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose current matching power dispatch status after job completion and preserve unrelated notices; record incident and pending capacity experiment without hardware acceptance",
+          "prior_destination_sha256": "fe451c2de9748a34325695558536583da70364b28ce5d8dfa0ba83d223344949",
+          "destination_sha256": "e43260f8f2e37fa1d417ed16ae5f04211dc58c039865d3b88cc82e2baa8f1ea4",
+          "destination_bytes": 84155,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified distinct capacity BIN staging and preserved rollback before the single operator launch",
+          "prior_destination_sha256": "e43260f8f2e37fa1d417ed16ae5f04211dc58c039865d3b88cc82e2baa8f1ea4",
+          "destination_sha256": "e27484e20ef093e90d810619af8cfea77b524fe8954a513db69d962c8fcbac06",
+          "destination_bytes": 84578,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record completed UART capacity witness of 256MiB and observed Linux/menu handoff; retain zero ownership and no auxiliary-DMA acceptance",
+          "prior_destination_sha256": "e27484e20ef093e90d810619af8cfea77b524fe8954a513db69d962c8fcbac06",
+          "destination_sha256": "107ff248c9ccf6d5bf8bc92cac9f1f995ab7dc0faa91c55b57e2daa9e18fa713",
+          "destination_bytes": 85828,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified power-status2 USB staging and pending first-boot/restart experiment without claiming a physical power fix",
+          "prior_destination_sha256": "107ff248c9ccf6d5bf8bc92cac9f1f995ab7dc0faa91c55b57e2daa9e18fa713",
+          "destination_sha256": "e72a2dadead1430ae30eb39d34e0bc465fd200127bf56988b344f8ed9f9dd6a7",
+          "destination_bytes": 88659,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "e72a2dadead1430ae30eb39d34e0bc465fd200127bf56988b344f8ed9f9dd6a7",
+          "destination_sha256": "944c4652dd1944937e05daceeccc7122f20979dbd2672a0021653877b0b6e1e5",
+          "destination_bytes": 89128,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified Overview and Power job-lock frontend staging with hardware boot/restart still pending; document Overview/Advanced navigation and evidence scope",
+          "prior_destination_sha256": "944c4652dd1944937e05daceeccc7122f20979dbd2672a0021653877b0b6e1e5",
+          "destination_sha256": "aa90eebab71b04f18c47eed9c615bcc47f6b628adbb513b7ea0c7d2b299df53a",
+          "destination_bytes": 92394,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude captured restart rejection before ioctl, record nodev and frozen-runner API causes, source fixes and unresolved wired packet-loss scope",
+          "prior_destination_sha256": "aa90eebab71b04f18c47eed9c615bcc47f6b628adbb513b7ea0c7d2b299df53a",
+          "destination_sha256": "6d7dd25f9f02ed75d1df39fa849835c8b85acff027d50aa3fbe34055c2ea9487",
+          "destination_bytes": 94388,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified guarded SSH boot-file update from live Diagnostix after a proven pre-ioctl failure, preserve power evidence and restore read-only media; new boot still pending",
+          "prior_destination_sha256": "6d7dd25f9f02ed75d1df39fa849835c8b85acff027d50aa3fbe34055c2ea9487",
+          "destination_sha256": "46f28bf2e2c6b7779af1c6c5ed5b3395c50835f19db1e18975c8f9fa02896933",
+          "destination_bytes": 97254,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude EXP-20261106-016: verified boot-file staging, corrected helper not run after SSH loss, owner confirmed powered off; no power acceptance",
+          "prior_destination_sha256": "46f28bf2e2c6b7779af1c6c5ed5b3395c50835f19db1e18975c8f9fa02896933",
+          "destination_sha256": "8366b7db4b5143fb281e39cdb9b4b5d898745673a603c12d9fb0b873fb024248",
+          "destination_bytes": 97983,
+          "mode": "0644"
+        },
+        {
+          "reason": "Start EXP-20261106-017 with verified combined kernel/image and read-only USB identity plan; preserve completed previous experiment and distinguish host checks from pending physical reboot",
+          "prior_destination_sha256": "8366b7db4b5143fb281e39cdb9b4b5d898745673a603c12d9fb0b873fb024248",
+          "destination_sha256": "6c7779ac53795bb4a7e5ec9ebc26fe7a25b4eb50d3975897652877c02ddfc702",
+          "destination_bytes": 101329,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified alpha6 USB update and successful unmount before operator media removal; keep EXP-20261106-017 open through boot/restart sequence",
+          "prior_destination_sha256": "6c7779ac53795bb4a7e5ec9ebc26fe7a25b4eb50d3975897652877c02ddfc702",
+          "destination_sha256": "df49df85bf97e91569597d30266e882b8c66129476c4d8fa155e93b04f9da6cc",
+          "destination_bytes": 101506,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude EXP-20261106-017: exact UVD frames and ordinary kernel reboot to Orbis passed with completed UART; distinguish90second userspace wait and untested exact-candidate Shutdown",
+          "prior_destination_sha256": "df49df85bf97e91569597d30266e882b8c66129476c4d8fa155e93b04f9da6cc",
+          "destination_sha256": "10709071a1c91a108b3395beb21a8f3c7d93de86ac2988d3af1936706d02ac25",
+          "destination_bytes": 103172,
+          "mode": "0644"
+        },
+        {
+          "reason": "Fix observed90second tty2 rescue stop: configure SIGHUP for interactive login Bash, preserve timeouts and frozen alpha1-5; validate actual private PTY readiness and exit, record exact power hardware evidence",
+          "prior_destination_sha256": "10709071a1c91a108b3395beb21a8f3c7d93de86ac2988d3af1936706d02ac25",
+          "destination_sha256": "35b133e78f9e9416e538268b4c322934d34b8daf5bc480b1e7d9c5626afb86fd",
+          "destination_bytes": 105663,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "35b133e78f9e9416e538268b4c322934d34b8daf5bc480b1e7d9c5626afb86fd",
+          "destination_sha256": "35ea1cdc751f64ef4135ae8aa5f8cee33e7707e3a4ccb5293a29c4ac4b2508a3",
+          "destination_bytes": 107989,
+          "mode": "0644"
         }
       ]
     },
@@ -2601,11 +2962,20 @@
     },
     {
       "path": "tests/test_ps4_browser_batches.py",
-      "destination_sha256": "c89500982d25930eb7e40935b1b6208a0b1eebf720ac206641b75e240bad04d2",
-      "destination_bytes": 8498,
+      "destination_sha256": "077cf12e948e00f428a00886bcf90a46b04be4a4bf501ff3e235055302b57c57",
+      "destination_bytes": 8618,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "c89500982d25930eb7e40935b1b6208a0b1eebf720ac206641b75e240bad04d2",
+          "destination_sha256": "077cf12e948e00f428a00886bcf90a46b04be4a4bf501ff3e235055302b57c57",
+          "destination_bytes": 8618,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "tests/test_ps4_browser_runtime.py",
@@ -2739,8 +3109,8 @@
     },
     {
       "path": "diagnostics/ps4/uvd.py",
-      "destination_sha256": "9f36b58a3d3835b7dd4d9c1ed9f9dea443545f605a6c9ba97eee254b2e81c343",
-      "destination_bytes": 23246,
+      "destination_sha256": "4ffc4898435320fd153cca1f7ed878323228bc226d2af3f9b1461309f70bae3c",
+      "destination_bytes": 27137,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2779,13 +3149,34 @@
           "destination_sha256": "9f36b58a3d3835b7dd4d9c1ed9f9dea443545f605a6c9ba97eee254b2e81c343",
           "destination_bytes": 23246,
           "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "9f36b58a3d3835b7dd4d9c1ed9f9dea443545f605a6c9ba97eee254b2e81c343",
+          "destination_sha256": "53d07527163bfbcf2072c774a94cf9dcabafdbc48c01b2e7145869560f76db7a",
+          "destination_bytes": 25408,
+          "mode": "0644"
+        },
+        {
+          "reason": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+          "prior_destination_sha256": "53d07527163bfbcf2072c774a94cf9dcabafdbc48c01b2e7145869560f76db7a",
+          "destination_sha256": "5bc9cdbf5d26a66ca12283061b684eff04a9e331ea7397b08ed6f245b707122a",
+          "destination_bytes": 25612,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "5bc9cdbf5d26a66ca12283061b684eff04a9e331ea7397b08ed6f245b707122a",
+          "destination_sha256": "4ffc4898435320fd153cca1f7ed878323228bc226d2af3f9b1461309f70bae3c",
+          "destination_bytes": 27137,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "docs/PS4-DIAGNOSTIC-ALPHA.md",
-      "destination_sha256": "101b0ea481d9448ac42aeacea574529c1e6606985e8f214cc21ec1fb8e5b1969",
-      "destination_bytes": 14295,
+      "destination_sha256": "ddf777db94aff224db527ff163ce29f5356d9fdd4cd04110860ce852f4abc895",
+      "destination_bytes": 15611,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2831,6 +3222,27 @@
           "destination_sha256": "101b0ea481d9448ac42aeacea574529c1e6606985e8f214cc21ec1fb8e5b1969",
           "destination_bytes": 14295,
           "mode": "0644"
+        },
+        {
+          "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+          "prior_destination_sha256": "101b0ea481d9448ac42aeacea574529c1e6606985e8f214cc21ec1fb8e5b1969",
+          "destination_sha256": "72a85201d5300771ce0271ceb0daf244db80f9346ce3b0b93a73a6d012dacd17",
+          "destination_bytes": 14621,
+          "mode": "0644"
+        },
+        {
+          "reason": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+          "prior_destination_sha256": "72a85201d5300771ce0271ceb0daf244db80f9346ce3b0b93a73a6d012dacd17",
+          "destination_sha256": "c097be8066e9132eabb41936c9169926544cf4ee51e4a3cb29480691895b9b02",
+          "destination_bytes": 15367,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "c097be8066e9132eabb41936c9169926544cf4ee51e4a3cb29480691895b9b02",
+          "destination_sha256": "ddf777db94aff224db527ff163ce29f5356d9fdd4cd04110860ce852f4abc895",
+          "destination_bytes": 15611,
+          "mode": "0644"
         }
       ]
     },
@@ -2844,8 +3256,8 @@
     },
     {
       "path": "scripts/build-ps4-diagnostics-alpha",
-      "destination_sha256": "6685e63e4c3ccb38913908d728713224887bde8cf0cb63410c551e270e9271ae",
-      "destination_bytes": 61234,
+      "destination_sha256": "709383ed18f7aed5ad3df507ec20c065361fdd32197fe171dba2d413b45387ca",
+      "destination_bytes": 68592,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2876,6 +3288,27 @@
           "prior_destination_sha256": "471636bd6156ddbc2fb366e2d0a5790949b5f8347d7faec666a090042dac454a",
           "destination_sha256": "6685e63e4c3ccb38913908d728713224887bde8cf0cb63410c551e270e9271ae",
           "destination_bytes": 61234,
+          "mode": "0755"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "6685e63e4c3ccb38913908d728713224887bde8cf0cb63410c551e270e9271ae",
+          "destination_sha256": "96206b64e13aa7d411e406f2c7dd041beb0407d68db86a6b6885d19def70a26a",
+          "destination_bytes": 65479,
+          "mode": "0755"
+        },
+        {
+          "reason": "Fix observed90second tty2 rescue stop: configure SIGHUP for interactive login Bash, preserve timeouts and frozen alpha1-5; validate actual private PTY readiness and exit, record exact power hardware evidence",
+          "prior_destination_sha256": "96206b64e13aa7d411e406f2c7dd041beb0407d68db86a6b6885d19def70a26a",
+          "destination_sha256": "cac59e667b8c89fc1206604241809a4b16de3ce6dbceb7ddb4e79c10efb722e0",
+          "destination_bytes": 66112,
+          "mode": "0755"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "cac59e667b8c89fc1206604241809a4b16de3ce6dbceb7ddb4e79c10efb722e0",
+          "destination_sha256": "709383ed18f7aed5ad3df507ec20c065361fdd32197fe171dba2d413b45387ca",
+          "destination_bytes": 68592,
           "mode": "0755"
         }
       ]
@@ -2913,8 +3346,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha.py",
-      "destination_sha256": "956eaec9c8903aff19a7262dcc647614443b8fabeb5adf300326b0966bb17ba6",
-      "destination_bytes": 36829,
+      "destination_sha256": "1c5ad14250213a398a7f9d5cc023e441e02e923a360209f54ea1e7340f99539b",
+      "destination_bytes": 48817,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -2945,6 +3378,27 @@
           "prior_destination_sha256": "410923a85dddcf9efd69cf5876d9b31d4641c5f928e0cb3222b0deefffaefffc",
           "destination_sha256": "956eaec9c8903aff19a7262dcc647614443b8fabeb5adf300326b0966bb17ba6",
           "destination_bytes": 36829,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "956eaec9c8903aff19a7262dcc647614443b8fabeb5adf300326b0966bb17ba6",
+          "destination_sha256": "41c9ffc7fe3eb26afa2143282f2a062f0d0e743a35142668664a4aae178f39ed",
+          "destination_bytes": 45946,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "41c9ffc7fe3eb26afa2143282f2a062f0d0e743a35142668664a4aae178f39ed",
+          "destination_sha256": "9253a3813a2607811e771d45d0c52f695bd26812930190ba6ec4116fc7863e67",
+          "destination_bytes": 48221,
+          "mode": "0644"
+        },
+        {
+          "reason": "Permit the exact frozen alpha7 compact-clock profile and verify the unchanged 507-byte loader limit.",
+          "prior_destination_sha256": "9253a3813a2607811e771d45d0c52f695bd26812930190ba6ec4116fc7863e67",
+          "destination_sha256": "1c5ad14250213a398a7f9d5cc023e441e02e923a360209f54ea1e7340f99539b",
+          "destination_bytes": 48817,
           "mode": "0644"
         }
       ]
@@ -3013,8 +3467,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
-      "destination_sha256": "ade5719b48548adcdfa3be2419c864f5db2383255742f88e9619e7148519887a",
-      "destination_bytes": 31082,
+      "destination_sha256": "912ae5b5888d1d611b547c79ac571e8a90a074126edac05d91e16ee83348f1b9",
+      "destination_bytes": 33541,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3052,6 +3506,20 @@
           "prior_destination_sha256": "f1aaff5a9d6011026d81eeb13d5631b215d433c49e7bb35be92b2afead30c8ba",
           "destination_sha256": "ade5719b48548adcdfa3be2419c864f5db2383255742f88e9619e7148519887a",
           "destination_bytes": 31082,
+          "mode": "0644"
+        },
+        {
+          "reason": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+          "prior_destination_sha256": "ade5719b48548adcdfa3be2419c864f5db2383255742f88e9619e7148519887a",
+          "destination_sha256": "6fde160201277510723721dcdb096f72040c906e9ef1d899ba1444956ca24d83",
+          "destination_bytes": 32333,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "6fde160201277510723721dcdb096f72040c906e9ef1d899ba1444956ca24d83",
+          "destination_sha256": "912ae5b5888d1d611b547c79ac571e8a90a074126edac05d91e16ee83348f1b9",
+          "destination_bytes": 33541,
           "mode": "0644"
         }
       ]
@@ -3251,11 +3719,27 @@
     },
     {
       "path": "diagnostics/ps4/uvd_suite.py",
-      "destination_sha256": "c4b2c09578be2bdd8a215236c28906ad5941d36cbe952d424127805b2e49481a",
-      "destination_bytes": 21011,
+      "destination_sha256": "98718ffd5c86d1637657070726b0ca70b91e563bc0b3f651ef3a8772afb4f638",
+      "destination_bytes": 21141,
       "mode": "0644",
       "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "c4b2c09578be2bdd8a215236c28906ad5941d36cbe952d424127805b2e49481a",
+          "destination_sha256": "29f453aadfbc4ad916911f1a296b52440bd3180e3c0da61dc01298d2021f6468",
+          "destination_bytes": 21097,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "29f453aadfbc4ad916911f1a296b52440bd3180e3c0da61dc01298d2021f6468",
+          "destination_sha256": "98718ffd5c86d1637657070726b0ca70b91e563bc0b3f651ef3a8772afb4f638",
+          "destination_bytes": 21141,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "manifests/ps4-diagnostics-uvd-alpha5.json",
@@ -3328,6 +3812,206 @@
       "mode": "0644",
       "purpose": "Add explicit read-only SATA direct-read repeatability with same-boot foundation checks; optimize FTP with full staged SHA256 readback and verified atomic rename metadata; separately stage exact alpha5 providers and native fixtures without overwrites.",
       "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_power_actions.py",
+      "destination_sha256": "ba72e7d010a5bc8ae63866b59dabf2bde80bd01cbbd87aba8273c2ce19d09bcd",
+      "destination_bytes": 38758,
+      "mode": "0644",
+      "purpose": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Expose current matching power dispatch status after job completion and preserve unrelated notices; record incident and pending capacity experiment without hardware acceptance",
+          "prior_destination_sha256": "d992a76febdd2efb0a3a68ff2dade61b4e31c67504562ed7947ac25669bd04f1",
+          "destination_sha256": "e871b0ab66f1c8f3fa092b9e901c2b5f2ac490006c03a975da451e659d9043ad",
+          "destination_bytes": 26007,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose fixed power preparation and dispatch phases in RAM and UART while preserving confirmation, command, retained-DMA and no-retry rules; add blocked-flush responsiveness checks",
+          "prior_destination_sha256": "e871b0ab66f1c8f3fa092b9e901c2b5f2ac490006c03a975da451e659d9043ad",
+          "destination_sha256": "812285e572fd5b08a64689fdaa8749145e68645bc8847ed5fe8de1c9494d078e",
+          "destination_bytes": 31265,
+          "mode": "0644"
+        },
+        {
+          "reason": "Fix confirmed ICC nodev failure with a protected devtmpfs node; read bounded Power receipts independently of the frozen legacy runner API; preserve identity and single-request guards",
+          "prior_destination_sha256": "812285e572fd5b08a64689fdaa8749145e68645bc8847ed5fe8de1c9494d078e",
+          "destination_sha256": "a767070f45d374e16e00b8f74c4eb9099fe37e35d0e312da0a0fcb5e739fa253",
+          "destination_bytes": 34679,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "a767070f45d374e16e00b8f74c4eb9099fe37e35d0e312da0a0fcb5e739fa253",
+          "destination_sha256": "ba72e7d010a5bc8ae63866b59dabf2bde80bd01cbbd87aba8273c2ce19d09bcd",
+          "destination_bytes": 38758,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "docs/PS4-DIAGNOSTIC-POWER.md",
+      "destination_sha256": "6dd0426d53a09f55b2b20ec3ba88ef70e3b1569aa614db9cd3fe3ea933e5a51c",
+      "destination_bytes": 9243,
+      "mode": "0644",
+      "purpose": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Document the status-poll visibility fix and its separate undeployed scope from the capacity-loader experiment",
+          "prior_destination_sha256": "0c3f3de80295ac23a6d811854f6d1344509403fefb0211e27cb7601c127a8711",
+          "destination_sha256": "5e94137386aefd3b1ebf1622021221e161f246819b35dd1183cdb9f7f0244077",
+          "destination_bytes": 3630,
+          "mode": "0644"
+        },
+        {
+          "reason": "Expose fixed power preparation and dispatch phases in RAM and UART while preserving confirmation, command, retained-DMA and no-retry rules; add blocked-flush responsiveness checks",
+          "prior_destination_sha256": "5e94137386aefd3b1ebf1622021221e161f246819b35dd1183cdb9f7f0244077",
+          "destination_sha256": "6ed877d24cbd1cb9749a820f2cb15bcbed0a7541968d439e7ae20700d5072981",
+          "destination_bytes": 4337,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record verified power-status2 USB staging and pending first-boot/restart experiment without claiming a physical power fix",
+          "prior_destination_sha256": "6ed877d24cbd1cb9749a820f2cb15bcbed0a7541968d439e7ae20700d5072981",
+          "destination_sha256": "34f21d9a6d8f830f065ca1969507fa8188c1b1b3706c9fe696250f05794257e9",
+          "destination_bytes": 4566,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+          "prior_destination_sha256": "34f21d9a6d8f830f065ca1969507fa8188c1b1b3706c9fe696250f05794257e9",
+          "destination_sha256": "1dc08d14858e3477e9ea78ea430147b8614bffd15f171cc6a043afa72ef1f80e",
+          "destination_bytes": 5417,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude captured restart rejection before ioctl, record nodev and frozen-runner API causes, source fixes and unresolved wired packet-loss scope",
+          "prior_destination_sha256": "1dc08d14858e3477e9ea78ea430147b8614bffd15f171cc6a043afa72ef1f80e",
+          "destination_sha256": "94e41c9c00999af72540144e9b81a0b01dbf29d3677a2e6ba6c3d5c28544296a",
+          "destination_bytes": 6430,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "94e41c9c00999af72540144e9b81a0b01dbf29d3677a2e6ba6c3d5c28544296a",
+          "destination_sha256": "93151cbd63030258411950b72f6a75d58eab6839d2a042ad8e75ae69d33fa12c",
+          "destination_bytes": 7559,
+          "mode": "0644"
+        },
+        {
+          "reason": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+          "prior_destination_sha256": "93151cbd63030258411950b72f6a75d58eab6839d2a042ad8e75ae69d33fa12c",
+          "destination_sha256": "ab0d4e633160c7a827df8a807550abf99d90e70207ee523f78e74a0f105f85bf",
+          "destination_bytes": 7739,
+          "mode": "0644"
+        },
+        {
+          "reason": "Conclude EXP-20261106-017: exact UVD frames and ordinary kernel reboot to Orbis passed with completed UART; distinguish90second userspace wait and untested exact-candidate Shutdown",
+          "prior_destination_sha256": "ab0d4e633160c7a827df8a807550abf99d90e70207ee523f78e74a0f105f85bf",
+          "destination_sha256": "eb8ab8f0caec24c8c23ec62bcd4e994425f8237ca4f21921336b599ba2311e5e",
+          "destination_bytes": 8065,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "eb8ab8f0caec24c8c23ec62bcd4e994425f8237ca4f21921336b599ba2311e5e",
+          "destination_sha256": "6dd0426d53a09f55b2b20ec3ba88ef70e3b1569aa614db9cd3fe3ea933e5a51c",
+          "destination_bytes": 9243,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_jobs_durability.py",
+      "destination_sha256": "576bb5a16dd16b5da1b108dc2ae88cf278d32d5349d3e571006e2376a66055cf",
+      "destination_bytes": 10104,
+      "mode": "0644",
+      "purpose": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_overview.py",
+      "destination_sha256": "042efd37234f6ea95c70cb731bd848149c7feae87e44a9b490f1595a094112b2",
+      "destination_bytes": 3494,
+      "mode": "0644",
+      "purpose": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/tui/src/overview.rs",
+      "destination_sha256": "d608e36416c0cbfcd7f3191f9918c41dbb2c192bfc1d3b252ffab28c032e3c94",
+      "destination_bytes": 20035,
+      "mode": "0644",
+      "purpose": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+          "prior_destination_sha256": "07be994db24372167256370bb9abadeac77ae4e886912d131bb9ee9a1d1bde5c",
+          "destination_sha256": "c34d0dcfe8a52a09e56b1f25990e104ebe99421c883797fe61dbe85130acd4de",
+          "destination_bytes": 19939,
+          "mode": "0644"
+        },
+        {
+          "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+          "prior_destination_sha256": "c34d0dcfe8a52a09e56b1f25990e104ebe99421c883797fe61dbe85130acd4de",
+          "destination_sha256": "d608e36416c0cbfcd7f3191f9918c41dbb2c192bfc1d3b252ffab28c032e3c94",
+          "destination_bytes": 20035,
+          "mode": "0644"
+        }
+      ]
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_power_device.py",
+      "destination_sha256": "c7d8a6cad0cd3149d8d04a56d3e1e151dc2255272afed5f99c40730d87d19bcf",
+      "destination_bytes": 10797,
+      "mode": "0644",
+      "purpose": "Fix confirmed ICC nodev failure with a protected devtmpfs node; read bounded Power receipts independently of the frozen legacy runner API; preserve identity and single-request guards",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha6.json",
+      "destination_sha256": "d4a83af3655c0f19a317b256894c8a44e2926082c3c2bfa6829a948a9f12348b",
+      "destination_bytes": 14885,
+      "mode": "0644",
+      "purpose": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_rescue_shutdown.py",
+      "destination_sha256": "b825c56e18e8d9b813eb1353a7e59ff62065f92b41566461efdfa77499578cc2",
+      "destination_bytes": 7233,
+      "mode": "0644",
+      "purpose": "Fix observed90second tty2 rescue stop: configure SIGHUP for interactive login Bash, preserve timeouts and frozen alpha1-5; validate actual private PTY readiness and exit, record exact power hardware evidence",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha7.json",
+      "destination_sha256": "f789eba37d6417b3dc00cdd4b6174dad34f3f6e5abcec7b7dfa2a7fbc36ee6ff",
+      "destination_bytes": 16004,
+      "mode": "0644",
+      "purpose": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_power_immediate.py",
+      "destination_sha256": "019bc3f23e642f217837f052cb2926338806109879ec04f624f03a089ff60dca",
+      "destination_bytes": 19130,
+      "mode": "0644",
+      "purpose": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Latch power cancellation without waiting for a stalled Popen; keep launch and registered-worker locks separate and kill late registered children.",
+          "prior_destination_sha256": "65460d95994fcacf7978d979f54e701736db9d7e4e87fddd7043dca0b2c7b832",
+          "destination_sha256": "019bc3f23e642f217837f052cb2926338806109879ec04f624f03a089ff60dca",
+          "destination_bytes": 19130,
+          "mode": "0644"
+        }
+      ]
     }
   ],
   "ownership_updates": [
@@ -3825,6 +4509,280 @@
       "reason": "Record EXP-20261106-001 through 004: inconclusive benchmark launches, scoped task-state inspection and completed exact-artifact read measurements; preserve negative findings and avoid write/endurance or storage stability promotion.",
       "paths": [
         "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add confirmed, exact-profile Shutdown and forced Reboot to Orbis with durable reports/intent, final exclusive read-only runner lock, visible no-retry failures and auxiliary-module exclusion. Add narrow frozen-alpha5 controller/TUI-only refresh, preserving root/kernel/firmware/boot policy and historical alpha3 scope; no new hardware acceptance.",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/model.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "tests/test_ps4_diagnostics_power_actions.py",
+        "docs/PS4-DIAGNOSTIC-POWER.md",
+        "scripts/refresh-ps4-diagnostics-frontend",
+        "tests/test_ps4_diagnostics_frontend_refresh.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified EXP-20261106-005 alpha5 Power frontend USB preparation, unchanged kernel/root/gates, pre-write capture restoration and pending boot/menu observation; no hardware acceptance.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude completed EXP-20261106-005 with observed dev4 boot and owner-confirmed Power-menu navigation; record handoff overrun and SSH output stall separately, with no power/decode/DDR3 acceptance.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Preserve EXP006 packet-level wired SSH failure and inconclusive cause, owner cable action and zero-byte UART limitation; record bounded EXP007 alternate Wi-Fi observation as pending.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude EXP007 alternate-path inspection, EXP008 IPv4 restoration with wireless replies and EXP009 fully wired SSH failure. Preserve paired capture limits, exact route cleanup, unchanged retained DMA and unresolved outbound loss without speculative fixes or support promotion.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record unexplained full power-off during uninstrumented DDR3 PCI preflight, absence of current Power intent, buffered-read/continuity limits and cached-metadata correction; no driver load, DMA or hardware acceptance.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record authorized EXP010 matching dev4 module preparation, cached-only inspector tests, verified separate USB kit and pending bounded unarmed discovery; preserve failed host preparation and no-hardware-acceptance scope.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude EXP010 default-module lifecycle and timing overrun; record completed EXP011 inherited-master0x546 preentry refusal with no DMA, clean removal and measured main-memory totals. Preserve scope, PM-disabled fact and unresolved DDR3 capacity/ownership.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record pending reboot report, observed shutdown trace and unresolved initiating path without a power acceptance claim",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Expose current matching power dispatch status after job completion and preserve unrelated notices; record incident and pending capacity experiment without hardware acceptance",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "tests/test_ps4_diagnostics_power_actions.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Document the status-poll visibility fix and its separate undeployed scope from the capacity-loader experiment",
+      "paths": [
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified distinct capacity BIN staging and preserved rollback before the single operator launch",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed UART capacity witness of 256MiB and observed Linux/menu handoff; retain zero ownership and no auxiliary-DMA acceptance",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Expose fixed power preparation and dispatch phases in RAM and UART while preserving confirmation, command, retained-DMA and no-retry rules; add blocked-flush responsiveness checks",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "tests/test_ps4_diagnostics_power_actions.py",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified power-status2 USB staging and pending first-boot/restart experiment without claiming a physical power fix",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "tests/test_ps4_jobs_durability.py",
+        "tests/test_ps4_diagnostics_overview.py",
+        "diagnostics/ps4/tui/src/overview.rs",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "diagnostics/ps4/tui/README.md",
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified Overview and Power job-lock frontend staging with hardware boot/restart still pending; document Overview/Advanced navigation and evidence scope",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Fix confirmed ICC nodev failure with a protected devtmpfs node; read bounded Power receipts independently of the frozen legacy runner API; preserve identity and single-request guards",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "tests/test_ps4_diagnostics_power_actions.py",
+        "tests/test_ps4_diagnostics_power_device.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude captured restart rejection before ioctl, record nodev and frozen-runner API causes, source fixes and unresolved wired packet-loss scope",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified guarded SSH boot-file update from live Diagnostix after a proven pre-ioctl failure, preserve power evidence and restore read-only media; new boot still pending",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude EXP-20261106-016: verified boot-file staging, corrected helper not run after SSH loss, owner confirmed powered off; no power acceptance",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add distinct alpha6/runtime-dev5 retained ordinary kernel restart contract; preserve frozen historical profiles, existing power-off semantics and saved reporting; no fallback ICC reset on reboot error",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/uvd.py",
+        "diagnostics/ps4/uvd_suite.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/overview.rs",
+        "scripts/build-ps4-diagnostics-alpha",
+        "scripts/stage-ps4-diagnostics-usb",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_power_actions.py",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Freeze independently verified runtime-dev5 kernel, config and all41 module/source pins; exact alpha6 policy and offline image readback, no hardware qualification",
+      "paths": [
+        "diagnostics/ps4/uvd.py",
+        "manifests/ps4-diagnostics-uvd-alpha6.json",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Start EXP-20261106-017 with verified combined kernel/image and read-only USB identity plan; preserve completed previous experiment and distinguish host checks from pending physical reboot",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record verified alpha6 USB update and successful unmount before operator media removal; keep EXP-20261106-017 open through boot/restart sequence",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Conclude EXP-20261106-017: exact UVD frames and ordinary kernel reboot to Orbis passed with completed UART; distinguish90second userspace wait and untested exact-candidate Shutdown",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "docs/PS4-DIAGNOSTIC-POWER.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Fix observed90second tty2 rescue stop: configure SIGHUP for interactive login Bash, preserve timeouts and frozen alpha1-5; validate actual private PTY readiness and exit, record exact power hardware evidence",
+      "paths": [
+        "rootfs/ps4-diagnostics/psx-rescue.service",
+        "scripts/build-ps4-diagnostics-alpha",
+        "tests/test_ps4_diagnostics_rescue_shutdown.py",
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
+      "paths": [
+        "diagnostics/SESSIONS.md",
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/runner.py",
+        "diagnostics/ps4/uvd.py",
+        "diagnostics/ps4/uvd_suite.py",
+        "scripts/build-ps4-diagnostics-alpha",
+        "manifests/ps4-diagnostics-uvd-alpha7.json",
+        "docs/PS4-DIAGNOSTIC-POWER.md",
+        "docs/PS4-DIAGNOSTIC-ALPHA.md",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "tests/test_ps4_diagnostics_power_immediate.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "diagnostics/ps4/tui/src/ui.rs",
+        "diagnostics/ps4/tui/src/ipc.rs",
+        "diagnostics/ps4/tui/src/overview.rs",
+        "tests/test_ps4_browser_autorun.py",
+        "tests/test_ps4_browser_batches.py",
+        "tests/test_ps4_browser_reports.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Permit the exact frozen alpha7 compact-clock profile and verify the unchanged 507-byte loader limit.",
+      "paths": [
+        "scripts/stage-ps4-diagnostics-usb",
+        "tests/test_ps4_diagnostics_alpha.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Latch power cancellation without waiting for a stalled Popen; keep launch and registered-worker locks separate and kill late registered children.",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "tests/test_ps4_diagnostics_power_immediate.py"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }
