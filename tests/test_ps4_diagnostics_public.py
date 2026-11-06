@@ -78,6 +78,8 @@ class FreshPublicImageTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory(prefix='psx-public-test-',dir='/var/tmp');self.addCleanup(self.temp.cleanup)
         self.work=Path(self.temp.name);tree=self.work/'input';tree.mkdir()
         self.licenses=self.work/'licenses';self.licenses.mkdir()
+        self.busybox=b'NEW-SOURCE-BACKED-BUSYBOX-123456'
+        (self.work/'busybox').write_bytes(self.busybox)
         for name in ('BusyBox-GPL-2.0.txt','musl-COPYRIGHT.txt'):(self.licenses/name).write_text('fixture license\n')
         files={'etc/psx-diagnostics/authorized_keys':b'OWNER-KEY-UNIQUE-PRIVATE-123456',
             'etc/machine-id':b'private-machine-id','etc/hostname':b'private-host',
@@ -86,6 +88,7 @@ class FreshPublicImageTests(unittest.TestCase):
             'etc/NetworkManager/system-connections/psx-wired.nmconnection':b'public-wired-policy',
             'etc/NetworkManager/system-connections/private-wifi':b'PRIVATE-WIFI-UNIQUE-123456',
             'usr/lib/firmware/amdgpu/file.bin':b'PRIVATE-FIRMWARE-UNIQUE-123456',
+            'usr/lib/psx-diagnostics/busybox':b'OLD-UNPROVEN-BUSYBOX-123456',
             'root/old-log':b'PRIVATE-HISTORY-UNIQUE-123456','home/psx/cache':b'PRIVATE-PROFILE-123456',
             'usr/bin/kept':b'preserved-executable','unused':b'FREED-BLOCK-SECRET-UNIQUE-123456'}
         fixture=tree/'usr/share/psx-diagnostics/uvd';fixture.mkdir(parents=True)
@@ -113,12 +116,16 @@ class FreshPublicImageTests(unittest.TestCase):
         result=APP.rebuild(self.source,output,self.metadata,self.licenses,template=True)
         raw=output.read_bytes()
         for secret in (b'OWNER-KEY-UNIQUE',b'PRIVATE-HOSTKEY-UNIQUE',b'PRIVATE-WIFI-UNIQUE',
-                       b'PRIVATE-FIRMWARE-UNIQUE',b'PRIVATE-HISTORY-UNIQUE',b'FREED-BLOCK-SECRET-UNIQUE',b'/Users/private/'):
+                       b'PRIVATE-FIRMWARE-UNIQUE',b'PRIVATE-HISTORY-UNIQUE',b'FREED-BLOCK-SECRET-UNIQUE',
+                       b'OLD-UNPROVEN-BUSYBOX',b'/Users/private/'):
             with self.subTest(secret=secret):self.assertNotIn(secret,raw)
         alpha,_,_=APP.modules();reader=alpha.RootImage(output)
         self.assertEqual(reader.read('/etc/psx-diagnostics/authorized_keys'),b'')
         self.assertEqual(reader.read('/usr/bin/kept'),b'preserved-executable')
         self.assertEqual(reader.entry('/usr/bin/kept')['mode'],stat.S_IFREG|0o755)
+        self.assertEqual(reader.read('/usr/lib/psx-diagnostics/busybox'),self.busybox)
+        self.assertEqual(reader.entry('/usr/lib/psx-diagnostics/busybox')['mode'],stat.S_IFREG|0o755)
+        self.assertEqual(result['public_busybox']['sha256'],APP.sha(self.busybox))
         self.assertEqual(reader.read('/usr/share/psx-diagnostics/uvd/clip.h264'),b'unchanged-pixel-oracle')
         self.assertNotEqual(result['uvd_diagnostic']['fixture_sha256'],self.metadata['uvd_diagnostic']['fixture_sha256'])
         self.assertEqual(APP.digest(self.source),self.source_sha)
@@ -134,6 +141,8 @@ class FreshPublicImageTests(unittest.TestCase):
         alpha,_,_=APP.modules();reader=alpha.RootImage(output)
         self.assertEqual(reader.read('/usr/lib/firmware/amdgpu/file.bin'),data)
         self.assertEqual(reader.read('/etc/psx-diagnostics/authorized_keys'),b'')
+        self.assertEqual(reader.read('/usr/lib/psx-diagnostics/busybox'),self.busybox)
+        self.assertNotIn(b'OLD-UNPROVEN-BUSYBOX',output.read_bytes())
         self.assertEqual(APP.digest(self.source),self.source_sha)
 
 

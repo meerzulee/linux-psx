@@ -373,18 +373,27 @@ def fresh_root(source, output, metadata, licenses, *, template, firmware_dir=Non
             and not any(output.is_relative_to(p) for p in (Path('/dev'),Path('/proc'),Path('/sys'))),
             'Fresh root must be a new canonical ordinary file')
     root_bytes=source.stat().st_size
+    # The base also carries a rescue/DHCP BusyBox inside the root. Replace it
+    # along with the CPIO copy so no historical binary escapes the source kit.
+    busybox=regular(Path(licenses).parent/'busybox').read_bytes()
+    metadata['public_busybox']={'sha256':sha(busybox),'bytes':len(busybox),
+        'root_path':'/usr/lib/psx-diagnostics/busybox','cpio_path':'bin/busybox'}
     alpha.fsck(source)
     with tempfile.TemporaryDirectory(prefix='psx-public-root-',dir='/var/tmp') as temporary:
         tree=Path(temporary)/'tree';tree.mkdir()
         alpha.RootImage(source).debug('rdump / '+str(tree))
         identities=private_tokens(tree)
         firmware=local_firmware(firmware_dir,firmware_pins) if not template else None
+        clean_write(tree,'usr/lib/psx-diagnostics/busybox',busybox,0o755)
         sanitize_tree(tree,metadata,Path(licenses),template=template,firmware=firmware)
         audit_private_tokens(tree,identities)
         with output.open('xb') as stream:stream.truncate(root_bytes)
         run(['mkfs.ext4','-q','-F','-b','1024','-O','^has_journal','-d',tree,output],timeout=300)
     alpha.fsck(output)
     reader=alpha.RootImage(output)
+    require(reader.read('/usr/lib/psx-diagnostics/busybox')==busybox
+            and reader.entry('/usr/lib/psx-diagnostics/busybox')['mode']==stat.S_IFREG|0o755,
+            'Fresh root BusyBox differs from the source-backed kit')
     require(reader.read('/etc/psx-diagnostics/authorized_keys')==b'' and reader.read('/etc/machine-id')==b'', 'Public identity sanitization failed')
     require(reader.entry('/home/psx')['uid']==1000,'Fresh image lost unprivileged home ownership')
     observed=reader.walk('/usr/lib/firmware')

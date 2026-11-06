@@ -1576,16 +1576,31 @@ impl App {
                     } else {
                         None
                     };
+                let network_selection = if self.category() == Category::Network {
+                    self.actions().get(self.selected).and_then(network_action_key)
+                } else {
+                    None
+                };
                 value["results"] = merged_results(&value["results"], &self.state["results"]);
                 let continue_first = |state: &Value| {
                     model::actions(Category::Network, state, true)
                         .first()
                         .is_some_and(|action| matches!(action.kind, ActionKind::Continue))
                 };
-                if self.onboarding && !continue_first(&self.state) && continue_first(&value) {
+                let newly_connected =
+                    self.onboarding && !continue_first(&self.state) && continue_first(&value);
+                if newly_connected {
                     self.selected = 0;
                 }
                 self.state = value;
+                if let Some(key) = network_selection.filter(|_| !newly_connected) {
+                    let actions = self.actions();
+                    self.selected = actions.iter().position(|item| network_action_key(item).as_ref() == Some(&key))
+                        .or_else(|| actions.iter().position(|item| matches!(item.kind, ActionKind::Continue)))
+                        .or_else(|| actions.iter().position(|item| matches!(&item.kind,
+                            ActionKind::Request("test.run", params) if params["test_id"] == "ethernet.status")))
+                        .unwrap_or(0);
+                }
                 if let Some((key, group)) = settings_selection {
                     let actions = self.actions();
                     if let Some(index)=actions.iter().position(|item|model::settings_key(item).as_deref()==Some(key.as_str()))
@@ -1750,6 +1765,18 @@ impl Drop for Screen {
     }
 }
 
+fn network_action_key(action: &model::Action) -> Option<Value> {
+    match &action.kind {
+        ActionKind::Request(name, params) => Some(json!(["request", name, params])),
+        ActionKind::Wifi(ssid) => Some(json!(["wifi", ssid])),
+        ActionKind::Https => Some(json!(["https"])),
+        ActionKind::Continue => Some(json!(["continue"])),
+        ActionKind::Information(_) => Some(json!(["information"])),
+        ActionKind::SshSetup => Some(json!(["ssh-setup"])),
+        _ => None,
+    }
+}
+
 fn merged_results(fresh: &Value, cached: &Value) -> Value {
     let mut seen = std::collections::HashSet::new();
     let mut results: Vec<_> = model::array(fresh, "")
@@ -1903,6 +1930,89 @@ mod tests {
         assert!(!app.onboarding);
         assert!(app.category() == Category::System);
         assert!(app.active_job.is_none());
+    }
+    #[test]
+    fn network_scan_never_becomes_disconnect_when_connection_state_changes() {
+        for onboarding in [false, true] {
+            let mut app = App::new(PathBuf::from("/unreachable"), true);
+            app.onboarding = onboarding;
+            app.state["network"]["interfaces"] = json!([
+                {"name":"psx0","type":"ethernet","state":"connected"},
+                {"name":"wlan0","type":"wifi","state":"disconnected"}
+            ]);
+            app.selected = app.actions().iter().position(|item|
+                matches!(item.kind, ActionKind::Request("network.scan", _))).unwrap();
+            let mut next = app.state.clone();
+            next["network"]["interfaces"][1]["state"] = json!("connected");
+            app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+            let actions = app.actions();
+            if onboarding {
+                assert!(matches!(actions[app.selected].kind, ActionKind::Continue));
+            } else {
+                assert!(matches!(&actions[app.selected].kind,
+                    ActionKind::Request("test.run", params) if params["test_id"] == "ethernet.status"));
+            }
+            assert!(app.active_job.is_none());
+            assert!(!app.action_pending);
+        }
+    }
+    #[test]
+    fn network_access_point_selection_follows_ssid_across_scan_reordering() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.onboarding = false;
+        app.state["network"]["wifi"]["access_points"] = json!([
+            {"ssid":"intended","signal":"80","security":"WPA2"},
+            {"ssid":"different","signal":"70","security":"WPA2"}
+        ]);
+        app.selected = app.actions().iter().position(|item|
+            matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "intended")).unwrap();
+        let before = app.selected;
+        let mut next = app.state.clone();
+        next["network"]["wifi"]["access_points"].as_array_mut().unwrap().reverse();
+        app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+        assert_ne!(app.selected, before);
+        assert!(matches!(&app.actions()[app.selected].kind,
+            ActionKind::Wifi(ssid) if ssid == "intended"));
+        app.activate();
+        assert_eq!(app.form.as_ref().unwrap().fields[0], "intended");
+        assert!(app.active_job.is_none());
+    }
+    #[test]
+    fn network_vanished_ssid_selects_continue_in_connected_onboarding() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.state["network"]["interfaces"][0]["state"] = json!("connected");
+        app.state["network"]["wifi"]["access_points"] = json!([
+            {"ssid":"gone","signal":"80","security":"WPA2"}
+        ]);
+        app.selected = app.actions().iter().position(|item|
+            matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "gone")).unwrap();
+        let mut next = app.state.clone();
+        next["network"]["wifi"]["access_points"] = json!([]);
+        app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+        assert!(matches!(app.actions()[app.selected].kind, ActionKind::Continue));
+        assert!(!app.action_pending);
+    }
+    #[test]
+    fn network_keeps_existing_ssh_and_ethernet_actions_as_wifi_rows_disappear() {
+        for select_ssh in [false, true] {
+            let mut app = App::new(PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.state["network"]["interfaces"] = json!([
+                {"name":"psx0","type":"ethernet","state":"connected"},
+                {"name":"wlan0","type":"wifi","state":"disconnected"}
+            ]);
+            app.selected = app.actions().iter().position(|item| if select_ssh {
+                matches!(item.kind, ActionKind::SshSetup)
+            } else {
+                matches!(item.kind, ActionKind::Request("network.ethernet.disconnect", _))
+            }).unwrap();
+            let key = network_action_key(&app.actions()[app.selected]);
+            let mut next = app.state.clone();
+            next["network"]["interfaces"][1]["state"] = json!("connected");
+            app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+            assert_eq!(network_action_key(&app.actions()[app.selected]), key);
+            assert!(!app.action_pending);
+        }
     }
     #[test]
     fn wifi_password_is_scoped_to_form_and_cancel_discards_it() {

@@ -24,6 +24,34 @@ LOADER.exec_module(APP)
 
 
 class AlphaPolicyTests(unittest.TestCase):
+    def alpha8(self):
+        profile=self.alpha7()
+        profile.update(profile='ps4-baikal-diagnostics-uvd-alpha8',image_version='alpha8',
+            kernel_sha256='a7264426ee3b2ffeb030a04bbd7ab070418ecf4c0272b83400b4d5f45473bff4',
+            config_sha256='ee77a55ff46f9d201d71efb0b87adca4cb1f1bf253c301c9cd8da3b5c4a724ff',
+            modules_sha256='a1'*32,variant='mts-tx-reclaim-net1',abi_unchanged=True,kernel_unchanged=True,
+            mts_tx_reclaim_experiment=copy.deepcopy(APP.MTS_TX_RECLAIM_EXPERIMENT),
+            mts_tx_reclaim_fix=copy.deepcopy(APP.MTS_TX_RECLAIM_FIX))
+        for name,key in (('bzImage','kernel_sha256'),('config','config_sha256'),
+                         ('modules-'+profile['kernel_release']+'.tar.zst','modules_sha256')):
+            profile['alpha_inputs']['legacy_package'][name]['sha256']=profile[key]
+        return profile
+
+    def test_alpha8_is_an_exact_module_only_variant_and_cannot_borrow_historical_identity(self):
+        profile=self.alpha8()
+        self.assertEqual(APP.validate_profile(profile)['kernel_release'],self.alpha7()['kernel_release'])
+        for key in ('kernel_sha256','config_sha256','modules_sha256'):
+            changed=copy.deepcopy(profile);changed[key]='b2'*32
+            if key=='modules_sha256':changed[key]='0e50c537c2395154cff659d9722d165027d0ecea875dfcb14d32d798f9c9e14d'
+            name={'kernel_sha256':'bzImage','config_sha256':'config','modules_sha256':'modules-'+profile['kernel_release']+'.tar.zst'}[key]
+            changed['alpha_inputs']['legacy_package'][name]['sha256']=changed[key]
+            with self.subTest(key=key),self.assertRaises(ValueError):APP.validate_profile(changed)
+        for field in ('mts_tx_reclaim_fix','mts_tx_reclaim_experiment','abi_unchanged','kernel_unchanged','variant'):
+            changed=copy.deepcopy(profile);changed.pop(field)
+            with self.subTest(field=field),self.assertRaises(ValueError):APP.validate_profile(changed)
+        changed=self.alpha7();changed['mts_tx_reclaim_experiment']=profile['mts_tx_reclaim_experiment']
+        with self.assertRaisesRegex(ValueError,'Historical'):APP.validate_profile(changed)
+
     def alpha7(self):
         profile=self.alpha6();old=profile['kernel_release']
         release=APP.VARIANTS['ps4-baikal-diagnostics-uvd-alpha7']['kernel_release']
@@ -152,7 +180,7 @@ class AlphaPolicyTests(unittest.TestCase):
         for token in (*APP.SATA_ARGS,*APP.UVD_POWEROFF_ARGS,'panic=0','keep_bootcon','time=4102444799'):
             self.assertEqual(rendered.decode().split().count(token),1)
         self.assertNotIn(b'systemd.wants=systemd-timesyncd.service',rendered)
-        for profile in ('ps4-baikal-diagnostics-uvd-alpha4','unknown','ps4-baikal-diagnostics-uvd-alpha8'):
+        for profile in ('ps4-baikal-diagnostics-uvd-alpha4','unknown','ps4-baikal-diagnostics-uvd-alpha9'):
             with self.subTest(profile=profile),self.assertRaisesRegex(ValueError,'only the scoped'):
                 stage.render_bootargs(new.decode(),'FFFF-FFFF',{'ui_backend':'ratatui','profile':profile,
                     'boot_clock_start_timesyncd':False},epoch=4102444799)

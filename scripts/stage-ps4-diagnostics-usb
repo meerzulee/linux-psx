@@ -179,7 +179,7 @@ def render_bootargs(template, usb_uuid, metadata, epoch=None):
         if type(clock_want) is not bool:
             raise ValueError("boot clock service policy must be boolean")
         if not clock_want and metadata.get("profile") not in (
-                "ps4-baikal-diagnostics-uvd-alpha5", "ps4-baikal-diagnostics-uvd-alpha6", "ps4-baikal-diagnostics-uvd-alpha7"):
+                "ps4-baikal-diagnostics-uvd-alpha5", "ps4-baikal-diagnostics-uvd-alpha6", "ps4-baikal-diagnostics-uvd-alpha7", "ps4-baikal-diagnostics-uvd-alpha8"):
             raise ValueError("only the scoped SATA alpha5/6 starts time sync through its root service")
         if not clock_want:
             tokens = [token for token in tokens if token != ntp]
@@ -218,32 +218,54 @@ def copy_boot_set(source, files, bootargs, previous, plan, expected_names):
     # All destinations are relative to pinned_mount's held filesystem directory.
     mountpoint = Path(".")
     backup = mountpoint / "psx-diagnostics/backups" / str(time.time_ns())
-    if previous:
-        backup.mkdir(parents=True, exist_ok=False)
-        for name in expected_names | {"psx-diagnostics/USB-SHA256SUMS"}:
-            old = mountpoint / name
-            if old.is_file():
-                saved = backup / name; saved.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(old, saved)
-        atomic_write(backup / "installed.json", data=json.dumps(previous, indent=2).encode())
-    # Payload first; loader-facing files last. No console boot occurs during staging.
-    ordered = sorted((n for n in files if n.startswith("psx-diagnostics/"))) + ["bzImage", "initramfs.cpio.gz", "vram.txt"]
-    installed = {}
-    for name in ordered:
-        target = mountpoint / name
-        if not target.exists() or digest(target) != files[name]:
-            atomic_write(target, source=source / name)
-        if digest(target) != files[name]:
-            raise ValueError(f"USB readback differs: {name}")
-        installed[name] = files[name]
-    atomic_write(mountpoint / "bootargs.txt", data=bootargs)
-    installed["bootargs.txt"] = hashlib.sha256(bootargs).hexdigest()
-    marker = dict(plan, owner="psx-diagnostics-usb-v1", files=installed,
-                  staged_unix=time.time(), verified_readback=True,
-                  uart="not used for host-only regular-file preparation; required before console boot")
-    atomic_write(mountpoint / "psx-diagnostics/installed.json", data=(json.dumps(marker, indent=2) + "\n").encode())
-    atomic_write(mountpoint / "psx-diagnostics/USB-SHA256SUMS", data=installed_sums(installed).encode())
-    return marker
+    destinations = {name: backup / name for name in expected_names | {"psx-diagnostics/USB-SHA256SUMS"}}
+    destinations["psx-diagnostics/installed.json"] = backup / "installed.json"
+    absent = {mountpoint / name for name in destinations if not (mountpoint / name).exists()}
+    moved = []
+    try:
+        if previous:
+            backup.mkdir(parents=True, exist_ok=False)
+            for name, saved in sorted(destinations.items()):
+                old = mountpoint / name
+                if old.is_file():
+                    saved.parent.mkdir(parents=True, exist_ok=True)
+                    moved.append((old, saved))
+                    # Rename retains the old bytes without rewriting the root image.
+                    os.replace(old, saved)
+        # Payload first; loader-facing files last. No console boot occurs during staging.
+        ordered = sorted((n for n in files if n.startswith("psx-diagnostics/"))) + ["bzImage", "initramfs.cpio.gz", "vram.txt"]
+        installed = {}
+        for name in ordered:
+            target = mountpoint / name
+            if not target.exists() or digest(target) != files[name]:
+                atomic_write(target, source=source / name)
+            if digest(target) != files[name]:
+                raise ValueError(f"USB readback differs: {name}")
+            installed[name] = files[name]
+        atomic_write(mountpoint / "bootargs.txt", data=bootargs)
+        installed["bootargs.txt"] = hashlib.sha256(bootargs).hexdigest()
+        marker = dict(plan, owner="psx-diagnostics-usb-v1", files=installed,
+                      staged_unix=time.time(), verified_readback=True,
+                      uart="not used for host-only regular-file preparation; required before console boot")
+        atomic_write(mountpoint / "psx-diagnostics/installed.json", data=(json.dumps(marker, indent=2) + "\n").encode())
+        atomic_write(mountpoint / "psx-diagnostics/USB-SHA256SUMS", data=installed_sums(installed).encode())
+        return marker
+    except BaseException:
+        errors = []
+        for target in absent:
+            try:
+                target.unlink(missing_ok=True)
+            except OSError as error:
+                errors.append(error)
+        for old, saved in reversed(moved):
+            try:
+                if saved.exists():
+                    os.replace(saved, old)
+            except OSError as error:
+                errors.append(error)
+        if errors:
+            raise OSError(f"USB rollback incomplete; retained backup: {backup}") from errors[0]
+        raise
 
 
 def main():

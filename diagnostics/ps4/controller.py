@@ -53,7 +53,7 @@ POWER_PROFILES = ('ps4-baikal-diagnostics-uvd-alpha4', 'ps4-baikal-diagnostics-u
                   'ps4-baikal-diagnostics-uvd-alpha6')
 KERNEL_RESTART_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev5'
 IMMEDIATE_POWER_PROFILES = {
-    '7.2.11-psx-ps4-baikal-uvd-runtime-dev6': 'ps4-baikal-diagnostics-uvd-alpha7',
+    '7.2.11-psx-ps4-baikal-uvd-runtime-dev6': ('ps4-baikal-diagnostics-uvd-alpha7', 'ps4-baikal-diagnostics-uvd-alpha8'),
 }
 IMMEDIATE_POWER_RECORD = '/run/psx-power/power-dispatch.json'
 POWER_PHASES = {
@@ -555,7 +555,7 @@ class Controller:
             require(identity.get('release_matches') and identity.get('manifest_available')
                     and str(uuid.UUID(identity.get('boot_id', ''))) == identity['boot_id'], 'Unverified boot')
             manifest = diagnostics.read_json(self.runner.fs.root / self.runner.manifest_path.lstrip('/'))
-            require(manifest.get('profile') == IMMEDIATE_POWER_PROFILES[release], 'Unmatched power profile')
+            require(manifest.get('profile') in IMMEDIATE_POWER_PROFILES[release], 'Unmatched power profile')
             adapter = self.runner.uvd_adapter()
             adapter.select_contract(manifest)
             validation = manifest.get('manifest_validation', {})

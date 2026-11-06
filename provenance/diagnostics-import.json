@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "d5ba88ac850067ca331b6907fa4609ad9a725aa8f81136c6494ea21614802d6e",
-      "destination_bytes": 140200,
+      "destination_sha256": "cec9ec8c9da3cc8e6a3a2674ca8e806fee1f1c0ec4c14bfce5ceff25654b56d0",
+      "destination_bytes": 140239,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -141,6 +141,13 @@
           "prior_destination_sha256": "bda8dba3e51fde1eda5929affdf4ee1957dbb2dea0d31456269ecc873da0bae1",
           "destination_sha256": "d5ba88ac850067ca331b6907fa4609ad9a725aa8f81136c6494ea21614802d6e",
           "destination_bytes": 140200,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "d5ba88ac850067ca331b6907fa4609ad9a725aa8f81136c6494ea21614802d6e",
+          "destination_sha256": "cec9ec8c9da3cc8e6a3a2674ca8e806fee1f1c0ec4c14bfce5ceff25654b56d0",
+          "destination_bytes": 140239,
           "mode": "0644"
         }
       ]
@@ -464,8 +471,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "2a3ba19c76d0feb3c7a9054adcca4353d283732e1087fa82f6a09440e4d7f500",
-      "destination_bytes": 112163,
+      "destination_sha256": "52074ea18b8092b146b88af9c04c08de1da49f0d740fbd2770ed89ada4fdffe7",
+      "destination_bytes": 117935,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -564,6 +571,13 @@
           "prior_destination_sha256": "b9b311482efa13ae125a46961112977f9019454a90c2eefccc53508868513116",
           "destination_sha256": "2a3ba19c76d0feb3c7a9054adcca4353d283732e1087fa82f6a09440e4d7f500",
           "destination_bytes": 112163,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "2a3ba19c76d0feb3c7a9054adcca4353d283732e1087fa82f6a09440e4d7f500",
+          "destination_sha256": "52074ea18b8092b146b88af9c04c08de1da49f0d740fbd2770ed89ada4fdffe7",
+          "destination_bytes": 117935,
           "mode": "0644"
         }
       ]
@@ -1783,8 +1797,8 @@
       "bytes": 15242,
       "mode": "0755",
       "adaptations": [],
-      "destination_sha256": "c63e36fc5ad019a9aea6ccceabe107f8e8d84f3f81344f6fd69cbc7ac83ab3fe",
-      "destination_bytes": 15816,
+      "destination_sha256": "72898ef056fad9302b24951592a55b350c88095d0834df99d6aefa10be6fd64d",
+      "destination_bytes": 16804,
       "destination_adaptations": [
         {
           "reason": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
@@ -1805,6 +1819,13 @@
           "prior_destination_sha256": "07d8fbf94631fd4abc3f2232d3df21ad3e7137f11a97b8951589e5fa08c1dd81",
           "destination_sha256": "c63e36fc5ad019a9aea6ccceabe107f8e8d84f3f81344f6fd69cbc7ac83ab3fe",
           "destination_bytes": 15816,
+          "mode": "0755"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "c63e36fc5ad019a9aea6ccceabe107f8e8d84f3f81344f6fd69cbc7ac83ab3fe",
+          "destination_sha256": "72898ef056fad9302b24951592a55b350c88095d0834df99d6aefa10be6fd64d",
+          "destination_bytes": 16804,
           "mode": "0755"
         }
       ]
@@ -2646,8 +2667,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "35ea1cdc751f64ef4135ae8aa5f8cee33e7707e3a4ccb5293a29c4ac4b2508a3",
-      "destination_bytes": 107989,
+      "destination_sha256": "1f5f06b8e882ec6f880add775f52ff051d535cbf626bbeffb54fb0342f38d632",
+      "destination_bytes": 118093,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -2924,6 +2945,13 @@
           "destination_sha256": "35ea1cdc751f64ef4135ae8aa5f8cee33e7707e3a4ccb5293a29c4ac4b2508a3",
           "destination_bytes": 107989,
           "mode": "0644"
+        },
+        {
+          "reason": "Record completed Ethernet packet-boundary experiments and recovery after host Wi-Fi reassociation; preserve negative driver hypotheses and limited acceptance scope.",
+          "prior_destination_sha256": "35ea1cdc751f64ef4135ae8aa5f8cee33e7707e3a4ccb5293a29c4ac4b2508a3",
+          "destination_sha256": "1f5f06b8e882ec6f880add775f52ff051d535cbf626bbeffb54fb0342f38d632",
+          "destination_bytes": 118093,
+          "mode": "0644"
         }
       ]
     },
@@ -3109,8 +3137,8 @@
     },
     {
       "path": "diagnostics/ps4/uvd.py",
-      "destination_sha256": "4ffc4898435320fd153cca1f7ed878323228bc226d2af3f9b1461309f70bae3c",
-      "destination_bytes": 27137,
+      "destination_sha256": "a338440a24c5e9e89ba04de7c5fa95f7d9b6e2bf8672161325fc90b014dcc8e2",
+      "destination_bytes": 28564,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3169,6 +3197,13 @@
           "prior_destination_sha256": "5bc9cdbf5d26a66ca12283061b684eff04a9e331ea7397b08ed6f245b707122a",
           "destination_sha256": "4ffc4898435320fd153cca1f7ed878323228bc226d2af3f9b1461309f70bae3c",
           "destination_bytes": 27137,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "4ffc4898435320fd153cca1f7ed878323228bc226d2af3f9b1461309f70bae3c",
+          "destination_sha256": "a338440a24c5e9e89ba04de7c5fa95f7d9b6e2bf8672161325fc90b014dcc8e2",
+          "destination_bytes": 28564,
           "mode": "0644"
         }
       ]
@@ -3256,8 +3291,8 @@
     },
     {
       "path": "scripts/build-ps4-diagnostics-alpha",
-      "destination_sha256": "709383ed18f7aed5ad3df507ec20c065361fdd32197fe171dba2d413b45387ca",
-      "destination_bytes": 68592,
+      "destination_sha256": "b448a2a195b3405cf247d2f3818cd36fe6ccf886e418fe55e511ca9a6fd6898a",
+      "destination_bytes": 71579,
       "mode": "0755",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3310,6 +3345,13 @@
           "destination_sha256": "709383ed18f7aed5ad3df507ec20c065361fdd32197fe171dba2d413b45387ca",
           "destination_bytes": 68592,
           "mode": "0755"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "709383ed18f7aed5ad3df507ec20c065361fdd32197fe171dba2d413b45387ca",
+          "destination_sha256": "b448a2a195b3405cf247d2f3818cd36fe6ccf886e418fe55e511ca9a6fd6898a",
+          "destination_bytes": 71579,
+          "mode": "0755"
         }
       ]
     },
@@ -3346,8 +3388,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_alpha.py",
-      "destination_sha256": "1c5ad14250213a398a7f9d5cc023e441e02e923a360209f54ea1e7340f99539b",
-      "destination_bytes": 48817,
+      "destination_sha256": "039d9e6ec9671584c87dc9ca2e2b94a02c2cc49ebca14516aca4ee5a1bb5dee6",
+      "destination_bytes": 50977,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3399,6 +3441,13 @@
           "prior_destination_sha256": "9253a3813a2607811e771d45d0c52f695bd26812930190ba6ec4116fc7863e67",
           "destination_sha256": "1c5ad14250213a398a7f9d5cc023e441e02e923a360209f54ea1e7340f99539b",
           "destination_bytes": 48817,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "1c5ad14250213a398a7f9d5cc023e441e02e923a360209f54ea1e7340f99539b",
+          "destination_sha256": "039d9e6ec9671584c87dc9ca2e2b94a02c2cc49ebca14516aca4ee5a1bb5dee6",
+          "destination_bytes": 50977,
           "mode": "0644"
         }
       ]
@@ -3467,8 +3516,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_uvd.py",
-      "destination_sha256": "912ae5b5888d1d611b547c79ac571e8a90a074126edac05d91e16ee83348f1b9",
-      "destination_bytes": 33541,
+      "destination_sha256": "4972aab9ba7adbbabb517c613e3262a7ae301b2091e8b94bb50f412f3ddea35b",
+      "destination_bytes": 34333,
       "mode": "0644",
       "purpose": "Prepare the separate frozen UVD alpha, rootless complete image assembly, one-attempt forced-VAAPI oracle, full scoped qualification checklist and optional matched Wayland/Chromium packs; preserve ordinary image guards and require hardware evidence separately.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3520,6 +3569,13 @@
           "prior_destination_sha256": "6fde160201277510723721dcdb096f72040c906e9ef1d899ba1444956ca24d83",
           "destination_sha256": "912ae5b5888d1d611b547c79ac571e8a90a074126edac05d91e16ee83348f1b9",
           "destination_bytes": 33541,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "912ae5b5888d1d611b547c79ac571e8a90a074126edac05d91e16ee83348f1b9",
+          "destination_sha256": "4972aab9ba7adbbabb517c613e3262a7ae301b2091e8b94bb50f412f3ddea35b",
+          "destination_bytes": 34333,
           "mode": "0644"
         }
       ]
@@ -3719,8 +3775,8 @@
     },
     {
       "path": "diagnostics/ps4/uvd_suite.py",
-      "destination_sha256": "98718ffd5c86d1637657070726b0ca70b91e563bc0b3f651ef3a8772afb4f638",
-      "destination_bytes": 21141,
+      "destination_sha256": "a2002b6b62d166390b5c7d3e3a4a1b7c76c3c1f691d31e1ef9ee44a6310f0b16",
+      "destination_bytes": 21185,
       "mode": "0644",
       "purpose": "Implement ordered whole-system smoke, fixed native UVD and Wayland jobs, matching alpha5/dev4 providers and early internal-SATA read-only protection; record scoped dev3 power/restart evidence without stability promotion.",
       "origin": "New Linux psX source after diagnostic import",
@@ -3737,6 +3793,13 @@
           "prior_destination_sha256": "29f453aadfbc4ad916911f1a296b52440bd3180e3c0da61dc01298d2021f6468",
           "destination_sha256": "98718ffd5c86d1637657070726b0ca70b91e563bc0b3f651ef3a8772afb4f638",
           "destination_bytes": 21141,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "98718ffd5c86d1637657070726b0ca70b91e563bc0b3f651ef3a8772afb4f638",
+          "destination_sha256": "a2002b6b62d166390b5c7d3e3a4a1b7c76c3c1f691d31e1ef9ee44a6310f0b16",
+          "destination_bytes": 21185,
           "mode": "0644"
         }
       ]
@@ -3998,8 +4061,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_power_immediate.py",
-      "destination_sha256": "019bc3f23e642f217837f052cb2926338806109879ec04f624f03a089ff60dca",
-      "destination_bytes": 19130,
+      "destination_sha256": "b1d099ee94db393512a65aa1cd45891b669e25f5a509ec7ce8b905f611839654",
+      "destination_bytes": 19890,
       "mode": "0644",
       "purpose": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
       "origin": "New Linux psX source after diagnostic import",
@@ -4010,24 +4073,49 @@
           "destination_sha256": "019bc3f23e642f217837f052cb2926338806109879ec04f624f03a089ff60dca",
           "destination_bytes": 19130,
           "mode": "0644"
+        },
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "019bc3f23e642f217837f052cb2926338806109879ec04f624f03a089ff60dca",
+          "destination_sha256": "b1d099ee94db393512a65aa1cd45891b669e25f5a509ec7ce8b905f611839654",
+          "destination_bytes": 19890,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "scripts/prepare-ps4-diagnostics-public",
-      "destination_sha256": "b0bdf5089fddbccf57af3198337ddeffefe5d4cdf00c633a64250dcfc32fd18f",
-      "destination_bytes": 37594,
+      "destination_sha256": "0f2d19b3a12369230a8a377b0f2c981cb0d9bd8421b5484a9556476fe1018f0e",
+      "destination_bytes": 38281,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "b0bdf5089fddbccf57af3198337ddeffefe5d4cdf00c633a64250dcfc32fd18f",
+          "destination_sha256": "0f2d19b3a12369230a8a377b0f2c981cb0d9bd8421b5484a9556476fe1018f0e",
+          "destination_bytes": 38281,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "tests/test_ps4_diagnostics_public.py",
-      "destination_sha256": "d373781ac7d028b2ab25693ce44c99ac772cb95f660568a773fff8b7ba135d40",
-      "destination_bytes": 10020,
+      "destination_sha256": "254a9f49c9ad88bad6b2cdb3107269543ef955ea1f0c0b8046b82a1642632c98",
+      "destination_bytes": 10688,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+          "prior_destination_sha256": "d373781ac7d028b2ab25693ce44c99ac772cb95f660568a773fff8b7ba135d40",
+          "destination_sha256": "254a9f49c9ad88bad6b2cdb3107269543ef955ea1f0c0b8046b82a1642632c98",
+          "destination_bytes": 10688,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "docs/DIAGNOSTIX-RELEASE.md",
@@ -4035,6 +4123,22 @@
       "destination_bytes": 6304,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "tests/test_ps4_diagnostics_usb_stage.py",
+      "destination_sha256": "5f3be96daad26c261d5867ab8c4fabbbb62cbace07e5ec1fd09abab65e7b573b",
+      "destination_bytes": 9996,
+      "mode": "0644",
+      "purpose": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "manifests/ps4-diagnostics-uvd-alpha8.json",
+      "destination_sha256": "34912f0f22ae103a00dfc78624caf4793229392aae1297506ef068419be4d292",
+      "destination_bytes": 17046,
+      "mode": "0644",
+      "purpose": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
       "origin": "New Linux psX source after diagnostic import"
     }
   ],
@@ -4816,6 +4920,32 @@
         "scripts/prepare-ps4-diagnostics-public",
         "tests/test_ps4_diagnostics_public.py",
         "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Bind alpha8/net1 to the unchanged dev6 kernel and the distinct exact41-module set; preserve Network selection by action identity; add rename-based USB rollback and replace the second historical BusyBox in public derivatives.",
+      "paths": [
+        "diagnostics/ps4/controller.py",
+        "diagnostics/ps4/uvd.py",
+        "diagnostics/ps4/uvd_suite.py",
+        "diagnostics/ps4/tui/src/main.rs",
+        "scripts/build-ps4-diagnostics-alpha",
+        "scripts/stage-ps4-diagnostics-usb",
+        "scripts/prepare-ps4-diagnostics-public",
+        "tests/test_ps4_diagnostics_public.py",
+        "tests/test_ps4_diagnostics_alpha.py",
+        "tests/test_ps4_diagnostics_uvd.py",
+        "tests/test_ps4_diagnostics_power_immediate.py",
+        "tests/test_ps4_diagnostics_usb_stage.py",
+        "manifests/ps4-diagnostics-uvd-alpha8.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record completed Ethernet packet-boundary experiments and recovery after host Wi-Fi reassociation; preserve negative driver hypotheses and limited acceptance scope.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

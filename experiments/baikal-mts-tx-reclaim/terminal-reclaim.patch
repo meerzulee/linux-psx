@@ -1,0 +1,29 @@
+From: Meerzulee and Linux psX contributors
+Subject: [PATCH] net: psx_mts preserve returned TX word0 until descriptor reuse
+
+SPDX-License-Identifier: GPL-2.0-only
+
+Candidate for a bounded fresh-boot comparison, not a confirmed stall fix.
+The retained FW12.02 completion contract checks COWN and the word2 sentinel,
+then frees its tracked packet and restores the word2 sentinel. It does not
+clear descriptor word0 at that retirement point (raw252ce2..252d77).
+
+Omit only the extra Linux word0 clear. The next mts_xmit assigns the complete
+new status/length/EOR fields before its OWN-last release. Buffer retention,
+software ledger, accounting, polling and every lifecycle guard are unchanged.
+No firmware bytes are included. Existing GPL-2.0-only source notices remain.
+
+Base-SHA256: fa1e0181ca11e9e21fea509b14654c0e37788d537f1664f598dec6dca4bfda79  drivers/net/ethernet/psx_mts_net.c
+Result-SHA256: 8a1f0b9a351099e1dae454f7d35d84f26abc0784b89fd47c24fe77241b0d45bf  drivers/net/ethernet/psx_mts_net.c
+
+diff --git a/drivers/net/ethernet/psx_mts_net.c b/drivers/net/ethernet/psx_mts_net.c
+--- a/drivers/net/ethernet/psx_mts_net.c
++++ b/drivers/net/ethernet/psx_mts_net.c
+@@ -559,7 +559,6 @@
+ 		if (!mts_tx_retire(&s->tx, d0, d2, &length))
+ 			break;
+ 		WRITE_ONCE(ring[slot].word[2], cpu_to_le32(MTS_TX_SENTINEL));
+-		WRITE_ONCE(ring[slot].word[0], cpu_to_le32(mts_tx_idle(slot)));
+ 		packets++;
+ 		bytes += length;
+ 	}

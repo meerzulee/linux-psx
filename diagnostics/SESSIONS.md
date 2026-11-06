@@ -1571,3 +1571,168 @@ outside Git; one completed test is not stability qualification.
 - This establishes the corrected ordinary Shutdown path on this PS4. The new
   alpha7 immediate test-preemption path is a separate candidate and has not
   yet received a hardware test. Ethernet SSH stalls remain unresolved.
+
+## EXP-20261106-021 — Matched alpha7 boot; wired SSH degraded
+
+- The exact alpha7 image booted `7.2.11-psx-ps4-baikal-uvd-runtime-dev6`;
+  read-only image/module/frontend verification passed. Kernel SHA256:
+  `a7264426ee3b2ffeb030a04bbd7ab070418ecf4c0272b83400b4d5f45473bff4`.
+  Overview and Power controls were available; **no Power command was sent**.
+- An initial wired query preceded activation and had no ARP response. After
+  MTS reached RUNNING and ARP matched, another query returned initial output
+  then timed out. Independent Wi-Fi SSH completed the collection. Later
+  operator connection changes removed the wired address; that later state
+  does not explain away the earlier established-session stall.
+- Verdict: matched boot observed, **wired SSH degraded**; no immediate-power
+  or Ethernet stability acceptance. The tested path included the laptop's
+  Wi-Fi LAN connection; loss attribution remains unresolved. UART completed, bytes
+  2683428..2802865 (119,437 bytes), zero capture events. Private boot and
+  network receipts remain indexed by this experiment ID.
+
+## EXP-20261107-001 — Wired TCP loss localized with simultaneous captures
+
+- Same alpha7/dev6 boot. Source-specific policy routing was unavailable in
+  this config, so no rule was installed; interface-scoped Wi-Fi control kept
+  the wired SSH flow separate. No driver change, reset, unload or rearm ran.
+- All 25 client TCP packets appeared at the console, but 18 console egress
+  packets had no matching host sequence coverage. The missing payload range
+  was 296 bytes; fully captured short packets had valid checksums and correct
+  Ethernet headers. ARP still reached the host during the stall. Console
+  AF_PACKET capture precedes hardware transmission, so this does not identify
+  which later boundary lost the packets or prove total PHY failure.
+- The loss coincided with an SSH traffic-class change from EF to zero;
+  **correlation, not a demonstrated cause**. Wired query failed; independent
+  Wi-Fi control survived. UART completed, bytes 2802865..2806712 (3,847 bytes),
+  zero capture events. Packet captures and checksum analysis remain private.
+
+## EXP-20261107-002 — Client EF option did not restore wired SSH
+
+- Changed only the client SSH option to `IPQoS=ef` on the same boot, retaining
+  the server, driver and independent Wi-Fi control. The wired query returned
+  no command output and failed with exit 255 after 5.96 seconds.
+- Client EF alone supplied no remedy; this does not establish the cause of
+  loss or control the server's socket marking. No persistent change remained.
+  UART completed, bytes 2808408..2811308 (2,900 bytes), zero capture events.
+
+## EXP-20261107-003 — Server EF trial unsuccessful; configuration restored
+
+- Temporarily applied RAM-only server `IPQoS ef ef`, validated and reloaded
+  sshd while retaining Wi-Fi control. The saved wired query timed out during
+  TCP connection establishment after 5.01 seconds, with no command output.
+- This trial did not demonstrate a successful workaround or isolate
+  post-authentication traffic-class behavior. The temporary configuration was
+  removed and the original effective policy restored; no driver operation ran.
+  UART completed, bytes 2812156..2814937 (2,781 bytes), zero capture events.
+
+## EXP-20261107-004 — FAIL: net1 did not fix wired SSH stalls
+
+- Fresh matched alpha8 boot retained the exact dev6 kernel/config, UVD/ICC
+  code and 40 other modules. Experimental `mts-tx-reclaim-net1` omits only
+  the TX-reclaim descriptor word0 clear. It uses normal external Kbuild
+  metadata; the staged MTS SHA256 is
+  `8272e32c73f900b2a0e35b3f2a82002f2d7411a049a397501af24e2518448b82`.
+  The loaded build note matched that candidate.
+- Wired preflight returned JSON, then the SSH smoke failed with exit 255 after
+  8.96 seconds. The planned 20-session and bidirectional hash-checked transfer
+  gates were not completed. **Preserving returned word0 did not resolve the
+  stall and must not be promoted as an Ethernet fix.** Wi-Fi provided fallback
+  control; no running-module replacement, reset, unload or rearm occurred.
+- UART completed, bytes 2948013..3088787 (140,774 bytes), zero capture events.
+  Exact staging, loaded-module and failed-query receipts remain private.
+
+## EXP-20261107-005 — Packet-class correlation below SSH; cause unresolved
+
+- Same net1 boot. Bounded owned UDP/ICMP probes and TCP echo connections
+  compared zero TOS with EF, without changing the driver. Host capture saw
+  3/6 zero-TOS versus 6/6 EF UDP probes, and 0/2 versus 2/2 ICMP probes.
+  Zero-TOS TCP echo timed out; EF echo returned the exact payload in 8.7 ms.
+- These are **correlated observations, not a causal isolation or acceptance**:
+  the TCP phases used different connections. UDP socket delivery was absent
+  despite capture receipt, so its application count is not a wire-loss count.
+  The final host capture ended before the final EF frames flushed; the TCP
+  application did receive its echo. Temporary sockets exited without a
+  persistent configuration change.
+- UART completed, bytes 3091687..3094330 (2,643 bytes), zero capture events.
+  No reset, unload, rearm or automatic recovery was used.
+
+## EXP-20261107-006 — One forced-PTY wired SSH command completed
+
+- Changed only the SSH PTY request on the same net1 boot. One command
+  returned the expected marker/release and exited with status 0 in 2.46 seconds.
+  All 19 captured console egress IPv4 frames used EF (`0xb8`).
+- This is one successful command, **not reliability, a general workaround or
+  driver acceptance**. The short connection and capture closed without a
+  persistent change. UART continuity completed at bytes 3094330..3094330:
+  zero new UART bytes and zero capture events; command/capture records supply
+  the positive evidence.
+
+## EXP-20261107-007 — INCONCLUSIVE: same-flow comparison did not run
+
+- Planned to alternate zero/EF response marking within one owned TCP
+  connection. Before the listener bound, the operator disconnected Ethernet;
+  the wired address was absent and bind failed with `EADDRNOTAVAIL`.
+  **No owned TCP probe was sent**, so this experiment cannot resolve the
+  traffic-class hypothesis or supply another driver failure/success result.
+- Independent Wi-Fi SSH confirmed the same boot and cached MTS state without
+  a reported terminal fault. The listener exited and bounded passive capture
+  ended; no persistent configuration or driver change occurred.
+- UART continuity completed at bytes 3094330..3094330, zero new bytes and
+  zero capture events. Private plan, bind failure and control receipts are
+  retained; the same-flow comparison remains untested.
+
+## EXP-20261107-008 — Same-flow response marking comparison
+
+- After Ethernet was reconnected, one owned TCP connection alternated zero
+  and EF response marking with `SO_PRIORITY=0` held constant. The first two
+  ordinary replies arrived; the third and its ordinary retransmissions did
+  not. Changing to EF allowed that same sequence to arrive, followed by the
+  final response. Normal-priority ACKs also arrived during the loss.
+- This demonstrates the marking-dependent behavior within one flow, without
+  proving a blanket zero-TOS filter or locating the failing component between
+  the console's software egress hook and the laptop capture. No configuration
+  or driver change persisted. UART completed, bytes 3094567..3094567,
+  zero new bytes and zero capture events.
+
+## EXP-20261107-009 — Server EF policy did not establish a workaround
+
+- A validated RAM-only `IPQoS ef ef` drop-in was applied through independent
+  Wi-Fi control. The first wired SSH query timed out before authentication in
+  5.01 seconds; the planned transfer loop stopped immediately.
+- The post-authentication policy was not exercised. The drop-in was removed,
+  sshd validated/reloaded, and the default `ef cs0` policy was confirmed.
+  No driver operation ran. UART completed, bytes 3094567..3094567, zero new
+  bytes and zero capture events.
+
+## EXP-20261107-010 — Gateway works; laptop path loses ordinary traffic
+
+- Interface-bound wired ICMP reached the LAN gateway 4/4 times for both
+  ordinary and EF markings. The laptop received 2/4 ordinary versus 4/4 EF
+  probes. Interface-bound HTTPS to kernel.org completed TCP/TLS and returned
+  HTTP 404 in 0.61 seconds; this is connectivity evidence, not a successful
+  content check.
+- Normal-priority bidirectional wired traffic remained possible to the
+  gateway/Internet. The loss was destination/path-specific, rather than a
+  demonstrated global TX stoppage. The experiment did not distinguish GMAC,
+  LAN forwarding or the laptop's receive path. No persistent setting changed.
+  UART completed, bytes 3094567..3097526 (2,959 bytes), zero capture events.
+
+## EXP-20261107-011 — Wired SSH recovered after laptop Wi-Fi reassociation
+
+- Changed only the laptop's Wi-Fi association, reconnecting the same existing
+  NetworkManager profile. The PS4 stayed on the same alpha8/net1 boot with
+  unchanged driver and default sshd `IPQoS ef cs0`; no PS4 reset, unload,
+  rearm, SSH policy change or Power request occurred.
+- Before reassociation, ordinary wired PS4-to-laptop ICMP was 0/6. Afterward,
+  **20/20 ordinary non-PTY SSH logins** completed, and **4 MiB transfers in
+  each direction matched SHA256**. Upload took 0.829 seconds and download
+  0.789 seconds including SSH setup. Final ordinary ICMP was 6/6.
+  Host capture included 1,705 CS0 console egress frames covering 4,206,416
+  TCP payload bytes. Cached MTS error, terminal fault and pending TX were zero.
+- Verdict: **the tested wired SSH path recovered**. The host association/AP
+  path is a relevant variable; the exact faulty component remains unresolved.
+  This does not prove a PS4 code fix, net1 causality, endurance or broad
+  Ethernet stability. Temporary probe data was removed and the existing host
+  profile restored without changing saved settings.
+- UART completed, bytes 3097526..3100426 (2,900 bytes), zero capture events.
+  Private before/after receipts, captures and matching transfer hashes remain
+  indexed by this experiment ID.

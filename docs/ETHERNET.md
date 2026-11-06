@@ -97,16 +97,54 @@ managers, repeated cold boots and other consoles.
 [The target provenance](../provenance/6.18-ps4-baikal.json) records the exact
 hashes.
 
-## Observing traffic
+## Current 7.2 diagnostic regression and recovery
 
 The later `7.2.11-psx-ps4-baikal-native-dev3` diagnostic boot also established
 wired DHCP/SSH and carried the checksum-verified diagnostic/provider transfers.
 Its profile explicitly selects `autoarm=1`; it is separate evidence from the
 historical 6.18 autoload result. The frontend experiments in the
 [diagnostic ledger](../diagnostics/SESSIONS.md) share one boot and do not count
-as additional cold boots or a controlled bidirectional longevity test. Current
-status: working on this recorded Baikal setup; ordinary-use stability
-qualification remains pending.
+as additional cold boots or a controlled bidirectional longevity test.
+
+Newer `7.2.11-psx-ps4-baikal-uvd-runtime-dev6` Diagnostix boots on the same
+Baikal console reproduced SSH stalls on the PS4-wired to laptop-over-Wi-Fi
+LAN path despite successful DHCP, ARP and some command traffic. The recorded
+loss does not identify a failing endpoint or qualify wired stability across
+peers. EXP-20261106-021 and EXP-20261107-001 through
+  EXP-20261107-011 record the boundaries; they do not replace the historical
+6.18 observations.
+
+- Simultaneous console/host captures found missing console-to-host TCP
+  sequence coverage, including short checksum-valid packets, while ARP still
+  arrived. Console egress capture is before the NIC hardware; it does not
+  establish physical transmission or isolate the loss to the driver.
+- Alpha8's experimental `mts-tx-reclaim-net1` module retained the exact dev6
+  kernel/config and 40 other modules. Omitting the reclaim word0 clear
+  **did not fix** the wired SSH smoke. It remains an unsuccessful hypothesis,
+  not a promoted driver fix.
+- EF/zero traffic-class differences appeared in bounded UDP, ICMP and TCP
+  probes. Client/server EF trials supplied no general remedy. Later
+  EXP-20261107-008 reproduced the difference within one TCP connection with
+  socket priority held constant: an ordinary reply stalled, then its EF
+  retransmission arrived. Some ordinary replies and ACKs also arrived;
+  a blanket zero-TOS filter or root cause is not established.
+- One forced-PTY SSH command completed with EF egress. That single result
+  does not establish a reliable workaround. The earlier same-flow attempt
+  EXP-20261107-007 sent no probe after Ethernet was disconnected.
+
+All twelve experiment windows completed UART continuity with zero capture
+events; quiet windows had no new UART bytes. No reset, unload,
+rearm or automatic driver recovery was used. Packet captures, addresses and
+private control receipts remain outside the public repository.
+
+Later completed EXP-20261107-011 reassociated only the laptop's Wi-Fi with
+its existing profile, leaving the PS4 boot, driver and SSH policy unchanged.
+The path recovered: 20/20 ordinary non-PTY SSH logins and SHA256-verified
+4 MiB transfers in both directions passed. **The tested LAN path is working
+again; the precise AP/client fault remains unresolved.** This short same-boot
+recovery does not establish a PS4 code fix, net1 causality or broad stability.
+
+## Observing traffic
 
 The [current finish plan](CURRENT-FINISH-PLAN.md#ethernet-working-and-stable-in-a-declared-scope)
 defines the next proposed ordinary-use stability gate for a frozen Baikal build:

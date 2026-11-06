@@ -73,6 +73,20 @@ class ImmediatePowerTests(unittest.TestCase):
             self.request()
         self.kernel_call.assert_not_called()
 
+    def test_alpha8_cached_power_accepts_only_its_new_matching_module_contract(self):
+        self.fixture.manifest.update(copy.deepcopy(BASE.UVD.ALPHA8))
+        self.fixture.save_manifest()
+        self.fixture.receipt.update(profile=self.fixture.manifest['profile'])
+        self.fixture.receipt['files']['bzImage']=self.fixture.manifest['kernel_sha256']
+        self.fixture.save_receipt()
+        self.controller._cache_power_boot()
+        self.assertIsNotNone(self.controller._power_boot)
+        self.fixture.manifest['modules_sha256']=BASE.UVD.ALPHA7['modules_sha256']
+        self.fixture.save_manifest()
+        self.controller._cache_power_boot()
+        self.assertIsNone(self.controller._power_boot)
+        self.kernel_call.assert_not_called()
+
     def test_dev5_stays_on_legacy_guarded_power_path(self):
         self.fixture.select_alpha6()
         self.controller._cache_power_boot()

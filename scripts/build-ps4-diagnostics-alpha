@@ -67,6 +67,11 @@ VARIANTS = {
         'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
         'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
     },
+    'ps4-baikal-diagnostics-uvd-alpha8': {
+        'kernel_release': '7.2.11-psx-ps4-baikal-uvd-runtime-dev6', 'image_version': 'alpha8',
+        'source_receipt': 'build-inputs/runtime/SOURCE-RECEIPT.json',
+        'link_receipt': 'build-inputs/runtime/LINK-ATTEMPT-01.json',
+    },
 }
 BASE_FIRMWARE = {'path': '/usr/lib/firmware/amdgpu/liverpool_uvd.bin', 'bytes': 232752,
                  'sha256': '30eed8d680321bdc6213409a4a882442049b2a559eadb9ee2554d53b0cfb96c9'}
@@ -105,6 +110,31 @@ UVD_TERMINAL_RESTART_EXPERIMENT = dict(UVD_RESTART_EXPERIMENT,
 TERMINAL_RESTART_FIX = {
     'patch_path': 'experiments/ps4-uvd-driver/runtime/terminal-restart.patch',
     'patch_sha256': '75aa87d67122c5208bfae293c50aa134382138f4ca7a23aa8f0bd609ce5f2324', 'hardware_acceptance': False}
+
+MTS_TX_RECLAIM_EXPERIMENT = {
+    'single_change': 'omit_word0_clear_on_tx_reclaim', 'preserve_returned_word0': True,
+    'word2_sentinel_unchanged': True, 'ownership_predicate_unchanged': True,
+    'producer_assignment_unchanged': True, 'retained_buffers': True,
+    'polling_and_lifecycle_unchanged': True, 'hypothesis_only': True, 'hardware_acceptance': False}
+MTS_TX_RECLAIM_FIX = {
+    'patch_path': 'experiments/baikal-mts-tx-reclaim/terminal-reclaim.patch',
+    'patch_sha256': 'b6fbbc41b295ba259b01e89aa2d7dafdfcc37441b74506cdff30087370400797',
+    'hardware_acceptance': False}
+
+
+def validate_mts_contract(value, active):
+    fields = ('mts_tx_reclaim_experiment', 'mts_tx_reclaim_fix', 'variant', 'abi_unchanged', 'kernel_unchanged')
+    if not active:
+        require(not any(key in value for key in fields), 'Historical profile cannot borrow the MTS net1 contract')
+        return
+    for key, expected in (('mts_tx_reclaim_experiment', MTS_TX_RECLAIM_EXPERIMENT),
+                          ('mts_tx_reclaim_fix', MTS_TX_RECLAIM_FIX)):
+        actual = value.get(key)
+        require(isinstance(actual, dict) and set(actual) == set(expected)
+                and all(type(actual[k]) is type(v) and actual[k] == v for k, v in expected.items()),
+                'Alpha8 exact MTS contract differs: ' + key)
+    require(value.get('variant') == 'mts-tx-reclaim-net1' and value.get('abi_unchanged') is True
+            and value.get('kernel_unchanged') is True, 'Alpha8 requires the unchanged kernel ABI and net1 module variant')
 
 SATA_ARGS = ('libata.force=1:1.5Gbps', 'libahci.ps4_ahci_poll_ms=0', 'libahci.ps4_probe_ms=5',
              'ps4_bpcie.ps4_sata_phy_orbit=1', 'systemd.gpt_auto=0')
@@ -185,20 +215,22 @@ def validate_restart_contract(value, *, terminal=False):
 
 def validate_package_lifecycle(profile, runtime, package):
     version = profile['image_version']
-    if version not in ('alpha6', 'alpha7'):
+    for receipt in (runtime, package):
+        validate_mts_contract(receipt, version == 'alpha8')
+    if version not in ('alpha6', 'alpha7', 'alpha8'):
         require(all('restart_fix' not in receipt and 'uvd_restart_experiment' not in receipt
                     for receipt in (runtime, package)),
                 'Historical packages cannot declare the alpha6 restart exception')
-    if version in ('alpha4', 'alpha5', 'alpha6', 'alpha7'):
+    if version in ('alpha4', 'alpha5', 'alpha6', 'alpha7', 'alpha8'):
         for receipt in (runtime, package):
             require(receipt.get('uvd_lifecycle_sources_unchanged') is False,
                     'Power-off package must preserve the recorded historical UVD lifecycle adaptation')
-            validate_poweroff_experiment(receipt.get('uvd_poweroff_experiment'), restart=version in ('alpha6', 'alpha7'))
+            validate_poweroff_experiment(receipt.get('uvd_poweroff_experiment'), restart=version in ('alpha6', 'alpha7', 'alpha8'))
             if version == 'alpha5':
                 require(receipt.get('uvd_sources_unchanged_from_dev3') is True,
                         'Alpha5 package must preserve UVD and ICC lifecycle source from dev3')
-            if version in ('alpha6', 'alpha7'):
-                validate_restart_contract(receipt, terminal=version == 'alpha7')
+            if version in ('alpha6', 'alpha7', 'alpha8'):
+                validate_restart_contract(receipt, terminal=version in ('alpha7', 'alpha8'))
     elif version in ('alpha2', 'alpha3'):
         require(all(receipt.get('uvd_lifecycle_sources_unchanged') is True
                     and 'uvd_poweroff_experiment' not in receipt for receipt in (runtime, package)),
@@ -210,10 +242,11 @@ def validate_profile(profile):
     variant = VARIANTS.get(profile.get('profile'))
     require(variant is not None and profile.get('kernel_release') == variant['kernel_release']
             and profile.get('image_version') == variant['image_version'], 'Unknown or mismatched frozen alpha profile/release')
-    restart = variant['image_version'] in ('alpha6', 'alpha7')
-    poweroff = variant['image_version'] in ('alpha4', 'alpha5', 'alpha6', 'alpha7')
-    sata = variant['image_version'] in ('alpha5', 'alpha6', 'alpha7')
-    if variant['image_version'] in ('alpha2', 'alpha3', 'alpha4', 'alpha5', 'alpha6', 'alpha7'):
+    validate_mts_contract(profile, variant['image_version'] == 'alpha8')
+    restart = variant['image_version'] in ('alpha6', 'alpha7', 'alpha8')
+    poweroff = variant['image_version'] in ('alpha4', 'alpha5', 'alpha6', 'alpha7', 'alpha8')
+    sata = variant['image_version'] in ('alpha5', 'alpha6', 'alpha7', 'alpha8')
+    if variant['image_version'] in ('alpha2', 'alpha3', 'alpha4', 'alpha5', 'alpha6', 'alpha7', 'alpha8'):
         require(profile.get('build_status') == 'frozen', 'Alpha kernel inputs are pending; freeze reviewed artifact pins before assembly')
         require(profile.get('product_name') == 'Diagnostix', 'Alpha2 product_name must be Diagnostix')
         fix = profile.get('poweroff_fix', {})
@@ -231,7 +264,7 @@ def validate_profile(profile):
     else:
         require('uvd_poweroff_experiment' not in profile, 'Historical alpha profiles cannot opt into the alpha4 power-off experiment')
     if restart:
-        validate_restart_contract(profile, terminal=variant['image_version'] == 'alpha7')
+        validate_restart_contract(profile, terminal=variant['image_version'] in ('alpha7', 'alpha8'))
     else:
         require(not any(key in profile for key in ('restart_fix', 'uvd_restart_experiment',
                     'inherited_uvd_poweroff_experiment', 'uvd_poweroff_semantics_unchanged_from_dev4',
@@ -267,7 +300,7 @@ def validate_profile(profile):
         require(profile[key] == BASE_IDENTITY[key], 'Alpha must preserve the ordinary base Mesa/snapshot')
     inputs = profile.get('alpha_inputs', {})
     require(isinstance(inputs, dict) and isinstance(inputs.get('legacy_package'), dict), 'Missing frozen package inputs')
-    if variant['image_version'] in ('alpha3', 'alpha4', 'alpha5', 'alpha6', 'alpha7'):
+    if variant['image_version'] in ('alpha3', 'alpha4', 'alpha5', 'alpha6', 'alpha7', 'alpha8'):
         require(inputs.get('base_root_firmware') == BASE_FIRMWARE and inputs.get('root_firmware') == UVD_FIRMWARE,
                 'Alpha3 requires distinct stock-base and corrected runtime firmware pins')
     package = inputs['legacy_package']; release = variant['kernel_release']
@@ -282,6 +315,11 @@ def validate_profile(profile):
             require(type(pin['bytes']) is int and 0 < pin['bytes'] < CAP, 'Pending or invalid package size: ' + name)
     for name, key in (('bzImage', 'kernel_sha256'), ('config', 'config_sha256'), (f'modules-{release}.tar.zst', 'modules_sha256')):
         require(package[name]['sha256'] == profile[key], 'Profile/package pins disagree: ' + key)
+    if variant['image_version'] == 'alpha8':
+        require(profile['kernel_sha256'] == 'a7264426ee3b2ffeb030a04bbd7ab070418ecf4c0272b83400b4d5f45473bff4'
+                and profile['config_sha256'] == 'ee77a55ff46f9d201d71efb0b87adca4cb1f1bf253c301c9cd8da3b5c4a724ff'
+                and profile['modules_sha256'] != '0e50c537c2395154cff659d9722d165027d0ecea875dfcb14d32d798f9c9e14d',
+                'Alpha8 must preserve the exact dev6 kernel/config and declare a distinct module-set hash')
     diagnostic = profile.get('uvd_diagnostic')
     require(isinstance(diagnostic, dict), 'Missing frozen UVD diagnostic inputs')
     for key, value in diagnostic.items():
@@ -645,7 +683,7 @@ def prepare_firmware(profile, source):
     data = source.read_bytes()
     policy = load('psx_alpha_uvd_policy', REPO / 'diagnostics/ps4/uvd.py')
     require(policy.FIRMWARE == UVD_FIRMWARE, 'Builder/runtime firmware pins differ')
-    if profile['image_version'] in ('alpha6', 'alpha7'):
+    if profile['image_version'] in ('alpha6', 'alpha7', 'alpha8'):
         require(policy.select_contract(profile)['profile'] == profile['profile'],
                 'Current UVD adapter does not support the frozen alpha6 profile')
     facts = policy.validate_firmware(data)
@@ -662,7 +700,7 @@ def verify_initramfs_firmware(path, parser, expected):
 
 def alpha6_rescue_override(profile):
     """Refresh alpha6+ inherited rescue units from its canonical source."""
-    if profile['image_version'] not in ('alpha6', 'alpha7'):
+    if profile['image_version'] not in ('alpha6', 'alpha7', 'alpha8'):
         return {}, {}
     name = 'rootfs/ps4-diagnostics/psx-rescue.service'
     target = '/usr/lib/systemd/system/psx-rescue.service'
@@ -679,12 +717,14 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     base, package, fixture_dir, output = validate_paths(base, package, fixture_dir, output)
     if 'poweroff_fix' in profile:
         pinned(REPO / profile['poweroff_fix']['patch'], {'sha256': profile['poweroff_fix']['sha256']})
-    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7'):
+    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7', 'alpha8'):
         pinned(REPO / SATA_PROBE['patch'], {'sha256': SATA_PROBE['sha256']})
-    if profile['image_version'] in ('alpha6', 'alpha7'):
+    if profile['image_version'] in ('alpha6', 'alpha7', 'alpha8'):
         pinned(REPO / RESTART_FIX['patch_path'], {'sha256': RESTART_FIX['patch_sha256']})
-    if profile['image_version'] == 'alpha7':
+    if profile['image_version'] in ('alpha7', 'alpha8'):
         pinned(REPO / TERMINAL_RESTART_FIX['patch_path'], {'sha256': TERMINAL_RESTART_FIX['patch_sha256']})
+    if profile['image_version'] == 'alpha8':
+        pinned(REPO / MTS_TX_RECLAIM_FIX['patch_path'], {'sha256': MTS_TX_RECLAIM_FIX['patch_sha256']})
     stage = load('psx_alpha_stage', REPO / 'scripts/stage-ps4-diagnostics-usb')
     image = load('psx_alpha_image', REPO / 'scripts/build-ps4-diagnostics')
     parser = load('psx_alpha_archive', REPO / 'scripts/ps4-diagnostics-archive')
@@ -768,7 +808,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
                'uvd.py': '/opt/psx-diagnostics/uvd.py', 'qualification.py': '/opt/psx-diagnostics/qualification.py',
                'qualification.json': '/opt/psx-diagnostics/qualification.json', 'network.py': '/opt/psx-diagnostics/network.py',
                'ssh_access.py': '/opt/psx-diagnostics/ssh_access.py'}
-    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7'):
+    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7', 'alpha8'):
         sources['uvd_suite.py'] = '/opt/psx-diagnostics/uvd_suite.py'
     for name, target in sources.items():
         source = regular(REPO / 'diagnostics/ps4' / name); data = source.read_bytes(); before = sha(data)
@@ -794,7 +834,7 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
     source_facts[str(playback_path.relative_to(REPO))] = {'source_sha256': sha(playback_path.read_bytes()), 'installed_sha256': spec['playback_sha256'], 'path': spec['playback']}
     replacements['/usr/bin/psx-qualify'] = (b'#!/bin/sh\nexec /usr/bin/python3 /opt/psx-diagnostics/qualification.py "$@"\n', 0o755)
     replacements['/usr/lib/os-release'] = (os_release(profile), 0o644)
-    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7'):
+    if profile['image_version'] in ('alpha5', 'alpha6', 'alpha7', 'alpha8'):
         target, data = ALPHA5_TIME_SYNC
         replacements[target] = (data, 0o644)
         source_facts['scripts/build-ps4-diagnostics-alpha'] = {
@@ -828,8 +868,8 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
         source_facts['tui-binary'] = {'source_sha256': sha(frontend['psx-diagnostics-tui']), 'path': '/usr/bin/psx-diagnostics-tui'}
     frontend_facts = image.frontend_manifest(frontend, original['snapshot_sums_sha256'])
     bootargs = alpha_bootargs((base / 'bootargs.template.txt').read_bytes(),
-                             poweroff_experiment=profile['image_version'] in ('alpha4', 'alpha5', 'alpha6', 'alpha7'),
-                             sata_probe=profile['image_version'] in ('alpha5', 'alpha6', 'alpha7'), profile=profile['profile'])
+                             poweroff_experiment=profile['image_version'] in ('alpha4', 'alpha5', 'alpha6', 'alpha7', 'alpha8'),
+                             sata_probe=profile['image_version'] in ('alpha5', 'alpha6', 'alpha7', 'alpha8'), profile=profile['profile'])
     metadata = copy.deepcopy(original)
     for key in ('initramfs_sha256', 'rootfs_sha256', 'frontend_refresh', 'rootfs_unpacked_bytes'):
         metadata.pop(key, None)
@@ -841,7 +881,8 @@ def prepare(base, package, fixture_dir, profile_path, output, tui=None, wayland_
                 'uvd_sources_unchanged_from_dev3', 'sata_policy', 'sata_probe_experiment',
                 'required_sata_boot_arguments', 'boot_clock_start_timesyncd',
                 'restart_fix', 'uvd_restart_experiment', 'inherited_uvd_poweroff_experiment',
-                'uvd_poweroff_semantics_unchanged_from_dev4', 'uvd_restart_guards_unchanged_from_dev4', 'terminal_restart_fix', 'inherited_dev5_uvd_restart_experiment'):
+                'uvd_poweroff_semantics_unchanged_from_dev4', 'uvd_restart_guards_unchanged_from_dev4', 'terminal_restart_fix', 'inherited_dev5_uvd_restart_experiment', 'mts_tx_reclaim_experiment', 'mts_tx_reclaim_fix',
+                'variant', 'abi_unchanged', 'kernel_unchanged'):
         if key in profile:
             metadata[key] = copy.deepcopy(profile[key])
     imported = {'schema_version': 1, 'origin': 'Frozen experimental package imported without rebuilding or changing its receipts',
@@ -953,12 +994,12 @@ def build(prepared, *, plan_only=False):
             copy_regular(p['package'] / name, payload / 'alpha-inputs' / name)
     (output / 'bootargs.template.txt').write_bytes(p['bootargs'])
     sata_notice = ('Internal SATA is scoped to the declared controller and made read-only before userspace; no internal mounts or writes.\n'
-                   if p['profile']['image_version'] in ('alpha6', 'alpha7') else
+                   if p['profile']['image_version'] in ('alpha6', 'alpha7', 'alpha8') else
                    'Internal SATA remains disabled; no automatic reset/power/storage tests.\n')
     (payload / 'README.txt').write_text(display_name(p['profile'])[1] + ' — frozen experimental kernel, not hardware-qualified.\n'
         'Complete matched kernel/modules and a verified derivative of the ordinary USB root.\n'
         + sata_notice +
-        'UVD runtime is enabled; one explicit bounded AVC attempt per boot. Terminal faults require physical power-off and rollback.\n'
+        'UVD runtime is enabled; one explicit bounded AVC attempt per boot. Follow the selected profile Power/recovery policy after a fault.\n'
         'Firefox hardware video decoding is disabled. Chromium/Wayland providers require separately matched alpha identities.\n'
         'Test plan: psx-qualify. No qualification command starts tests automatically.\n'
         'The complete corresponding-source archive is identified in source-pins.json and retained separately.\n' +
@@ -968,7 +1009,7 @@ def build(prepared, *, plan_only=False):
         ('Alpha6+ opts into retained-DMA power-off and ordinary restart through the atomic ICC handler.\n'
          'No DMA quiescence is claimed. Forced restart, kexec, suspend, removal and reset remain refused.\n'
          'No power operation or other hardware test starts automatically. Physical outcomes still require observation.\n'
-         if p['profile']['image_version'] in ('alpha6', 'alpha7') else ''))
+         if p['profile']['image_version'] in ('alpha6', 'alpha7', 'alpha8') else ''))
     firmware = {name: item.data for name, item in p['seed'].items() if name.startswith('lib/firmware/') and stat.S_ISREG(item.mode)}
     if p.get('firmware_data') is not None:
         firmware[UVD_FIRMWARE_MEMBER] = p['firmware_data']

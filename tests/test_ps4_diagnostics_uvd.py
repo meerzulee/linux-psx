@@ -66,6 +66,17 @@ class FirmwareContractTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 UVD.select_contract(wrong)
 
+    def test_actual_alpha8_reuses_kernel_but_rejects_the_old_whole_module_identity(self):
+        manifest=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha8.json').read_text())
+        self.assertEqual(UVD.select_contract(manifest),UVD.ALPHA8)
+        for key in ('kernel_release','kernel_sha256','config_sha256'):
+            self.assertEqual(manifest[key],UVD.ALPHA7[key])
+        self.assertNotEqual(manifest['modules_sha256'],UVD.ALPHA7['modules_sha256'])
+        wrong=copy.deepcopy(manifest);wrong['modules_sha256']=UVD.ALPHA7['modules_sha256']
+        with self.assertRaises(ValueError):UVD.select_contract(wrong)
+        wrong=copy.deepcopy(manifest);wrong['mts_tx_reclaim_experiment']['retained_buffers']=1
+        with self.assertRaises(ValueError):UVD.select_contract(wrong)
+
     def test_actual_alpha7_pins_and_terminal_policy_cannot_borrow_healthy_dev5_guards(self):
         manifest=json.loads((ROOT/'manifests/ps4-diagnostics-uvd-alpha7.json').read_text())
         self.assertEqual(UVD.select_contract(manifest),UVD.ALPHA7)

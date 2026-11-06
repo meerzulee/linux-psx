@@ -115,6 +115,20 @@ ALPHA7 = dict(ALPHA6, profile="ps4-baikal-diagnostics-uvd-alpha7", image_version
               inherited_dev5_uvd_restart_experiment=RESTART_EXPERIMENT,
               terminal_restart_fix=TERMINAL_RESTART_FIX)
 
+MTS_TX_RECLAIM_EXPERIMENT = {
+    "single_change": "omit_word0_clear_on_tx_reclaim", "preserve_returned_word0": True,
+    "word2_sentinel_unchanged": True, "ownership_predicate_unchanged": True,
+    "producer_assignment_unchanged": True, "retained_buffers": True,
+    "polling_and_lifecycle_unchanged": True, "hypothesis_only": True, "hardware_acceptance": False}
+MTS_TX_RECLAIM_FIX = {
+    "patch_path": "experiments/baikal-mts-tx-reclaim/terminal-reclaim.patch",
+    "patch_sha256": "b6fbbc41b295ba259b01e89aa2d7dafdfcc37441b74506cdff30087370400797",
+    "hardware_acceptance": False}
+# Same verified dev6 kernel/config/ABI; a separate complete module-set identity.
+ALPHA8 = dict(ALPHA7, profile="ps4-baikal-diagnostics-uvd-alpha8", image_version="alpha8",
+              modules_sha256='fa14256fcebfe28f919f6e0c9efd89f852b4c0657ae5077d44f4c8da8a31a107', variant="mts-tx-reclaim-net1", abi_unchanged=True, kernel_unchanged=True,
+              mts_tx_reclaim_experiment=MTS_TX_RECLAIM_EXPERIMENT, mts_tx_reclaim_fix=MTS_TX_RECLAIM_FIX)
+
 DIAGNOSTIC = {
     "fixture": "/usr/share/psx-diagnostics/uvd/FIXTURE.json",
     "fixture_sha256": "8999f750efd20cf71f176efb5b5febb0681c493e23ca1dfb6f0bc7bcf8288626",
@@ -254,7 +268,7 @@ def select_contract(manifest):
     require(isinstance(manifest, dict), "UVD manifest must be an object")
     selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3,
                 ALPHA4["profile"]: ALPHA4, ALPHA5["profile"]: ALPHA5,
-                ALPHA6["profile"]: ALPHA6, ALPHA7["profile"]: ALPHA7}.get(manifest.get("profile"))
+                ALPHA6["profile"]: ALPHA6, ALPHA7["profile"]: ALPHA7, ALPHA8["profile"]: ALPHA8}.get(manifest.get("profile"))
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -262,21 +276,25 @@ def select_contract(manifest):
                 and len(set(value)) > 1, "UVD alpha artifact pins are pending")
     require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
             "This is not the exact frozen UVD alpha artifact profile")
-    if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7"):
+    if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8"):
         policy = manifest["uvd_poweroff_experiment"]
         expected = selected["uvd_poweroff_experiment"]
         require(all(type(policy.get(key)) is type(value) and policy[key] == value
                     for key, value in expected.items()), "Alpha power-off experiment policy types differ")
-    if selected["image_version"] in ("alpha6", "alpha7"):
+    if selected["image_version"] in ("alpha6", "alpha7", "alpha8"):
         for key in ("uvd_restart_experiment", "restart_fix", "inherited_uvd_poweroff_experiment"):
             policy = manifest[key]
             require(all(type(policy.get(name)) is type(value) and policy[name] == value
                         for name, value in selected[key].items()),
                     "Alpha6 retained restart policy types differ")
-        if selected["image_version"] == "alpha7":
+        if selected["image_version"] in ("alpha7", "alpha8"):
             for key in ("terminal_restart_fix", "inherited_dev5_uvd_restart_experiment"):
                 require(all(type(manifest[key].get(name)) is type(value) and manifest[key][name] == value
                             for name, value in selected[key].items()), "Alpha7 terminal policy types differ")
+    if selected["image_version"] == "alpha8":
+        for key in ("mts_tx_reclaim_experiment", "mts_tx_reclaim_fix"):
+            require(all(type(manifest[key].get(name)) is type(value) and manifest[key][name] == value
+                        for name, value in selected[key].items()), "Alpha8 MTS policy types differ")
     return selected
 
 
@@ -286,7 +304,7 @@ def preflight(runner):
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
     selected = select_contract(manifest)
-    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7") else BOOT_ARGUMENTS
+    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8") else BOOT_ARGUMENTS
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
             manifest.get("required_boot_arguments") == arguments and

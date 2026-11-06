@@ -27,7 +27,7 @@ individual recorded builds; fresh builds and other consoles need their own tests
 | Vulkan / Mesa candidate | 🧪 Reference pixels and dev5 tests | ⏳ | ⏳ |
 | UVD / H.264 decode | 🧪 1080p, 900-frame reference match | ⏳ | ⏳ |
 | VCE encoding | ⏳ | ⏳ | ⏳ |
-| Ethernet | 🧪 DHCP / traffic; intermittent SSH stalls under investigation | ⏳ | ⏳ |
+| Ethernet | 🧪 DHCP / verified SSH transfers; endurance pending | ⏳ | ⏳ |
 | External USB root | ✅ Read/write boot | ⏳ | ⏳ |
 | Internal SATA | 🧪 71 MB/s read benchmark; writes unqualified | ⏳ | ⏳ |
 | Wi-Fi / Bluetooth audio | ✅ Reported with external firmware | ⏳ | ⏳ |
@@ -38,6 +38,8 @@ individual recorded builds; fresh builds and other consoles need their own tests
 
 Power results: one corrected-image restart and one shutdown on this Slim;
 the new immediate Power path still needs its own hardware check.
+Ethernet: 20 SSH logins and verified 4 MiB transfers each way passed after
+reconnecting the laptop's Wi-Fi; the precise LAN fault remains unresolved.
 
 [Hardware evidence](diagnostics/SESSIONS.md) ·
 [Remaining tests](docs/CURRENT-FINISH-PLAN.md) ·
@@ -75,7 +77,8 @@ OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
 
 Network setup and GPU inventory. [Capture and privacy-edit notes](docs/images/README.md).
 
-[Public image kit and local firmware setup](docs/DIAGNOSTIX-RELEASE.md) ·
+[Download the experimental firmware-free kit](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-alpha7-20261107) ·
+[Local firmware setup](docs/DIAGNOSTIX-RELEASE.md) ·
 [Image and setup guide](docs/DIAGNOSTICS.md) ·
 [Source](diagnostics/) · [TUI](diagnostics/ps4/tui/) ·
 [Test scenarios](docs/PS4-DIAGNOSTIC-ALPHA.md) ·
