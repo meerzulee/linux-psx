@@ -11,6 +11,13 @@ The [2026-11-06 storage comparison](PS4-STORAGE-COMPARISON.md#current-read-bench
 adds short read measurements: USB about 106 MB/s, internal HDD about 71 MB/s.
 These observations do not complete the repeat-boot, write or endurance gates.
 
+The newer [Baikal beta2](https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2)
+packages the existing runtime-dev6 kernel and matching base modules with the
+atomic restart and retained UVD terminal-power changes. It is an experimental
+kernel release, separate from the Diagnostix image kit and net1 Ethernet
+experiment; its notes distinguish the dev5 power observations from the dev6
+boot evidence and unqualified extension.
+
 ## Source and artifact checkpoint
 
 The candidate is `7.2.11-psx-ps4-baikal-native-dev3`, with 73 patches.

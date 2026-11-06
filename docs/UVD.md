@@ -212,12 +212,22 @@ image. Do not operate a second decoder alongside the one-handle test.
 
 ## Experimental beta and stable qualification
 
+The standalone [Baikal beta2 kernel](https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2)
+packages the frozen `7.2.11-psx-ps4-baikal-uvd-runtime-dev6` kernel, all 41
+matching base modules and complete corresponding source. It retains the
+atomic ICC restart and adds the guarded terminal-restart exception after a
+post-start UVD failure. It excludes the separate net1 Ethernet experiment.
+Dev6 has a recorded matched boot; ordinary reboot/shutdown observations belong
+to dev5, and the dev6 extension needs its own power observation. The release
+notes preserve these distinctions. The optional [Diagnostix image kit](DIAGNOSTIX-RELEASE.md)
+is a separate download.
+
 The recorded component results can support an explicitly experimental beta
 description with exact artifact identities and published limits. Such a beta
 must retain the one-handle/final-action restrictions, distinguish native
 pixel-oracle results from browser presentation, and disclose incomplete browser
-acceptance, lifecycle and encoding support. No beta binary release is declared
-by this source documentation.
+acceptance, lifecycle and encoding support. A beta release does not complete
+the stable qualification gates below.
 
 Stable qualification still requires:
 
