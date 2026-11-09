@@ -269,6 +269,8 @@ def select_contract(manifest):
     selected = {ALPHA["profile"]: ALPHA, ALPHA2["profile"]: ALPHA2, ALPHA3["profile"]: ALPHA3,
                 ALPHA4["profile"]: ALPHA4, ALPHA5["profile"]: ALPHA5,
                 ALPHA6["profile"]: ALPHA6, ALPHA7["profile"]: ALPHA7, ALPHA8["profile"]: ALPHA8}.get(manifest.get("profile"))
+    if manifest.get('profile') == 'ps4-baikal-diagnostix-ram-alpha1':
+        selected = dict(ALPHA7, profile='ps4-baikal-diagnostix-ram-alpha1', image_version='ram-alpha1')
     require(selected is not None, "Unknown frozen UVD alpha artifact profile")
     for key in ("kernel_sha256", "config_sha256", "modules_sha256"):
         value = selected.get(key)
@@ -276,18 +278,18 @@ def select_contract(manifest):
                 and len(set(value)) > 1, "UVD alpha artifact pins are pending")
     require(all(type(manifest.get(k)) is type(v) and manifest[k] == v for k, v in selected.items()),
             "This is not the exact frozen UVD alpha artifact profile")
-    if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8"):
+    if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8", "ram-alpha1"):
         policy = manifest["uvd_poweroff_experiment"]
         expected = selected["uvd_poweroff_experiment"]
         require(all(type(policy.get(key)) is type(value) and policy[key] == value
                     for key, value in expected.items()), "Alpha power-off experiment policy types differ")
-    if selected["image_version"] in ("alpha6", "alpha7", "alpha8"):
+    if selected["image_version"] in ("alpha6", "alpha7", "alpha8", "ram-alpha1"):
         for key in ("uvd_restart_experiment", "restart_fix", "inherited_uvd_poweroff_experiment"):
             policy = manifest[key]
             require(all(type(policy.get(name)) is type(value) and policy[name] == value
                         for name, value in selected[key].items()),
                     "Alpha6 retained restart policy types differ")
-        if selected["image_version"] in ("alpha7", "alpha8"):
+        if selected["image_version"] in ("alpha7", "alpha8", "ram-alpha1"):
             for key in ("terminal_restart_fix", "inherited_dev5_uvd_restart_experiment"):
                 require(all(type(manifest[key].get(name)) is type(value) and manifest[key][name] == value
                             for name, value in selected[key].items()), "Alpha7 terminal policy types differ")
@@ -304,14 +306,21 @@ def preflight(runner):
     require(str(uuid.UUID(identity["boot_id"])) == identity["boot_id"], "Invalid boot UUID")
     manifest = document(local(runner, runner.manifest_path), runner)
     selected = select_contract(manifest)
-    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8") else BOOT_ARGUMENTS
+    arguments = POWEROFF_BOOT_ARGUMENTS if selected["image_version"] in ("alpha4", "alpha5", "alpha6", "alpha7", "alpha8", "ram-alpha1") else BOOT_ARGUMENTS
     alpha_inputs = manifest.get("alpha_inputs")
     require(isinstance(alpha_inputs, dict) and manifest.get("uvd_diagnostic") == DIAGNOSTIC and
             manifest.get("required_boot_arguments") == arguments and
             alpha_inputs.get("root_firmware") == FIRMWARE,
             "Alpha UVD inputs/boot policy differ")
     validation = manifest.get("manifest_validation", {})
-    require(isinstance(validation, dict) and validation.get("embedded_root_contract_verified") is True and
+    ram = selected['image_version'] == 'ram-alpha1'
+    if ram:
+        import sys
+        if '/run/psx-ram' not in sys.path:
+            sys.path.insert(0, '/run/psx-ram')
+        import ram_state
+        ram_state.validate(runner.fs.root, manifest, fixture=runner.fs.fixture)
+    require(ram or isinstance(validation, dict) and validation.get("embedded_root_contract_verified") is True and
             validation.get("observed_kernel_release") == identity["kernel_release"] and
             validation.get("observed_media_initramfs_sha256") == manifest.get("initramfs_sha256") and
             all(re.fullmatch(r"[0-9a-f]{64}", str(manifest.get(key, ""))) for key in

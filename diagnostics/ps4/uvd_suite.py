@@ -90,6 +90,17 @@ def framemd5(raw, frame_bytes):
 
 
 def verify_native(adapter, runner, scenario, bundle=BUNDLE):
+    if Path(bundle) == BUNDLE:
+        import sys
+        if '/run/psx-ram' not in sys.path:
+            sys.path.insert(0, '/run/psx-ram')
+        try:
+            import ram_state
+        except ImportError:
+            ram_state = None
+        if ram_state is not None and ram_state.active(runner.fs.root):
+            ram_state.validate(runner.fs.root, fixture=runner.fs.fixture)
+            bundle = Path('/run/psx-assets/fixtures/native-video')
     contract = NATIVE[scenario]
     directory = Path(bundle) / contract['directory']
     paths = {'fixture': directory / 'FIXTURE.json', 'clip': directory / 'clip.h264',
@@ -275,7 +286,7 @@ def run(runner, scenario, *, bundle=BUNDLE):
         identity, session, paths, harness, _ = adapter.preflight(runner)
         manifest = adapter.document(adapter.local(runner, runner.manifest_path), runner)
         require(manifest.get('profile') in (PROFILE, 'ps4-baikal-diagnostics-uvd-alpha5',
-                                          'ps4-baikal-diagnostics-uvd-alpha6', 'ps4-baikal-diagnostics-uvd-alpha7', 'ps4-baikal-diagnostics-uvd-alpha8'),
+                                          'ps4-baikal-diagnostics-uvd-alpha6', 'ps4-baikal-diagnostics-uvd-alpha7', 'ps4-baikal-diagnostics-uvd-alpha8', 'ps4-baikal-diagnostix-ram-alpha1'),
                 'Native scenario requires the exact matched alpha4/alpha5/alpha6/alpha7/alpha8 build')
         native_paths, fixture, md5, inputs = verify_native(adapter, runner, scenario, bundle)
         require(not runner.fs.fixture, 'Fixture roots never spawn a real decoder')

@@ -1,7 +1,9 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 set -euo pipefail
-case "${1:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics) ;; *) exit 2 ;; esac
+case "${1:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics|benchmark|benchmark-vulkan) ;; *) exit 2 ;; esac
+trace() { printf '<6>dx/gfx: %s\n' "$*" > /dev/kmsg 2>/dev/null || true; }
+trace "graphics-start $1"
 export PSX_GRAPHICS_MODE=$1
 export DISPLAY=:0
 export XAUTHORITY=/run/psx-desktop/Xauthority
@@ -25,6 +27,7 @@ if [[ "$PSX_GRAPHICS_MODE" == chromium ]]; then
     install -o psx -g psx -m 0600 "$XAUTHORITY" /run/psx-graphics-user/Xauthority
 fi
 unset cookie
+trace "starting Xorg and the session for $PSX_GRAPHICS_MODE"
 exec /usr/bin/xinit /usr/lib/psx-diagnostics/graphics-client -- \
     /usr/lib/psx-diagnostics/graphics-xserver :0 vt3 -keeptty -s 0 -dpms -nolisten tcp -noreset -auth "$XAUTHORITY" \
     -logfile /run/psx-desktop/Xorg.log

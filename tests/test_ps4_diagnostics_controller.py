@@ -5,6 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 import socket
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -58,6 +60,26 @@ class ControllerTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(data)
         self.controller = APP.Controller(self.root / "results", self.fixture, network=Network())
+
+    def test_ssh_startup_exposes_only_helper_public_error_and_clears_after_success(self):
+        access = self.controller.ssh_access()
+        helper = sys.modules[type(access).__module__]
+        public = 'SSH setup requires the selected diagnostic kernel.'
+        errors = (helper.AccessError(public), OSError('private token=do-not-disclose'),
+                  subprocess.CalledProcessError(1, ['tool', 'private-secret']))
+        with mock.patch.object(self.controller.runner.fs, 'fixture', False), \
+                mock.patch.object(self.controller, '_cancellable_capture'), \
+                mock.patch.object(APP.sys, 'stderr'):
+            for error in errors:
+                with self.subTest(error=type(error).__name__), \
+                        mock.patch.object(access, 'initialize', side_effect=error):
+                    self.controller.initialize_ssh()
+                    message = self.controller._ssh_setup_error
+                    self.assertNotIn('private', message)
+                    self.assertEqual(public in message, isinstance(error, helper.AccessError))
+            with mock.patch.object(access, 'initialize', return_value={}):
+                self.controller.initialize_ssh()
+            self.assertEqual(self.controller._ssh_setup_error, '')
 
     def test_state_uses_fixture_hardware_and_never_invokes_real_tools(self):
         with mock.patch.object(APP.subprocess, "run", side_effect=AssertionError("live command")):

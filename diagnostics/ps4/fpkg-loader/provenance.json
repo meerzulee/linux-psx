@@ -1,0 +1,203 @@
+{
+  "schema_version": 1,
+  "upstream_commit": "d0f4d4c0bbc9e8b4870300781b352605ed2bc91d",
+  "upstream_repository": "https://github.com/ps4-linux/ps4-linux-loader.git",
+  "patch": "dedicated-loader.patch",
+  "patch_sha256": "40cdfd088815ea746b51d0ba49caf9c2d430200875dfa19875fc5c97e8ac2523",
+  "original_notices": "Preserved verbatim in extracted upstream source; ps4-kexec BSD-2-Clause authors shuffle2 and Hector Martin; dedicated modifications attributed separately.",
+  "license": "BSD-2-Clause; upstream FreeBSD headers retain their individual notices",
+  "firmware_offsets_changed": false,
+  "linux_boot_thunk_changed": true,
+  "ddr3_probe_included": false,
+  "hardware_acceptance": false,
+  "revision": "fw1202-baikal-b1-phase-aware-bounce-0.16",
+  "change_from_loader_build02": "Adds one bounded allocator rejection record; allocation flags, bounds, attempts, mapping checks, cleanup and handoff remain unchanged.",
+  "change_from_loader_build03": "Restore reference M_ZERO|M_WAITOK flags 0x102 for one call, with begin/end logging; no outer retry. All physical/header/size/cleanup/arm guards and kernel below-4GiB cap remain unchanged.",
+  "evidence": {
+    "experiment": "EXP-20261107-014",
+    "observation": "Build03 allocator returned zero with requested 11273216, rounded 11288576, flags 0x101 and high 0xffffffff; no mapping guard caused this refusal.",
+    "reference_policy": "Pinned upstream uses M_ZERO|M_WAITOK and an outer retry loop; only flags are restored, not that loop.",
+    "runtime_attribution_limit": "Another same-boot payload allocated the same image below 4GiB, but its exact source/flags were not tied to its binary."
+  },
+  "allocation_may_block": true,
+  "change_from_loader_build04": "Initramfs only: exact-byte PROT_READ|MAP_PRIVATE file mapping without prefault, userspace reads or sentinel; exact-byte cleanup and no eager fallback. Kernel allocator flags, limits, header/span checks, copyin, cleanup and arm logic are byte-identical to build04.",
+  "input_mapping": {
+    "initramfs": "lazy read-only private file mapping",
+    "prefault": false,
+    "eager_read_fallback": false,
+    "immutable_staged_generation_required": true,
+    "kernel_and_command_line": "unchanged bounded anonymous copy"
+  },
+  "input_mapping_evidence": {
+    "experiment": "EXP-20261107-017",
+    "observation": "First image allocator returned zero under single M_ZERO|M_WAITOK before postallocation guards; the previous input reader had already filled an approximately425MiB anonymous initramfs mapping.",
+    "hypothesis": "Removing the eager anonymous initramfs duplicate reduces input memory pressure before contiguous allocation; allocator success and Orbis file-backed pager behavior remain unqualified."
+  },
+  "change_from_loader_build05": "Checked arithmetic DMAP conversion, both native aliases verified per16KiB, finite exclusive RAM end0x27f000000 with E820 exclusions, three-page replacement hierarchy covering16GiB, explicit low physical handoff positions and pre-arm layout checks; first live PDP loop stays4 entries; native offsets/thunk unchanged.",
+  "change_from_loader_build06": "Match current upstream allocation semantics exactly: unrounded request size, native high ~0 and alignment 1 in one M_ZERO|M_WAITOK call. Keep the independent 0x27f000000 post-allocation guard, all mapping/handoff checks and no outer retry. Rebase to current master d0f4d4c; its allocator is identical to the earlier pinned source.",
+  "change_from_loader_build07": "Bound the upstream outer zero-return retry to three identical calls per buffer, with per-attempt UART records. A nonzero result stops retrying; post-allocation validation never retries. No delay, infinite loop, flag, path, input map or handoff change.",
+  "changed_source_paths": [
+    "linux/Makefile",
+    "linux/main-aio.c",
+    "linux/ps4-kexec-common/Makefile",
+    "linux/ps4-kexec-common/acpi.h",
+    "linux/ps4-kexec-common/diagnostix_pages.inc",
+    "linux/ps4-kexec-common/diagnostix_scatter.c",
+    "linux/ps4-kexec-common/diagnostix_scatter.h",
+    "linux/ps4-kexec-common/kernel.c",
+    "linux/ps4-kexec-common/kernel.h",
+    "linux/ps4-kexec-common/kexec.c",
+    "linux/ps4-kexec-common/linux_boot.c",
+    "linux/ps4-kexec-common/linux_boot.h",
+    "linux/ps4-kexec-common/linux_thunk.S"
+  ],
+  "addressability": {
+    "physical_allocation_end_exclusive": "0x27f000000",
+    "temporary_identity_bytes": 17179869184,
+    "separate_dmap_pdpt": true,
+    "original_and_dmap_alias_page_verification": false,
+    "live_identity_entries_unchanged": 4,
+    "hardware_acceptance": false,
+    "assembly_thunk_unchanged": false,
+    "eligible_ram_intervals_match_existing_e820": false,
+    "observed_dmap_base": "0xffff840b00000000",
+    "input_observation": "EXP-20261107-018: loader05 first image allocator returned zero; static review independently identified OR/AND direct-map aliasing above4GiB.",
+    "native_kva_page_verification": "Every 16 KiB native wired page is checked at four 4 KiB translations; no direct-map alias validation is required for staging buffers.",
+    "destination_ram_intervals_match_existing_e820": true,
+    "source_ram_intervals": "Existing Linux RAM plus owned native NORMAL holes [0x8000,0x2c000) and [0x400000,0x480000); low stub, VRAM, duplicate and destination conflicts remain excluded.",
+    "historical_contiguous_policy": {
+      "scope": "Loader06 through loader08 before wired scattered staging",
+      "original_and_dmap_alias_page_verification": true,
+      "assembly_thunk_unchanged": true,
+      "eligible_ram_intervals_match_existing_e820": true
+    }
+  },
+  "linux_boot_source_changed": true,
+  "scatter_staging": {
+    "base_patch": "dedicated-loader.patch",
+    "integration_patch": "staging/scatter-integration.patch",
+    "source_sha256": {
+      "diagnostix_scatter.c": "1e348db8fc93beb3ca30d55460385d384aba3b41fc1020618b9a842a417265ba",
+      "diagnostix_scatter.h": "dbfe7c0fa9ee511a5c22a6b9769426843f16479236137f51e79da939f63021fc",
+      "diagnostix_pages.inc": "3d48f1d022e227ca79d5bcb03055e026b2cec4bc683c352337618dac12321a45",
+      "linux_thunk.S": "e0b676001d2c06c73870b84cdd367b67caa3c39fe0a8e40b86631ad37cec78b3",
+      "scatter-integration.patch": "9b636321bc8d4afd80f5c022baf0e42effe8cab6b8f143215f2b8d9383925b0f"
+    },
+    "native_wired_allocator_offset": "0x4659e0",
+    "native_abi": "kmem_alloc(kernel_map,byte_size); 64-bit original VA retained; native rounds and wires pages",
+    "ownership": "kernel-owned wired allocation; every4KiB translation checked within16KiB native pages",
+    "physical_contiguity_required": false,
+    "source_destination_overlap": "Immediate image/initrd/metadata conflicts replaced before arm; later decompressor workspace is phase-separated; dead aux/setup/padding may overlap",
+    "duplicate_physical_pages": "refused",
+    "maximum_records": 40000,
+    "maximum_records_per_node": 682,
+    "kernel_destination": "0x06000000",
+    "initrd_destination": "0x180000000",
+    "full_kernel_init_size_excluded": false,
+    "partial_destination_pages_zeroed": true,
+    "shutdown_only_after_preparation": true,
+    "raw_blob_relocations": "forbidden and checked",
+    "bss_extent": "complete extent verified against native end/start symbols",
+    "kernel_context_general_registers_only": true,
+    "stage_only_experiment": "EXP-20261107-026",
+    "stage_only_result": "PASS: both full-size buffers allocated,27844records41nodes,all5preparationbuffersfreed; Orbis remainedrunning",
+    "stage_only_boot_directory": "/data/diagnostix/boot/ (0.11 inputs)",
+    "candidate_boot_directory": "/data/diagnostix/versions/0.16/boot/",
+    "required_vram_file": "1024 or1024newline, fixed1024MiB profile",
+    "boot_result": "EXP-20261107-032 completed: PASS_KERNEL_RAM_ROOT_MENU_PENDING. One USB-disconnected boot08 delivery reached Linux runtime-dev6 and /init; RAM root loop0 mounted read-only at 94.028152 seconds and systemd started at 111.653083 seconds. No kernel panic observed. Operator menu report and complete appliance qualification remain pending.",
+    "license": "new staging/planner code BSD-2-Clause; original loader/assembly notices retained; no Linux GPL code copied",
+    "source_ram_policy": "Owned wired source/control pages use source_ram: Linux RAM or native NORMAL holes [0x8000,0x2c000) and [0x400000,0x480000). Strict ram callback remains for final Linux destinations; low stub, VRAM, overlap and duplicate guards remain.",
+    "source_policy_evidence": "EXP-20261107-031: initrd offset 0x18e18000 mapped to native PA 0x28000; subtranslations 0x29000,0x2a000,0x2b000 were intact, but strict Linux RAM classification rejected it. EXP025 NORMAL segment0 contains this owned source page. Cleanup completed without arm or boot.",
+    "prior_boot_result": "EXP-20261107-030: kernel staged; initrd native allocation returnedKVA but physical-page guard refused; cleanup complete; nohook/no boot. Exact rejected PA requires stage-only logging.",
+    "current_stage_only": {
+      "experiment": "EXP-20261107-032",
+      "build": "stage06",
+      "payload_sha256": "83868a65c4463a72d2e71b22c054f85b4f7c126bb851842889bab7f16c4402f9",
+      "result": "PASS_STAGING_ONLY; 27844 records, 41 nodes, all five preparation buffers freed",
+      "boot_directory": "/data/diagnostix/versions/0.12/boot/",
+      "continuity": "completed within EXP-20261107-032",
+      "hardware_acceptance": false
+    },
+    "current_boot_artifact": {
+      "build": "boot08",
+      "build_directory": "/var/tmp/psx-diagnostix-scatter-boot-20261107-08",
+      "sha256": "1d32ee28790eb4ca7ef26e26702af9562b9dcff671e9c87c492c768424e0d9e6",
+      "bytes": 172304
+    },
+    "current_package": {
+      "build_receipt": "/dev/shm/diagnostix-fpkg-0.12-sourcefix/BUILD.json",
+      "bytes": 460521472,
+      "name": "IV0000-DGNX00001_00-DIAGNOSTIX000001.pkg",
+      "sha256": "996f83d28e5309e9c94afd9a5dd54508c078cb32b13e9e3a2202ea8ea2bcb37e",
+      "package_readback_members": 23,
+      "package_readback_all_payload_bytes_match": true,
+      "ftp_readback": "All six versioned boot files and corrected package matched; superseded 0.12 package removed, 0.11 retained.",
+      "receipt": "output/diagnostix-source-policy-20261107-032/FTP-STAGE.json"
+    },
+    "current_boot_observation": {
+      "experiment": "EXP-20261107-032",
+      "result": "PASS_KERNEL_RAM_ROOT_MENU_PENDING",
+      "boot_attempts": 1,
+      "usb_storage": "disconnected; operator confirmed",
+      "ramdisk_physical_range": "0x180000000..0x19a845fff",
+      "root_uuid": "0d652fe4-a2f5-45f1-85c9-7ea26a52d67c",
+      "ram_root_mounted_readonly_seconds": 94.028152,
+      "systemd_started_seconds": 111.653083,
+      "hostname": "psx-diagnostics",
+      "kernel_panic_observed": false,
+      "menu": "operator report pending",
+      "continuity": "completed",
+      "uart_bytes": 99714,
+      "uart_events": 0,
+      "receipt": "output/diagnostix-source-policy-20261107-032/RESULT.json",
+      "hardware_acceptance": false
+    },
+    "candidate_change": "Version0.15 keeps the 0.14 source/destination policy and fixes the payload regression: the embedded kexec image excludes the zero-filled BSS, zeroes it in the kernel allocation, restores the footer, and reconstructs the exact 382,748-byte runtime blob. The outer loader is 41,320 bytes. Hardware qualification is pending.",
+    "full_kernel_init_size_validated_as_destination_ram": true,
+    "current_stage_only_status": "0.15 host stage-only build passed with exact slim/BSS/footer reconstruction; hardware stage-only and boot remain pending.",
+    "safe_page_allocator": {
+      "abi": "existing native kmem_alloc_contig 8 arguments; one16KiB page per call",
+      "low_inclusive": "0x10000000",
+      "high_exclusive_validated": "0x70000000",
+      "flags": "0x102 (M_ZERO|M_WAITOK)",
+      "alignment": 16384,
+      "boundary": 0,
+      "memattr": 6,
+      "outer_retry": false,
+      "may_block": true,
+      "maximum_pages": 8192,
+      "maximum_bytes": 134217728,
+      "ownership": "original kernel VA; exact16KiB kmem_free; caller-owned separate ledger"
+    },
+    "observed_refusal": {
+      "experiment": "EXP-20261107-035",
+      "version": "0.13",
+      "error": 7,
+      "pa": "0x85fc000",
+      "immediate_kernel_end": "0x6ac0000",
+      "full_workspace_end": "0x8794000",
+      "cleanup_complete": true,
+      "linux_entered": false,
+      "predeclared_marker": false
+    }
+  },
+  "linux_boot_thunk_instructions_changed_in_0_14": false,
+  "additional_patches": [
+    {
+      "name": "staging/scatter-integration.patch",
+      "sha256": "9b636321bc8d4afd80f5c022baf0e42effe8cab6b8f143215f2b8d9383925b0f"
+    },
+    {
+      "name": "slim-loader.patch",
+      "sha256": "d95bf856f625da0b827d9831986f1890675ff8b904c9795fe74492413471e44d"
+    },
+    {
+      "name": "version-0.15.patch",
+      "sha256": "3ea8a11592e1921de0229d1929e23a0e8ab5d4a81a4653f7b13575948f4a1e6f"
+    },
+    {
+      "name": "version-0.16.patch",
+      "sha256": "391adea12a9d0585e007d8c192a6e0a6948e0163492eedda7867fabd63c12a69"
+    }
+  ]
+}

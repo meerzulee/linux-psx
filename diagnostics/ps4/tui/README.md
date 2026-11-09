@@ -35,11 +35,37 @@ For a host preview with sample data and no controller connection:
 
 Demo screens are marked clearly and never report a hardware PASS. They only
 simulate the interface state. Ordinary launch always starts on the network
-screen; choosing Continue opens the read-only Overview. It lists hardware and
+screen; Continue opens a mode chooser with **Manual diagnostics** selected.
+Choose a mode and press Enter explicitly. Refresh, boot and returning to this
+menu never start a diagnostic run.
+
+**Automatic diagnostics** submits one controller job: hardware inventory,
+two seconds of CPU computation, a 32 MiB memory pattern check, Ethernet status,
+audio inventory and storage inventory, in that order. It stops on failure and
+shows step progress, a scoped summary and the issue report created by the
+controller. Graphics, audio playback, UVD and power actions remain manual.
+Selecting Automatic again requires returning to the chooser and activating it;
+held Enter and refresh never resubmit a run. Existing job and retry guards apply.
+The controller retains one automatic sequence per boot; use Manual for follow-up
+checks after reviewing a stopped run.
+
+**Manual diagnostics** opens the read-only Overview. It lists hardware and
 recent test status for this boot. F7 switches between Overview and Advanced;
 Advanced contains the existing tabbed controls. Enter on an Overview row opens
 its Advanced area without starting a test. Switching views preserves active
-jobs, saved reports and Settings selections.
+jobs, saved reports and Settings selections. Press M on Overview, or choose
+**Choose diagnostic mode** in System, to return to the mode chooser later.
+
+**Create issue report** in Reports or the automatic summary creates a local
+ZIP even when no tests have run or the kernel log is unavailable. It runs as
+one asynchronous controller job. The completed view shows its exact local path,
+download path, filename, size, report ID and SHA256. Retrieve the ZIP using that
+path or the download path at the local browser lab / existing SSH forward,
+then attach it to a GitHub issue. No issue is opened and nothing is uploaded
+automatically.
+**View issue report** reopens the latest export in this client. `READY` means
+the archive exists; it is not a hardware PASS. Demo mode simulates results and
+never creates an archive or qualifies hardware.
 
 Passed applies only to saved functional receipts: native pixel checks for
 OpenGL/Vulkan, exact AVC reference decoding for UVD, and operator-confirmed
@@ -66,6 +92,7 @@ markers with the same readable status labels.
 | F4 | Saved reports |
 | F5 | Refresh controller state |
 | F7 | Switch Overview / Advanced |
+| M | Return from Overview or Automatic to the mode chooser |
 | Ctrl+L | Clear old screen/scrollback contents and repaint the interface |
 | V | Details of the last completed action |
 | Q | Exit confirmation; does not power off the console |
@@ -99,7 +126,8 @@ bounded to 1 MiB. Socket read/write timeouts run in a standard-library worker
 thread, so disconnected or slow controllers do not freeze terminal input.
 State and active jobs are polled; actions are never retried automatically.
 
-Supported action names are `state`, `quick`, `test.run`, `job.get`,
+Supported action names include `state`, `diagnostics.auto`, `support.export`,
+`quick`, `test.run`, `job.get`,
 `network.scan`, `network.wifi.connect`, `network.ethernet.connect`,
 `graphics.launch`, `results.list` and `result.observe`. Parameters are the
 controller's fixed typed objects. The UI never constructs shell commands.
@@ -109,6 +137,18 @@ State contains `system`, `inventory`, `network`, `ssh`, `results`, `tests` and
 and/or `error`. Input stays responsive while the controller owns the one active
 job. The interface does not cancel driver or graphical jobs merely because a
 user changes pages or exits the client.
+
+`diagnostics.auto` and `support.export` both use empty parameters `{}` and the
+same job submission/polling path as individual tests. Automatic results include
+`test_id: "diagnostics.auto"`, scoped `status`, `message`, `steps`, individual
+`results` and an optional `issue_report` or `issue_report_error`. Job progress
+events expose `step_current`, `step_total` and `step_title`. Optional
+`state.automatic` metadata is read only when present; older states remain usable.
+
+An issue-report result contains `status`, `message`, `report_id`, `filename`,
+`path`, `sha256`, `bytes` and `download_url`. A ready download path has the form
+`/api/support/reports/<report_id>.zip`. The UI displays controller metadata and
+does not construct an upload or issue-creation request.
 
 Compact result summaries include `boot_id` and `retry_required`. The client
 compares these with `state.identity.boot_id` so an old boot's failure cannot

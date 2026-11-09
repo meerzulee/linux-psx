@@ -89,4 +89,89 @@ class ChromiumPrepareTests(unittest.TestCase):
             self.assertTrue(path.stat().st_mode&0o004)
 
 
+class EmbeddedProviderTests(unittest.TestCase):
+    PAYLOAD=b'ext4 image bytes'*4096
+
+    def pin(self,**changes):
+        import hashlib as h
+        return dict({'image_sha256':h.sha256(self.PAYLOAD).hexdigest(),'image_bytes':len(self.PAYLOAD)},**changes)
+
+    def expand(self,raw,pin,deadline=None):
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
+            source=Path(temporary)/'pack';source.write_bytes(raw)
+            descriptor=os.open(source,os.O_RDONLY)
+            try:
+                target=Path(temporary)/'image'
+                APP.expand(descriptor,target,pin,time.monotonic()+30 if deadline is None else deadline)
+                return target.read_bytes()
+            finally:os.close(descriptor)
+
+    def test_a_good_image_is_written_out(self):
+        self.assertEqual(self.expand(APP.lzma.compress(self.PAYLOAD),self.pin()),self.PAYLOAD)
+
+    def test_every_bad_image_is_refused(self):
+        raw=APP.lzma.compress(self.PAYLOAD)
+        for name,data,pin,deadline in (('hash',raw,self.pin(image_sha256='0'*64),None),
+                                       ('short',raw,self.pin(image_bytes=len(self.PAYLOAD)+1),None),
+                                       ('oversize',raw,self.pin(image_bytes=len(self.PAYLOAD)-1),None),
+                                       ('truncated',raw[:len(raw)//2],self.pin(),None),
+                                       ('late',raw,self.pin(),0)):
+            with self.subTest(name=name),self.assertRaises((ValueError,APP.lzma.LZMAError)):
+                self.expand(data,pin,deadline)
+
+    def test_the_pin_row_is_read_strictly(self):
+        good=f"{'a'*64}\t12\t{'b'*64}\t34\t{'c'*64}\n".encode()
+        with mock.patch.object(APP,'read_file',return_value=good):
+            self.assertEqual(APP.embedded_pin(),{'pack_sha256':'a'*64,'pack_bytes':12,'image_sha256':'b'*64,'image_bytes':34,'manifest_sha256':'c'*64})
+        for bad in (b'',b'nonsense\n',good.replace(b'12',b'x2'),good.replace(b'a'*64,b'a'*63),good[:-1]+b'\tmore\n'):
+            with self.subTest(bad=bad),mock.patch.object(APP,'read_file',return_value=bad),self.assertRaises(ValueError):
+                APP.embedded_pin()
+
+    def test_an_image_with_a_pin_never_looks_for_a_usb_stick(self):
+        with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
+            pin=Path(temporary)/'pin.tsv';pin.write_text('x')
+            with mock.patch.object(APP,'PIN_FILE',pin),mock.patch.object(APP,'prepare_embedded') as embedded,\
+                 mock.patch.object(APP,'mounts',side_effect=AssertionError('USB path')),\
+                 mock.patch.object(APP.os,'geteuid',return_value=0),mock.patch.object(APP.sys,'argv',['prepare']):
+                APP.main()
+            embedded.assert_called_once_with()
+
+    def embedded_run(self,mounted,existing=None,provider_mesa='m'*64):
+        raw=json.dumps({'kernel_release':os.uname().release,'base_rootfs_sha256':'r'*64,'mesa_manifest_sha256':provider_mesa,
+                        'hardware_acceptance':False,'provider_id':'p'}).encode()
+        boot={'rootfs_sha256':'r'*64,'mesa_manifest_sha256':'m'*64}
+        pin={'manifest_sha256':hashlib.sha256(raw).hexdigest(),'image_sha256':'a'*64,'image_bytes':7}
+        self.launch={'schema_version':1,'provider_manifest_sha256':pin['manifest_sha256'],'mesa_manifest_sha256':'m'*64}
+        self.written=mock.Mock()
+        target=mock.MagicMock();target.stat.return_value=SimpleNamespace(st_uid=0);target.iterdir.return_value=[]
+        config=mock.MagicMock();config.exists.return_value=True
+        info=SimpleNamespace(st_mode=0o100600,st_uid=0,st_size=7)
+        found=lambda records,path:{'target':'x'} if path is APP.IMAGE_DIR or (mounted and path is target) else None
+        loaded=lambda path:boot if path is APP.BOOT_SET else self.launch if existing=='current' else existing
+        with mock.patch.object(APP,'embedded_pin',return_value=pin),mock.patch.object(APP,'read_json',side_effect=loaded),\
+             mock.patch.object(APP,'mounts',return_value=[]),mock.patch.object(APP,'exact_mount',side_effect=found),\
+             mock.patch.object(APP,'inflate'),mock.patch.object(APP,'safe_path'),mock.patch.object(APP,'verify_mount'),\
+             mock.patch.object(APP,'run'),mock.patch.object(APP,'read_file',return_value=raw),\
+             mock.patch.object(APP,'atomic_config',self.written),mock.patch.object(APP,'TARGET',target),\
+             mock.patch.object(APP,'CONFIG',config),mock.patch.object(APP.os,'open',return_value=99),\
+             mock.patch.object(APP.os,'close'),mock.patch.object(APP.os,'fstat',return_value=info),\
+             mock.patch.object(APP,'print',create=True):
+            APP.prepare_embedded()
+
+    def test_root_hands_the_launcher_the_mesa_pin_it_checked(self):
+        self.embedded_run(False)
+        self.written.assert_called_once_with(self.launch)
+        self.assertEqual(self.launch['mesa_manifest_sha256'],'m'*64)
+
+    def test_a_provider_with_another_mesa_writes_no_configuration(self):
+        with self.assertRaises(ValueError):self.embedded_run(False,provider_mesa='x'*64)
+        self.written.assert_not_called()
+
+    def test_a_reused_mount_needs_the_configuration_written_for_it(self):
+        self.embedded_run(True,existing='current')
+        self.written.assert_not_called()
+        with self.assertRaises(ValueError):
+            self.embedded_run(True,existing={'schema_version':1,'provider_manifest_sha256':'c'*64})
+
+
 if __name__=='__main__':unittest.main()

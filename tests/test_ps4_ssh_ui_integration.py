@@ -68,6 +68,7 @@ class SshIntegrationTests(unittest.TestCase):
         output=io.StringIO()
         with mock.patch.object(self.backend,'initialize',side_effect=ValueError(SECRET),create=True), \
              mock.patch.object(self.controller.runner.fs,'fixture',False), \
+             mock.patch.object(self.controller,'_cancellable_capture'), \
              mock.patch('sys.stderr',output):
             self.controller.initialize_ssh()
         info=self.controller.request('ssh.info')

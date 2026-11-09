@@ -12,6 +12,7 @@ import tempfile
 
 PROVIDER = Path("/run/psx-chromium")
 CONFIG = Path("/etc/psx-diagnostics/chromium-provider.json")
+BOOT_SET = Path("/etc/psx-diagnostics/boot-set.json")
 COOKIE = Path("/run/psx-graphics-user/Xauthority")
 PROFILE = Path("/home/psx/.local/share/psx-diagnostics/chromium")
 CACHE = Path("/home/psx/.cache/psx-diagnostics/chromium")
@@ -19,7 +20,7 @@ FLAGS = ["--ozone-platform=x11", "--use-gl=angle", "--use-angle=gl",
          "--disable-features=Vulkan,VulkanFromANGLE", "--disable-background-networking",
          "--disable-component-update", "--no-first-run", "--no-default-browser-check", "--lang=en-US", "--kiosk"]
 LAB = "http://127.0.0.1:8080/lab"
-RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
+RELEASE = "7.2.11-psx-ps4-baikal-uvd-runtime-dev6"
 
 
 def digest(path):
@@ -89,9 +90,10 @@ def main():
     clone = Path("/proc/sys/kernel/unprivileged_userns_clone")
     if clone.exists() and clone.read_text().strip() != "1":
         raise ValueError("Unprivileged user namespaces are disabled")
-    boot = root_json(Path("/etc/psx-diagnostics/boot-set.json"))
+    # On the RAM image root checked this pin against its private boot set and passed it on.
     mesa_pin = provider["mesa_manifest_sha256"]
-    if boot.get("mesa_manifest_sha256") != mesa_pin:
+    selected = config["mesa_manifest_sha256"] if "mesa_manifest_sha256" in config else root_json(BOOT_SET).get("mesa_manifest_sha256")
+    if selected != mesa_pin:
         raise ValueError("Browser comparison requires the same pinned Mesa as the diagnostic root")
     for directory in (PROFILE, CACHE):
         directory.mkdir(parents=True, mode=0o700, exist_ok=True)

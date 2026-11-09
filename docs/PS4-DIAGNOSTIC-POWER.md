@@ -22,6 +22,14 @@ separate IPC lane so a slow state or SSH setup request cannot queue Power.
 The controller remains outside the killed cgroups. Cancellation prevents
 late worker callbacks and subsequent diagnostic child commands.
 
+The 0.13 RAM image preserves this kernel dispatch path. Its boot verifier
+allows unrelated stacked mounts such as systemd's autofs plus binfmt_misc;
+duplicate `/`, `/run/psx-state` or `/run/psx-image` mounts still fail verification.
+An unavailable control reports the fixed startup guard stage and includes it
+in issue exports. The owner reported unavailable controls on 0.12, which means
+the controller refused before kernel dispatch. The exact runtime guard failure
+and physical power behavior need a separate observed console trial.
+
 The exact boot/root/gate/ownership contract is checked once when the controller
 starts. The terminal path uses that cached verified identity and a RAM-only
 request/outcome. A duplicate in-flight or already-issued call is not sent

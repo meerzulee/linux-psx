@@ -95,6 +95,40 @@ class TerminalTests(unittest.TestCase):
             with self.subTest(params=params), self.assertRaises(ValueError): self.controller.request('uvd.scenario', params)
         self.assertFalse(self.calls); self.assertFalse(self.selected); self.assertFalse(self.controller.jobs.list())
 
+    def session_path(self, profile):
+        manifest = json.loads(self.manifest_path.read_text()); manifest['profile'] = profile
+        self.manifest_path.write_text(json.dumps(manifest))
+        path = self.root / APP.UVD_SESSION.lstrip('/')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def test_the_ram_image_writes_a_record_the_decoder_accepts_and_claims_no_uart(self):
+        path = self.session_path(APP.RAM_PROFILE)
+        self.controller._declare_uvd_session({'boot_id': BOOT})
+        value = U.document(path, self.controller.runner, private=True)
+        self.assertEqual((value['schema_version'], value['boot_id'], value['state']), (1, BOOT, 'active'))
+        self.assertRegex(value['experiment_id'], r'^EXP-[0-9]{8}-000$')
+        self.assertIn('no-uart', value['session_id'])
+
+    def test_a_developers_own_session_record_is_kept(self):
+        path = self.session_path(APP.RAM_PROFILE)
+        path.write_text('{"experiment_id": "EXP-20261110-001"}')
+        self.controller._declare_uvd_session({'boot_id': BOOT})
+        self.assertEqual(path.read_text(), '{"experiment_id": "EXP-20261110-001"}')
+
+    def test_lab_images_still_need_a_session_record_written_by_hand(self):
+        path = self.session_path('ps4-baikal-diagnostics-uvd-alpha8')
+        self.controller._declare_uvd_session({'boot_id': BOOT})
+        self.assertFalse(path.exists())
+
+    def test_the_record_is_written_before_the_decoder_module_runs(self):
+        order = []
+        with mock.patch.object(self.controller, '_declare_uvd_session', side_effect=lambda identity: order.append('declared')):
+            original = self.scenario
+            self.scenario = lambda runner, selected: (order.append('decoder'), original(runner, selected))[1]
+            self.request()
+        self.assertEqual(order, ['declared', 'decoder'])
+
     def test_failed_core_never_loads_or_calls_terminal_harness(self):
         self.mode = 'cpu-fail'; job = self.request()
         self.assertEqual(job['result']['status'], 'BLOCKED')

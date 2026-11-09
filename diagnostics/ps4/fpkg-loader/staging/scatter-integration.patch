@@ -1,0 +1,568 @@
+--- a/linux/main-aio.c
++++ b/linux/main-aio.c
+@@ -151,7 +151,7 @@
+     unsigned long long bytes = 0;
+     *ptr = NULL;
+     *sz = 0;
+-    fd = open("/data/diagnostix/boot/initramfs.cpio.gz", O_RDONLY | O_NOFOLLOW);
++    fd = open("/data/diagnostix/versions/0.14/boot/initramfs.cpio.gz", O_RDONLY | O_NOFOLLOW);
+     if (fd < 0) return -1;
+     end = lseek(fd, 0, SEEK_END);
+     if (end < 18 || (unsigned long long)end > DIAG_INITRD_MAX)
+@@ -184,6 +184,9 @@
+     return 1;
+ }
+ 
++static int valid_vram(const char *value, unsigned long long bytes)
++{ return (bytes == 4 || (bytes == 5 && value[4] == '\n')) && value[0] == '1' && value[1] == '0' && value[2] == '2' && value[3] == '4'; }
++
+ // evf_open, evf_cancel, evf_close - some events for reboot
+ int evf_open(char *);
+ void evf_cancel(int, unsigned long long, unsigned long long);
+@@ -379,13 +382,15 @@
+         alert("Diagnostix loader requires FW12.02 and Baikal B1.");
+         return 1;
+     }
+-    char *kernel = NULL, *initrd = NULL, *cmdline = NULL;
+-    unsigned long long kernel_size = 0, initrd_size = 0, cmdline_size = 0;
++    char *kernel = NULL, *initrd = NULL, *cmdline = NULL, *vram = NULL;
++    unsigned long long kernel_size = 0, initrd_size = 0, cmdline_size = 0, vram_size = 0;
+     int result = 1;
+     /* No USB, secondary path, optional file or per-file fallback. */
+-    if (read_file("/data/diagnostix/boot/bzImage", &kernel, &kernel_size, DIAG_KERNEL_MAX) ||
++    if (read_file("/data/diagnostix/versions/0.14/boot/vram.txt", &vram, &vram_size, 16) ||
++        !valid_vram(vram, vram_size) ||
++        read_file("/data/diagnostix/versions/0.14/boot/bzImage", &kernel, &kernel_size, DIAG_KERNEL_MAX) ||
+         map_initramfs(&initrd, &initrd_size) ||
+-        read_file("/data/diagnostix/boot/bootargs.txt", &cmdline, &cmdline_size, DIAG_CMDLINE_MAX) ||
++        read_file("/data/diagnostix/versions/0.14/boot/bootargs.txt", &cmdline, &cmdline_size, DIAG_CMDLINE_MAX) ||
+         !valid_cmdline(cmdline, cmdline_size)) {
+         alert("Diagnostix boot files missing, invalid or too large. No shutdown requested.");
+         goto cleanup;
+@@ -394,14 +399,21 @@
+     if (g_kexec_error != 0 ||
+         kexec_load(kernel, kernel_size, initrd, initrd_size, cmdline,
+                    pack_kexec_args(1024, fw_ver, sb_val)) != 0) {
+-        alert("Diagnostix preparation failed. No shutdown requested; return to Orbis.");
++        alert("Diagnostix kernel boot preparation failed; see UART allocation/plan stage. Orbis remains running.");
+         goto cleanup;
+     }
++#ifdef DIAGNOSTIX_STAGE_ONLY
++    log_msg("Diagnostix full-size staging check passed; memory released; Orbis remains running.");
++    result = 0;
++    goto cleanup;
++#else
+     /* The complete boot image is now armed. Never race allocation with shutdown. */
+     log_msg("Diagnostix prepared; requesting the existing reboot handoff.");
+     reboot_thread(NULL);
+     result = 0;
++#endif
+ cleanup:
++    if (vram) munmap(vram, vram_size + 1);
+     if (cmdline) munmap(cmdline, cmdline_size + 1);
+     if (initrd) munmap(initrd, initrd_size);
+     if (kernel) munmap(kernel, kernel_size + 1);
+--- a/linux/Makefile
++++ b/linux/Makefile
+@@ -43,6 +43,7 @@
+ fw_define = $(FW_DEFINE_$(1))
+ 
+ CC      = gcc
++EXTRA_AIO_CFLAGS ?=
+ CFLAGS  = -isystem ../freebsd-headers \
+           -nostdinc -nostdlib \
+           -fno-stack-protector \
+@@ -96,7 +97,7 @@
+ 	    -DVRAM_MB_DEFAULT=$(1) \
+ 	    -DVRAM_MB_MIN=32 \
+ 	    -DVRAM_MB_MAX=4096 \
+-	    main-aio.c fw_detect.c \
++	    main-aio.c fw_detect.c $(EXTRA_AIO_CFLAGS) \
+ 		sb_detect.h \
+ 	    $(LDFLAGS) -o $$@
+ endef
+--- a/linux/ps4-kexec-common/kernel.c
++++ b/linux/ps4-kexec-common/kernel.c
+@@ -142,140 +142,12 @@
+     RESOLVE(set_cu_power_gate);
+     RESOLVE_NOERR(set_nclk_mem_spd);
+     RESOLVE_NOERR(pstate_before_shutdown);
++    /* Fixed FW12.02 wired-page entry already used by the bootstrap. */
++    kern.kmem_alloc = (void *)(kern.kern_base + 0x4659e0ULL);
+     return 1;
+ }
+ 
+-#define M_WAITOK 0x0002
+-#define M_ZERO 0x0100
+-#define VM_MEMATTR_DEFAULT 0x06
+-
+-/* kmem_free needs the original kernel-map VA, never the direct-map alias. */
+-struct contig_record { void *direct; vm_offset_t mapped; size_t bytes, requested; };
+-static struct contig_record contig_records[4];
+-
+-_Static_assert(sizeof(vm_offset_t) == 8 && sizeof(vm_paddr_t) == 8 &&
+-               sizeof(size_t) == 8 && sizeof(void *) == 8,
+-               "Diagnostix requires the reviewed 64-bit allocator ABI");
+-
+-/* One failure record, including post-allocation rejection before cleanup.
+- * Addresses are private UART evidence, never a new read or an alternate path.
+- */
+-static void contig_report(const char *reason, unsigned int attempts,
+-                          size_t requested, size_t rounded, vm_paddr_t high,
+-                          vm_offset_t mapped, vm_paddr_t physical,
+-                          size_t offset, vm_paddr_t observed)
+-{
+-    kern.printf("DIAGNOSTIX_ALLOC_V1 reason=%s attempts=%u requested=%llu rounded=%llu "
+-                "flags=0x%x low=0 high=0x%llx alignment=0x%x guard_high=0x%llx vm=0x%llx "
+-                "physical=0x%llx page_offset=0x%llx observed=0x%llx dmap=0x%llx\n",
+-                reason, attempts, (unsigned long long)requested,
+-                (unsigned long long)rounded, M_ZERO | M_WAITOK,
+-                (unsigned long long)~(vm_paddr_t)0, 1, (unsigned long long)high,
+-                (unsigned long long)mapped, (unsigned long long)physical,
+-                (unsigned long long)offset, (unsigned long long)observed,
+-                (unsigned long long)kern.dmap_base);
+-}
+-
+-void *kernel_alloc_contig_limit(size_t size, vm_paddr_t high)
+-{
+-    unsigned int slot;
+-    size_t bytes, offset = 0;
+-    vm_offset_t mapped;
+-    vm_paddr_t physical, observed = 0;
+-    u64 direct = 0;
+-    const char *reason;
+-    if (!size || size > 1024ULL * 1024 * 1024 || size > ~(size_t)0 - PAGE_MASK) {
+-        contig_report("request-size", 0, size, 0, high, 0, 0, 0, 0);
+-        return NULL;
+-    }
+-    if (!high || high > DIAG_RAM_END) {
+-        contig_report("request-high", 0, size, 0, high, 0, 0, 0, 0);
+-        return NULL;
+-    }
+-    if (!diag_dmap_base_valid(kern.dmap_base)) {
+-        contig_report("dmap-base", 0, size, 0, high, 0, 0, 0, 0);
+-        return NULL;
+-    }
+-    bytes = (size + PAGE_MASK) & ~(size_t)PAGE_MASK;
+-    for (slot = 0; slot < 4 && contig_records[slot].direct; ++slot);
+-    if (slot == 4) {
+-        contig_report("ledger-full", 0, size, bytes, high, 0, 0, 0, 0);
+-        return NULL;
+-    }
+-    /* Match each upstream call exactly, but bound its outer zero-return retry
+-     * at three attempts. Post-allocation validation failures never retry.
+-     */
+-    unsigned int attempt;
+-    for (attempt = 1; attempt <= 3; ++attempt) {
+-        kern.printf("DIAGNOSTIX_ALLOC_V2 event=begin policy=UPSTREAM_BOUNDED3 attempt=%u of=3 requested=%llu "
+-                    "rounded=%llu flags=0x%x low=0 high=0x%llx alignment=0x%x guard_high=0x%llx\n",
+-                    attempt, (unsigned long long)size, (unsigned long long)bytes,
+-                    M_ZERO | M_WAITOK, (unsigned long long)~(vm_paddr_t)0, 1,
+-                    (unsigned long long)high);
+-        mapped = kern.kmem_alloc_contig(*kern.kernel_map, size, M_ZERO | M_WAITOK,
+-                                      0, ~(vm_paddr_t)0, 1, 0, VM_MEMATTR_DEFAULT);
+-        kern.printf("DIAGNOSTIX_ALLOC_V2 event=end policy=UPSTREAM_BOUNDED3 attempt=%u of=3 requested=%llu "
+-                    "rounded=%llu flags=0x%x high=0x%llx alignment=0x%x guard_high=0x%llx vm=0x%llx\n",
+-                    attempt, (unsigned long long)size, (unsigned long long)bytes,
+-                    M_ZERO | M_WAITOK, (unsigned long long)~(vm_paddr_t)0, 1,
+-                    (unsigned long long)high, (unsigned long long)mapped);
+-        if (mapped) break;
+-    }
+-    if (!mapped) {
+-        contig_report("kmem-returned-zero", 3, size, bytes, high, 0, 0, 0, 0);
+-        return NULL;
+-    }
+-    physical = kern.pmap_extract(kern.kernel_pmap_store, mapped);
+-    if (mapped & PAGE_MASK) { reason = "vm-unaligned"; goto fail; }
+-    if (!physical) { reason = "physical-zero"; goto fail; }
+-    if (physical & PAGE_MASK) { reason = "physical-unaligned"; goto fail; }
+-    if (physical > ~(vm_paddr_t)0 - (bytes - 1)) {
+-        reason = "physical-overflow"; goto fail;
+-    }
+-    if (physical >= high || bytes > high - physical) { reason = "physical-above-high"; goto fail; }
+-    if (mapped > ~(vm_offset_t)0 - (bytes - 1)) { reason = "vm-overflow"; goto fail; }
+-    if (!diag_ram_span(physical, bytes)) { reason = "physical-not-ram"; goto fail; }
+-    if (!diag_pa_to_dm(kern.dmap_base, physical, bytes, &direct)) {
+-        reason = "physical-dmap-range"; goto fail;
+-    }
+-    for (offset = 0; offset < bytes; offset += PAGE_SIZE) {
+-        observed = kern.pmap_extract(kern.kernel_pmap_store, mapped + offset);
+-        if (observed != physical + offset) { reason = "noncontiguous"; goto fail; }
+-        observed = kern.pmap_extract(kern.kernel_pmap_store, direct + offset);
+-        if (observed != physical + offset) { reason = "dmap-translation"; goto fail; }
+-    }
+-    contig_records[slot] = (struct contig_record){
+-        (void *)(uintptr_t)direct, mapped, bytes, size};
+-    kern.printf("DIAGNOSTIX_ALLOC_V3 event=accepted physical=0x%llx direct=0x%llx rounded=%llu\n",
+-                (unsigned long long)physical, (unsigned long long)direct,
+-                (unsigned long long)bytes);
+-    return contig_records[slot].direct;
+-fail:
+-    contig_report(reason, attempt, size, bytes, high, mapped, physical, offset, observed);
+-    kern.kmem_free(*kern.kernel_map, mapped, bytes);
+-    return NULL;
+-}
+-
+-void *kernel_alloc_contig(size_t size)
+-{
+-    return kernel_alloc_contig_limit(size, DIAG_RAM_END);
+-}
+-
+-void kernel_free_contig(void *addr, size_t size)
+-{
+-    if (!addr) return;
+-    for (unsigned int i = 0; i < 4; ++i) {
+-        struct contig_record *record = &contig_records[i];
+-        if (record->direct != addr) continue;
+-        if (record->requested != size) {
+-            kern.printf("Diagnostix refuses mismatched allocation cleanup\n");
+-            return;
+-        }
+-        kern.kmem_free(*kern.kernel_map, record->mapped, record->bytes);
+-        *record = (struct contig_record){0};
+-        return;
+-    }
+-}
++#include "diagnostix_pages.inc"
+ 
+ int kernel_hook_install(void *target, void *hook)
+ {
+--- a/linux/ps4-kexec-common/kernel.h
++++ b/linux/ps4-kexec-common/kernel.h
+@@ -95,6 +95,7 @@
+     void(*set_cu_power_gate)(unsigned int val);
+     void(*set_nclk_mem_spd)(unsigned int val);
+     void *pstate_before_shutdown;
++    vm_offset_t (*kmem_alloc)(vm_map_t map, vm_size_t size);
+ };
+ 
+ extern struct ksym_t kern;
+@@ -171,6 +172,17 @@
+     return 0;
+ }
+ 
++/* Only for already-owned wired source/control buffers. Native NORMAL ranges
++ * observed in EXP025 include these two Linux-reserved holes. Destinations still
++ * require diag_ram_span. Keep low handoff0..0x8000 and VRAM4..5GiB excluded. */
++static inline int diag_source_span(u64 pa, u64 bytes)
++{
++    if (diag_ram_span(pa, bytes)) return 1;
++    if (!bytes) return 0;
++    return (pa >= DIAG_LOW_END && pa < 0x2c000ULL && bytes <= 0x2c000ULL - pa) ||
++           (pa >= 0x400000ULL && pa < 0x480000ULL && bytes <= 0x480000ULL - pa);
++}
++
+ struct diag_low_layout {
+     u64 thunk, boot_params, command_line, end;
+ };
+@@ -225,9 +237,10 @@
+ 
+ void *kernel_resolve(const char *name);
+ 
+-void *kernel_alloc_contig(size_t size);
+-void *kernel_alloc_contig_limit(size_t size, vm_paddr_t high);
+-void kernel_free_contig(void *addr, size_t size);
++void *kernel_alloc_boot(size_t size);
++void kernel_free_boot(void *addr, size_t size);
++void *kernel_alloc_boot_safe_page(void);
++void kernel_free_boot_safe_page(void *addr);
+ 
+ void kernel_remap(void *start, void *end, int perm);
+ 
+--- a/linux/ps4-kexec-common/kexec.c
++++ b/linux/ps4-kexec-common/kexec.c
+@@ -10,6 +10,7 @@
+ 
+ #include "kernel.h"
+ #include "linux_boot.h"
++#include "diagnostix_scatter.h"
+ #include "x86.h"
+ #include "kexec.h"
+ #include "firmware.h"
+@@ -18,6 +19,27 @@
+ #include "../sb_detect.h"
+ 
+ u8 sb_id = 0;
++
++/* Static: the 128KiB physical-page ownership bitset never uses kernel stack. */
++static struct diag_scatter_workspace scatter_workspace;
++static struct diag_scatter_plan scatter_plan;
++static void *scatter_alloc(void *ctx, u64 bytes)
++{ (void)ctx; return kernel_alloc_boot(bytes); }
++static void scatter_free(void *ctx, void *p, u64 bytes)
++{ (void)ctx; kernel_free_boot(p, bytes); }
++static u64 scatter_physical(void *ctx, u64 va)
++{ (void)ctx; return kern.pmap_extract(kern.kernel_pmap_store, va); }
++static int scatter_ram(void *ctx, u64 pa, u64 bytes)
++{ (void)ctx; return diag_ram_span(pa, bytes); }
++static int scatter_source_ram(void *ctx, u64 pa, u64 bytes)
++{ (void)ctx; return diag_source_span(pa, bytes); }
++static void *scatter_alloc_safe(void *ctx)
++{ (void)ctx; return kernel_alloc_boot_safe_page(); }
++static void scatter_free_safe(void *ctx, void *p)
++{ (void)ctx; kernel_free_boot_safe_page(p); }
++static struct diag_scatter_ops scatter_ops;
++static u64 boot_rounded(u64 n) { return (n + PAGE_MASK) & ~(u64)PAGE_MASK; }
++
+ 
+ static int k_copyin(const void *uaddr, void *kaddr, size_t len)
+ {
+@@ -105,6 +127,11 @@
+ 
+ int sys_kexec(void *td, struct sys_kexec_args *uap)
+ {
++    /* Raw blob has no dynamic relocator: form callbacks at runtime. */
++    scatter_ops.ctx = NULL; scatter_ops.alloc = scatter_alloc;
++    scatter_ops.free = scatter_free; scatter_ops.physical = scatter_physical;
++    scatter_ops.ram = scatter_ram; scatter_ops.source_ram = scatter_source_ram;
++    scatter_ops.alloc_safe = scatter_alloc_safe; scatter_ops.free_safe = scatter_free_safe;
+     int err = 0;
+     size_t initramfs_size = uap->initramfs_size;
+     size_t initramfs_alloc_size = 0;
+@@ -143,7 +170,7 @@
+     }
+ 
+     // Copy in kernel image
+-    image = kernel_alloc_contig_limit(uap->image_size, DIAG_RAM_END);
++    image = kernel_alloc_boot(uap->image_size);
+     if (!image) {
+         kern.printf("Failed to allocate image\n");
+         err = ENOMEM;
+@@ -168,7 +195,7 @@
+         goto cleanup;
+     }
+     // Copy in initramfs
+-    initramfs = kernel_alloc_contig(initramfs_alloc_size);
++    initramfs = kernel_alloc_boot(initramfs_alloc_size);
+     if (!initramfs) {
+         kern.printf("Failed to allocate initramfs\n");
+         err = ENOMEM;
+@@ -203,7 +230,7 @@
+ 
+     // Copy in cmdline
+     cmd_line_maxlen = header->cmdline_size < 511 ? (size_t)header->cmdline_size + 1 : 512;
+-    cmd_line = kernel_alloc_contig(cmd_line_maxlen);
++    cmd_line = kernel_alloc_boot(cmd_line_maxlen);
+     if (!cmd_line) {
+         kern.printf("Failed to allocate cmdline\n");
+         err = ENOMEM;
+@@ -217,7 +244,7 @@
+     cmd_line[cmd_line_maxlen - 1] = 0;
+ 
+     // Allocate our boot params
+-    bp = kernel_alloc_contig(sizeof(*bp));
++    bp = kernel_alloc_boot(sizeof(*bp));
+     if (!bp) {
+         kern.printf("Failed to allocate bp\n");
+         err = ENOMEM;
+@@ -227,29 +254,68 @@
+     // Initialize bp
+     // TODO should probably do this from cpu_quiesce_gate, then bp doesn't
+     // need to be allocated here, just placed directly into low mem
+-    set_nix_info(image, bp, initramfs, initramfs_size, cmd_line, (int)vram_mb);
+-
++    struct diag_scatter_buffer aux[] = {
++        {cmd_line, boot_rounded(cmd_line_maxlen)}, {bp, boot_rounded(sizeof(*bp))}
++    };
++    struct diag_scatter_input scatter_input = {
++        .image = {image, boot_rounded(uap->image_size)},
++        .image_bytes = uap->image_size, .setup_bytes = setup_bytes,
++        .protected_bytes = protected_bytes, .kernel_init_size = header->init_size,
++        .initrd = {initramfs, boot_rounded(initramfs_alloc_size)},
++        .initrd_bytes = initramfs_size, .aux = aux, .aux_count = 2
++    };
++    if (diag_scatter_prepare(&scatter_ops, &scatter_input,
++                             &scatter_workspace, &scatter_plan) != 0) {
++        kern.printf("DIAGNOSTIX_SCATTER_V1 refused error=%u va=0x%llx pa=0x%llx\n",
++                    (unsigned int)scatter_plan.error,
++                    (unsigned long long)scatter_plan.error_va,
++                    (unsigned long long)scatter_plan.error_pa);
++        err = EINVAL;
++        goto cleanup;
++    }
++    kern.printf("DIAGNOSTIX_SCATTER_V2 prepared records=%llu nodes=%llu initrd_bytes=%llu safe_pages=%llu copy_kernel_bytes=%llu workspace_bytes=%llu\n",
++                (unsigned long long)scatter_plan.total_records,
++                (unsigned long long)scatter_plan.node_count,
++                (unsigned long long)initramfs_size,
++                (unsigned long long)scatter_plan.safe_count,
++                (unsigned long long)boot_rounded(protected_bytes),
++                (unsigned long long)boot_rounded(header->init_size));
++    set_nix_info(image, bp, initramfs, initramfs_size, cmd_line, (int)vram_mb,
++                 scatter_plan.physical_head, scatter_plan.total_records);
+     prepare_boot_params(bp, image);
+ 
+     if (!diagnostix_prepare_handoff()) { err = EINVAL; goto cleanup; }
+ 
+-    /* The unchanged thunk copies/decompresses at 96 MiB. Refuse any backing
+-     * overlap with its complete init_size workspace or its low-memory stub.
+-     */
+-    void *buffers[] = {image, initramfs, cmd_line, bp};
+-    size_t sizes[] = {uap->image_size, initramfs_alloc_size, cmd_line_maxlen, sizeof(*bp)};
+-    for (unsigned int i = 0; i < 4; ++i) {
+-        u64 start = DM_TO_ID(buffers[i]);
+-        u64 bytes = (sizes[i] + PAGE_MASK) & ~(u64)PAGE_MASK;
+-        if (!diag_ram_span(start, bytes)) { err = EINVAL; goto cleanup; }
+-        u64 end = start + bytes;
+-        if (end < start || start < DIAG_LOW_END ||
+-            (start < 0x06000000ULL + header->init_size && end > 0x06000000ULL) ||
+-            (start < 0x140000000ULL && end > 0x100000000ULL)) {
+-            err = EINVAL;
+-            goto cleanup;
++#ifdef DIAGNOSTIX_STAGE_ONLY
++    /* Exercise the constrained native allocator even when this layout needed
++     * no replacements. Reject aliasing with ANY retained original/safe page
++     * before touching the probe; write/read only our one owned 16KiB page. */
++    void *safe_probe = scatter_alloc_safe(NULL);
++    if (!safe_probe) { err = ENOMEM; goto cleanup; }
++    u64 probe_pa = scatter_physical(NULL, (u64)safe_probe);
++    if (!probe_pa || (probe_pa & PAGE_MASK) || probe_pa >= DIAG_SCATTER_LIMIT ||
++        probe_pa < 0x10000000ULL || probe_pa > 0x70000000ULL - PAGE_SIZE ||
++        !diag_source_span(probe_pa, PAGE_SIZE) ||
++        (scatter_workspace.used[probe_pa / PAGE_SIZE / 64] &
++         (1ULL << (probe_pa / PAGE_SIZE % 64)))) {
++        scatter_free_safe(NULL, safe_probe); err = EINVAL; goto cleanup;
++    }
++    volatile u8 *probe_bytes = safe_probe;
++    for (size_t i = 0; i < PAGE_SIZE; ++i) probe_bytes[i] = (u8)(i ^ 0xa5);
++    for (size_t i = 0; i < PAGE_SIZE; ++i) {
++        if (probe_bytes[i] != (u8)(i ^ 0xa5)) {
++            scatter_free_safe(NULL, safe_probe); err = EINVAL; goto cleanup;
+         }
+     }
++    scatter_free_safe(NULL, safe_probe);
++    kern.printf("DIAGNOSTIX_STAGE_V2 safe_page_probe=PASS bytes=%llu pa=0x%llx\n",
++                (unsigned long long)PAGE_SIZE, (unsigned long long)probe_pa);
++    /* Full-size real input check; no shutdown hook, GPU/pstate write or reboot. */
++    kern.printf("DIAGNOSTIX_STAGE_V1 PASS records=%llu nodes=%llu no_arm=1 no_boot=1 cleanup_follows=1\n",
++                (unsigned long long)scatter_plan.total_records,
++                (unsigned long long)scatter_plan.node_count);
++    goto cleanup;
++#else
+     if (!kern.pstate_before_shutdown || !kern.gpu_devid_is_9924 ||
+         !kern.set_gpu_freq || !kern.set_pstate || !kern.update_vddnp ||
+         !kern.set_cu_power_gate) { err = EINVAL; goto cleanup; }
+@@ -305,12 +371,15 @@
+         kern.printf("\nkern_reboot(0x%x) failed\n", RB_POWEROFF);
+ */
+     return 0;
++#endif
+ 
+ cleanup:
+-    kernel_free_contig(cmd_line, cmd_line_maxlen);
+-    kernel_free_contig(bp, sizeof(*bp));
+-    kernel_free_contig(image, uap->image_size);
+-    kernel_free_contig(initramfs, initramfs_alloc_size);
++    diag_scatter_release(&scatter_ops, &scatter_plan);
++    kernel_free_boot(cmd_line, cmd_line_maxlen);
++    kernel_free_boot(bp, sizeof(*bp));
++    kernel_free_boot(image, uap->image_size);
++    kernel_free_boot(initramfs, initramfs_alloc_size);
++    kern.printf("DIAGNOSTIX_PAGES_V1 cleanup_complete=1 result=%d\n", err);
+     return err;
+ 
+     copyout(NULL, NULL, 0);
+--- a/linux/ps4-kexec-common/linux_boot.c
++++ b/linux/ps4-kexec-common/linux_boot.c
+@@ -9,6 +9,7 @@
+  */
+ 
+ #include "linux_boot.h"
++#include "diagnostix_scatter.h"
+ #include "types.h"
+ #include "string.h"
+ #include "x86.h"
+@@ -48,7 +49,8 @@
+                "Boot params must match the low-memory planner");
+ 
+ typedef void (*jmp_to_linux_t)(uintptr_t linux_startup, uintptr_t bootargs,
+-                               uintptr_t new_cr3, uintptr_t gdt_ptr);
++                               uintptr_t new_cr3, uintptr_t gdt_ptr,
++                               u64 records);
+ extern uint8_t *jmp_to_linux;
+ extern size_t jmp_to_linux_size;
+ 
+@@ -59,17 +61,20 @@
+     size_t initramfs_size;
+     struct boot_params *bp;
+     char *cmd_line;
++    u64 scatter_head, scatter_records;
+ };
+ static struct linux_boot_info nix_info;
+ 
+ void set_nix_info(void *linux_image, struct boot_params *bp, void *initramfs,
+-                  size_t initramfs_size, char *cmd_line, int v)
++                  size_t initramfs_size, char *cmd_line, int v, u64 head, u64 records)
+ {
+     nix_info.linux_image = linux_image;
+     nix_info.bp = bp;
+     nix_info.initramfs = initramfs;
+     nix_info.initramfs_size = initramfs_size;
+     nix_info.cmd_line = cmd_line;
++    nix_info.scatter_head = head;
++    nix_info.scatter_records = records;
+     vram_mb = v;
+ }
+ 
+@@ -124,7 +129,9 @@
+ {
+     size_t bytes = 0;
+     low_layout = (struct diag_low_layout){0};
+-    if (!diag_dmap_base_valid(kern.dmap_base) || !nix_info.cmd_line)
++    if (!diag_dmap_base_valid(kern.dmap_base) || !nix_info.cmd_line ||
++        !nix_info.scatter_head || !nix_info.scatter_records ||
++        nix_info.scatter_records > DIAG_SCATTER_RECORDS)
+         return 0;
+     while (bytes < DIAG_CMDLINE_BYTES && nix_info.cmd_line[bytes]) ++bytes;
+     if (bytes == DIAG_CMDLINE_BYTES)
+@@ -144,9 +151,9 @@
+     struct setup_header *shdr = &bp_lo->hdr;
+     shdr->cmd_line_ptr = low_layout.command_line; /* already physical */
+     bp_lo->ext_cmd_line_ptr = 0;
+-    shdr->ramdisk_image = DM_TO_ID(nix_info.initramfs) & 0xffffffff;
++    shdr->ramdisk_image = DIAG_SCATTER_INITRD & 0xffffffff;
+     shdr->ramdisk_size = nix_info.initramfs_size & 0xffffffff;
+-    bp_lo->ext_ramdisk_image = DM_TO_ID(nix_info.initramfs) >> 32;
++    bp_lo->ext_ramdisk_image = DIAG_SCATTER_INITRD >> 32;
+     bp_lo->ext_ramdisk_size = nix_info.initramfs_size >> 32;
+     shdr->hardware_subarch = X86_SUBARCH_PS4;
+     shdr->type_of_loader = 0xd0;
+@@ -444,10 +451,11 @@
+     uart_write_str("kexec: About to relocate and jump to kernel\n");
+ 
+     ((jmp_to_linux_t)thunk_copy)(
+-            DM_TO_ID(nix_info.linux_image),
++            nix_info.scatter_head,
+             low_layout.boot_params,
+             DIAG_PML4_PA,
+-            (uintptr_t)&gdt_ptr
++            (uintptr_t)&gdt_ptr,
++            nix_info.scatter_records
+             );
+ 
+     // should never reach here
+--- a/linux/ps4-kexec-common/linux_boot.h
++++ b/linux/ps4-kexec-common/linux_boot.h
+@@ -81,7 +81,7 @@
+ OSTRUCT_END
+ 
+ void set_nix_info(void *linux_image, struct boot_params *bp, void *initramfs,
+-                  size_t initramfs_size, char *cmd_line, int v);
++                  size_t initramfs_size, char *cmd_line, int v, u64 head, u64 records);
+ void prepare_boot_params(struct boot_params *bp, u8 *linux_image);
+ int diagnostix_prepare_handoff(void);
+ int hook_icc_query_nowait(u8 *icc_msg);
+--- a/linux/ps4-kexec-common/Makefile
++++ b/linux/ps4-kexec-common/Makefile
+@@ -16,10 +16,10 @@
+ 	-fPIE -pie -fno-stack-protector -fomit-frame-pointer -nostdlib -nostdinc \
+ 	-fno-asynchronous-unwind-tables \
+ 	-Os -Wall -Werror -Wl,--no-dynamic-linker,--build-id=none,-T,kexec.ld,--nmagic \
+-	-mcmodel=small -mno-red-zone
++	-mcmodel=small -mno-red-zone -mgeneral-regs-only
+ 
+ SOURCES := kernel.c kexec.c linux_boot.c linux_thunk.S uart.c firmware.c \
+-	acpi.c crc32.c
++	acpi.c crc32.c diagnostix_scatter.c
+ 
+ OBJS := $(addprefix $(BUILD_DIR)/,$(patsubst %.S,%.o,$(patsubst %.c,%.o,$(SOURCES))))
+ 

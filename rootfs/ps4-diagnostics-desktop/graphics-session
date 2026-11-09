@@ -1,7 +1,14 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 set -uo pipefail
-case "${PSX_GRAPHICS_MODE:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics) ;; *) exit 2 ;; esac
+case "${PSX_GRAPHICS_MODE:-}" in browser|chromium|protondb|opengl|vulkan|diagnostics|benchmark|benchmark-vulkan) ;; *) exit 2 ;; esac
+# This account cannot write the kernel log. The controller copies this file there as it grows.
+trace() {
+    case "$PSX_GRAPHICS_MODE" in benchmark|benchmark-vulkan) ;; *) return 0 ;; esac
+    [[ -w /run/psx-benchmark ]] && printf '%s\n' "$*" >> /run/psx-benchmark/trace.log
+    return 0
+}
+trace "graphics-session running as $(id -un)"
 export DISPLAY=:0
 if [[ "${PSX_GRAPHICS_WINDOWED:-0}" == 1 ]]; then
     [[ "$PSX_GRAPHICS_MODE" != diagnostics ]] || exit 2
@@ -17,15 +24,18 @@ fi
 unset WAYLAND_DISPLAY
 . /etc/psx-diagnostics/mesa.env
 if [[ "${PSX_GRAPHICS_WINDOWED:-0}" != 1 ]]; then
+    trace "starting xfwm4"
     /usr/bin/xfwm4 --compositor=off --replace &
     wm_pid=$!
     trap 'kill "$wm_pid" 2>/dev/null || true' EXIT
     wait_wm=/run/psx-frontend/wait-graphics-wm
     [[ -x "$wait_wm" ]] || wait_wm=/usr/lib/psx-diagnostics/wait-graphics-wm
     if [[ ! -x "$wait_wm" ]] || ! /usr/bin/python3 "$wait_wm"; then
+        trace "window manager did not start"
         printf '%s\n' 'Diagnostic window manager did not start; returning to the console.' >&2
         exit 1
     fi
+    trace "window manager ready"
 fi
 case "$PSX_GRAPHICS_MODE" in
     diagnostics)
@@ -79,12 +89,43 @@ user_pref("startup.homepage_welcome_url", "");
 user_pref("startup.homepage_welcome_url.additional", "");
 user_pref("datareporting.policy.firstRunURL", "");
 user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.preonboarding.splashShown", true);
+user_pref("browser.aboutwelcome.experimentsGate.enabled", false);
+user_pref("termsofuse.bypassNotification", true);
+user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);
 EOF
         /usr/bin/python3 /opt/psx-mesa-tools/with-mesa.py --root /opt/psx-mesa \
             --runtime-dir "/run/psx-mesa/$(id -u)" \
             --expected-manifest-sha256 "$PSX_MESA_MANIFEST_SHA256" \
             -- /usr/bin/firefox --no-remote --profile "$profile" --kiosk "$browser_target"
         exit $? ;;
+    benchmark|benchmark-vulkan)
+        tools=/run/psx-bench
+        results=/run/psx-benchmark
+        scene_seconds=5
+        if [[ "$PSX_GRAPHICS_MODE" == benchmark ]]; then tool=glmark2; else tool=vkmark; fi
+        [[ -x "$tools/bin/$tool" && -w "$results" ]] || { trace "no usable $tool"; exit 1; }
+        export LD_LIBRARY_PATH="$tools/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        # dd with one-byte blocks because the file has to grow as the tool writes:
+        # after a hang, its last line is the scene that was running.
+        measure() {
+            local name=$1 limit=$2 status
+            shift 2
+            trace "$name starting, limit ${limit}s"
+            /usr/bin/timeout --signal=TERM --kill-after=3 "$limit" "$@" 2>&1 |
+                /usr/bin/dd bs=1 count=1048576 status=none of="$results/$name.log"
+            status=${PIPESTATUS[0]}
+            printf '%s\n' "$status" > "$results/$name.status"
+            trace "$name exited with status $status"
+        }
+        if [[ "$tool" == glmark2 ]]; then
+            measure glmark2 360 "$tools/bin/glmark2" --data-path "$tools/share/glmark2" \
+                --fullscreen -b ":duration=$scene_seconds"
+        else
+            measure vkmark 180 "$tools/bin/vkmark" --winsys xcb --winsys-dir "$tools/lib/vkmark" \
+                --data-dir "$tools/share/vkmark" --fullscreen -b ":duration=$scene_seconds"
+        fi
+        exit 0 ;;
     opengl) program=/usr/bin/glxgears; args=(-info) ;;
     vulkan) program=/usr/bin/vkcube; args=() ;;
 esac

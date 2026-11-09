@@ -2,6 +2,8 @@
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
 const lab=require("../diagnostics/ps4/lab/lab.js");
 const entry=(name,status="PASS",measurements={})=>({test:name,saved:true,run_id:name,result:{test_id:`browser.${name}`,status,measurements}});
+const reportId="b".repeat(32),exportJobId="a".repeat(32);
+const reportMetadata=()=>({status:"READY",report_id:reportId,filename:`diagnostix-report-${reportId}.zip`,download_url:`/api/support/reports/${reportId}.zip`});
 
 test("regular 60Hz callbacks produce cadence statistics without a physical-refresh claim",()=>{
   const metrics=lab.frameStatistics(Array(600).fill(1000/60));
@@ -75,6 +77,147 @@ test("opening the page fetches identity only and never starts graphics or video"
   vm.runInNewContext(fs.readFileSync(require.resolve("../diagnostics/ps4/lab/lab.js"),"utf8"),context);
   await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(calls,["/api/session","/api/state"]);assert.equal(node("run-all").disabled,false);
+});
+
+test("issue report download requires READY metadata, a strict ID and matching local ZIP filename and path",()=>{
+  assert.deepEqual(lab.issueReportDownload(reportMetadata()),{href:`/api/support/reports/${reportId}.zip`,filename:`diagnostix-report-${reportId}.zip`});
+  for(const changes of [{status:"PASS"},{status:"ERROR"},{report_id:"../report"},{report_id:reportId.toUpperCase()},
+    {download_url:"https://example.invalid/report.zip"},{download_url:`//example.invalid/api/support/reports/${reportId}.zip`},
+    {download_url:`/api/support/reports/${"c".repeat(32)}.zip`},{download_url:`/api/support/reports/${reportId}.zip?extra=1`},
+    {filename:"../report.zip"},{filename:"report.zip"}]){
+    assert.throws(()=>lab.issueReportDownload({...reportMetadata(),...changes}),/invalid ZIP download/);
+  }
+  assert.throws(()=>lab.issueReportDownload(null),/invalid ZIP download/);
+});
+
+test("issue report export submits once and polls only that job before exposing a download",async()=>{
+  const calls=[];let polls=0;
+  const download=await lab.createIssueReport(async(path,payload,timeout)=>{
+    calls.push({path,payload});assert.ok(timeout>0&&timeout<=5000);
+    if(path==="/api/support/export"){assert.deepEqual(payload,{});return {id:exportJobId};}
+    assert.equal(path,`/api/support/jobs/${exportJobId}`);assert.equal(payload,undefined);
+    polls++;return {id:exportJobId,state:polls===1?"queued":polls===2?"running":"completed",result:polls===3?reportMetadata():null};
+  },{timeoutMs:1000,pollMs:1});
+  assert.deepEqual(download,lab.issueReportDownload(reportMetadata()));
+  assert.equal(calls.filter(call=>call.path==="/api/support/export").length,1);
+  assert.equal(polls,3);assert.equal(calls.length,4);
+  assert.equal(calls.some(call=>call.path.includes("/reports/")),false);
+});
+
+test("failed, mismatched and unconfirmed report jobs stop without resubmitting",async()=>{
+  for(const scenario of ["submission error","invalid ID","wrong job","failed job","invalid result","unknown state"]){
+    const calls=[];
+    await assert.rejects(lab.createIssueReport(async(path)=>{
+      calls.push(path);
+      if(path==="/api/support/export"){
+        if(scenario==="submission error")throw Error("Synthetic submission response lost");
+        return {id:scenario==="invalid ID"?"../job":exportJobId};
+      }
+      return {id:scenario==="wrong job"?"c".repeat(32):exportJobId,
+        state:scenario==="failed job"?"failed":scenario==="unknown state"?"unknown":"completed",
+        error:"Synthetic export failure",result:scenario==="invalid result"?{...reportMetadata(),status:"ERROR"}:reportMetadata()};
+    },{timeoutMs:1000,pollMs:1}));
+    assert.equal(calls.filter(path=>path==="/api/support/export").length,1,scenario);
+    assert.ok(calls.length<=2,scenario);
+    assert.equal(calls.some(path=>path.includes("/reports/")),false);
+  }
+});
+
+test("report polling and a hung submission have bounded timeouts without another export",async()=>{
+  for(const hang of [true,false]){
+    const calls=[];
+    await assert.rejects(lab.createIssueReport(async(path)=>{
+      calls.push(path);
+      if(hang)return new Promise(()=>{});
+      return path==="/api/support/export"?{id:exportJobId}:{id:exportJobId,state:"running"};
+    },{timeoutMs:20,pollMs:1}),/Issue report creation timed out/);
+    const count=calls.length;
+    await new Promise(resolve=>setTimeout(resolve,10));
+    assert.equal(calls.length,count);assert.equal(calls.filter(path=>path==="/api/support/export").length,1);
+    assert.equal(calls.some(path=>path.includes("/reports/")),false);
+  }
+});
+
+async function reportPage(exportRequest,{missingReportNodes=false}={}) {
+  const elements=new Map(),calls=[];
+  const node=id=>{
+    if(missingReportNodes&&["export-report","report-download","report-status"].includes(id))return null;
+    if(!elements.has(id))elements.set(id,{id,dataset:{},listeners:{},textContent:"",addEventListener(event,callback){this.listeners[event]=callback;},setAttribute(){}});
+    return elements.get(id);
+  };
+  const buttons=lab.SUITE_STEPS.map(name=>({...node(name),dataset:{test:name}}));
+  const context=vm.createContext({performance,AbortController,setTimeout,clearTimeout,navigator:{userAgent:"Firefox/154",platform:"Synthetic"},
+    document:{getElementById:node,querySelectorAll:selector=>selector.includes("#run-all")?[...buttons,node("run-all")]:buttons},
+    fetch:async(path,options)=>{
+      calls.push(path);
+      let data=path==="/api/session"?{csrf_token:"fixture"}:path==="/api/state"?{system:{hostname:"fixture",kernel_release:"fixture"}}:await exportRequest(path,options);
+      return {ok:true,json:async()=>data};
+    }});
+  vm.runInContext(fs.readFileSync(require.resolve("../diagnostics/ps4/lab/lab.js"),"utf8"),context);
+  await new Promise(resolve=>setImmediate(resolve));
+  return {context,node,calls};
+}
+
+test("the explicit report control sends CSRF once, excludes running tests, and reveals a user-clicked ZIP link",async()=>{
+  let release;const pending=new Promise(resolve=>{release=resolve;});
+  const {context,node,calls}=await reportPage(async(path,options)=>{
+    if(path==="/api/support/export"){
+      assert.equal(options.method,"POST");assert.equal(options.headers["X-PSX-CSRF"],"fixture");
+      assert.equal(options.body,"{}");return {id:exportJobId};
+    }
+    assert.equal(path,`/api/support/jobs/${exportJobId}`);assert.equal(options.method,"GET");
+    await pending;return {id:exportJobId,state:"completed",result:reportMetadata()};
+  });
+  assert.deepEqual(calls,["/api/session","/api/state"]);
+  assert.equal(node("export-report").disabled,false);assert.equal(node("report-download").hidden,true);
+  vm.runInContext('busy=true;controls(true)',context);
+  await node("export-report").listeners.click();
+  assert.deepEqual(calls,["/api/session","/api/state"]);assert.equal(node("export-report").disabled,true);
+  vm.runInContext('busy=false;autoBatchId="batch";controls(true)',context);
+  await node("export-report").listeners.click();assert.equal(calls.length,2);
+  vm.runInContext('autoBatchId=null;controls(false)',context);
+  const exporting=node("export-report").listeners.click();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(node("export-report").disabled,true);assert.equal(node("run-all").disabled,true);assert.equal(node("cancel").disabled,true);
+  await node("export-report").listeners.click();
+  await vm.runInContext('run("webgl")',context);
+  assert.equal(calls.filter(path=>path==="/api/support/export").length,1);
+  release();await exporting;
+  assert.equal(node("report-download").href,reportMetadata().download_url);
+  assert.equal(node("report-download").download,reportMetadata().filename);
+  assert.equal(node("report-download").hidden,false);assert.equal(node("export-report").disabled,false);
+  assert.match(node("report-status").textContent,/attach it to your GitHub issue/);
+  assert.equal(node("report-status").dataset.state,"ready");
+  assert.equal(calls.some(path=>path.includes("/reports/")),false);
+  assert.equal(calls.some(path=>path.startsWith("/api/browser/")),false);
+});
+
+test("report errors stay inline with no download, and old page mocks may omit the report nodes",async()=>{
+  const {node,calls}=await reportPage(async()=>{throw Error("Synthetic report creation error");});
+  await node("export-report").listeners.click();
+  assert.equal(node("report-status").dataset.state,"error");assert.match(node("report-status").textContent,/Synthetic report creation error/);
+  assert.equal(node("report-download").hidden,true);assert.equal(node("export-report").disabled,false);
+  assert.equal(calls.filter(path=>path==="/api/support/export").length,1);
+  const missing=await reportPage(async()=>{throw Error("Unexpected export");},{missingReportNodes:true});
+  assert.deepEqual(missing.calls,["/api/session","/api/state"]);assert.equal(missing.node("run-all").disabled,false);
+});
+
+test("report creation after an automatic batch never unlocks its finished test controls",async()=>{
+  const {context,node,calls}=await reportPage(async(path)=>{
+    if(path==="/api/browser/finish")return {saved:true,closed:false,status:"INCONCLUSIVE"};
+    if(path==="/api/support/export")return {id:exportJobId};
+    assert.equal(path,`/api/support/jobs/${exportJobId}`);
+    return {id:exportJobId,state:"completed",result:reportMetadata()};
+  });
+  context.perform=async()=>({entries:[],reason:""});
+  await vm.runInContext('run=perform;finishAutomaticSuite({nonce:"A".repeat(32),batch_id:"20261104T120000Z-0123456789ab"})',context);
+  assert.equal(node("summary").textContent,"Saved · close browser to return");
+  assert.equal(node("run-all").disabled,true);assert.equal(node("cancel").disabled,true);
+  assert.equal(node("export-report").disabled,false);
+  await node("export-report").listeners.click();
+  assert.equal(node("report-download").hidden,false);assert.equal(node("run-all").disabled,true);assert.equal(node("cancel").disabled,true);
+  assert.equal(calls.filter(path=>path==="/api/browser/finish").length,1);
+  assert.equal(calls.filter(path=>path==="/api/support/export").length,1);
 });
 
 test("only a valid one-shot server grant auto-starts; early pending claims wait",async()=>{

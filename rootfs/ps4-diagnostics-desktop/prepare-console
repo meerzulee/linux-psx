@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Prepare the local diagnostic VT; kernel messages remain available on UART."""
 import fcntl
+import gzip
 import hashlib
 import json
 import os
@@ -24,8 +25,114 @@ TIOCL_GETKMSGREDIRECT = 17
 OLIVE = {0: "20271b", 2: "2e3a25", 3: "4d6036", 7: "bbc5a1",
          10: "a3b56a", 15: "eef1e5"}
 FONT = 'latarcyrheb-sun32'
+ICON_FONT = 'diagnostix-icons'
 RUNTIME_LIBRARIES = ('libxcb-keysyms.so.1', 'libdisplay-info.so.3', 'libvte-2.91.so.0',
                      'libgtk-layer-shell.so.0', 'libutempter.so.0')
+
+
+# A PSF2 console font is one colour, holds 512 glyphs at most, and its Unicode
+# table cannot name code points above U+FFFF, so emoji and Nerd Font icons cannot
+# be loaded. The controller icons are drawn here instead. Each is two cells wide,
+# which makes it square on screen. The start screen's wordmark also needs the
+# half-width blocks, which the stock font does not have.
+CELL_WIDTH, CELL_HEIGHT = 16, 32
+MAGIC = 0x864AB572
+FIRST_REPLACED = 0x05D0
+PRIVATE_USE = 0xE0F0
+
+
+def segment_near(px, py, ax, ay, bx, by, radius):
+    dx, dy = bx - ax, by - ay
+    along = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return (px - ax - along * dx) ** 2 + (py - ay - along * dy) ** 2 <= radius * radius
+
+
+def cross(x, y):
+    return segment_near(x, y, 8, 8, 24, 24, 2.3) or segment_near(x, y, 24, 8, 8, 24, 2.3)
+
+
+def circle(x, y):
+    distance = (x - 16) ** 2 + (y - 16) ** 2
+    return 9.8 ** 2 <= distance <= 13.0 ** 2
+
+
+def outline(points, radius):
+    def inside(x, y):
+        return any(segment_near(x, y, *points[i], *points[(i + 1) % len(points)], radius)
+                   for i in range(len(points)))
+    return inside
+
+
+triangle = outline([(16, 6), (27, 25), (5, 25)], 1.8)
+square = outline([(7, 7), (25, 7), (25, 25), (7, 25)], 2.0)
+
+
+def arrow(tip, base):
+    wing = tip + (base - tip) * 0.45
+    def inside(x, y):
+        return (segment_near(x, y, 8, tip, 8, base, 1.4)
+                or segment_near(x, y, 8, tip, 2.5, wing, 1.4)
+                or segment_near(x, y, 8, tip, 13.5, wing, 1.4))
+    return inside
+
+
+# Shape, width in cells, and the code point of each cell.
+ICONS = (
+    (cross, 2, (PRIVATE_USE + 0, PRIVATE_USE + 1)),
+    (circle, 2, (PRIVATE_USE + 2, PRIVATE_USE + 3)),
+    (triangle, 2, (PRIVATE_USE + 4, PRIVATE_USE + 5)),
+    (square, 2, (PRIVATE_USE + 6, PRIVATE_USE + 7)),
+    (arrow(7, 25), 1, (0x2191,)),
+    (arrow(25, 7), 1, (0x2193,)),
+    (lambda x, y: x < CELL_WIDTH / 2, 1, (0x258C,)),
+    (lambda x, y: x >= CELL_WIDTH / 2, 1, (0x2590,)),
+)
+
+
+def covered(shape, x, y):
+    """Four-by-four supersampling, thresholded because the font is one colour."""
+    hits = sum(shape(x + (i + 0.5) / 4, y + (j + 0.5) / 4) for i in range(4) for j in range(4))
+    return hits >= 8
+
+
+def draw(shape, cells):
+    """Return one bitmap per cell, in PSF2 row order."""
+    bitmaps = []
+    for cell in range(cells):
+        rows = bytearray()
+        for y in range(CELL_HEIGHT):
+            bits = 0
+            for x in range(CELL_WIDTH):
+                if covered(shape, x + cell * CELL_WIDTH, y):
+                    bits |= 0x8000 >> x
+            rows += bits.to_bytes(2, "big")
+        bitmaps.append(bytes(rows))
+    return bitmaps
+
+
+def add_button_icons(font):
+    """Return the PSF2 font with Hebrew letters DiagnostiX never shows replaced by icons."""
+    magic, version, header, flags, count, size, height, width = struct.unpack("<8I", font[:32])
+    if magic != MAGIC or not flags & 1 or (width, height) != (CELL_WIDTH, CELL_HEIGHT) or size != 64:
+        raise ValueError("expected a 16x32 PSF2 font with a Unicode table")
+    start = header + count * size
+    entries = font[start:].split(b"\xff")
+    if len(entries) < count:
+        raise ValueError("the Unicode table is shorter than the glyph count")
+    entries = entries[:count]
+    slots = {entry: index for index, entry in enumerate(entries)}
+    glyphs = bytearray(font[header:start])
+
+    replaced = FIRST_REPLACED
+    for shape, cells, points in ICONS:
+        for bitmap, point in zip(draw(shape, cells), points):
+            slot = slots.get(chr(replaced).encode())
+            if slot is None:
+                raise ValueError(f"U+{replaced:04X} is not a glyph of its own in this font")
+            glyphs[slot * size:(slot + 1) * size] = bitmap
+            entries[slot] = chr(point).encode()
+            replaced += 1
+    return font[:header] + bytes(glyphs) + b"".join(entry + b"\xff" for entry in entries)
 
 
 def active_frontend_overrides(root, base_manifest):
@@ -150,11 +257,26 @@ class Console:
             colors[3*index:3*index+3] = bytes.fromhex(value)
         fcntl.ioctl(fd, PIO_CMAP, colors)
 
-    def font(self, tty):
-        subprocess.run(['/usr/bin/setfont', '-C', tty,
-                        '/usr/share/kbd/consolefonts/' + FONT + '.psfu.gz'],
+    def set_font(self, tty, path):
+        subprocess.run(['/usr/bin/setfont', '-C', tty, path],
                        stdin=subprocess.DEVNULL, capture_output=True, timeout=5,
                        check=True)
+
+    def font(self, tty):
+        """Load the console font, and name the one that is really on screen."""
+        stock = '/usr/share/kbd/consolefonts/' + FONT + '.psfu.gz'
+        try:
+            with gzip.open(stock) as source:
+                patched = add_button_icons(source.read())
+            directory = Path('/run/psx-console')
+            directory.mkdir(mode=0o700, exist_ok=True)
+            path = directory / (ICON_FONT + '.psfu.gz')
+            path.write_bytes(gzip.compress(patched, mtime=0))
+            self.set_font(tty, str(path))
+            return ICON_FONT
+        except (OSError, EOFError, ValueError, struct.error, subprocess.SubprocessError):
+            self.set_font(tty, stock)
+            return FONT
 
     def clear(self, fd):
         os.write(fd, b'\x1b[?25l\x1b[0m\x1b[2J\x1b[3J\x1b[H')
@@ -194,7 +316,7 @@ def prepare(root_prefix='/', console=None, fd=1):
              if (root / 'proc/1/comm').read_text().strip() == 'systemd' else None),
             ('log_view', lambda: console.log_view()),
             ('console_blanking', lambda: console.disable_blanking(fd) if tty == '/dev/tty1' else None),
-            ('font', lambda: console.font(tty)),
+            ('font', lambda: result.update(font=console.font(tty) or FONT)),
             ('palette', lambda: console.palette(fd)),
             ('clear', lambda: console.clear(fd))):
         try:

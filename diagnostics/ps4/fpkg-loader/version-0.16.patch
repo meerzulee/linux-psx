@@ -1,0 +1,26 @@
+--- a/linux/main-aio.c
++++ b/linux/main-aio.c
+@@ -154,7 +154,7 @@
+     unsigned long long bytes = 0;
+     *ptr = NULL;
+     *sz = 0;
+-    fd = open("/data/diagnostix/versions/0.15/boot/initramfs.cpio.gz", O_RDONLY | O_NOFOLLOW);
++    fd = open("/data/diagnostix/versions/0.16/boot/initramfs.cpio.gz", O_RDONLY | O_NOFOLLOW);
+     if (fd < 0) return -1;
+     end = lseek(fd, 0, SEEK_END);
+     if (end < 18 || (unsigned long long)end > DIAG_INITRD_MAX)
+@@ -400,11 +400,11 @@
+     unsigned long long kernel_size = 0, initrd_size = 0, cmdline_size = 0, vram_size = 0;
+     int result = 1;
+     /* No USB, secondary path, optional file or per-file fallback. */
+-    if (read_file("/data/diagnostix/versions/0.15/boot/vram.txt", &vram, &vram_size, 16) ||
++    if (read_file("/data/diagnostix/versions/0.16/boot/vram.txt", &vram, &vram_size, 16) ||
+         !valid_vram(vram, vram_size) ||
+-        read_file("/data/diagnostix/versions/0.15/boot/bzImage", &kernel, &kernel_size, DIAG_KERNEL_MAX) ||
++        read_file("/data/diagnostix/versions/0.16/boot/bzImage", &kernel, &kernel_size, DIAG_KERNEL_MAX) ||
+         map_initramfs(&initrd, &initrd_size) ||
+-        read_file("/data/diagnostix/versions/0.15/boot/bootargs.txt", &cmdline, &cmdline_size, DIAG_CMDLINE_MAX) ||
++        read_file("/data/diagnostix/versions/0.16/boot/bootargs.txt", &cmdline, &cmdline_size, DIAG_CMDLINE_MAX) ||
+         !valid_cmdline(cmdline, cmdline_size)) {
+         alert("Diagnostix boot files missing, invalid or too large. No shutdown requested.");
+         goto cleanup;

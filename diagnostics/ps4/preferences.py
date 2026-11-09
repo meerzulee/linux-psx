@@ -9,6 +9,16 @@ import re
 import stat
 import subprocess
 import tempfile
+import sys
+
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+if '/run/psx-ram' not in sys.path:
+    sys.path.insert(1, '/run/psx-ram')
+try:
+    import ram_state
+except ImportError:
+    ram_state = None
 
 FONT = 'JetBrainsMono Nerd Font'
 DEFAULT = {'schema_version': 1, 'theme': 'olive', 'font_family': FONT, 'font_size': 16}
@@ -23,7 +33,9 @@ class DisplayPreferences:
         self.fixture = self.root != Path('/')
         self.owner = os.geteuid() if self.fixture else 0
         self.execute = executor
-        self.path = self.local('/run/psx-media/psx-diagnostics/state/display.json')
+        self.ram = ram_state is not None and ram_state.active(self.root)
+        self.path = self.local('/run/psx-state/state/display.json' if self.ram else
+                               '/run/psx-media/psx-diagnostics/state/display.json')
         self.session = self.local('/run/psx-frontend/terminal-session.json')
         manifest = json.loads(Path(__file__).with_name('themes.json').read_text())
         if manifest.get('schema_version') != 1:
@@ -97,7 +109,8 @@ class DisplayPreferences:
             pass
         return dict(values, theme_name=theme['name'], palette=theme['palette'],
                     available_themes=[{'id': item['id'], 'name': item['name']} for item in self.themes.values()],
-                    live=live, error=error)
+                    live=live, error=error, persistent=not self.ram,
+                    state_lifetime='this boot' if self.ram else 'USB installation')
 
     def atomic(self, path, values):
         self.local('/' + str(path.relative_to(self.root)))
@@ -128,7 +141,9 @@ class DisplayPreferences:
 
     def set(self, changes):
         values = self.updated(changes)
-        if not self.fixture and not self.local('/run/psx-media').is_mount():
+        if self.ram:
+            ram_state.validate(self.root, fixture=self.fixture)
+        elif not self.fixture and not self.local('/run/psx-media').is_mount():
             raise ValueError('Diagnostic USB is not mounted; settings were not saved')
         self.atomic(self.path, values)
         self.last_apply = self.apply_live(values)

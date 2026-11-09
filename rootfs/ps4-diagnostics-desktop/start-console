@@ -5,6 +5,11 @@ prepare=/run/psx-frontend/prepare-console
 if [ -x "$prepare" ]; then
     /usr/bin/python3 "$prepare" || true
 fi
+# The root image is read-only and has no tar. /usr/local/sbin is empty and on
+# PATH, so the pinned copy goes there for anyone logged in. Never stops the boot.
+if [ -x /run/psx-bench/bin/tar ] && ! /usr/bin/mountpoint -q /usr/local/sbin; then
+    /usr/bin/mount --bind /run/psx-bench/bin /usr/local/sbin 2>/dev/null || true
+fi
 # Clear any status text already queued before the fullscreen client starts.
 printf '\033[0m\033[2J\033[3J\033[H'
 /usr/bin/psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock
@@ -12,4 +17,7 @@ status=$?
 /usr/bin/stty sane 2>/dev/null || true
 printf '\nDiagnostics closed (status %s). Local root console.\n' "$status"
 printf 'Return to the menu: psx-diagnostics-tui --socket /run/psx-diagnostics/control.sock\n\n'
-exec /usr/bin/bash --noprofile --norc -i
+printf '<6>dx/tui: root shell starting after status %s\n' "$status" > /dev/kmsg 2>/dev/null || true
+# The service sends stderr to the journal, and bash writes its prompt and the
+# text being typed to stderr. Without this the shell works but shows nothing.
+exec /usr/bin/bash --noprofile --norc -i 2>&1

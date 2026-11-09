@@ -31,7 +31,22 @@ def pinned(path, pin, size=None):
 
 
 def run(command, **kwargs):
-    return subprocess.run(list(map(str, command)), check=True, capture_output=True, timeout=180, **kwargs)
+    return subprocess.run(list(map(str, command)), check=True, capture_output=True, timeout=900, **kwargs)
+
+
+# The kiosk lab reaches none of these: no Qt plugin, no software Vulkan (Vulkan is
+# off by flag), no 2x artwork at 1080p, no command wrappers, headers or man pages.
+# chromium itself is already stripped, so this is all that can go. Licenses stay.
+TRIMMED = {"usr/lib/chromium/libqt5_shim.so", "usr/lib/chromium/libqt6_shim.so", "usr/lib/chromium/libvk_swiftshader.so",
+           "usr/lib/chromium/vk_swiftshader_icd.json", "usr/lib/chromium/chrome_200_percent.pak", "usr/lib/xsltConf.sh"}
+
+
+def omit(path, name):
+    if path.startswith("usr/lib/chromium/locales/"):
+        return not name.name.startswith("en-US")
+    if path.startswith("usr/share/"):
+        return not path.startswith("usr/share/licenses/")
+    return path in TRIMMED or path.startswith(("usr/bin/", "usr/include/", "usr/lib/cmake/", "usr/lib/pkgconfig/", "usr/lib/python3"))
 
 
 def unpack(archive, root):
@@ -45,8 +60,7 @@ def unpack(archive, root):
                     raise ValueError("Unsafe package path")
                 if item.name.startswith("."):
                     continue
-                if (item.name == "usr/bin/chromedriver" or
-                    item.name.startswith("usr/lib/chromium/locales/") and not name.name.startswith("en-US")):
+                if omit(item.name, name):
                     omitted.append(item.name); continue
                 target = root / str(name)
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -176,8 +190,11 @@ def main():
     if "User:     0" not in sandbox or "Mode:  04755" not in sandbox:
         raise ValueError("Sandbox helper owner/mode did not survive image creation: " + sandbox)
     (output / "sandbox-inode.txt").write_text(sandbox)
+    run(["xz", "-q", "-k", "-T0", "--lzma2=preset=9e,dict=64MiB", image])
+    packed = Path(str(image) + ".xz")
     receipt = {"provider_id": spec["provider_id"], "image": image.name, "image_bytes": image.stat().st_size,
                "image_sha256": sha(image), "provider_manifest_sha256": sha(root / "PROVIDER.json"),
+               "compressed": packed.name, "compressed_bytes": packed.stat().st_size, "compressed_sha256": sha(packed),
                "regular_payload_bytes": sum(x.get("bytes", 0) for x in files), "elf_closure_files": len(dependencies),
                "kernel_root_unchanged": True, "hardware_acceptance": False,
                "launcher_config": {"schema_version": 1, "provider_manifest_sha256": sha(root / "PROVIDER.json")}}

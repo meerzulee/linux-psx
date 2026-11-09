@@ -73,6 +73,26 @@ class ImmediatePowerTests(unittest.TestCase):
             self.request()
         self.kernel_call.assert_not_called()
 
+    def test_startup_failure_names_fixed_stage_without_legacy_fallback_or_private_error(self):
+        with mock.patch.object(self.controller.runner, 'uvd_adapter',
+                side_effect=ValueError('private token=do-not-disclose')):
+            self.controller._cache_power_boot()
+        with mock.patch.object(self.controller, '_power_guard', side_effect=AssertionError('legacy fallback')):
+            status = self.controller.power_status()
+        for operation in APP.POWER_OPERATIONS:
+            self.assertFalse(status[operation]['available'])
+            self.assertEqual(status[operation]['guard_stage'], 'contract')
+            self.assertIn('(contract)', status[operation]['reason'])
+            self.assertNotIn('private', status[operation]['reason'])
+        with self.assertRaisesRegex(ValueError, 'contract'):
+            self.request()
+        self.kernel_call.assert_not_called()
+        # A corrected proof can be validated on an explicit fresh cache read;
+        # ordinary state polling never retries or dispatches power.
+        self.controller._cache_power_boot()
+        self.assertIsNone(self.controller._power_boot_error)
+        self.assertTrue(self.controller.power_status()['shutdown']['available'])
+
     def test_alpha8_cached_power_accepts_only_its_new_matching_module_contract(self):
         self.fixture.manifest.update(copy.deepcopy(BASE.UVD.ALPHA8))
         self.fixture.save_manifest()

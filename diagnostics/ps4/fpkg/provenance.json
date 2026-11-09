@@ -1,0 +1,75 @@
+{
+  "adaptations": {
+    "build.py": "New native host builder, fixed identity and full package extract/readback; OpenOrbis commands follow reference Makefile. Packages the dedicated loader's BSD notices and pinned provenance alongside the binary.",
+    "bundle.cpp": "Single-copy/hash transaction, metadata-bound same-launch reuse, exact preflight diagnostics, bounded owned log, strict stored/cleanup identities and correct native fstat adapter; one-connection complete loader writes with no reconnect or automatic retry; the complete-write loop, not a socket-buffer-size prerequisite, is the delivery contract. Version0.15 isolates its boot transaction under /data/diagnostix/versions/0.15 with explicit owned parent creation and preserves legacy/sibling boot sets.",
+    "main.cpp": "Platform setup and menu dispatch: retained framebuffer initialisation and flip handling, console southbridge and firmware detection, USB stick detection, one-press install-then-boot, and reviewed cleanup deletion confirmation.",
+"ui.cpp": "Retained framebuffer/FreeType primitives moved out of main.cpp so the screens can be rendered on a development host; console-first home screen, USB stick reminder, starting screen and unsupported-console state.",
+"ui.hpp": "Screen interface kept independent of Orbis headers for native tests and host previews.",
+    "controller.cpp": "New edge-triggered D-pad and left-stick mapper with deadzone, recenter hysteresis, D-pad priority and reconnect guards.",
+    "controller.hpp": "Controller mapper interface kept independent of Orbis headers for native sanitizer tests.",
+    "transport.cpp": "Complete blocking socket-write loop shared by the native handoff and actual-source sanitizer tests; handles short and interrupted writes and fails on zero or error returns.",
+    "transport.hpp": "Socket writer interface with an injectable send function for deterministic native tests.",
+    "console_read.cpp": "New southbridge read: plain sysctl first, then one read under GoldHEN root that is always returned. Host-tested call order.",
+    "console_read.hpp": "Injectable board-read interface. JailbreakBackup layout and command numbers are interface facts from GoldHEN_Plugins_SDK commit 4d706c61238949be07e0204a7f33f34ee59b86f3 (MIT); no SDK source is copied.",
+    "native_stat.cpp": "New checked little-endian native120-byte metadata decode using an aligned256-byte syscall buffer and named semantic field conversion; corrects observed mode/link/size/timestamp offsets without changing the vendor SDK.",
+    "native_stat.hpp": "New fixed-width FreeBSD9/Orbis metadata decoder interface; separates the native kernel ABI from the pinned SDK C-library stat layout.",
+    "sha256.cpp": "Exact source import.",
+    "sha256.hpp": "Exact source import."
+  },
+  "hardware_acceptance": false,
+  "license": "MIT",
+  "native_stat_abi": {
+    "evidence": "EXP-20261107-016 UART mode300555/nlink0/size22144 is reproduced by the old SDK interpretation; correct native fields are mode100555/nlink1/size11273216.",
+    "native_size_offset": 72,
+    "native_structure_bytes": 120,
+    "references": [
+      "https://github.com/freebsd/freebsd-src/blob/release/9.0.0/sys/sys/stat.h",
+      "https://github.com/freebsd/freebsd-src/blob/release/9.0.0/sys/sys/_types.h"
+    ],
+    "sdk_size_offset": 80,
+    "sdk_structure_bytes": 128,
+    "syscall_buffer_bytes": 256
+  },
+  "origin": {
+    "commit": "bbff47f25249d32e867ced1a400229cdf5a28737",
+    "files": {
+      "Makefile": {
+        "bytes": 19336,
+        "sha256": "139d3d9f15bb1996def919b8f6b639eb642760dd9cc8220faa0efe7a40c17241"
+      },
+      "main.cpp": {
+        "bytes": 54922,
+        "sha256": "c6dfd5d0290c58053a51d46bd177b8501f330ec2a27c560848cf2bf63e4eb9a5"
+      },
+      "private_boot.cpp": {
+        "bytes": 23827,
+        "sha256": "a5175535d04a1e63e973461098aff41854e04133a943de3ae2f05eda461fb38f"
+      },
+      "sha256.cpp": {
+        "bytes": 5317,
+        "sha256": "a3c86a4cb480f8e7aec84684e507414d9372c5fb9eb2e6ead9aeae2747853e07"
+      },
+      "sha256.hpp": {
+        "bytes": 476,
+        "sha256": "7178808f1b50f381d2e9eaa64adbb75e2419ccbe8bd836b52461ae174d85b223"
+      }
+    },
+    "path": "platforms/ps4/fpkg/ui-prototype",
+    "repository": "https://github.com/meerzulee/omarchy-psx"
+  },
+  "product": "Diagnostix",
+  "schema": 1,
+  "sdk": {
+    "archive": "toolchain-llvm-18.tar.gz",
+    "sha256": "3c7cd5bb593ca74fa1c13fd59f3938dc0fc07985167f7275063019e63abe4526",
+    "url": "https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz",
+    "version": "v0.5.4"
+  },
+  "version": "0.15",
+  "loader": {
+    "source": "../fpkg-loader",
+    "upstream_repository": "https://github.com/ps4-linux/ps4-linux-loader",
+    "license": "BSD-2-Clause; upstream notices retained",
+    "adaptation": "Wired scattered-page staging and validated physical relocation, fixed version0.15 boot directory and explicit1024MiB VRAM file. The embedded kexec image excludes the zero-filled BSS, restores the upstream footer, and reconstructs the exact runtime blob in the kernel allocation. Loader build/provenance remains separate from package acceptance."
+  }
+}

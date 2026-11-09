@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Build the small static zstd decoder used by the Diagnostix RAM initramfs.
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO=$(CDPATH= cd -- "$HERE/.." && pwd)
+URL=https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz
+SHA=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+OUT=${1:-/var/tmp/diagnostix-zstd-dec}
+WORK=${2:-/var/tmp/diagnostix-zstd-dec-build}
+mkdir -p "$WORK"
+if [ ! -f "$WORK/zstd-1.5.7.tar.gz" ]; then
+    curl -L --fail -o "$WORK/zstd-1.5.7.tar.gz" "$URL"
+fi
+printf '%s  %s\n' "$SHA" "$WORK/zstd-1.5.7.tar.gz" | sha256sum -c -
+rm -rf "$WORK/zstd-1.5.7"
+tar -xzf "$WORK/zstd-1.5.7.tar.gz" -C "$WORK"
+python3 "$WORK/zstd-1.5.7/build/single_file_libs/combine.py" \
+    -r "$WORK/zstd-1.5.7/lib" \
+    -x legacy/zstd_legacy.h \
+    -o "$WORK/zstddeclib.c" \
+    "$WORK/zstd-1.5.7/build/single_file_libs/zstddeclib-in.c"
+gcc -O2 -static -march=x86-64 -mtune=generic \
+    -I"$WORK/zstd-1.5.7/lib" \
+    "$REPO/diagnostics/ps4/zstd-dec.c" "$WORK/zstddeclib.c" \
+    -o "$OUT"
+chmod 0755 "$OUT"
+sha256sum "$OUT"
+printf 'zstd decoder: %s\n' "$OUT"

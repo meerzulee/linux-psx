@@ -884,8 +884,8 @@ def main():
     write(root, "/usr/lib/psx-diagnostics/busybox", busybox, 0o755)
     for name in ("ethernet-up", "udhcpc-hook", "verify-boot-set"):
         write(root, "/usr/lib/psx-diagnostics/" + name, (REPO / "rootfs/ps4-diagnostics" / name).read_bytes(), 0o755)
-    for name in ("runner.py", "catalogue.json"):
-        write(root, "/opt/psx-diagnostics/" + name, (REPO / "diagnostics/ps4" / name).read_bytes(), 0o755 if name.endswith(".py") else 0o644)
+    for name in ("runner.py", "catalogue.json", "support_report.py"):
+        write(root, "/opt/psx-diagnostics/" + name, (REPO / "diagnostics/ps4" / name).read_bytes(), 0o755 if name == "runner.py" else 0o644)
     install_diagnostic_license(root)
     if console_profile(profile):
         install_console(root, key_data, tui_data)

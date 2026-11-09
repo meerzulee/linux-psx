@@ -4,14 +4,26 @@
 import json
 import os
 from pathlib import Path
+import pwd
+import shutil
 import subprocess
 import sys
 
-MODES = ("browser", "chromium", "protondb", "opengl", "vulkan", "diagnostics")
+MODES = ("browser", "chromium", "protondb", "opengl", "vulkan", "diagnostics", "benchmark", "benchmark-vulkan")
 WINDOW_MODES = ("browser", "chromium", "protondb", "opengl", "vulkan")
 BUSY_STATES = ("active", "activating", "reloading", "deactivating")
 SYSTEMD_RUNTIME = Path('/run/systemd/system')
 AUTOMATIC_LIMIT = b'[Service]\nRuntimeMaxSec=120s\n'
+BENCHMARK_RESULTS = Path('/run/psx-benchmark')
+
+
+def trace(text):
+    """One line on UART. Never raises: a log line must not stop a test."""
+    try:
+        with open('/dev/kmsg', 'w', encoding='ascii', errors='replace') as stream:
+            stream.write('<6>dx/launch: ' + text + '\n')
+    except OSError:
+        pass
 
 
 def standalone_runtime_limit(service, automatic):
@@ -36,6 +48,17 @@ def standalone_runtime_limit(service, automatic):
         subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=10, capture_output=True)
 
 
+def fresh_benchmark_results():
+    """The session is unprivileged, so root empties its only output directory first."""
+    if BENCHMARK_RESULTS.is_symlink():
+        raise ValueError('unsafe benchmark results path')
+    if BENCHMARK_RESULTS.exists():
+        shutil.rmtree(BENCHMARK_RESULTS)
+    BENCHMARK_RESULTS.mkdir(mode=0o700)
+    account = pwd.getpwnam('psx')
+    os.chown(BENCHMARK_RESULTS, account.pw_uid, account.pw_gid)
+
+
 def active_state(service):
     result = subprocess.run(["systemctl", "show", "--property=ActiveState", "--value", service],
                             capture_output=True, text=True, timeout=5)
@@ -46,8 +69,9 @@ def main():
     automatic = len(sys.argv) == 3 and sys.argv[1] == '--automatic'
     args = sys.argv[2:] if automatic else sys.argv[1:]
     if os.geteuid() != 0 or len(args) != 1 or args[0] not in MODES or (automatic and args[0] not in ('browser', 'chromium')):
-        raise ValueError("expected root launch-graphics browser|chromium|protondb|opengl|vulkan|diagnostics")
+        raise ValueError("expected root launch-graphics browser|chromium|protondb|opengl|vulkan|diagnostics|benchmark|benchmark-vulkan")
     mode = args[0]
+    trace(f'launch {mode} automatic={automatic}')
     manifest = json.loads(Path("/etc/psx-diagnostics/boot-set.json").read_text())
     if os.uname().release != manifest.get("kernel_release"):
         raise ValueError("running kernel differs from the graphical diagnostic boot set")
@@ -76,8 +100,12 @@ def main():
         service = "psx-diagnostics-graphics@" + mode + ".service"
         if mode in ('browser', 'chromium'):
             standalone_runtime_limit(service, automatic)
+        if mode in ('benchmark', 'benchmark-vulkan'):
+            fresh_benchmark_results()
+        trace('starting ' + service)
         subprocess.run(["systemctl", "start", service], check=True, timeout=15,
                        capture_output=True)
+        trace('started ' + service)
     print(json.dumps({"started": True, "mode": mode, "service": service,
                       'automatic': automatic, 'runtime_max_seconds': 120 if automatic else None,
                       "terminal": "tty3", "windowed": windowed,
@@ -88,5 +116,6 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError, subprocess.SubprocessError) as error:
+        trace('refused: ' + type(error).__name__)
         print(str(error), file=sys.stderr)
         raise SystemExit(1)

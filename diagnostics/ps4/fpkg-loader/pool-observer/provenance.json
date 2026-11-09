@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "license": "BSD-2-Clause for observer; upstream files retain individual notices",
+  "upstream_commit": "9acef9fbf79097a2bb39d6c9c17228198bc445cc",
+  "upstream_repository": "https://github.com/ps4-linux/ps4-linux-loader.git",
+  "firmware_profile": {
+    "kernel_sha256": "55b4948df94aee193ebeb653bd40aff55b3cf09ac7741f58f3dadc239b29a0a2",
+    "algorithm": "FNV-1a64, initial0xcbf29ce484222325; for each byte h=(h XOR byte)*0x100000001b3 modulo2^64",
+    "windows": [
+      {
+        "name": "vm_phys_normal_allocator",
+        "kernel_offset": "0x2d6570",
+        "bytes": 32,
+        "fnv1a64": "9b6ecd5dac970aac",
+        "file_offset": "0x2d6570",
+        "segment_type": "0x1"
+      },
+      {
+        "name": "vm_phys_special_page_init",
+        "kernel_offset": "0x2d56a0",
+        "bytes": 32,
+        "fnv1a64": "d00589007330840a",
+        "file_offset": "0x2d56a0",
+        "segment_type": "0x1"
+      }
+    ],
+    "scalar_widths": {
+      "profile_mode_at_0x1a50358": "u32",
+      "game_dmem_start_at_0x21f54d8": "u64",
+      "game_dmem_end_at_0x21f5528": "u64",
+      "fmem_max_at_0x21f5568": "u64"
+    },
+    "runtime_execution": false
+  },
+  "fingerprint_receipt_sha256": "930876833f1d8fda2ec0bebf2127e6ac685131a289aea7aed0ebcee4bac60ec1",
+  "firmware_raw": 1202,
+  "southbridge_subid": "0x30201",
+  "normal_segments_max": 31,
+  "normal_segment_bytes": 40,
+  "normal_segment_end_offset": "0x2233be8",
+  "normal_queue_base_offset": "0x2233bf0",
+  "normal_heads_offset": "0x2234a90",
+  "special_queue_base_offset": "0x2234ab0",
+  "special_segment_offset": "0x2235200",
+  "queue_dimensions": [
+    2,
+    2,
+    3,
+    13
+  ],
+  "queue_bytes": 24,
+  "count_field_offset": 16,
+  "callback": "existing syscall11, zero-argument callback, no kernel_main/bootstrap writes",
+  "snapshot": "unlocked approximate, fixed addresses, no link traversal",
+  "hardware_acceptance": false,
+  "deployment_performed": false,
+  "limits": "No allocation eligibility or maximum-contiguous-size inference"
+}

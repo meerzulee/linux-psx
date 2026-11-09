@@ -1,0 +1,364 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Explicit USB-free appliance. No internal filesystem is mounted or written.
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+umask 077
+say() {
+    printf '[diagnostix-ram-init] %s\n' "$*"
+    printf '[diagnostix-ram-init] %s\n' "$*" >/dev/kmsg 2>/dev/null || true
+}
+rescue() {
+    say "STOP: $*"
+    say 'RAM appliance was not started. Rescue shell; no automatic retry.'
+    if [ -c /newroot/dev/console ]; then
+        exec chroot /newroot /bin/sh -i </newroot/dev/console >/newroot/dev/console 2>&1
+    fi
+    exec /bin/sh -i </dev/console >/dev/console 2>&1
+}
+install_frontend() {
+    # The new helper has no file in older roots: keep it in RAM, and bind only
+    # the twelve existing regular files. Never replace a whole /usr directory.
+    [ -f /etc/psx-frontend.tsv ] && [ ! -L /etc/psx-frontend.tsv ] || rescue 'Missing frontend manifest.'
+    mkdir -p /run/psx-frontend || rescue 'Cannot prepare frontend RAM directory.'
+    # Public pinned assets must be searchable by the unprivileged graphics user.
+    mount -t tmpfs -o mode=0755,nosuid,nodev,size=16m tmpfs /run/psx-frontend || rescue 'Cannot allocate bounded frontend RAM.'
+    frontend_seen=0
+    frontend_total=0
+    while read -r name pin bytes mode extra; do
+        [ -z "$extra" ] || rescue 'Invalid frontend manifest fields.'
+        target=''
+        case "$name" in
+            psx-diagnostics-tui) bit=1; wanted_mode=0755; target=/usr/bin/psx-diagnostics-tui ;;
+            start-console) bit=2; wanted_mode=0755; target=/usr/lib/psx-diagnostics/start-console ;;
+            prepare-console) bit=4; wanted_mode=0755 ;;
+            style.css) bit=8; wanted_mode=0644; target=/opt/psx-diagnostics/lab/style.css ;;
+            network.py) bit=16; wanted_mode=0755; target=/opt/psx-diagnostics/network.py ;;
+            libxcb-keysyms.so.1) bit=32; wanted_mode=0644 ;;
+            libdisplay-info.so.3) bit=64; wanted_mode=0644 ;;
+            controller.py) bit=128; wanted_mode=0755; target=/opt/psx-diagnostics/controller.py ;;
+            libvte-2.91.so.0) bit=256; wanted_mode=0644 ;;
+            libgtk-layer-shell.so.0) bit=512; wanted_mode=0644 ;;
+            libutempter.so.0) bit=1024; wanted_mode=0644 ;;
+            xfce4-terminal) bit=2048; wanted_mode=0755 ;;
+            JetBrainsMonoNerdFont-Regular.ttf) bit=4096; wanted_mode=0644 ;;
+            JetBrainsMonoNerdFont-OFL.txt) bit=8192; wanted_mode=0644 ;;
+            launch-graphics) bit=16384; wanted_mode=0755; target=/usr/lib/psx-diagnostics/launch-graphics ;;
+            graphics-start) bit=32768; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-start ;;
+            graphics-client) bit=65536; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-client ;;
+            graphics-session) bit=131072; wanted_mode=0755; target=/usr/lib/psx-diagnostics/graphics-session ;;
+            graphics-window) bit=262144; wanted_mode=0755 ;;
+            wait-graphics-wm) bit=524288; wanted_mode=0755 ;;
+            xorg-diagnostics.conf) bit=1048576; wanted_mode=0644; target=/etc/X11/xorg.conf.d/20-psx-diagnostics.conf ;;
+            preferences.py) bit=2097152; wanted_mode=0755 ;;
+            themes.json) bit=4194304; wanted_mode=0644 ;;
+            themes-LICENSE) bit=8388608; wanted_mode=0644 ;;
+            index.html) bit=16777216; wanted_mode=0644; target=/opt/psx-diagnostics/lab/index.html ;;
+            lab.js) bit=33554432; wanted_mode=0644; target=/opt/psx-diagnostics/lab/lab.js ;;
+            prepare-chromium-provider) bit=67108864; wanted_mode=0755 ;;
+            launch-chromium-provider) bit=134217728; wanted_mode=0755 ;;
+            ssh_access.py) bit=268435456; wanted_mode=0755 ;;
+            *) rescue 'Frontend name is outside the fixed allowlist.' ;;
+        esac
+        [ "$((frontend_seen & bit))" -eq 0 ] || rescue 'Duplicate frontend override.'
+        frontend_seen=$((frontend_seen | bit))
+        [ "$mode" = "$wanted_mode" ] || rescue 'Frontend mode differs from the fixed policy.'
+        case "$pin" in ''|*[!0-9a-f]*) rescue 'Invalid frontend checksum.' ;; esac
+        [ "${#pin}" -eq 64 ] || rescue 'Invalid frontend checksum length.'
+        case "$bytes" in ''|*[!0-9]*) rescue 'Invalid frontend size.' ;; esac
+        [ "${#bytes}" -le 7 ] && [ "$bytes" -gt 0 ] && [ "$bytes" -le 8388608 ] || rescue 'Oversized frontend file.'
+        frontend_total=$((frontend_total + bytes))
+        [ "$frontend_total" -le 8388608 ] || rescue 'Frontend exceeds its RAM payload budget.'
+        source=/psx-frontend/$name
+        [ -f "$source" ] && [ ! -L "$source" ] || rescue 'Frontend override is missing or not a regular file.'
+        [ "$(wc -c < "$source")" -eq "$bytes" ] || rescue 'Frontend size differs from its manifest.'
+        printf '%s  %s\n' "$pin" "$source" | sha256sum -c - >/dev/null || rescue 'Frontend checksum differs from its manifest.'
+        destination=/run/psx-frontend/$name
+        cp "$source" "$destination" && chmod "$wanted_mode" "$destination" || rescue 'Cannot copy frontend into RAM.'
+        if [ -n "$target" ]; then
+            destination_root=/newroot$target
+            [ -f "$destination_root" ] && [ ! -L "$destination_root" ] || rescue 'Frontend bind target is missing or not a regular file.'
+            [ "$(readlink -f "$destination_root")" = "$destination_root" ] || rescue 'Frontend bind target leaves its fixed root path.'
+            mount --bind "$destination" "$destination_root" || rescue 'Cannot attach frontend override.'
+            mount -o remount,bind,ro "$destination" "$destination_root" || rescue 'Cannot make frontend override read-only.'
+        fi
+    done < /etc/psx-frontend.tsv
+    [ "$frontend_seen" -eq 536870911 ] || rescue 'Frontend manifest does not contain every required override.'
+}
+install_ram_assets() {
+    mkdir -p /run/psx-ram || rescue 'Cannot prepare private RAM verifier.'
+    chmod 0700 /run/psx-ram
+    seen=0
+    total=0
+    while read -r name pin bytes mode extra; do
+        [ -z "$extra" ] || rescue 'Invalid RAM asset row.'
+        target=''
+        case "$name" in
+            ram_boot.py) bit=1; wanted=0755 ;;
+            ram_state.py) bit=2; wanted=0755 ;;
+            prepare-ssh-host-key) bit=4; wanted=0755; target=/usr/lib/psx-diagnostics/prepare-ssh-host-key ;;
+            psx-diagnostics-control.service) bit=8; wanted=0644; target=/usr/lib/systemd/system/psx-diagnostics-control.service ;;
+            runner.py) bit=16; wanted=0755; target=/opt/psx-diagnostics/runner.py ;;
+            uvd.py) bit=32; wanted=0755; target=/opt/psx-diagnostics/uvd.py ;;
+            uvd_suite.py) bit=64; wanted=0755; target=/opt/psx-diagnostics/uvd_suite.py ;;
+            support_report.py) bit=128; wanted=0644 ;;
+            psx-ssh-host-key.service) bit=256; wanted=0644; target=/usr/lib/systemd/system/psx-ssh-host-key.service ;;
+            *) rescue 'Unexpected RAM integration asset.' ;;
+        esac
+        [ "$((seen & bit))" -eq 0 ] && [ "$mode" = "$wanted" ] || rescue 'Duplicate or invalid RAM asset mode.'
+        seen=$((seen | bit))
+        case "$pin" in ''|*[!0-9a-f]*) rescue 'Invalid RAM asset checksum.' ;; esac
+        [ "${#pin}" -eq 64 ] || rescue 'Invalid RAM asset checksum length.'
+        case "$bytes" in ''|*[!0-9]*) rescue 'Invalid RAM asset size.' ;; esac
+        [ "${#bytes}" -le 7 ] && [ "$bytes" -gt 0 ] && [ "$bytes" -le 8388608 ] || rescue 'RAM integration asset too large.'
+        total=$((total + bytes)); [ "$total" -le 8388608 ] || rescue 'RAM integration payload exceeds its bound.'
+        input=/psx-ram/$name
+        [ -f "$input" ] && [ ! -L "$input" ] || rescue 'Missing RAM integration asset.'
+        [ "$(wc -c < "$input")" -eq "$bytes" ] || rescue 'RAM integration asset size differs.'
+        printf '%s  %s\n' "$pin" "$input" | sha256sum -c - >/dev/null || rescue 'RAM integration asset checksum differs.'
+        destination=/run/psx-ram/$name
+        cp "$input" "$destination" && chmod "$mode" "$destination" || rescue 'Cannot copy RAM integration asset.'
+        if [ -n "$target" ]; then
+            output=/newroot$target
+            [ -f "$output" ] && [ ! -L "$output" ] && [ "$(readlink -f "$output")" = "$output" ] || rescue 'Invalid RAM integration bind target.'
+            mount --bind "$destination" "$output" || rescue 'Cannot bind RAM integration asset.'
+            mount -o remount,bind,ro "$destination" "$output" || rescue 'Cannot protect RAM integration asset.'
+        fi
+    done < /etc/psx-ram-assets.tsv
+    [ "$seen" -eq 511 ] || rescue 'RAM integration set is incomplete.'
+}
+install_data_assets() {
+    mkdir -p /run/psx-assets
+    mount -t tmpfs -o mode=0755,nosuid,nodev,noexec,size=64m tmpfs /run/psx-assets || rescue 'Cannot allocate bounded fixture RAM.'
+    mkdir -p /run/psx-assets/fixtures/native-video/720p30 /run/psx-assets/fixtures/native-video/1080p30
+    seen=0
+    total=0
+    while read -r name pin bytes mode extra; do
+        [ -z "$extra" ] && [ "$mode" = '0644' ] || rescue 'Invalid fixture asset row.'
+        case "$name" in
+            fixtures/native-video/720p30/FIXTURE.json) bit=1 ;;
+            fixtures/native-video/720p30/clip.h264) bit=2 ;;
+            fixtures/native-video/720p30/reference-nv12.framemd5) bit=4 ;;
+            fixtures/native-video/1080p30/FIXTURE.json) bit=8 ;;
+            fixtures/native-video/1080p30/clip.h264) bit=16 ;;
+            fixtures/native-video/1080p30/reference-nv12.framemd5) bit=32 ;;
+            fixtures/native-video/LICENSE) bit=64 ;;
+            *) rescue 'Unexpected fixture path.' ;;
+        esac
+        [ "$((seen & bit))" -eq 0 ] || rescue 'Duplicate fixture asset.'
+        seen=$((seen | bit))
+        case "$pin" in ''|*[!0-9a-f]*) rescue 'Invalid fixture checksum.' ;; esac
+        [ "${#pin}" -eq 64 ] || rescue 'Invalid fixture checksum length.'
+        case "$bytes" in ''|*[!0-9]*) rescue 'Invalid fixture size.' ;; esac
+        [ "${#bytes}" -le 8 ] && [ "$bytes" -gt 0 ] && [ "$bytes" -le 67108864 ] || rescue 'Oversized fixture asset.'
+        total=$((total + bytes)); [ "$total" -le 67108864 ] || rescue 'Fixture set exceeds RAM bound.'
+        input=/psx-assets/$name
+        [ -f "$input" ] && [ ! -L "$input" ] && [ "$(wc -c < "$input")" -eq "$bytes" ] || rescue 'Fixture asset missing or wrong size.'
+        printf '%s  %s\n' "$pin" "$input" | sha256sum -c - >/dev/null || rescue 'Fixture checksum differs.'
+        cp "$input" "/run/psx-assets/$name" && chmod 0644 "/run/psx-assets/$name" || rescue 'Cannot stage fixture asset.'
+    done < /etc/psx-ram-data.tsv
+    [ "$seen" -eq 127 ] || rescue 'Native fixture set is incomplete.'
+    mount -o remount,ro /run/psx-assets || rescue 'Cannot protect fixture RAM.'
+}
+install_benchmark_tools() {
+    # Optional: a problem here costs the 3D benchmark, never the boot.
+    [ -f /etc/psx-benchmark.tsv ] && [ ! -L /etc/psx-benchmark.tsv ] || return 0
+    read -r pin bytes extra < /etc/psx-benchmark.tsv
+    case "$pin" in ''|*[!0-9a-f]*) say 'Benchmark tools: invalid checksum.'; return 0 ;; esac
+    case "$bytes" in ''|*[!0-9]*) say 'Benchmark tools: invalid size.'; return 0 ;; esac
+    if [ -n "$extra" ] || [ "${#pin}" -ne 64 ] || [ "${#bytes}" -gt 8 ] || [ "$bytes" -le 0 ] || [ "$bytes" -gt 33554432 ]; then
+        say 'Benchmark tools: invalid manifest.'
+        return 0
+    fi
+    input=/psx-bench/tools.tar
+    if [ ! -f "$input" ] || [ -L "$input" ] || [ "$(wc -c < "$input")" -ne "$bytes" ] \
+            || ! printf '%s  %s\n' "$pin" "$input" | sha256sum -c - >/dev/null; then
+        say 'Benchmark tools: archive differs from its manifest.'
+        return 0
+    fi
+    mkdir -p /run/psx-bench || return 0
+    if ! mount -t tmpfs -o mode=0755,nosuid,nodev,size=40m tmpfs /run/psx-bench; then
+        say 'Benchmark tools: no RAM for them.'
+        return 0
+    fi
+    # The unprivileged graphics user runs these; this script's umask would hide them.
+    if (umask 022; tar -xf "$input" -C /run/psx-bench) && mount -o remount,ro /run/psx-bench; then
+        say 'Benchmark tools ready.'
+    else
+        say 'Benchmark tools: could not be unpacked.'
+        umount /run/psx-bench
+    fi
+}
+install_chromium_pack() {
+    # Optional: a problem here costs the browser test, never the boot.
+    [ -f /etc/psx-chromium.tsv ] && [ ! -L /etc/psx-chromium.tsv ] || return 0
+    read -r pin bytes image_pin image_bytes manifest_pin extra < /etc/psx-chromium.tsv
+    for value in "$pin" "$image_pin" "$manifest_pin"; do
+        case "$value" in ''|*[!0-9a-f]*) say 'Chromium: invalid checksum.'; return 0 ;; esac
+        [ "${#value}" -eq 64 ] || { say 'Chromium: invalid checksum.'; return 0; }
+    done
+    case "$bytes" in ''|*[!0-9]*) say 'Chromium: invalid size.'; return 0 ;; esac
+    case "$image_bytes" in ''|*[!0-9]*) say 'Chromium: invalid size.'; return 0 ;; esac
+    if [ -n "$extra" ] || [ "${#bytes}" -gt 9 ] || [ "$bytes" -le 0 ] || [ "$bytes" -gt 136314880 ]; then
+        say 'Chromium: invalid manifest.'
+        return 0
+    fi
+    input=/psx-chromium/chromium.ext4.xz
+    if [ ! -f "$input" ] || [ -L "$input" ] || [ "$(wc -c < "$input")" -ne "$bytes" ] \
+            || ! printf '%s  %s\n' "$pin" "$input" | sha256sum -c - >/dev/null; then
+        say 'Chromium: archive differs from its manifest.'
+        return 0
+    fi
+    mkdir -p /run/psx-chromium-pack || return 0
+    if ! mount -t tmpfs -o mode=0700,nosuid,nodev,noexec,size=136m tmpfs /run/psx-chromium-pack; then
+        say 'Chromium: no RAM for it.'
+        return 0
+    fi
+    if cp "$input" /run/psx-chromium-pack/chromium.ext4.xz && cp /etc/psx-chromium.tsv /run/psx-chromium-pack/pin.tsv \
+            && mount -o remount,ro /run/psx-chromium-pack; then
+        say 'Chromium ready.'
+    else
+        say 'Chromium: could not be copied.'
+        umount /run/psx-chromium-pack
+    fi
+}
+install_owner_ssh_keys() {
+    # Owner development builds only; a public build has no such file.
+    [ -f /etc/psx-owner-authorized-keys ] && [ ! -L /etc/psx-owner-authorized-keys ] || return 0
+    if cp /etc/psx-owner-authorized-keys /run/psx-state/state/ssh/authorized_keys \
+            && chmod 0600 /run/psx-state/state/ssh/authorized_keys; then
+        say 'Development build: owner SSH keys installed.'
+    else
+        say 'Owner SSH keys could not be installed.'
+    fi
+}
+mount -t proc proc /proc || rescue 'Cannot mount proc.'
+mount -t sysfs sysfs /sys || rescue 'Cannot mount sysfs.'
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+mkdir -p /run /newroot /dev/pts
+mount -t tmpfs -o mode=0755,nosuid,nodev,size=64m tmpfs /run || rescue 'Cannot mount run.'
+mount -t devpts devpts /dev/pts 2>/dev/null || true
+mdev -s 2>/dev/null || true
+. /etc/psx-ram.env || rescue 'Missing embedded build contract.'
+ROOT_FORMAT=${ROOT_FORMAT:-gzip-tar-unpacked-into-tmpfs}
+ROOTFS_FILENAME=${ROOTFS_FILENAME:-rootfs.tar.gz}
+MTS_AUTOARM=${MTS_AUTOARM:-0}
+WRITABLE_ROOT_MIB=${WRITABLE_ROOT_MIB:-512}
+FRONTEND_OVERRIDES=${FRONTEND_OVERRIDES:-0}
+SATA_POLICY=${SATA_POLICY:-disabled-first-boot}
+RAM_FLAGS=0
+CLOCK_EPOCH=$BUILD_EPOCH
+SATA_DISABLED=0
+MTS_GATED=0
+SATA_FLAGS=0
+MTS_FLAGS=0
+for parameter in $(cat /proc/cmdline); do
+    case "$parameter" in
+        psx.diag_uuid=*) rescue 'USB selection is invalid for the RAM profile.' ;;
+        psx.boot=*)
+            [ "$parameter" = 'psx.boot=ram' ] || rescue 'Unknown RAM boot selection.'
+            RAM_FLAGS=$((RAM_FLAGS + 1)) ;;
+        time=*) CLOCK_EPOCH=${parameter#*=} ;;
+        libata.force=*)
+            SATA_FLAGS=$((SATA_FLAGS + 1))
+            [ "$parameter" = 'libata.force=1.00:disable' ] && SATA_DISABLED=1 ;;
+        psx_mts_net.autoarm=*)
+            MTS_FLAGS=$((MTS_FLAGS + 1))
+            [ "$parameter" = "psx_mts_net.autoarm=$MTS_AUTOARM" ] && MTS_GATED=1 ;;
+    esac
+done
+[ "$RAM_FLAGS" -eq 1 ] || rescue 'One explicit RAM boot selection is required.'
+case "$CLOCK_EPOCH" in ''|*[!0-9]*) rescue 'Invalid loader time.' ;; esac
+date -u -s "@$CLOCK_EPOCH" >/dev/null 2>&1 || true
+[ "$(uname -r)" = "$KERNEL_RELEASE" ] || rescue 'Kernel release differs from this boot set.'
+[ "$MTS_GATED:$MTS_FLAGS" = '1:1' ] || rescue "This profile requires one exact Ethernet autoarm=$MTS_AUTOARM argument."
+case "$SATA_POLICY" in
+    disabled-first-boot)
+        [ "$SATA_DISABLED:$SATA_FLAGS" = '1:1' ] || rescue 'This profile requires one exact internal-SATA disable argument.'
+        say "Kernel $KERNEL_RELEASE; RAM ext4 profile; internal SATA disabled." ;;
+    read-only-scoped-probe)
+        . /etc/psx-sata-readonly || rescue 'Missing read-only SATA guard.'
+        psx_sata_arguments "$(cat /proc/cmdline)" || rescue 'Read-only SATA boot arguments differ from the embedded profile.'
+        sata_attempt=0
+        while :; do
+            mdev -s 2>/dev/null || true
+            psx_sata_readonly /sys /dev > /run/psx-sata-readonly.txt
+            sata_status=$?
+            [ "$sata_status" -ne 0 ] || break
+            [ "$sata_status" -eq 1 ] || rescue 'Internal SATA write protection failed.'
+            sata_attempt=$((sata_attempt + 1))
+            [ "$sata_attempt" -lt 30 ] || rescue 'No unambiguous internal SATA disk appeared within 30 seconds.'
+            sleep 1
+        done
+        say "Kernel $KERNEL_RELEASE; internal SATA identity test; disk and partitions read-only."
+        cat /run/psx-sata-readonly.txt ;;
+    *) rescue 'Unknown embedded SATA policy.' ;;
+esac
+
+
+[ "$ROOTFS_BYTES" -eq 1048576000 ] && [ "$BACKING_MIB" -eq 1088 ] && [ "$STATE_MIB" -eq 128 ] && [ "$WRITABLE_ROOT_MIB" -eq 512 ] || rescue 'Unexpected RAM budgets.'
+[ "${ROOTFS_CHUNK_COUNT:-0}" -eq 8 ] && [ "${ROOTFS_CHUNK_MIB:-0}" -eq 125 ] || rescue 'Unexpected root chunk contract.'
+compressed=/psx-ram/rootfs.ext4.gz
+[ -f "$compressed" ] && [ ! -L "$compressed" ] || rescue 'Missing compressed RAM root.'
+[ "$(wc -c < "$compressed")" -eq "$COMPRESSED_BYTES" ] || rescue 'Compressed root size differs.'
+available=$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)
+[ "${available:-0}" -ge 2368 ] || rescue 'Not enough free RAM for root, writable state and working reserve.'
+mkdir -p /run/psx-image
+mount -t tmpfs -o mode=0700,nosuid,nodev,noexec,size=1088m tmpfs /run/psx-image || rescue 'Cannot allocate RAM root backing.'
+backing=/run/psx-image/rootfs.ext4
+say 'Inflating one verified root image into bounded RAM.'
+case "${ROOT_COMPRESSION:-gzip}" in
+    zstd)
+        [ -x /bin/zstd-dec ] || rescue 'Missing zstd root decoder.'
+        /bin/zstd-dec "$compressed" > "$backing" || rescue 'RAM root zstd decompression failed.' ;;
+    gzip)
+        gzip -dc "$compressed" > "$backing" || rescue 'RAM root gzip decompression failed.' ;;
+    *)
+        rescue 'Unknown RAM root compression.' ;;
+esac
+[ "$(wc -c < "$backing")" -eq "$ROOTFS_BYTES" ] || rescue 'Inflated root size differs.'
+set -- ${ROOTFS_CHUNK_SHA256:-}
+[ "$#" -eq "$ROOTFS_CHUNK_COUNT" ] || rescue 'Root chunk checksum count differs.'
+i=0
+while [ "$i" -lt "$ROOTFS_CHUNK_COUNT" ]; do
+    ( dd if="$backing" bs=1M skip=$((i * ROOTFS_CHUNK_MIB)) count="$ROOTFS_CHUNK_MIB" 2>/dev/null | sha256sum ) > "/run/root-hash.$i" &
+    i=$((i + 1))
+done
+wait
+i=0
+for expected in "$@"; do
+    read -r actual ignored < "/run/root-hash.$i" || rescue 'Root chunk checksum missing.'
+    [ "$actual" = "$expected" ] || rescue 'Inflated root chunk checksum differs.'
+    i=$((i + 1))
+done
+chmod 0400 "$backing" || rescue 'Cannot protect RAM backing file.'
+LOOP=$(losetup -f) || rescue 'No loop device available.'
+losetup -r "$LOOP" "$backing" || rescue 'Cannot attach read-only RAM root.'
+mount -t ext4 -o ro,noload "$LOOP" /newroot || rescue 'Cannot mount RAM root read-only.'
+mkdir -p /run/psx-writable
+mount -t tmpfs -o mode=0755,nosuid,nodev,size=512m tmpfs /run/psx-writable || rescue 'Cannot allocate writable system RAM.'
+for directory in etc var tmp home root; do
+    cp -a "/newroot/$directory" "/run/psx-writable/$directory" || rescue 'Cannot copy writable system directory.'
+    mount --bind "/run/psx-writable/$directory" "/newroot/$directory" || rescue 'Cannot attach writable system directory.'
+done
+mkdir -p /run/psx-state
+mount -t tmpfs -o mode=0700,nosuid,nodev,noexec,size=128m tmpfs /run/psx-state || rescue 'Cannot allocate private volatile state.'
+mkdir -p /run/psx-state/results /run/psx-state/state/ssh /run/psx-state/state/display /run/psx-state/state/preferences
+chmod 0700 /run/psx-state/results /run/psx-state/state /run/psx-state/state/ssh /run/psx-state/state/display /run/psx-state/state/preferences
+[ -x /newroot/usr/lib/systemd/systemd ] && [ -x /newroot/usr/bin/python3 ] || rescue 'Root init/Python is missing.'
+mkdir -p /newroot/etc/psx-diagnostics /newroot/run /newroot/proc /newroot/sys /newroot/dev
+cp /etc/psx-ram-contract.json /newroot/etc/psx-diagnostics/expected-ram-boot.json || rescue 'Cannot install embedded RAM contract.'
+chmod 0600 /newroot/etc/psx-diagnostics/expected-ram-boot.json
+install_frontend
+install_ram_assets
+install_data_assets
+install_benchmark_tools
+install_chromium_pack
+install_owner_ssh_keys
+mount --move /dev /newroot/dev || rescue 'Cannot move dev.'
+mount --move /proc /newroot/proc || rescue 'Cannot move proc.'
+mount --move /sys /newroot/sys || rescue 'Cannot move sys.'
+mount --move /run /newroot/run || rescue 'Cannot carry RAM backing/state into root.'
+chroot /newroot /usr/bin/python3 /run/psx-ram/ram_boot.py verify || rescue 'RAM boot verification failed.'
+say 'Starting Diagnostix. Reports and settings are volatile; export before power-off.'
+exec switch_root /newroot /sbin/init

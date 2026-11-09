@@ -50,6 +50,82 @@ offline four- or 30-second AVC clips and runs only on an explicit hardware
 trial. Its first browser attempt fell back to software; longer media and
 source corrections do not establish hardware decoding or stable support.
 
+## 3D benchmark
+
+The run screen's **3D benchmark** row runs glmark2, five seconds per default
+scene, about three minutes in all. It opens a graphical session on tty3 and
+returns by itself. It runs just before Video decoding in an Automatic test,
+after the report has been saved, because a stuck GPU job can leave the screen
+frozen. Video decoding stays last because the session ends after it. The
+benchmark needs the CPU, memory and OpenGL tests to have passed.
+
+The decoder refuses to start without a same-boot session record. A developer
+still writes one by hand for a UART run. The public RAM image writes its own if
+none exists; that record names no real UART session and the decoder's evidence
+stays marked unverified, so it cannot support an acceptance claim.
+
+The pinned benchmark archive also carries GNU tar, because the read-only root
+image has none. It is reached through a bind mount on `/usr/local/sbin`.
+
+vkmark is the separate **Vulkan benchmark** row. It appears only in a Manual
+test and runs only when picked, after the Vulkan test has passed, until Vulkan
+has been proven on the hardware. The score is shown on each row and every scene
+is saved as `benchmark.txt` in the report.
+
+A crash, a kill, an amdgpu fault in the kernel log or a sensor reaching 90 °C
+stops the session and the rest of the run. A tool that simply refuses to run
+fails only its own row.
+
+The tools come from the pinned public packages in
+`manifests/ps4-diagnostix-benchmark.json` and are a 20 MiB archive separate from
+the root image and the frontend overlay, with their own 32 MiB limit. The boot
+verifies and unpacks it into read-only RAM at `/run/psx-bench`; if that fails,
+the row reports no tools and the boot carries on. `scripts/repack-ps4-diagnostix`
+builds it and swaps it, with the current screens and scripts, into an existing
+initramfs. glmark2 is GPL-3.0 and vkmark LGPL-2.1, so a public release must
+offer the source archives pinned in that manifest.
+
+For development on your own console, pass `--owner-ssh-key` (repeatable) and a
+revision containing `dev`. The boot then authorizes those keys for root, starts
+sshd, and shows the `ssh` command on screen once the console has an address.
+Comments are stripped from the keys. Keep such a package private: whoever holds
+a matching private key gets root on any console running it.
+
+## Automatic, manual and issue reports
+
+After network setup, choose **Automatic diagnostics** or **Manual diagnostics**.
+Manual is selected initially. Opening the menu, refreshing it or restarting the
+controller never starts an automatic run.
+
+Automatic runs one finite sequence per boot: hardware inventory, two-second CPU
+computation, 32 MiB owned-memory patterns, Ethernet status, audio inventory and
+storage inventory. It stops at failure, uncertain active checks, identity changes
+or a terminal device state. Earlier core failures remain blocked until manually
+investigated with changed evidence. Device inventories are observations; graphics,
+UVD, sound playback, network traffic and power tests remain individually selected.
+Manual opens the existing Overview and Advanced controls.
+
+Automatic completion prepares an issue report, including when a check fails.
+**Reports → Create issue report** also exports selected/manual results or an
+otherwise empty session. The browser lab has **Download issue report**, followed
+by a **Save ZIP** link. Export never opens or submits a GitHub issue.
+
+The ZIP contains `issue.md`, `report.json` and a bounded, redacted `kernel.log`.
+It identifies the appliance/kernel/build, separates this boot from older results,
+retains failures and skipped checks, and leaves hardware qualification unclaimed.
+It also retains SSH and Power startup availability and the failed power guard
+stage, when available. Service availability does not count as a functional pass.
+It omits credentials, raw command output, firmware and private report files;
+network addresses, device identifiers and private paths are redacted. Review the
+issue draft, fill in the reproduction/expected/actual fields, and attach the ZIP
+when opening an issue in the Linux psX repository.
+
+Reports are created under the existing results directory's `support-reports/`.
+The RAM appliance uses `/run/psx-state/results/support-reports/`; the console shows
+the exact filename, SHA-256 and path. Copy it through configured SSH access, or
+use the browser lab on the console/an existing SSH forward. The HTTP server
+remains on loopback. Download reports before ending a RAM-only boot.
+
 ## Source checks
 
 Use a native Linux x86-64 host for diagnostic image assembly. The builder uses
@@ -161,7 +237,15 @@ exact provider files and their pinned receipt; alternatively `--snapshot`
 extracts them from the verified public archives. Fresh builds install these
 providers normally. A refresh never permits arbitrary replacement libraries.
 
-Chromium is a separately capped 384 MiB provider, mounted read-only only on an
+The DiagnostiX RAM image carries Chromium in place of Firefox (owner decision,
+2026-11-10), because the loader refuses an initramfs over 512 MiB and the two
+browsers fit together with only about 2 MB to spare. `scripts/trim-ps4-diagnostix-root`
+removes Firefox from the frozen root, `scripts/prepare-ps4-chromium-provider`
+builds the Chromium image against that root, and `scripts/repack-ps4-diagnostix
+--chromium-root --chromium-provider` packs both. The image stays compressed and
+is expanded into RAM only when the browser test runs.
+
+On other images, Chromium is a separately capped 384 MiB provider, mounted read-only only on an
 explicit Chromium action. Its source preparation and verified SSH stager are
 local tools; it is outside the 1 GiB core payload and is never an auto-started
 desktop service. The native DRM/GLES Wayland suite is also opt-in, with pinned

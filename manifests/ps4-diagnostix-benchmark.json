@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "purpose": "Public pinned inputs for the DiagnostiX 3D benchmark tools and GNU tar, packed separately from the root image and the frontend overlay.",
+  "runtime_directory": "/run/psx-bench",
+  "maximum_archive_bytes": 33554432,
+  "packages": [
+    {
+      "name": "glmark2",
+      "version": "2023.01-2",
+      "filename": "glmark2-2023.01-2-x86_64.pkg.tar.zst",
+      "bytes": 7580909,
+      "sha256": "1dbc66a028db71d0b97fb92a68fb45b1a1a86e617837ea80424bcfc46afa305a",
+      "url": "https://archive.archlinux.org/packages/g/glmark2/glmark2-2023.01-2-x86_64.pkg.tar.zst",
+      "license": "GPL-3.0-or-later AND SGI-B-2.0",
+      "source": {
+        "url": "https://github.com/glmark2/glmark2/archive/refs/tags/2023.01.tar.gz",
+        "bytes": 9366116,
+        "sha256": "8fece3fc323b643644a525be163dc4931a4189971eda1de8ad4c1712c5db3d67"
+      }
+    },
+    {
+      "name": "vkmark",
+      "version": "1:2025.01-2",
+      "filename": "vkmark-1:2025.01-2-x86_64.pkg.tar.zst",
+      "bytes": 906342,
+      "sha256": "326de9a06b3cc8b716b5d31acf661f2542a1981ae88ffd9371ea5bc8ba5e911e",
+      "url": "https://archive.archlinux.org/packages/v/vkmark/vkmark-1:2025.01-2-x86_64.pkg.tar.zst",
+      "license": "LGPL-2.1-only",
+      "source": {
+        "url": "https://github.com/vkmark/vkmark/archive/refs/tags/2025.01.tar.gz",
+        "bytes": 777201,
+        "sha256": "1ae362844344d0f9878b7a3f13005f77eae705108892a4e8abf237d452d37edc"
+      }
+    },
+    {
+      "name": "assimp",
+      "version": "6.0.5-1",
+      "filename": "assimp-6.0.5-1-x86_64.pkg.tar.zst",
+      "bytes": 2806436,
+      "sha256": "4382c86e82f3a41c16dba4609e068a295ad19e1baad1422ea8de2ff7bb5ed9a8",
+      "url": "https://archive.archlinux.org/packages/a/assimp/assimp-6.0.5-1-x86_64.pkg.tar.zst",
+      "license": "BSD-3-Clause"
+    },
+    {
+      "name": "xcb-util-wm",
+      "version": "0.4.2-2",
+      "filename": "xcb-util-wm-0.4.2-2-x86_64.pkg.tar.zst",
+      "bytes": 33792,
+      "sha256": "aa4becb215290dc33fcf2938b4e5604fceaf1189e4d2d5688861001413fc888c",
+      "url": "https://archive.archlinux.org/packages/x/xcb-util-wm/xcb-util-wm-0.4.2-2-x86_64.pkg.tar.zst",
+      "license": "MIT"
+    },
+    {
+      "name": "tar",
+      "version": "1.35-5",
+      "filename": "tar-1.35-5-x86_64.pkg.tar.zst",
+      "bytes": 783624,
+      "sha256": "e8a3baa1b4bd754442f92c1c25794b9225700f931e1d2c175bb2e7d9a28725e7",
+      "url": "https://archive.archlinux.org/packages/t/tar/tar-1.35-5-x86_64.pkg.tar.zst",
+      "license": "GPL-3.0-or-later",
+      "source": {
+        "url": "https://ftp.gnu.org/gnu/tar/tar-1.35.tar.xz",
+        "bytes": 2317208,
+        "sha256": "4d62ff37342ec7aed748535323930c7cf94acf71c3591882b26a7ea50f3edc16"
+      }
+    },
+    {
+      "name": "licenses",
+      "version": "20240728-1",
+      "filename": "licenses-20240728-1-any.pkg.tar.zst",
+      "bytes": 108274,
+      "sha256": "47e9f4ad914da21f6326cc4eb84a788043523191f80d8e661b936b25d7fa1879",
+      "url": "https://archive.archlinux.org/packages/l/licenses/licenses-20240728-1-any.pkg.tar.zst",
+      "license": "Common license texts only"
+    }
+  ],
+  "files": [
+    {"package": "glmark2", "from": "usr/bin/glmark2", "to": "bin/glmark2"},
+    {"package": "glmark2", "from": "usr/share/glmark2", "to": "share/glmark2"},
+    {"package": "glmark2", "from": "usr/share/licenses/glmark2/COPYING.SGI", "to": "licenses/glmark2-COPYING.SGI"},
+    {"package": "vkmark", "from": "usr/bin/vkmark", "to": "bin/vkmark"},
+    {"package": "vkmark", "from": "usr/lib/vkmark/xcb.so", "to": "lib/vkmark/xcb.so"},
+    {"package": "vkmark", "from": "usr/share/vkmark", "to": "share/vkmark"},
+    {"package": "assimp", "from": "usr/lib/libassimp.so.6.0.5", "to": "lib/libassimp.so.6"},
+    {"package": "assimp", "from": "usr/share/licenses/assimp/LICENSE", "to": "licenses/assimp-LICENSE"},
+    {"package": "xcb-util-wm", "from": "usr/lib/libxcb-icccm.so.4.0.0", "to": "lib/libxcb-icccm.so.4"},
+    {"package": "xcb-util-wm", "from": "usr/share/licenses/xcb-util-wm/LICENSE", "to": "licenses/xcb-util-wm-LICENSE"},
+    {"package": "tar", "from": "usr/bin/tar", "to": "bin/tar" },
+    {"package": "licenses", "from": "usr/share/licenses/spdx/GPL-3.0-or-later.txt", "to": "licenses/GPL-3.0-or-later.txt"},
+    {"package": "licenses", "from": "usr/share/licenses/spdx/LGPL-2.1-only.txt", "to": "licenses/LGPL-2.1-only.txt"}
+  ]
+}

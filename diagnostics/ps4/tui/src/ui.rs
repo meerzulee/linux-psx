@@ -3,7 +3,7 @@
 use crate::hardware;
 use crate::hardware::Row;
 use crate::model::{self, CATEGORIES, Category};
-use crate::{App, Focus, FormKind, SshScreen};
+use crate::{App, DiagnosticScreen, Focus, FormKind, SshScreen};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -402,7 +402,8 @@ fn summary(app: &App, t: Theme) -> Vec<Line<'static>> {
             lines.push(Line::from("Enter / Right expands a group; Left collapses."));
             lines.push(Line::from("Reports are newest first within each group."));
             lines.push(Line::from("Select a report to view its details."));
-            lines.push(Line::from("Results remain on the diagnostic USB."));
+            lines.push(Line::from("Create issue report exports a local ZIP."));
+            lines.push(Line::from("Attach it to a GitHub issue; no upload occurs."));
             lines.push(Line::default());
             lines.push(Line::styled(
                 "Observed hardware is not a functional pass.",
@@ -596,13 +597,215 @@ fn overview_dashboard(frame: &mut Frame, app: &App, t: Theme, window: Rect) {
     );
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from("↑↓ Select · Enter Open area · F7/A Advanced · F1 Help · Q Exit"),
+            Line::from("↑↓ Select · Enter Open area · F7/A Advanced · M Mode · Q Power"),
             Line::from("Not tested = no current saved result; detection alone cannot pass."),
         ])
         .alignment(Alignment::Center)
         .style(Style::default().fg(t.muted)),
         rows[6],
     );
+}
+
+fn diagnostic_dashboard(frame: &mut Frame, app: &App, t: Theme, window: Rect) {
+    let block = panel(
+        if app.demo {
+            "Diagnostix · DEMO PREVIEW"
+        } else {
+            "Diagnostix"
+        },
+        t,
+    );
+    let inner = block.inner(window);
+    frame.render_widget(block, window);
+    if app.diagnostic_screen == DiagnosticScreen::Choose {
+        let rows = Layout::vertical([
+            Constraint::Length(2),
+            Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Min(5),
+            Constraint::Length(3),
+            Constraint::Length(2),
+        ])
+        .split(inner);
+        frame.render_widget(
+            Paragraph::new("Choose diagnostic mode")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(t.text).add_modifier(Modifier::BOLD)),
+            rows[0],
+        );
+        frame.render_widget(
+            Paragraph::new("Choose a mode and press Enter. Opening this menu starts no tests.")
+                .wrap(Wrap { trim: true }),
+            rows[1],
+        );
+        let mut selected = ListState::default().with_selected(Some(app.mode_selected));
+        frame.render_stateful_widget(
+            List::new([
+                "Automatic diagnostics",
+                "Manual diagnostics · choose individual tests",
+            ])
+            .highlight_style(t.selected())
+            .highlight_symbol("› "),
+            rows[2],
+            &mut selected,
+        );
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from("Automatic: inventory, CPU 2 s, RAM 32 MiB, Ethernet status,"),
+                Line::from("audio inventory and storage inventory. Stops on failure."),
+                Line::default(),
+                Line::from("Graphics, audio playback, UVD and power stay manual."),
+                Line::from("Manual opens Overview; tests run only when selected."),
+            ])
+            .wrap(Wrap { trim: true })
+            .style(Style::default().fg(t.muted)),
+            rows[3],
+        );
+        frame.render_widget(
+            Paragraph::new(diagnostic_activity(app)).wrap(Wrap { trim: true }),
+            rows[4],
+        );
+        frame.render_widget(
+            Paragraph::new("↑↓ Choose   Enter Select   Esc Select Manual   F5 Refresh   Q Power")
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(t.muted))
+                .wrap(Wrap { trim: true }),
+            rows[5],
+        );
+        return;
+    }
+    let rows = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(2),
+        Constraint::Length(7),
+        Constraint::Length(2),
+        Constraint::Min(3),
+        Constraint::Length(2),
+        Constraint::Length(1),
+    ])
+    .split(inner);
+    frame.render_widget(
+        Paragraph::new("Automatic diagnostics")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(t.text).add_modifier(Modifier::BOLD)),
+        rows[0],
+    );
+    let result = app.latest_automatic();
+    let progress = app
+        .active_job
+        .as_ref()
+        .and_then(|job| model::automatic_progress(&job.data));
+    let status = if app.automatic_running() {
+        progress
+            .as_ref()
+            .map(|value| {
+                format!(
+                    "Running · step {} / {} · {}",
+                    model::at(value, "/step_current"),
+                    model::at(value, "/step_total"),
+                    model::at(value, "/step_title"),
+                )
+            })
+            .unwrap_or_else(|| "Waiting for controller progress…".into())
+    } else if let Some(value) = result {
+        let status = model::at(value, "/status");
+        if status.is_empty() {
+            "Automatic run ended · inspect the message below".into()
+        } else {
+            format!("{} · scoped checks only", model::status_label(&status))
+        }
+    } else {
+        "No automatic results in this boot. Choose a mode to start.".into()
+    };
+    frame.render_widget(Paragraph::new(status).wrap(Wrap { trim: true }), rows[1]);
+    let steps = model::AUTOMATIC_STEPS
+        .iter()
+        .enumerate()
+        .map(|(index, (id, title))| {
+            let recorded = result.and_then(|result| {
+                model::array(result, "/steps")
+                    .iter()
+                    .find(|step| model::at(step, "/test_id") == *id)
+            });
+            let status = if app.automatic_running() {
+                if let Some(step) = recorded.filter(|step| model::at(step, "/state") == "completed")
+                {
+                    model::status_label(&model::at(step, "/status"))
+                } else {
+                    let current = progress
+                        .as_ref()
+                        .and_then(|value| value["step_current"].as_u64())
+                        .unwrap_or(0);
+                    if current == index as u64 + 1 {
+                        "Running"
+                    } else if current > index as u64 + 1 {
+                        "Finished"
+                    } else {
+                        "Pending"
+                    }
+                }
+            } else if let Some(step) = recorded {
+                if model::at(step, "/state") == "not_run" {
+                    "Not run"
+                } else {
+                    model::status_label(&model::at(step, "/status"))
+                }
+            } else {
+                "Not run"
+            };
+            Line::from(format!("{status:<13} {title}"))
+        })
+        .collect::<Vec<_>>();
+    frame.render_widget(Paragraph::new(steps), rows[2]);
+    frame.render_widget(
+        Paragraph::new("Stops on failure. Graphics, audio playback, UVD and power remain manual. A run does not qualify hardware support.")
+            .wrap(Wrap { trim: true })
+            .style(Style::default().fg(t.muted)),
+        rows[3],
+    );
+    let mut selected = ListState::default().with_selected(Some(app.automatic_selected));
+    frame.render_stateful_widget(
+        List::new(app.automatic_actions())
+            .highlight_style(t.selected())
+            .highlight_symbol("› "),
+        rows[4],
+        &mut selected,
+    );
+    frame.render_widget(
+        Paragraph::new(diagnostic_activity(app)).wrap(Wrap { trim: true }),
+        rows[5],
+    );
+    frame.render_widget(
+        Paragraph::new("↑↓ Choose   Enter Select   Esc/M Mode   V Details   F5 Refresh   Q Power")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(t.muted)),
+        rows[6],
+    );
+}
+
+fn diagnostic_activity(app: &App) -> String {
+    if !app.error.is_empty() {
+        return app.error.clone();
+    }
+    if let Some(job) = &app.active_job {
+        return format!("{} · {}s", job.title, job.started.elapsed().as_secs());
+    }
+    if app.action_pending {
+        return format!("Starting {}…", app.action_title);
+    }
+    if app.diagnostic_screen == DiagnosticScreen::Automatic {
+        if let Some(result) = app.latest_automatic() {
+            let message = model::at(result, "/message");
+            let error = model::at(result, "/error");
+            let export_error = model::at(result, "/issue_report_error");
+            return [message, error, export_error]
+                .into_iter()
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<_>>()
+                .join(" · ");
+        }
+    }
+    app.notice.clone()
 }
 
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -619,7 +822,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     }
     if area.width < 80 || area.height < 24 {
         let text = format!(
-            "Diagnostix\n\nUse a terminal at least 80 x 24.\nCurrent: {} x {}\n\nQ exits to the console.",
+            "Diagnostix\n\nUse a terminal at least 80 x 24.\nCurrent: {} x {}\n\nQ opens Power.",
             area.width, area.height
         );
         frame.render_widget(
@@ -635,6 +838,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
         area.width.saturating_sub(4).min(140),
         area.height.saturating_sub(2).min(44),
     );
+    if !app.onboarding && app.diagnostic_screen != DiagnosticScreen::Hidden {
+        diagnostic_dashboard(frame, app, t, window);
+        overlays(frame, app, t);
+        return;
+    }
     if !app.onboarding && app.overview {
         overview_dashboard(frame, app, t, window);
         overlays(frame, app, t);
@@ -782,6 +990,19 @@ pub fn draw(frame: &mut Frame, app: &App) {
                         Style::default().fg(t.muted),
                     ),
                 ])
+            } else if let crate::model::ActionKind::Test(value) = &a.kind {
+                ListItem::new(vec![
+                    Line::from(format!(" {}", a.title)),
+                    Line::styled(
+                        format!(
+                            "   {} · {} · {}",
+                            model::at(value, "/area"),
+                            model::kind_label(&model::at(value, "/kind")),
+                            model::status_label(&model::at(value, "/latest_status"))
+                        ),
+                        Style::default().fg(t.muted),
+                    ),
+                ])
             } else {
                 ListItem::new(format!(" {}", a.title))
             }
@@ -817,7 +1038,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         Paragraph::new(summary(app, t))
             .block(panel(
                 if app.onboarding {
-                    "Connection & SSH"
+                    "Setup · optional"
                 } else {
                     "Overview"
                 },
@@ -873,16 +1094,18 @@ pub fn draw(frame: &mut Frame, app: &App) {
             ),
         rows[4],
     );
-    let keys = if app.onboarding {
-        "↑↓ Choose   Enter Select   Esc Continue offline   F1 Help   Q Exit"
+    let keys = if app.full_active {
+        "C Cancel   S Save report   V Summary   Q Power"
+    } else if app.onboarding {
+        "↑↓ Choose   Enter Select   Esc Continue offline   F1 Help   Q Power"
     } else if app.category() == Category::Reports && app.focus == Focus::Actions {
-        "↑↓ Select   Up at top: Areas   Enter Open/toggle\n← Collapse   → Expand   Tab Areas   F4 Refresh   Q Exit"
+        "↑↓ Select   Up at top: Areas   Enter Open/toggle\n← Collapse   → Expand   Tab Areas   F4 Refresh   Q Power"
     } else if app.category() == Category::Power {
-        "←→ Area   ↑↓ Select   Enter Review/confirm   Esc Areas   F4 Reports   Q Exit"
+        "←→ Area   ↑↓ Select   Enter Review/confirm   Esc Areas   F4 Reports   Q Power"
     } else if app.settings_tree_focused() {
-        "↑↓ Select   Enter Open/apply   ← Collapse   → Expand\nTab Areas   F2 Network   F3 Core   F4 Reports   V Details   Q Exit"
+        "↑↓ Select   Enter Open/apply   ← Collapse   → Expand\nTab Areas   F2 Network   F3 Core   F4 Reports   V Details   Q Power"
     } else {
-        "←→ Area   ↑↓ Action   Enter Run   F2 Network   F3 Core   F4 Reports   V Details   Q Exit"
+        "←→ Area   ↑↓ Action   Enter Run   F2 Network   F3 Core   F4 Reports   V Details   Q Power"
     };
     frame.render_widget(
         Paragraph::new(keys)
@@ -1220,6 +1443,121 @@ fn modal(frame: &mut Frame, title: &str, lines: Vec<Line<'_>>, width: u16, heigh
 }
 
 fn report(frame: &mut Frame, app: &App, value: &Value, t: Theme) {
+    if value["view"] == "full_test_summary" {
+        let cancelled = value["cancelled"].as_bool().unwrap_or(false);
+        let browser = value["browser_launched"].as_bool().unwrap_or(false);
+        let mut lines = vec![
+            Line::styled(
+                if cancelled {
+                    "Cancelled by operator"
+                } else if browser {
+                    "Complete · browser launched"
+                } else {
+                    "Complete"
+                },
+                Style::default().fg(t.text).add_modifier(Modifier::BOLD),
+            ),
+            Line::default(),
+            Line::from(format!(
+                "Queue: {}/{}",
+                value["done"].as_u64().unwrap_or(0),
+                value["total"].as_u64().unwrap_or(0)
+            )),
+            Line::from(format!("Passed: {}", value["passed"].as_u64().unwrap_or(0))),
+            Line::from(format!(
+                "Failed or skipped: {}",
+                value["failed"].as_u64().unwrap_or(0)
+            )),
+            Line::from(format!(
+                "Observations: {}",
+                value["observed"].as_u64().unwrap_or(0)
+            )),
+        ];
+        let reason = model::at(value, "/reason");
+        if !reason.is_empty() {
+            lines.push(Line::default());
+            lines.push(Line::from(format!("Retry reason: {reason}")));
+        }
+        if let Some(notes) = value["notes"].as_array().filter(|notes| !notes.is_empty()) {
+            lines.push(Line::default());
+            lines.push(Line::styled("Notes", Style::default().fg(t.muted)));
+            for note in notes {
+                lines.push(Line::from(format!("• {}", note.as_str().unwrap_or(""))));
+            }
+        }
+        let saved = model::at(value, "/saved_path");
+        if !saved.is_empty() {
+            lines.push(Line::default());
+            lines.push(Line::from(format!("Saved: {saved}")));
+        }
+        lines.push(Line::default());
+        lines.push(Line::from("U Submit report   R Retry   S Save   Esc Close"));
+        modal(
+            frame,
+            "Full test summary",
+            lines,
+            84,
+            frame.area().height.saturating_sub(4).min(26),
+            t,
+        );
+        return;
+    }
+    if value["view"] == "issue_report_demo" {
+        modal(
+            frame,
+            "Issue report · DEMO PREVIEW",
+            vec![
+                Line::from(model::at(value, "/message")),
+                Line::default(),
+                Line::from("No hardware qualification. No report archive exists in demo mode."),
+                Line::default(),
+                Line::from("Enter or Esc to return"),
+            ],
+            74,
+            10,
+            t,
+        );
+        return;
+    }
+    if let Some(report) = model::IssueReport::from_value(value) {
+        let area = centered(
+            frame.area(),
+            frame.area().width.saturating_sub(4).min(128),
+            frame.area().height.saturating_sub(2).min(40),
+        );
+        let block = panel("Issue report · ↑↓ scroll · Enter/Esc return", t);
+        let inner = block.inner(area);
+        let mut text = vec![
+            format!(
+                "{} · local ZIP archive",
+                model::status_label(&report.status)
+            ),
+            "Attach this ZIP to your GitHub issue. Nothing is uploaded automatically.".into(),
+            String::new(),
+            format!("File: {}", report.filename),
+            "Exact local path:".into(),
+            report.path,
+            "Download path (browser lab / existing SSH forward):".into(),
+            report.download_url,
+            String::new(),
+            format!("Report ID: {}", report.report_id),
+            format!("Bytes: {}", report.bytes),
+            "SHA256:".into(),
+            report.sha256,
+        ];
+        if !report.message.is_empty() {
+            text.extend([String::new(), report.message]);
+        }
+        let lines = text
+            .iter()
+            .flat_map(|line| hardware_wrap(line, inner.width, true))
+            .map(Line::from)
+            .collect::<Vec<_>>();
+        frame.render_widget(Clear, area);
+        frame.render_widget(block, area);
+        frame.render_widget(Paragraph::new(lines).scroll((app.report_scroll, 0)), inner);
+        return;
+    }
     if value["view"] == "power_unavailable" {
         let lines = vec![
             Line::styled(
@@ -1493,7 +1831,8 @@ fn help(frame: &mut Frame, t: Theme) {
             Line::from("Esc                Back / leave a form"),
             Line::default(),
             Line::from("F2 Network    F3 Core checks    F4 Reports"),
-            Line::from("F5 Refresh    F6 Settings    V Last report    Q Exit"),
+            Line::from("F5 Refresh    F6 Settings    V Last report    Q Power"),
+            Line::from("Overview: M chooses Automatic or Manual diagnostics"),
             Line::from("Ctrl+L              Clean screen and repaint"),
             Line::default(),
             Line::from("Tests keep running while you browse this interface."),
@@ -1527,6 +1866,10 @@ fn form(frame: &mut Frame, app: &App, t: Theme) {
         FormKind::Retry { .. } => (
             "Before trying again",
             vec!["What changed since the failed attempt?"],
+        ),
+        FormKind::FullRetry => (
+            "Retry full test",
+            vec!["What changed since the last full run?"],
         ),
         FormKind::Observation { .. } => ("Audio observation", vec![]),
     };
@@ -1663,6 +2006,112 @@ fn form(frame: &mut Frame, app: &App, t: Theme) {
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend};
+
+    fn render_text(app: &App, width: u16, height: u16) -> String {
+        let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+        terminal.draw(|frame| draw(frame, app)).unwrap();
+        let buffer = terminal.backend().buffer();
+        assert_eq!(
+            buffer.content.len(),
+            usize::from(width) * usize::from(height)
+        );
+        buffer.content.iter().map(|cell| cell.symbol()).collect()
+    }
+
+    #[test]
+    fn mode_choice_and_automatic_progress_summary_fit_80x24_and_tv_sizes() {
+        for (width, height) in [(80, 24), (140, 40)] {
+            let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+            app.choose_mode();
+            let text = render_text(&app, width, height);
+            for expected in [
+                "Choose diagnostic mode",
+                "Automatic diagnostics",
+                "Manual diagnostics",
+                "CPU 2 s",
+                "RAM 32 MiB",
+                "Stops on failure",
+                "Enter Select",
+                "DEMO PREVIEW",
+                "made by meerzulee",
+            ] {
+                assert!(
+                    text.contains(expected),
+                    "missing {expected} at {width}x{height}"
+                );
+            }
+            assert!(!text.contains("Passed"));
+            app.diagnostic_screen = DiagnosticScreen::Automatic;
+            let text = render_text(&app, width, height);
+            assert!(text.contains("No automatic results"));
+            assert!(text.contains("Create issue report"));
+            app.active_job = Some(crate::Job {
+                id: serde_json::json!("auto"),
+                title: "Automatic diagnostics".into(),
+                started: std::time::Instant::now(),
+                data: serde_json::json!({"output":["{\"step_current\":2,\"step_total\":6,\"step_title\":\"CPU\"}"]}),
+            });
+            let text = render_text(&app, width, height);
+            assert!(text.contains("Running · step 2 / 6 · CPU"));
+            assert!(text.contains("Esc/M Mode"));
+            app.active_job = None;
+            app.automatic_result = Some(
+                serde_json::json!({"test_id":"diagnostics.auto","status":"BLOCKED",
+                "message":"Stopped at CPU. Later steps did not run.","steps":[
+                {"test_id":"inventory.readonly","state":"completed","status":"INCONCLUSIVE"},
+                {"test_id":"cpu.compute","state":"completed","status":"BLOCKED"},
+                {"test_id":"memory.pattern","state":"not_run"}]}),
+            );
+            let text = render_text(&app, width, height);
+            for expected in [
+                "Needs setup",
+                "Inconclusive",
+                "Not run",
+                "Stopped at CPU",
+                "Manual diagnostics",
+                "made by meerzulee",
+            ] {
+                assert!(
+                    text.contains(expected),
+                    "missing {expected} at {width}x{height}"
+                );
+            }
+            assert!(!text.contains("Passed"));
+        }
+    }
+
+    #[test]
+    fn issue_report_shows_exact_path_download_and_attachment_instruction_at_minimum_size() {
+        for (width, height) in [(80, 24), (140, 40)] {
+            let mut app = App::new(std::path::PathBuf::from("/unreachable"), true);
+            app.onboarding = false;
+            app.category = 7;
+            let text = render_text(&app, width, height);
+            assert!(text.contains("Create issue report"));
+            app.report = Some(serde_json::json!({"status":"READY","report_id":"fixture",
+                "filename":"diagnostix-fixture.zip","path":"/run/psx-diagnostics/support/diagnostix-fixture.zip",
+                "sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "bytes":12345,"download_url":"/api/support/reports/fixture.zip"}));
+            let text = render_text(&app, width, height);
+            for expected in [
+                "Report ready",
+                "Attach this ZIP to your GitHub issue",
+                "Nothing is uploaded automatically",
+                "/run/psx-diagnostics/support/diagnostix-fixture.zip",
+                "/api/support/reports/fixture.zip",
+                "12345",
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "made by meerzulee",
+            ] {
+                assert!(
+                    text.contains(expected),
+                    "missing {expected} at {width}x{height}"
+                );
+            }
+            assert!(!text.contains("Passed"));
+            assert!(!text.contains("\"report_id\""));
+        }
+    }
     #[test]
     fn onboarding_renders_at_supported_minimum_and_larger_sizes() {
         for (width, height) in [(80, 24), (110, 32), (160, 50)] {

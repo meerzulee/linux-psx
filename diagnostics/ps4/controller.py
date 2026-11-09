@@ -26,6 +26,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 import uuid
@@ -33,15 +34,35 @@ import uuid
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
+if '/run/psx-ram' not in sys.path:
+    sys.path.insert(1, '/run/psx-ram')
 import runner as diagnostics
+try:
+    import support_report
+except ImportError:
+    support_report = None
+try:
+    import ram_state
+except ImportError:
+    ram_state = None
 if Path('/run/psx-frontend/preferences.py').is_file():
     sys.path.insert(0, '/run/psx-frontend')
 from preferences import DisplayPreferences
 
 LIMIT = 1024 * 1024
 BROWSER_STEPS = ('browser.capabilities', 'browser.canvas2d', 'browser.webgl', 'browser.animation', 'browser.video')
+RAM_PROFILE = 'ps4-baikal-diagnostix-ram-alpha1'
+UVD_SESSION = '/run/psx-diagnostics/uvd-session.json'
+AUTOMATIC_STEPS = (
+    ('inventory.readonly', 'Hardware inventory', {}),
+    ('cpu.compute', 'CPU computation', {'seconds': 2}),
+    ('memory.pattern', '32 MiB memory patterns', {'memory_mib': 32}),
+    ('ethernet.status', 'Ethernet status', {}),
+    ('audio.info', 'Audio inventory', {}),
+    ('storage.inventory', 'Storage inventory', {}),
+)
 WAYLAND_MODES = ('browser', 'chromium', 'browser-manual', 'chromium-manual',
-                 'protondb', 'opengl', 'vulkan', 'diagnostics')
+                 'protondb', 'opengl', 'vulkan', 'diagnostics', 'benchmark', 'benchmark-vulkan')
 WAYLAND_UNITS = tuple('psx-diagnostics-graphics@'+mode+'.service' for mode in WAYLAND_MODES) + tuple(
     'psx-diagnostics-window-'+mode+'.service' for mode in WAYLAND_MODES) + ('psx-diagnostics-wayland.service',)
 DIAGNOSTICS_UNIT = 'psx-diagnostics-graphics@diagnostics.service'
@@ -53,9 +74,20 @@ POWER_PROFILES = ('ps4-baikal-diagnostics-uvd-alpha4', 'ps4-baikal-diagnostics-u
                   'ps4-baikal-diagnostics-uvd-alpha6')
 KERNEL_RESTART_RELEASE = '7.2.11-psx-ps4-baikal-uvd-runtime-dev5'
 IMMEDIATE_POWER_PROFILES = {
-    '7.2.11-psx-ps4-baikal-uvd-runtime-dev6': ('ps4-baikal-diagnostics-uvd-alpha7', 'ps4-baikal-diagnostics-uvd-alpha8'),
+    '7.2.11-psx-ps4-baikal-uvd-runtime-dev6': ('ps4-baikal-diagnostics-uvd-alpha7', 'ps4-baikal-diagnostics-uvd-alpha8',
+                                           'ps4-baikal-diagnostix-ram-alpha1'),
 }
 IMMEDIATE_POWER_RECORD = '/run/psx-power/power-dispatch.json'
+POWER_BOOT_STAGES = {
+    'identity': 'the running boot identity could not be verified',
+    'profile': 'the power profile could not be verified',
+    'contract': 'the kernel and power contract could not be verified',
+    'ram-proof': 'the RAM boot proof could not be verified',
+    'root-proof': 'the root and initramfs proof could not be verified',
+    'kernel-gates': 'the effective kernel power settings could not be verified',
+    'usb-receipt': 'the USB ownership receipt could not be verified',
+    'prior-request': 'the previous power request could not be verified',
+}
 POWER_PHASES = {
     'prepare.flush': ('Preparing: saving diagnostic reports.', 'Preparing: diagnostic reports saved.'),
     'dispatch.lock': ('Preparing: checking the diagnostic lock.', 'Preparing: diagnostic lock acquired.'),
@@ -77,7 +109,48 @@ EXTRA_TESTS = (
      "description": "Render a small known image with the pinned Mesa stack and verify downloaded pixels."},
     {"id": "gpu.vulkan.render", "title": "Vulkan reference pixels", "area": "Graphics", "kind": "functional", "timeout_seconds": 30,
      "description": "Run the existing bounded Vulkan draw oracle and verify its pixels."},
+    {"id": "gpu.benchmark", "title": "3D benchmark", "area": "Graphics", "kind": "functional", "timeout_seconds": 420,
+     "description": "Run glmark2 on the display and record its score."},
+    {"id": "gpu.benchmark.vulkan", "title": "Vulkan benchmark", "area": "Graphics", "kind": "functional", "timeout_seconds": 240,
+     "description": "Run vkmark on the display and record its score. Chosen by hand only."},
 )
+BENCHMARK_UNIT = 'psx-diagnostics-graphics@benchmark.service'
+BENCHMARK_TOOLS = ('/run/psx-bench/bin/glmark2', '/run/psx-bench/bin/vkmark')
+BENCHMARK_RESULTS = '/run/psx-benchmark'
+BENCHMARK_SCENE_SECONDS = 5
+# Each deadline is past that tool's own limit in graphics-session, so it only catches a stuck display.
+BENCHMARKS = {
+    'gpu.benchmark': {'mode': 'benchmark', 'tool': 'glmark2', 'label': '3D benchmark', 'deadline': 420,
+                      'needs': ('gpu.opengl.render', 'OpenGL')},
+    'gpu.benchmark.vulkan': {'mode': 'benchmark-vulkan', 'tool': 'vkmark', 'label': 'Vulkan benchmark', 'deadline': 240,
+                             'needs': ('gpu.vulkan.render', 'Vulkan')},
+}
+BENCHMARK_STOP_CELSIUS = 90
+# A scene lasts five seconds and the tool announces each one, so this much silence is a stall.
+BENCHMARK_STALL_SECONDS = 15
+BENCHMARK_SCENE = re.compile(r'^(\[[a-z0-9_-]{1,32}\] .{1,240}): FPS: ([0-9]{1,9}) FrameTime: ([0-9.]{1,12}) ms$')
+BENCHMARK_FACTS = {'renderer': re.compile(r'^\s*GL_RENDERER:\s+(.{1,200})$'),
+                   'version': re.compile(r'^\s*GL_VERSION:\s+(.{1,200})$'),
+                   'surface': re.compile(r'^\s*Surface Size:\s+(.{1,60})$'),
+                   'device': re.compile(r'^\s*Device Name:\s+(.{1,200})$')}
+# With the UVD runtime gate on, a job timeout on any ring logs only the runtime closing.
+GPU_FAULT = re.compile(r'ring \S+ timeout|GPU reset|GPU recover|GPU fault|PROTECTION_FAULT|VM fault|PS4_UVD_RUNTIME CLOSED', re.IGNORECASE)
+
+
+def parse_benchmark(text, tool):
+    """The score and per-scene numbers from one tool's output, and nothing else from it."""
+    score = re.search(r'^\s*' + re.escape(tool) + r' Score: ([0-9]{1,9})\s*$', text, re.MULTILINE)
+    parsed = {'score': int(score.group(1)) if score else None, 'scenes': []}
+    for line in text.splitlines():
+        scene = BENCHMARK_SCENE.match(line)
+        if scene:
+            parsed['scenes'].append({'scene': scene.group(1), 'fps': int(scene.group(2)), 'frame_ms': float(scene.group(3))})
+            continue
+        for name, pattern in BENCHMARK_FACTS.items():
+            fact = pattern.match(line)
+            if fact:
+                parsed[name] = fact.group(1).strip()
+    return parsed
 
 
 def decode(raw):
@@ -127,6 +200,11 @@ def summary(record):
         value["boot_id"] = record["identity"]["boot_id"]
     if "result" in record:
         value["result"] = summary(record["result"]) if isinstance(record["result"], dict) else None
+    if isinstance(record.get("reports"), list):
+        # A browser batch's step verdicts: its own status cannot be PASS while
+        # the capability listing, which never gives a verdict, is one of them.
+        value["steps"] = [{"test_id": item.get("test_id"), "status": item.get("status")}
+                          for item in record["reports"] if isinstance(item, dict)]
     if record.get("error"):
         value["error"] = str(record["error"])[:1000]
     commands = record.get("commands", [])
@@ -136,6 +214,206 @@ def summary(record):
         record.get("status") == "INCONCLUSIVE" and commands and not record.get("observation_required")
         and (failed_command or record.get("test_id") in ("cpu.compute", "memory.pattern", "ethernet.connect", "ethernet.https"))))
     return value
+
+
+_tracing = False
+QUIET_ACTIONS = ('state', 'job.get', 'results.list', 'ssh.info')
+TRACED_PARAMETERS = ('test_id', 'app', 'scenario', 'operation')
+
+
+def trace(text, source='ctl'):
+    """One line for UART and the report, so a hang shows the last step reached.
+
+    Opens the device each time: one open file may only write ten lines in five
+    seconds. Info level, so these never count as kernel errors. Never raises.
+    """
+    if not _tracing:
+        return
+    line = re.sub(r'[^ -~]', '?', str(text))[:400]
+    try:
+        fd = os.open('/dev/kmsg', os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC | os.O_NOFOLLOW)
+        try:
+            os.write(fd, f'<6>dx/{source}: {line}\n'.encode('ascii'))
+        finally:
+            os.close(fd)
+    except OSError:
+        pass
+
+
+def trace_failure(where, error):
+    """The exception type and the line that raised it. Its text may hold private arguments."""
+    frames = traceback.extract_tb(error.__traceback__)
+    place = f'{Path(frames[-1].filename).name}:{frames[-1].lineno}' if frames else 'unknown'
+    trace(f'{where} raised {type(error).__name__} at {place}')
+
+
+def parse_rings(text):
+    """One line per ring still owing work, or one line saying none are."""
+    lines, rings = [], 0
+    for block in re.split(r'(?=--- ring )', text):
+        ring = re.match(r'--- ring \d+ \((\S+)\)', block)
+        signaled = re.search(r'Last signaled fence\s+(0x[0-9a-f]+)', block)
+        emitted = re.search(r'Last emitted\s+(0x[0-9a-f]+)', block)
+        if ring and signaled and emitted:
+            rings += 1
+            if signaled.group(1) != emitted.group(1):
+                lines.append(f'ring {ring.group(1)} BUSY signaled={signaled.group(1)} emitted={emitted.group(1)}')
+    return lines or [f'rings: all {rings} idle']
+
+
+def command_name(argv):
+    """Enough to recognise a command. Only these tools' arguments are known to be private-free."""
+    name = os.path.basename(str(argv[0]))
+    return ' '.join([name, *map(str, argv[1:3])]) if name in ('systemctl', 'launch-graphics', 'chvt') else name
+
+
+class BenchmarkWatch:
+    """Copies what a benchmark session writes to UART as it happens.
+
+    The session is unprivileged and cannot reach the kernel log itself. If a
+    GPU job hangs, the last line copied is the step it reached, and the state
+    lines say which process and which ring are stuck.
+    """
+    PROCESSES = ('Xorg', 'glmark2', 'vkmark', 'xfwm4', 'xinit', 'timeout', 'Xwayland')
+
+    def __init__(self, controller, benchmark):
+        self.controller, self.benchmark = controller, benchmark
+        self.results = Path(BENCHMARK_RESULTS)
+        self.sources = {'trace.log': 'step', benchmark['tool'] + '.log': benchmark['tool']}
+        self.offsets, self.pending, self.copied = {}, {}, {}
+        self.xorg_offset = 0
+        self.finished = threading.Event()
+        self.dumping = threading.Lock()
+        self.thread = threading.Thread(target=self.run, daemon=True, name='benchmark-watch')
+        self.started = self.last_output = time.monotonic()
+
+    def start(self):
+        self.dump_state('baseline')
+        self.thread.start()
+
+    def stop(self, reason=''):
+        self.finished.set()
+        self.thread.join(3)
+        self.copy_output()
+        self.copy_xorg_errors()
+        if reason:
+            self.dump_state('ended ' + reason)
+
+    def read_new(self, path, offset):
+        """New bytes of a regular file. A link planted by the session simply fails to open."""
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError:
+            return b''
+        try:
+            return os.pread(fd, 65536, offset) if stat.S_ISREG(os.fstat(fd).st_mode) else b''
+        except OSError:
+            return b''
+        finally:
+            os.close(fd)
+
+    def copy_output(self):
+        fresh = False
+        for name, label in self.sources.items():
+            offset = self.offsets.get(name, 0)
+            data = self.read_new(self.results / name, offset)
+            self.offsets[name] = offset + len(data)
+            if data:
+                fresh = fresh or name != 'trace.log'
+            lines = (self.pending.get(name, b'') + data).split(b'\n')
+            held = lines.pop()
+            # A flushed line with no ending names the scene that is running now.
+            if held and not data:
+                lines.append(held)
+                held = b''
+            self.pending[name] = held
+            for line in lines:
+                self.copied[name] = self.copied.get(name, 0) + 1
+                if line.strip() and self.copied[name] <= 2000:
+                    trace(line.decode('ascii', 'replace').strip(), label)
+        return fresh
+
+    def copy_xorg_errors(self):
+        data = self.read_new('/run/psx-desktop/Xorg.log', self.xorg_offset)
+        complete = data[:data.rfind(b'\n') + 1]
+        self.xorg_offset += len(complete)
+        for line in complete.split(b'\n'):
+            if b'(EE)' in line or b'(WW)' in line:
+                trace(line.decode('ascii', 'replace').strip(), 'xorg')
+
+    def memory_mib(self):
+        try:
+            for line in Path('/proc/meminfo').read_text().splitlines():
+                if line.startswith('MemAvailable:'):
+                    return int(line.split()[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            pass
+        return None
+
+    def load(self):
+        try:
+            return Path('/proc/loadavg').read_text().split()[0]
+        except (OSError, IndexError):
+            return '?'
+
+    def process_lines(self):
+        for path in Path('/proc').iterdir():
+            if not path.name.isdigit():
+                continue
+            try:
+                name = (path / 'comm').read_text().strip()
+                if name not in self.PROCESSES:
+                    continue
+                state = (path / 'stat').read_text().rsplit(')', 1)[1].split()[0]
+                wait = (path / 'wchan').read_text().strip()
+            except (OSError, IndexError):
+                continue
+            try:
+                calls = [row.split()[-1].split('+')[0] for row in (path / 'stack').read_text().splitlines()[:8] if row.strip()]
+            except (OSError, IndexError):
+                calls = []
+            yield f'process {name} pid={path.name} state={state} wchan={wait} stack={"<".join(calls)}'
+
+    def ring_lines(self):
+        """Rings with work the GPU has not finished. Reads fence memory only and never resets anything."""
+        found = sorted(Path('/sys/kernel/debug/dri').glob('*/amdgpu_fence_info')) if Path('/sys/kernel/debug/dri').is_dir() else []
+        if not found:
+            return ['rings: no fence information (debugfs is off)']
+        return parse_rings(found[0].read_text()[:65536])
+
+    def dump_state(self, why):
+        """In its own thread, because a wedged GPU can block these reads."""
+        def dump():
+            with contextlib.ExitStack() as stack:
+                stack.callback(self.dumping.release)
+                trace(f'state: {why}', 'bench')
+                try:
+                    lines = [*self.ring_lines(), *self.process_lines()]
+                except OSError as error:
+                    lines = ['state read failed: ' + type(error).__name__]
+                for line in lines:
+                    trace(line, 'bench')
+        if self.dumping.acquire(blocking=False):
+            threading.Thread(target=dump, daemon=True, name='benchmark-state').start()
+
+    def run(self):
+        beat = dumped = 0.0
+        while not self.finished.wait(0.25):
+            now = time.monotonic()
+            try:
+                if self.copy_output():
+                    self.last_output = now
+                self.copy_xorg_errors()
+                quiet = now - self.last_output
+                if now - beat >= 5:
+                    beat = now
+                    trace(f'alive +{now - self.started:.0f}s {self.benchmark["tool"]} quiet={quiet:.0f}s '
+                          f'temp={self.controller._hottest_celsius()} mem={self.memory_mib()}MiB load={self.load()}', 'bench')
+                if quiet >= BENCHMARK_STALL_SECONDS and now - dumped >= 30:
+                    dumped = now
+                    self.dump_state(f'no tool output for {quiet:.0f}s')
+            except Exception as error:
+                trace_failure('benchmark watch', error)
 
 
 class Jobs:
@@ -184,11 +462,16 @@ class Jobs:
             if self.stopping.is_set():
                 return
             saved = False
+            began = time.monotonic()
+            trace(f'job start: {title}')
             try:
                 value = function()
                 changes = {"state": "completed", "result": value}
+                status = value.get('status', 'done') if isinstance(value, dict) else 'done'
+                trace(f'job end: {title} status={status} seconds={time.monotonic() - began:.1f}')
             except Exception as error:
                 changes = {"state": "failed", "error": safe_error(error)}
+                trace_failure(f'job failed: {title} seconds={time.monotonic() - began:.1f}', error)
             with self.guard:
                 if self.stopping.is_set():
                     return
@@ -283,6 +566,7 @@ class Controller:
         self.results_dir = Path(results_dir)
         self.jobs = Jobs(self.results_dir / "controller-jobs")
         self.runner = diagnostics.Runner(results_dir, root_prefix, manifest, executor=executor, callback=self.jobs.event)
+        self._trace_runner_commands()
         if network is None:
             from network import Network
             network = Network(root_prefix=root_prefix)
@@ -304,11 +588,13 @@ class Controller:
         self._power_status_cache = None
         self._power_guard_lock = threading.Lock()
         self._power_boot = None
+        self._power_boot_error = None
         self._power_now = None
         self._power_uncertain = ''
         self._worker_guard = threading.RLock()
         self._launch_guard = threading.Lock()
         self._workers = {}
+        self._automatic = None
         self.runner.process_started = self._register_worker
         self.runner.cancelled = self.jobs.stopping.is_set
         self.runner.launch_guard = self._launch_guard
@@ -344,10 +630,23 @@ class Controller:
     def initialize_ssh(self):
         if self.runner.fs.fixture:
             return
+        access = None
         try:
-            self.ssh_access().initialize()
-        except (OSError, ValueError, ImportError, subprocess.SubprocessError):
+            # sshd rejects its configuration until the host key exists, and
+            # that key is otherwise only made when sshd itself starts.
+            self._cancellable_capture(['/usr/bin/systemctl', 'start', 'psx-ssh-host-key.service', '--no-ask-password'], timeout=35, capture_output=True)
+            access = self.ssh_access()
+            access.initialize()
+            self._ssh_setup_error = ''
+            trace('SSH setup finished')
+        except (OSError, ValueError, ImportError, subprocess.SubprocessError) as error:
             self._ssh_setup_error = 'SSH setup is unavailable; existing key access remains available.'
+            # Only this helper's fixed public AccessError explanations may
+            # reach the UI. Other exceptions can contain private arguments.
+            module = sys.modules.get(type(access).__module__) if access is not None else None
+            if isinstance(error, getattr(module, 'AccessError', ())):
+                self._ssh_setup_error = 'SSH setup unavailable: ' + str(error)[:240]
+            trace('SSH setup failed: ' + self._ssh_setup_error)
             print(self._ssh_setup_error, file=sys.stderr)
 
     def start_monitor(self):
@@ -531,7 +830,222 @@ class Controller:
                 "power": self.power_status(identity),
                 "tests": tests, "results": [summary(record) for record in results[:30]],
                 "overview_results": [summary(record) for record in latest.values()],
+                "automatic": self.automatic_state(identity),
                 "jobs": self.jobs.list(), "hardware_acceptance": False}
+
+    def _automatic_path(self, identity):
+        boot = str(identity.get('boot_id') or 'unknown')
+        return self.results_dir / 'automatic-runs' / (hashlib.sha256(boot.encode()).hexdigest() + '.json')
+
+    def automatic_state(self, identity=None):
+        identity = identity or self.runner.identity()
+        def scoped(record):
+            pins = ('boot_id', 'kernel_release', 'manifest_sha256', 'runner_sha256', 'catalogue_sha256')
+            if any(record.get('identity', {}).get(key) != identity.get(key) for key in pins):
+                return dict(record, status='BLOCKED', message='The saved automatic run belongs to a different build identity. Use Manual; no automatic retry was started.')
+            return dict(record)
+        if self._automatic and self._automatic.get('identity', {}).get('boot_id') == identity.get('boot_id'):
+            return scoped(self._automatic)
+        try:
+            record = _power_read_json(self._automatic_path(identity))
+            if (isinstance(record, dict) and record.get('test_id') == 'diagnostics.auto' and record.get('version') == 1
+                    and record.get('identity', {}).get('boot_id') == identity.get('boot_id')):
+                return scoped(record)
+        except (OSError, ValueError):
+            pass
+        return None
+
+    def _automatic_interface(self):
+        fs = self.runner.fs
+        names = fs.entries('/sys/class/net')
+        for name in names:
+            if (re.fullmatch(r'[a-zA-Z0-9_.-]{1,15}', name)
+                    and str(fs.link('/sys/class/net/' + name + '/device/driver') or '').rstrip('/').endswith('/psx_mts_net')):
+                return name
+        return next((name for name in ('psx0', 'eth0') if name in names), 'psx0')
+
+    def automatic_diagnostics(self):
+        """One explicitly selected finite sequence per boot; never retries a fault."""
+        identity = self.runner.identity()
+        previous = self.automatic_state(identity)
+        if previous is not None:
+            if previous.get('phase') == 'completed':
+                return previous
+            raise ValueError('Automatic diagnostics already started this boot. Review Reports and use Manual to investigate.')
+        path = self._automatic_path(identity)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if path.parent.resolve() != path.parent.absolute():
+            raise ValueError('Automatic diagnostic journal directory is invalid.')
+        record = {'schema_version': 1, 'version': 1, 'test_id': 'diagnostics.auto',
+                  'run_id': uuid.uuid4().hex, 'identity': identity, 'phase': 'running',
+                  'status': 'INCONCLUSIVE', 'started_at': diagnostics.timestamp(),
+                  'message': 'Automatic diagnostics starting.', 'hardware_acceptance': False,
+                  'steps': [{'test_id': test, 'title': title, 'state': 'not_run', 'status': 'NOT_RUN',
+                             'message': 'Not reached.'} for test, title, _ in AUTOMATIC_STEPS]}
+        # Reserve before starting any worker, including across controller restarts.
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(record, stream); stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
+        diagnostics.fsync_directory(path.parent)
+        self._automatic = record
+        results = []
+        status, message = 'PASS', 'CPU and memory checks passed; device inventories are observations. Other tests remain manual.'
+        pins = ('boot_id', 'kernel_release', 'manifest_sha256', 'runner_sha256', 'catalogue_sha256')
+        prior_failure = self.core_prerequisites('diagnostics.auto', allow_run=False, allow_missing=True)
+        if prior_failure:
+            status, message = prior_failure['status'], prior_failure['message']
+            results.append(prior_failure)
+        for index, (test_id, title, parameters) in enumerate(AUTOMATIC_STEPS):
+            if prior_failure:
+                break
+            current = self.runner.identity()
+            if self.jobs.stopping.is_set() or any(current.get(key) != identity.get(key) for key in pins):
+                status, message = 'BLOCKED', 'The boot identity changed or diagnostics were stopped.'
+                break
+            step = record['steps'][index]
+            step.update(state='running', message='Running.')
+            self.jobs.event({'event': 'automatic_step', 'step_current': index + 1,
+                             'step_total': len(AUTOMATIC_STEPS), 'step_title': title})
+            diagnostics.atomic_json(path, record)
+            parameters = dict(parameters)
+            if test_id == 'ethernet.status':
+                parameters['interface'] = self._automatic_interface()
+            try:
+                value = self.catalogue_test(test_id, parameters)
+            except Exception:
+                status, message = 'INCONCLUSIVE', 'The selected check did not finish; inspect its saved report before retrying manually.'
+                step.update(state='completed', status=status, message=message)
+                break
+            results.append(value)
+            step.update(state='completed', status=value['status'], message=value.get('message', ''))
+            current = self.runner.identity()
+            if self.jobs.stopping.is_set() or any(current.get(key) != identity.get(key) for key in pins):
+                status, message = 'BLOCKED', 'The boot identity changed or diagnostics were stopped during the selected check.'
+                break
+            observed = self.runner.tests[test_id]['kind'] == 'observation' and value['status'] == 'INCONCLUSIVE' and bool(value.get('evidence'))
+            terminal = False
+            if test_id == 'ethernet.status':
+                try:
+                    native = json.loads(value.get('evidence', {}).get('mts_report') or 'null')
+                    terminal = isinstance(native, dict) and bool(native.get('terminal_fault'))
+                except (ValueError, TypeError):
+                    pass
+            if terminal or value.get('stop_required') or (value['status'] != 'PASS' and not observed):
+                status = 'BLOCKED' if terminal or value.get('stop_required') else value['status']
+                record['stop_required'] = bool(terminal or value.get('stop_required'))
+                message = 'Automatic diagnostics stopped: ' + ('Ethernet reports a terminal fault.' if terminal else value.get('message', 'Check needs attention.'))
+                break
+        for step in record['steps']:
+            if step['state'] == 'not_run':
+                step['message'] = 'Skipped because the automatic sequence stopped.'
+        record.update(phase='completed', status=status, message=message,
+                      completed_at=diagnostics.timestamp(), total=len(AUTOMATIC_STEPS),
+                      completed=sum(step['state'] == 'completed' for step in record['steps']))
+        diagnostics.atomic_json(path, record)
+        try:
+            record['issue_report'] = self.export_support_report(automatic=record)
+        except (OSError, ValueError):
+            record['issue_report_error'] = 'Issue report could not be created. Use Create issue report in Reports.'
+        diagnostics.atomic_json(path, record)
+        self._automatic = record
+        return dict(record, results=results)
+
+    def _support_directory(self):
+        directory = self.results_dir / 'support-reports'
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if directory.resolve() != directory.absolute():
+            raise ValueError('Issue report directory is invalid.')
+        return directory
+
+    def _support_private_values(self):
+        values = []
+        private_keys = {'ssid', 'bssid', 'mac', 'address', 'ip', 'ipv4', 'ipv6', 'hostname',
+                        'username', 'serial', 'serial_number', 'uuid', 'fingerprint'}
+        def collect(value, depth=0):
+            if depth > 12:
+                return
+            if isinstance(value, dict):
+                for key, child in list(value.items())[:256]:
+                    if str(key).lower() in private_keys and isinstance(child, str) and child:
+                        values.append(child)
+                    else:
+                        collect(child, depth + 1)
+            elif isinstance(value, list):
+                for child in value[:256]:
+                    collect(child, depth + 1)
+        collect(self._network_snapshot); collect(self._ssh_snapshot)
+        hostname = self.runner.fs.text('/proc/sys/kernel/hostname')
+        if hostname and hostname.strip() != 'psx-diagnostics':
+            values.append(hostname.strip())
+        return values
+
+    def export_support_report(self, automatic=None):
+        if support_report is None:
+            raise ValueError('Issue report export is not installed in this image.')
+        kernel = ''
+        if self.runner.fs.fixture:
+            kernel = self.runner.fs.text('/var/log/dmesg') or ''
+        else:
+            try:
+                captured = self._cancellable_capture(['/usr/bin/dmesg', '--color=never'], timeout=5,
+                    capture_output=True, text=True, capture_head_tail=512 * 1024)
+                if captured.returncode == 0:
+                    raw = (captured.stdout or '').encode('utf-8')
+                    marker = b'\n[Kernel log shortened: middle omitted]\n'
+                    if len(raw) > 512 * 1024:
+                        raw = raw[:128 * 1024] + marker + raw[-(384 * 1024 - len(marker)):]
+                    kernel = raw.decode('utf-8', 'ignore')
+            except (OSError, ValueError, subprocess.SubprocessError):
+                pass
+        definitions = [*self.runner.catalogue['tests'], *EXTRA_TESTS,
+            *({'id': name, 'title': title, 'kind': kind, 'area': area} for name, title, kind, area in (
+                ('browser.capabilities', 'Browser capabilities', 'observation', 'Browser'),
+                ('browser.canvas2d', 'Browser canvas pixels', 'functional', 'Browser'),
+                ('browser.webgl', 'Browser WebGL pixels', 'functional', 'Browser'),
+                ('browser.animation', 'Browser frame pacing', 'observation', 'Browser'),
+                ('browser.video', 'Browser video playback', 'functional', 'Browser'),
+                ('browser.batch', 'Browser test sequence', 'observation', 'Browser'),
+                ('wayland.native', 'Native Wayland pixels', 'functional', 'Graphics'),
+                ('uvd.native720', '720p AVC reference decoding', 'functional', 'Video'),
+                ('uvd.native1080', '1080p AVC reference decoding', 'functional', 'Video'),
+                ('power.shutdown.request', 'Shutdown request', 'operator', 'Power'),
+                ('power.reboot-orbis.request', 'Reboot request', 'operator', 'Power'),
+                ('diagnostics.auto', 'Automatic diagnostics', 'observation', 'System')))]
+        catalogue = dict(self.runner.catalogue, tests=list({item['id']: item for item in definitions}.values()))
+        power = self.power_status()['shutdown']
+        startup = {
+            'ssh': {'available': not bool(self._ssh_setup_error),
+                    'message': self._ssh_setup_error or 'SSH setup is available; login requires enrolled access.'},
+            'power': {'available': bool(power.get('available')),
+                      'reason': power.get('reason', 'Power actions are available.')[:512],
+                      **({'guard_stage': power['guard_stage']} if power.get('guard_stage') else {})},
+        }
+        metadata = support_report.export_report(self._support_directory(), self.runner.identity(),
+            self.runner.inventory(), self.results()[:200], catalogue,
+            automatic=automatic or self.automatic_state(), kernel_log=kernel,
+            sensitive_values=self._support_private_values(), startup=startup)
+        if metadata.get('status') != 'READY':
+            raise ValueError('Issue report could not be created. Check Reports and available space.')
+        return dict(metadata, download_url='/api/support/reports/' + metadata['report_id'] + '.zip',
+                    kernel_log_available=bool(kernel), hardware_acceptance=False)
+
+    def read_support_report(self, report_id):
+        if not isinstance(report_id, str) or not re.fullmatch(r'[0-9a-f]{32}', report_id):
+            raise ValueError('Invalid issue report identity.')
+        directory = self.results_dir / 'support-reports'
+        if directory.resolve() != directory.absolute():
+            raise ValueError('Invalid issue report directory.')
+        name = 'diagnostix-report-' + report_id + '.zip'
+        fd = os.open(directory / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        with os.fdopen(fd, 'rb') as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or not 0 < before.st_size <= 4 * 1024**2:
+                raise ValueError('Issue report file is invalid.')
+            data = stream.read(4 * 1024**2 + 1)
+            after = os.fstat(stream.fileno())
+            if len(data) != before.st_size or (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
+                raise ValueError('Issue report changed while reading.')
+        return name, data
 
     def _power_intent_path(self, identity):
         boot = identity.get('boot_id', '')
@@ -544,6 +1058,9 @@ class Controller:
     def _cache_power_boot(self):
         """One startup read of trusted identity; power never waits for USB I/O."""
         self._power_boot = None
+        self._power_boot_error = None
+        self._power_status_cache = None
+        stage = 'identity'
         try:
             identity = self.runner.identity()
             release = identity.get('kernel_release')
@@ -554,24 +1071,34 @@ class Controller:
                     raise ValueError(message)
             require(identity.get('release_matches') and identity.get('manifest_available')
                     and str(uuid.UUID(identity.get('boot_id', ''))) == identity['boot_id'], 'Unverified boot')
+            stage = 'profile'
             manifest = diagnostics.read_json(self.runner.fs.root / self.runner.manifest_path.lstrip('/'))
             require(manifest.get('profile') in IMMEDIATE_POWER_PROFILES[release], 'Unmatched power profile')
+            stage = 'contract'
             adapter = self.runner.uvd_adapter()
             adapter.select_contract(manifest)
             validation = manifest.get('manifest_validation', {})
-            require(validation.get('embedded_root_contract_verified') is True
+            ram = manifest.get('profile') == 'ps4-baikal-diagnostix-ram-alpha1'
+            if ram:
+                stage = 'ram-proof'
+                require(ram_state is not None, 'RAM boot verifier is missing')
+                ram_state.validate(self.runner.fs.root, manifest, fixture=self.runner.fs.fixture)
+            stage = 'root-proof'
+            require((ram or validation.get('embedded_root_contract_verified') is True
                     and validation.get('observed_kernel_release') == release
-                    and validation.get('observed_media_initramfs_sha256') == manifest.get('initramfs_sha256')
+                    and validation.get('observed_media_initramfs_sha256') == manifest.get('initramfs_sha256'))
                     and manifest.get('required_boot_arguments') == adapter.POWEROFF_BOOT_ARGUMENTS,
                     'Unverified root/initramfs contract')
+            stage = 'kernel-gates'
             tokens = (self.runner.fs.text('/proc/cmdline') or '').split()
             for argument in adapter.POWEROFF_BOOT_ARGUMENTS:
                 key = argument.split('=')[0]
                 require([value for value in tokens if value.split('=')[0] == key] == [argument]
                         and self.runner.fs.text('/sys/module/amdgpu/parameters/' + key.split('.')[1]) in ('Y', '1'),
                         'Unmatched immutable power gate')
-            receipt = diagnostics.read_json(self.runner.fs.root / 'run/psx-media/psx-diagnostics/installed.json')
-            require(receipt.get('owner') == 'psx-diagnostics-usb-v1' and receipt.get('verified_readback') is True
+            stage = 'usb-receipt'
+            receipt = diagnostics.read_json(self.runner.fs.root / 'run/psx-media/psx-diagnostics/installed.json') if not ram else None
+            require(ram or receipt.get('owner') == 'psx-diagnostics-usb-v1' and receipt.get('verified_readback') is True
                     and receipt.get('profile') == manifest['profile'] and receipt.get('kernel_release') == release
                     and ('image_version' not in receipt or receipt['image_version'] == manifest['image_version'])
                     and all(re.fullmatch(r'[0-9a-f]{64}', str(manifest.get(key, '')))
@@ -579,9 +1106,16 @@ class Controller:
                         (('bzImage', 'kernel_sha256'), ('initramfs.cpio.gz', 'initramfs_sha256'),
                          ('psx-diagnostics/rootfs.ext4', 'rootfs_sha256'))), 'Unmatched verified USB receipt')
             self._power_boot = json.loads(json.dumps(identity))
+            stage = 'prior-request'
             self._restore_power_now()
         except (OSError, ValueError, TypeError, KeyError, ImportError):
-            pass
+            self._power_boot = None
+            self._power_boot_error = {
+                'guard_stage': stage,
+                'reason': 'Power unavailable: ' + POWER_BOOT_STAGES[stage] + ' (' + stage + ').',
+            }
+            if not self.runner.fs.fixture:
+                print(self._power_boot_error['reason'], file=sys.stderr)
 
     def _restore_power_now(self):
         try:
@@ -623,12 +1157,54 @@ class Controller:
                 self._workers.pop(process.pid, None)
         return unregister
 
-    def _cancellable_capture(self, argv, *, timeout, check=False, capture_output=True, text=False, env=None, input=None):
+    def _trace_runner_commands(self):
+        """Each test's helper programs, as they start and as they end."""
+        original = self.runner.command
+        def command(argv, timeout, env=None):
+            name = command_name(argv)
+            began = time.monotonic()
+            trace(f'command start: {name} limit={timeout}s')
+            try:
+                result = original(argv, timeout, env)
+            except BaseException as error:
+                trace_failure(f'command: {name}', error)
+                raise
+            trace(f'command end: {name} rc={result.returncode} timed_out={result.timed_out} seconds={time.monotonic() - began:.1f}')
+            return result
+        self.runner.command = command
+
+    def _cancellable_capture(self, argv, *, timeout, check=False, capture_output=True, text=False, env=None, input=None,
+                             capture_head_tail=None):
         """Tracked fixed tools, anonymous RAM output, and no secret input logs."""
+        name = command_name(argv)
+        # The benchmark supervisor polls this every two seconds.
+        noisy = name.startswith(('systemctl show', 'systemctl is-active', 'dmesg'))
+        began = time.monotonic()
+        if not noisy:
+            trace(f'tool start: {name} limit={timeout}s')
+        try:
+            response = self._capture(argv, timeout=timeout, check=check, capture_output=capture_output, text=text, env=env,
+                                     input=input, capture_head_tail=capture_head_tail)
+        except Exception as error:
+            trace_failure(f'tool: {name} seconds={time.monotonic() - began:.1f}', error)
+            raise
+        if not noisy:
+            why = ''
+            if response.returncode and name.startswith(('sshd', 'systemctl')):
+                # These tools report only fixed configuration errors here.
+                error_text = response.stderr.decode('utf-8', 'replace') if isinstance(response.stderr, bytes) else str(response.stderr)
+                why = ' stderr=' + error_text.strip()[:200]
+            trace(f'tool end: {name} rc={response.returncode} seconds={time.monotonic() - began:.1f}{why}')
+        return response
+
+    def _capture(self, argv, *, timeout, check=False, capture_output=True, text=False, env=None, input=None,
+                 capture_head_tail=None):
         if self.runner.fs.fixture:
             raise ValueError('Fixture roots never execute controller tools.')
         if self.jobs.stopping.is_set():
             raise ValueError('Diagnostic command cancelled by the confirmed power request')
+        if capture_head_tail is not None and (type(capture_head_tail) is not int or not 128 <= capture_head_tail <= LIMIT):
+            raise ValueError('Invalid output preview bound')
         data = input.encode() if isinstance(input, str) else input
         if data is not None and (not isinstance(data, bytes) or len(data) > LIMIT):
             raise ValueError('Private tool input exceeds its bound')
@@ -642,6 +1218,19 @@ class Controller:
                 Path('/proc/self/fd') / str(output.fileno()), Path('/proc/self/fd') / str(error.fileno()), environment,
                 process_started=self._register_worker, cancelled=self.jobs.stopping.is_set,
                 launch_guard=self._launch_guard, stdin=incoming if data is not None else None, preview_limit=LIMIT)
+            captured_stdout = result.stdout
+            if capture_head_tail is not None:
+                size = os.fstat(output.fileno()).st_size
+                output.seek(0)
+                if size <= capture_head_tail:
+                    preview = output.read(capture_head_tail)
+                else:
+                    marker = b'\n[Kernel log shortened: middle omitted]\n'
+                    head = capture_head_tail // 4
+                    preview = output.read(head)
+                    output.seek(-(capture_head_tail - head - len(marker)), os.SEEK_END)
+                    preview += marker + output.read(capture_head_tail - head - len(marker))
+                captured_stdout = preview.decode('utf-8', 'ignore')
         if result.interrupted:
             raise ValueError('Diagnostic command cancelled by the confirmed power request')
         if result.timed_out:
@@ -649,7 +1238,7 @@ class Controller:
         if result.output_limited:
             raise ValueError('Controller tool output exceeded its bound')
         response = subprocess.CompletedProcess(argv, result.returncode,
-            result.stdout if text else result.stdout.encode(), result.stderr if text else result.stderr.encode())
+            captured_stdout if text else captured_stdout.encode(), result.stderr if text else result.stderr.encode())
         if check:
             response.check_returncode()
         return response
@@ -848,6 +1437,8 @@ class Controller:
 
     def _power_guard(self, operation, *, within_job=False, ignore_run=None):
         if operation not in POWER_OPERATIONS: raise ValueError('Choose Shutdown or Reboot to Orbis.')
+        if self._power_boot_error is not None:
+            raise ValueError(self._power_boot_error['reason'])
         auxiliary = self.runner.fs.root / 'sys/module/psx_sbram'
         if auxiliary.exists() or auxiliary.is_symlink():
             raise ValueError('Auxiliary-memory experiment active; use its recovery procedure.')
@@ -928,6 +1519,9 @@ class Controller:
     def power_status(self, identity=None):
         if self._power_boot is not None:
             return self._power_now_status()
+        if self._power_boot_error is not None:
+            return {operation: dict(self._power_boot_error, available=False, title=title)
+                    for operation, title in POWER_OPERATIONS.items()}
         # Both operations have the same eligibility policy. Inspect saved
         # history only after an action/identity change or the short cache TTL.
         # Confirmation and dispatch always reread all guards independently.
@@ -1339,7 +1933,7 @@ class Controller:
             record.update(outcome)
         self._power_status_cache = None
 
-    def core_prerequisites(self, selected_id, allow_run=True, cpu_only=False):
+    def core_prerequisites(self, selected_id, allow_run=True, cpu_only=False, allow_missing=False):
         """Core checks are a functional baseline, never hardware qualification.
 
         Run missing checks only within an already-saved selected job. A browser
@@ -1389,6 +1983,8 @@ class Controller:
                                {"prerequisite": test_id, "run_id": latest.get("run_id"), "status": latest.get("status")})
             matching = next((record for record in prior if all(record.get("identity", {}).get(key) == identity[key] for key in pins)), None)
             if matching is None:
+                if allow_missing and not allow_run:
+                    continue
                 if not allow_run:
                     return blocked("Complete the CPU and RAM core checks before starting browser tests.", {"prerequisite": test_id})
                 if not self.jobs.active:
@@ -1462,6 +2058,162 @@ class Controller:
             diagnostics.atomic_json(directory / "result.json", record)
             return record
 
+    def _hottest_celsius(self):
+        hottest = None
+        patterns = ((self.runner.fs.local('/sys/class/hwmon'), '*/temp*_input'),
+                    (self.runner.fs.local('/sys/class/thermal'), 'thermal_zone*/temp'))
+        for base, pattern in patterns:
+            for path in base.glob(pattern):
+                try:
+                    value = int(path.read_text().strip())
+                except (OSError, ValueError):
+                    continue
+                if 1000 <= value <= 125000:
+                    hottest = max(hottest or 0, value // 1000)
+        return hottest
+
+    def _benchmark_session(self, benchmark=BENCHMARKS['gpu.benchmark']):
+        """Run the fixed display session and report how it ended."""
+        if self.runner.fs.fixture:
+            raise ValueError('Fixture roots never launch display sessions')
+        helper = self.runner.fs.local('/usr/lib/psx-diagnostics/launch-graphics')
+        unit = 'psx-diagnostics-graphics@' + benchmark['mode'] + '.service'
+        self._cancellable_capture([str(helper), benchmark['mode']], check=True, timeout=15, capture_output=True)
+        watch = BenchmarkWatch(self, benchmark)
+        watch.start()
+        started, peak, ended, seen = time.monotonic(), None, '', ''
+        try:
+            while True:
+                state = self._cancellable_capture(['/usr/bin/systemctl', 'show', '--property=ActiveState', '--value', unit],
+                                                  timeout=5, capture_output=True, text=True).stdout.strip()
+                if state != seen:
+                    trace(f'unit {benchmark["mode"]} is {state} after {time.monotonic() - started:.0f}s', 'bench')
+                    seen = state
+                if state not in ('active', 'activating', 'reloading', 'deactivating'):
+                    break
+                hottest = self._hottest_celsius()
+                if hottest is not None:
+                    peak = max(peak or 0, hottest)
+                if peak is not None and peak >= BENCHMARK_STOP_CELSIUS:
+                    ended = 'hot'
+                elif time.monotonic() - started >= benchmark['deadline']:
+                    ended = 'deadline'
+                if ended:
+                    trace(f'stopping the session: {ended}', 'bench')
+                    self._cancellable_capture(['/usr/bin/systemctl', 'stop', unit], check=True, timeout=15, capture_output=True)
+                    break
+                time.sleep(2)
+        finally:
+            watch.stop(ended)
+        return {'ended': ended, 'peak_celsius': peak, 'seconds': round(time.monotonic() - started)}
+
+    def _benchmark_output(self, name):
+        """A bounded read of a file the unprivileged session wrote."""
+        try:
+            # Not fs.local(): that resolves links, and a planted one must simply fail to open.
+            fd = os.open(self.runner.fs.root / BENCHMARK_RESULTS.lstrip('/') / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError:
+            return ''
+        with os.fdopen(fd, 'rb') as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                return ''
+            return stream.read(1024 * 1024).decode('utf-8', 'replace')
+
+    def _benchmark_status(self, name):
+        text = self._benchmark_output(name + '.status').strip()
+        return int(text) if re.fullmatch('[0-9]{1,3}', text) else None
+
+    def _uptime(self):
+        try:
+            return float(self.runner.fs.local('/proc/uptime').read_text().split()[0])
+        except (OSError, ValueError, IndexError):
+            return 0.0
+
+    def _gpu_faults_since(self, uptime):
+        """Kernel GPU complaints after UPTIME, as a count."""
+        if self.runner.fs.fixture:
+            text = self.runner.fs.text('/var/log/dmesg') or ''
+        else:
+            captured = self._cancellable_capture(['/usr/bin/dmesg', '--color=never'], timeout=5,
+                                                 capture_output=True, text=True, capture_head_tail=512 * 1024)
+            text = captured.stdout or ''
+        count = 0
+        for line in text.splitlines():
+            stamped = re.match(r'\[\s*([0-9]+\.[0-9]+)\]\s*(.*)', line)
+            if stamped and float(stamped.group(1)) >= uptime and re.search('amdgpu|radeon|drm', stamped.group(2)) and GPU_FAULT.search(stamped.group(2)):
+                count += 1
+        return count
+
+    def benchmark_test(self, retry_reason="", test_id="gpu.benchmark"):
+        benchmark = BENCHMARKS[test_id]
+        identity = self.ready()
+        blocked = self.core_prerequisites(test_id)
+        if blocked: return blocked
+        current = [r for r in self.results() if r.get("identity", {}).get("boot_id") == identity["boot_id"] and not r.get("prerequisite_blocked")]
+        previous = [r for r in current if r.get("test_id") == test_id]
+        if previous and previous[0].get("status") != "PASS" and not retry_reason.strip():
+            raise ValueError("Describe the changed evidence before retrying this test.")
+        if not os.access(self.runner.fs.local('/run/psx-bench/bin/' + benchmark['tool']), os.X_OK):
+            return {"status": "NOT_RUN", "message": "This build has no benchmark tools.", "hardware_acceptance": False}
+        needed_id, name = benchmark['needs']
+        latest = next((r for r in current if r.get("test_id") == needed_id), None)
+        if not latest or latest.get("status") != "PASS":
+            return {"status": "BLOCKED", "prerequisite_blocked": True, "hardware_acceptance": False,
+                    "message": name + " has to pass before the " + benchmark['label'] + "."}
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:12]
+        directory = self.results_dir / run_id
+        with self.runner.lock():
+            directory.mkdir(mode=0o700)
+            record = {"run_id": run_id, "test_id": test_id, "phase": "running", "status": "INCONCLUSIVE",
+                      "identity": identity, "started_at": diagnostics.timestamp(), "hardware_acceptance": False,
+                      "message": benchmark['label'] + " started", "result_directory": str(directory)}
+            diagnostics.atomic_json(directory / "result.json", record)
+            since = self._uptime()
+            try:
+                session = self._benchmark_session(benchmark)
+                faults = self._gpu_faults_since(since)
+                trace(f'{benchmark["tool"]} session returned ended={session.get("ended")!r} seconds={session.get("seconds")} faults={faults}', 'bench')
+            except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
+                trace_failure('benchmark supervisor', error)
+                record.update(phase="completed", completed_at=diagnostics.timestamp(), status="INCONCLUSIVE", stop_required=True,
+                              message="The " + benchmark['label'] + " could not be supervised: " + (safe_error(error) or type(error).__name__))
+                diagnostics.atomic_json(directory / "result.json", record)
+                return record
+            record.update(self._judge_benchmark(session, faults, benchmark), phase="completed", completed_at=diagnostics.timestamp())
+            trace(f'{benchmark["tool"]} verdict {record["status"]}: {record["message"]}', 'bench')
+            diagnostics.atomic_json(directory / "result.json", record)
+            return record
+
+    def _judge_benchmark(self, session, faults, benchmark=BENCHMARKS['gpu.benchmark']):
+        tool = benchmark['tool']
+        parsed = parse_benchmark(self._benchmark_output(tool + '.log'), tool)
+        status = self._benchmark_status(tool)
+        crashed, refused, ended = status is not None and status > 1, status == 1, session.get('ended', '')
+        evidence = {'tool': tool, 'score': parsed['score'], 'scenes': parsed['scenes'],
+                    'renderer': parsed.get('renderer') or parsed.get('device', ''), 'gl_version': parsed.get('version', ''),
+                    'surface': parsed.get('surface', ''), 'scene_seconds': BENCHMARK_SCENE_SECONDS,
+                    'duration_seconds': session.get('seconds'), 'peak_celsius': session.get('peak_celsius'),
+                    'exit_code': status, 'gpu_fault_lines': faults}
+        if not (ended or faults or crashed or refused) and parsed['score'] and parsed['score'] > 0:
+            return {'status': 'PASS', 'stop_required': False, 'evidence': evidence, 'message': tool + ' ' + str(parsed['score'])}
+        if ended == 'hot':
+            message = 'Stopped at ' + str(session.get('peak_celsius')) + ' °C to protect the console.'
+        elif ended == 'deadline':
+            message = 'The benchmark did not finish in time.'
+        elif faults:
+            message = 'The graphics driver reported a fault during the benchmark.'
+        elif crashed:
+            message = tool + ' stopped unexpectedly (exit code ' + str(status) + ').'
+        elif refused:
+            message = tool + ' could not run; see the report.'
+        elif status is None:
+            message = 'The display session did not start the benchmark.'
+        else:
+            message = 'The benchmark finished without a score.'
+        # Only signs that the GPU or its cooling may be in trouble end the whole run.
+        danger = bool(ended or faults or crashed)
+        return {'status': 'INCONCLUSIVE' if danger else 'FAIL', 'stop_required': danger, 'message': message, 'evidence': evidence}
+
     def _wayland_states(self):
         result = self.runner.command(['/usr/bin/systemctl', 'show', '--property=Id,LoadState,ActiveState',
                                       *WAYLAND_UNITS], 10)
@@ -1479,6 +2231,25 @@ class Controller:
         if set(records) != set(WAYLAND_UNITS):
             raise ValueError('Incomplete graphics service inventory')
         return records
+
+    def _declare_uvd_session(self, identity):
+        """Give the decoder the same-boot session record it will not start without.
+
+        A developer writes one by hand for a UART run, and that record is kept.
+        The public RAM image has no developer and usually no serial cable, so it
+        writes its own. That record names no real UART session and the decoder's
+        evidence stays marked unverified, so it cannot support an acceptance claim.
+        The one-attempt-per-boot marker and every other decoder check still apply.
+        """
+        manifest = diagnostics.read_json(self.runner.fs.root / self.runner.manifest_path.lstrip('/'))
+        path = self.runner.fs.local(UVD_SESSION)
+        if manifest.get('profile') != RAM_PROFILE or os.path.lexists(path):
+            return
+        trace('uvd: declaring an automatic run with no UART session')
+        diagnostics.atomic_json(path, {
+            'schema_version': 1, 'boot_id': identity['boot_id'], 'state': 'active',
+            'experiment_id': 'EXP-' + datetime.now(timezone.utc).strftime('%Y%m%d') + '-000',
+            'session_id': 'diagnostix-automatic-no-uart'})
 
     def uvd_scenario(self, scenario):
         """One selected terminal scenario, inside a saved job and shared intent."""
@@ -1514,6 +2285,7 @@ class Controller:
                     if not path.is_file():
                         value = {'status': 'BLOCKED', 'message': 'The fixed UVD scenario module is not installed; no decoder was opened.'}
                     else:
+                        self._declare_uvd_session(identity)
                         spec = importlib.util.spec_from_file_location('psx_uvd_terminal_suite', path)
                         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
                         invoked = True
@@ -1678,7 +2450,7 @@ class Controller:
             prepare = Path('/run/psx-frontend/prepare-chromium-provider')
             if not prepare.is_file():
                 prepare = Path('/usr/lib/psx-diagnostics/prepare-chromium-provider')
-            self._cancellable_capture(['/usr/bin/python3', str(prepare)], check=True, timeout=60, capture_output=True)
+            self._cancellable_capture(['/usr/bin/python3', str(prepare)], check=True, timeout=170, capture_output=True)
         nonce = secrets.token_urlsafe(24) if automatic else None
         if automatic:
             batch_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex[:12]
@@ -1819,6 +2591,10 @@ class Controller:
                 break
             records.append(item)
         statuses = [item.get('status') for item in records]
+        trace('browser steps: ' + ' '.join(f'{item.get("test_id")}={item.get("status")}' for item in records))
+        for item in records:
+            if item.get('status') != 'PASS':
+                trace(f'browser step {item.get("test_id")}: {str(item.get("message"))[:200]}')
         status = 'FAIL' if 'FAIL' in statuses else 'PASS' if not error and len(statuses) == len(BROWSER_STEPS) and all(s == 'PASS' for s in statuses) else 'INCONCLUSIVE'
         record.update(phase='completed', completed_at=diagnostics.timestamp(), status=status,
                       stop_required=bool(error or len(records) != len(BROWSER_STEPS) or 'FAIL' in statuses),
@@ -1885,6 +2661,10 @@ class Controller:
             return self._finish_browser_batch(batch, report['error'])
 
     def request(self, action, params=None):
+        if isinstance(action, str) and action not in QUIET_ACTIONS:
+            # Named fields only: other parameters can hold a Wi-Fi password.
+            named = {key: params[key] for key in TRACED_PARAMETERS if isinstance(params, dict) and isinstance(params.get(key), str)}
+            trace(f'request: {action} {named}')
         if isinstance(action, str) and action in ("state", "job.get", "results.list", "power.execute"):
             return self._request(action, params)
         with self.action_guard:
@@ -1896,6 +2676,7 @@ class Controller:
             raise ValueError("Expected a named action and object parameters")
         allowed = {"state": set(), "results.list": set(), "job.get": {"id"}, "quick": {"retry_reason"},
                    "test.run": {"test_id", "parameters", "retry_reason"}, "network.scan": set(),
+                   "diagnostics.auto": set(), "support.export": set(),
                    "network.wifi.connect": {"ssid", "password"}, "network.ethernet.connect": set(),
                    "network.wifi.disconnect": set(), "network.ethernet.disconnect": set(),
                    "graphics.launch": {"app"}, "graphics.wayland": set(), "uvd.scenario": {"scenario"},
@@ -1923,6 +2704,10 @@ class Controller:
                 return {'login': 'root', 'setup_available': False, 'password_enabled': False,
                         'key_fingerprints': [], 'github_available': False, 'message': self._ssh_setup_error}
             return self.ssh_access().info()
+        if action == 'support.export':
+            # A stopped/failed test must not prevent exporting its evidence.
+            # Jobs still excludes concurrent work and confirmed power dispatch.
+            return self.jobs.submit('Create issue report', self.export_support_report)
         if action == 'power.execute':
             operation = params.get('operation')
             if (not isinstance(operation, str) or operation not in POWER_OPERATIONS
@@ -1934,6 +2719,8 @@ class Controller:
             return self.jobs.submit(POWER_OPERATIONS[operation], lambda: self.prepare_power(operation),
                                     after_save=self.dispatch_power)
         self.ready()
+        if action == 'diagnostics.auto':
+            return self.jobs.submit('Automatic diagnostics', self.automatic_diagnostics)
         if action.startswith('ssh.'):
             if self.jobs.active:
                 raise BusyError('Wait for the current diagnostic action before changing SSH access')
@@ -1966,6 +2753,8 @@ class Controller:
             if test_id in {t["id"] for t in EXTRA_TESTS}:
                 if parameters:
                     raise ValueError("Graphics reference tests have no parameters")
+                if test_id in BENCHMARKS:
+                    return self.jobs.submit(test_id, lambda: self.benchmark_test(retry, test_id))
                 return self.jobs.submit(test_id, lambda: self.external_test(test_id, retry))
             if test_id == "ethernet.connect":
                 return self.jobs.submit("Connect Ethernet", self.network.ethernet_connect)
@@ -2142,6 +2931,29 @@ class LabHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlsplit(self.path).path
+        match = re.fullmatch(r'/api/support/reports/([0-9a-f]{32})\.zip', path)
+        if match:
+            try:
+                name, payload = self.server.controller.read_support_report(match[1])
+            except (OSError, ValueError):
+                return self.json_reply(404, {'error': 'Issue report not found'})
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/zip')
+            self.send_header('Content-Disposition', 'attachment; filename="' + name + '"')
+            self.send_header('Content-Length', str(len(payload)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.end_headers(); self.wfile.write(payload)
+            return
+        match = re.fullmatch(r'/api/support/jobs/([0-9a-f]{32})', path)
+        if match:
+            try:
+                job = self.server.controller.jobs.get(match[1])
+                if job.get('title') != 'Create issue report':
+                    raise ValueError('Unknown issue report job')
+                return self.json_reply(200, job)
+            except (ValueError, KeyError):
+                return self.json_reply(404, {'error': 'Issue report job not found'})
         if path == "/api/session":
             local = self.client_address[0] in ('127.0.0.1', '::1')
             return self.json_reply(200, self.server.controller.browser_session(self.headers.get('User-Agent', ''), local=local))
@@ -2190,6 +3002,10 @@ class LabHandler(BaseHTTPRequestHandler):
                 raise ValueError("Invalid result body")
             report = decode(self.rfile.read(length))
             path = urlsplit(self.path).path
+            if path == '/api/support/export':
+                if report != {}:
+                    raise ValueError('Issue report export takes no parameters.')
+                return self.json_reply(202, self.server.controller.request('support.export', {}))
             if path == "/api/browser/start":
                 return self.json_reply(201, self.server.controller.browser_start(
                     report, self.headers.get('User-Agent', ''), self.client_address[0] in ('127.0.0.1', '::1')))
@@ -2204,6 +3020,33 @@ class LabHandler(BaseHTTPRequestHandler):
             return self.json_reply(400, {"error": safe_error(error)})
 
 
+def start_tracing():
+    global _tracing
+    _tracing = True
+    def report(kind, kind_type, value, frames):
+        rows = traceback.extract_tb(frames)
+        place = f'{Path(rows[-1].filename).name}:{rows[-1].lineno}' if rows else 'unknown'
+        trace(f'uncaught {kind_type.__name__} in {kind} at {place}')
+    previous = sys.excepthook
+    def on_main(kind_type, value, frames):
+        report('main thread', kind_type, value, frames)
+        previous(kind_type, value, frames)
+    sys.excepthook = on_main
+    earlier = threading.excepthook
+    def on_thread(arguments):
+        report(arguments.thread.name if arguments.thread else 'thread', arguments.exc_type, arguments.exc_value, arguments.exc_traceback)
+        earlier(arguments)
+    threading.excepthook = on_thread
+
+
+def heartbeat(controller):
+    """Proves the controller itself is alive while a test is stuck."""
+    while True:
+        time.sleep(20)
+        record = controller.jobs.records.get(controller.jobs.active) if controller.jobs.active else None
+        trace('alive, running: ' + (str(record.get('title')) if record else 'nothing'))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--socket", type=Path, default=Path("/run/psx-diagnostics/control.sock"))
@@ -2213,9 +3056,15 @@ def main():
     parser.add_argument("--bind", choices=("127.0.0.1",), default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
+    if args.root_prefix == '/':
+        start_tracing()
+    trace('controller starting')
     controller = Controller(args.results_dir, args.root_prefix, args.manifest)
+    trace('recovering earlier browser runs')
     controller.recover_browser_batches()
+    trace('setting up SSH')
     controller.initialize_ssh()
+    trace('starting the monitor')
     controller.start_monitor()
     args.socket.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if args.socket.exists() or args.socket.is_symlink():
@@ -2228,6 +3077,8 @@ def main():
     http = ThreadingHTTPServer((args.bind, args.port), LabHandler)
     http.controller = controller
     threading.Thread(target=http.serve_forever, daemon=True, name="browser-lab").start()
+    threading.Thread(target=heartbeat, args=(controller,), daemon=True, name="trace-heartbeat").start()
+    trace('controller ready')
     try:
         ipc.serve_forever()
     finally:

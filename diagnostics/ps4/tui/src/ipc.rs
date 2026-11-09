@@ -43,7 +43,7 @@ pub fn decode(bytes: &[u8]) -> Result<Value, String> {
     }
 }
 
-fn exchange(socket: &Path, request: &Request) -> Result<Value, String> {
+pub fn exchange(socket: &Path, request: &Request) -> Result<Value, String> {
     let mut stream = UnixStream::connect(socket)
         .map_err(|_| "Diagnostic controller is not available yet".to_owned())?;
     stream

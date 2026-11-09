@@ -3,6 +3,7 @@
 """Verify and attach one fixed optional browser pack. Never format or write USB."""
 import hashlib
 import json
+import lzma
 import os
 from pathlib import Path
 import re
@@ -27,6 +28,14 @@ EXPECTED = {
     'mesa_manifest_sha256': '687af5a366d4bba5af1f72cf5b1a57c4e09d1cfef58257a898ee34da2c7e3964',
 }
 LAUNCH_CONFIG = {'schema_version': 1, 'provider_manifest_sha256': EXPECTED['provider_manifest_sha256']}
+# The RAM image carries its own compressed copy, pinned at build time.
+PACK = Path('/run/psx-chromium-pack')
+PACK_IMAGE = PACK / 'chromium.ext4.xz'
+PIN_FILE = PACK / 'pin.tsv'
+IMAGE_DIR = Path('/run/psx-chromium-image')
+INFLATED = IMAGE_DIR / 'chromium.ext4'
+EMBEDDED_SECONDS = 150
+BOOT_SET = Path('/etc/psx-diagnostics/boot-set.json')
 
 
 def require(condition, message):
@@ -104,30 +113,32 @@ def digest_fd(descriptor, deadline):
         value.update(chunk)
 
 
-def verify_mount(record, image_info):
+def verify_mount(record, image_info, expected_backing=None, expected_bytes=None):
+    expected_backing = expected_backing or PACKS / EXPECTED['image']
+    expected_bytes = expected_bytes or EXPECTED['image_bytes']
     require(record is not None and record['fs'] == 'ext4' and record['root'] == '/'
             and {'ro', 'nosuid', 'nodev'} <= record['options'] and 'noexec' not in record['options']
             and re.fullmatch(r'/dev/loop[0-9]+', record['source']) is not None,
             'Existing provider mount is not a separate read-only executable loop filesystem')
     sysfs = Path('/sys/dev/block') / record['device']
     backing = Path((sysfs / 'loop/backing_file').read_text().strip())
-    require(backing == PACKS / EXPECTED['image'], 'Provider loop backing path differs')
+    require(backing == expected_backing, 'Provider loop backing path differs')
     observed = backing.stat()
     require((observed.st_dev, observed.st_ino, observed.st_size) ==
             (image_info.st_dev, image_info.st_ino, image_info.st_size), 'Provider loop backing identity differs')
     require((sysfs / 'ro').read_text().strip() == '1'
             and (sysfs / 'loop/offset').read_text().strip() == '0'
-            and int((sysfs / 'loop/sizelimit').read_text()) in (0, EXPECTED['image_bytes']),
+            and int((sysfs / 'loop/sizelimit').read_text()) in (0, expected_bytes),
             'Provider loop is writable, offset or truncated')
 
 
-def atomic_config():
+def atomic_config(value=LAUNCH_CONFIG):
     safe_path(CONFIG.parent)
     descriptor, temporary = tempfile.mkstemp(prefix='.chromium-provider-', dir=CONFIG.parent)
     try:
         with os.fdopen(descriptor, 'w') as stream:
             os.fchmod(stream.fileno(), 0o644)
-            json.dump(LAUNCH_CONFIG, stream)
+            json.dump(value, stream)
             stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
         os.replace(temporary, CONFIG)
         parent = os.open(CONFIG.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -145,8 +156,107 @@ def run(argv, **kwargs):
                           check=True, timeout=10, **kwargs)
 
 
+def embedded_pin():
+    fields = read_file(PIN_FILE).decode().split()
+    require(len(fields) == 5 and all(re.fullmatch('[0-9a-f]{64}', fields[index]) for index in (0, 2, 4))
+            and fields[1].isdecimal() and fields[3].isdecimal(), 'Embedded provider pin is malformed')
+    return {'pack_sha256': fields[0], 'pack_bytes': int(fields[1]), 'image_sha256': fields[2],
+            'image_bytes': int(fields[3]), 'manifest_sha256': fields[4]}
+
+
+def expand(descriptor, target, pin, deadline):
+    """Write the image out of its compressed copy and check every byte of it."""
+    decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ, memlimit=256 << 20)
+    value, written = hashlib.sha256(), 0
+    with open(target, 'xb') as output:
+        while not decoder.eof:
+            require(time.monotonic() < deadline, 'Provider expansion exceeded its time limit')
+            chunk = os.read(descriptor, 1024*1024)
+            require(chunk, 'Compressed provider ended early')
+            data = decoder.decompress(chunk)
+            written += len(data)
+            require(written <= pin['image_bytes'], 'Expanded provider exceeds its size')
+            value.update(data)
+            output.write(data)
+    require(written == pin['image_bytes'] and value.hexdigest() == pin['image_sha256'], 'Expanded provider differs from its pin')
+
+
+def inflate(pin, deadline):
+    safe_path(PACK_IMAGE)
+    descriptor = os.open(PACK_IMAGE, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022
+                and info.st_size == pin['pack_bytes'], 'Compressed provider is not the pinned root-owned file')
+        require(digest_fd(descriptor, deadline) == pin['pack_sha256'], 'Compressed provider SHA256 differs')
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        IMAGE_DIR.mkdir(mode=0o700, exist_ok=True)
+        run(['/usr/bin/mount', '-t', 'tmpfs', '-o', f"mode=0700,nosuid,nodev,noexec,size={pin['image_bytes'] + (1 << 20)}",
+             'tmpfs', str(IMAGE_DIR)])
+        try:
+            expand(descriptor, INFLATED, pin, deadline)
+            INFLATED.chmod(0o400)
+            run(['/usr/bin/mount', '-o', 'remount,ro', str(IMAGE_DIR)])
+        except Exception:
+            run(['/usr/bin/umount', str(IMAGE_DIR)])
+            raise
+    finally:
+        os.close(descriptor)
+
+
+def prepare_embedded():
+    deadline = time.monotonic() + EMBEDDED_SECONDS
+    pin = embedded_pin()
+    boot = read_json(BOOT_SET)
+    launch = {'schema_version': 1, 'provider_manifest_sha256': pin['manifest_sha256'],
+              'mesa_manifest_sha256': boot.get('mesa_manifest_sha256')}
+    records = mounts()
+    current = exact_mount(records, TARGET)
+    if exact_mount(records, IMAGE_DIR) is None:
+        inflate(pin, deadline)
+    safe_path(INFLATED)
+    descriptor = os.open(INFLATED, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    attached = False
+    try:
+        info = os.fstat(descriptor)
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o077
+                and info.st_size == pin['image_bytes'], 'Expanded provider is not the pinned private file')
+        if current is not None:
+            verify_mount(current, info, INFLATED, pin['image_bytes'])
+            require(CONFIG.exists() and read_json(CONFIG) == launch, 'Mounted provider has no matching root configuration')
+        else:
+            safe_path(TARGET)
+            TARGET.mkdir(mode=0o755, exist_ok=True)
+            require(TARGET.stat().st_uid == 0 and not any(TARGET.iterdir()), 'Provider mountpoint must be empty and root-owned')
+            run(['/usr/bin/mount', '-t', 'ext4', '-o', 'loop,ro,nosuid,nodev,exec,noload',
+                 '/proc/self/fd/' + str(descriptor), str(TARGET)], pass_fds=(descriptor,))
+            attached = True
+            verify_mount(exact_mount(mounts(), TARGET), info, INFLATED, pin['image_bytes'])
+        require(not any(item['target'].startswith(str(TARGET) + '/') for item in mounts()), 'Provider has unexpected nested mounts')
+        embedded_bytes = read_file(TARGET / 'PROVIDER.json')
+        require(hashlib.sha256(embedded_bytes).hexdigest() == pin['manifest_sha256'], 'Embedded provider manifest SHA256 differs')
+        provider = json.loads(embedded_bytes)
+        require(provider.get('kernel_release') == os.uname().release
+                and provider.get('base_rootfs_sha256') == boot.get('rootfs_sha256')
+                and provider.get('mesa_manifest_sha256') == boot.get('mesa_manifest_sha256')
+                and provider.get('hardware_acceptance') is False, 'Embedded provider does not match this boot')
+        if attached:
+            atomic_config(launch)
+        print(json.dumps({'prepared': True, 'reused': not attached, 'mountpoint': str(TARGET),
+                          'provider_id': provider['provider_id'], 'image_sha256': pin['image_sha256'],
+                          'hardware_acceptance': False}))
+    except Exception:
+        if attached:
+            run(['/usr/bin/umount', str(TARGET)])
+        raise
+    finally:
+        os.close(descriptor)
+
+
 def main():
     require(len(sys.argv) == 1 and os.geteuid() == 0, 'Expected root prepare-chromium-provider with no arguments')
+    if PIN_FILE.exists():
+        return prepare_embedded()
     require(os.uname().release == EXPECTED['kernel_release'], 'Chromium provider requires its selected diagnostic kernel')
     deadline = time.monotonic() + 40
     records = mounts()

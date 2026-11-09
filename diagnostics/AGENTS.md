@@ -27,7 +27,12 @@ manifests rather than depending on a private archive or another checkout.
 Preserve the 1 GiB core boot-set cap. Optional provider images have explicit
 separate budgets and launch only on operator request. Never silently move an
 optional image into the core cap, start a compositor at boot or label a host
-dependency check as hardware acceptance. The current frontend bundle is a
+dependency check as hardware acceptance. Choosing **Automatic test** in the
+launcher is the operator request for that run's browser test and 3D benchmark
+(owner decision, 2026-11-09); the compositor still starts only after the CPU,
+memory and graphics tests have passed. The DiagnostiX RAM image carries
+Chromium in place of Firefox, inside its boot set (owner decision, 2026-11-10),
+expanded into RAM only when the browser test runs. The current frontend bundle is a
 fixed allowlist with hash, size, mode, root-image and kernel guards; expand it
 only with matching init/refresh/builder tests.
 

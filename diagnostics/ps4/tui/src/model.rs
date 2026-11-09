@@ -80,7 +80,11 @@ pub enum ActionKind {
     Wifi(String),
     Https,
     Continue,
+    ModeChoice,
+    AutomaticSummary,
+    FullTest,
     Information(Value),
+    Test(Value),
     Hardware(crate::hardware::Section),
     Qualification,
     Credits,
@@ -230,22 +234,85 @@ pub fn ip(state: &Value) -> String {
     String::new()
 }
 
+#[allow(dead_code)]
 pub fn connected(state: &Value) -> bool {
     !ip(state).is_empty()
 }
 
 pub fn status_label(status: &str) -> &'static str {
     match status {
+        "READY" => "Report ready",
+        "ERROR" => "Report error",
         "PASS" => "Passed",
         "FAIL" => "Failed",
         "DEGRADED" => "Limited",
         "UNSUPPORTED" => "Unavailable",
         "DEFERRED" => "Deferred",
         "BLOCKED" => "Needs setup",
-        "INCONCLUSIVE" => "Observed",
+        "INCONCLUSIVE" => "Inconclusive",
         "running" | "queued" => "Running",
         _ => "Not run",
     }
+}
+
+pub const AUTOMATIC_STEPS: [(&str, &str); 6] = [
+    ("inventory.readonly", "Hardware inventory"),
+    ("cpu.compute", "CPU computation · 2 seconds"),
+    ("memory.pattern", "Memory pattern · 32 MiB"),
+    ("ethernet.status", "Ethernet status"),
+    ("audio.info", "Audio inventory"),
+    ("storage.inventory", "Storage inventory"),
+];
+
+// READY describes the local archive, never a hardware test result.
+pub struct IssueReport {
+    pub status: String,
+    pub message: String,
+    pub report_id: String,
+    pub filename: String,
+    pub path: String,
+    pub sha256: String,
+    pub bytes: u64,
+    pub download_url: String,
+}
+impl IssueReport {
+    pub fn from_value(value: &Value) -> Option<Self> {
+        if value.get("report_id").is_none()
+            && value.get("download_url").is_none()
+            && value.get("filename").is_none()
+        {
+            return None;
+        }
+        Some(Self {
+            status: at(value, "/status"),
+            message: at(value, "/message"),
+            report_id: at(value, "/report_id"),
+            filename: at(value, "/filename"),
+            path: at(value, "/path"),
+            sha256: at(value, "/sha256"),
+            bytes: value.get("bytes").and_then(Value::as_u64).unwrap_or(0),
+            download_url: at(value, "/download_url"),
+        })
+    }
+}
+
+pub fn automatic_progress(job: &Value) -> Option<Value> {
+    if job.get("step_current").is_some() {
+        return Some(job.clone());
+    }
+    for key in ["output", "events"] {
+        for event in array(job, &format!("/{key}")).iter().rev() {
+            let event = if let Some(line) = event.as_str() {
+                serde_json::from_str::<Value>(line).ok()
+            } else {
+                Some(event.clone())
+            };
+            if let Some(event) = event.filter(|event| event.get("step_current").is_some()) {
+                return Some(event);
+            }
+        }
+    }
+    None
 }
 
 pub const REPORT_GROUPS: [&str; 10] = [
@@ -343,35 +410,208 @@ fn report_name(report: &Value, state: &Value) -> String {
     }
 }
 
+pub fn test_rank(id: &str) -> u8 {
+    match id {
+        "inventory.readonly" => 0,
+        "cpu.compute" => 1,
+        "memory.pattern" => 2,
+        "ethernet.status" => 3,
+        "ethernet.connect" => 4,
+        "ethernet.https" => 5,
+        "gpu.opengl.info" => 6,
+        "gpu.vulkan.info" => 7,
+        "gpu.opengl.render" => 8,
+        "gpu.vulkan.render" => 9,
+        "audio.info" => 10,
+        "audio.44100" => 11,
+        "storage.inventory" => 12,
+        "uvd.avc" => 13,
+        "uvd.native720" => 14,
+        "uvd.native1080" => 15,
+        "wayland.native" => 16,
+        "audio.native48" => 17,
+        "wireless.wifi" => 18,
+        "wireless.bluetooth" => 19,
+        "browser.capabilities" => 20,
+        "browser.canvas2d" => 21,
+        "browser.webgl" => 22,
+        "browser.animation" => 23,
+        "browser.video" => 24,
+        "browser.batch" => 25,
+        "power.shutdown.request" => 26,
+        "power.reboot-orbis.request" => 27,
+        _ => 28,
+    }
+}
+
+pub fn kind_label(kind: &str) -> &'static str {
+    match kind {
+        "observation" => "Observation",
+        "functional" => "Functional",
+        "operator" => "Operator",
+        "unavailable" => "Unavailable",
+        "deferred" => "Deferred",
+        "blocked" => "Blocked",
+        _ => "Test",
+    }
+}
+
+fn status_glyph(status: &str) -> &'static str {
+    match status {
+        "PASS" => "✓",
+        "FAIL" => "✗",
+        "INCONCLUSIVE" => "○",
+        "BLOCKED" => "!",
+        "UNSUPPORTED" => "–",
+        "DEFERRED" => "…",
+        "NOT_RUN" => "·",
+        _ => "·",
+    }
+}
+
+fn system_actions() -> Vec<Action> {
+    vec![
+        Action {
+            title: "Hardware overview".into(),
+            detail: "Browse the cached inventory. Enter opens readable component details.".into(),
+            kind: ActionKind::Hardware(crate::hardware::Section::System),
+        },
+        Action {
+            title: "Test plan".into(),
+            detail: "Read qualification gates, dependencies and proposed acceptance counts. No tests are started.".into(),
+            kind: ActionKind::Qualification,
+        },
+        request("Graphical menu", "Open the high-resolution diagnostics menu.", "graphics.launch", json!({"app":"diagnostics"})),
+        test("Refresh hardware inventory", "Read CPU, RAM, PCI, USB and thermal metadata.", "inventory.readonly", json!({})),
+        request("Core checks", "Check CPU first, then verify 32 MiB of RAM. Advanced tests require both to pass.", "quick", json!({"retry_reason":""})),
+        Action {
+            title: "Run all tests".into(),
+            detail: "Run every runnable diagnostic in order, including observations and graphics, then create an issue report. Stops on failure, terminal GPU state or an operator observation.".into(),
+            kind: ActionKind::FullTest,
+        },
+        Action {
+            title: "Choose diagnostic mode".into(),
+            detail: "Choose Automatic or Manual. Opening this menu starts no tests.".into(),
+            kind: ActionKind::ModeChoice,
+        },
+    ]
+}
+
+pub fn test_actions(state: &Value, onboarding: bool) -> Vec<Action> {
+    if onboarding {
+        return system_actions();
+    }
+    let tests = array(state, "/tests");
+    if tests.is_empty() {
+        return system_actions();
+    }
+    let mut runnable: std::collections::HashMap<String, (&'static str, Value)> =
+        std::collections::HashMap::new();
+    for category in [
+        Category::Cpu,
+        Category::Graphics,
+        Category::Browser,
+        Category::Network,
+        Category::Audio,
+        Category::Storage,
+    ] {
+        for action in actions(category, state, false) {
+            if let ActionKind::Request(name, params) = action.kind {
+                let id = if name == "uvd.scenario" {
+                    match at(&params, "/scenario").as_str() {
+                        "canonical-120" => "uvd.avc".to_string(),
+                        "native720-900" => "uvd.native720".to_string(),
+                        "native1080-900" => "uvd.native1080".to_string(),
+                        _ => String::new(),
+                    }
+                } else if name == "test.run" {
+                    at(&params, "/test_id")
+                } else {
+                    String::new()
+                };
+                if !id.is_empty() {
+                    runnable.entry(id).or_insert((name, params));
+                }
+            }
+        }
+    }
+    runnable
+        .entry("inventory.readonly".into())
+        .or_insert(("test.run", json!({})));
+    let mut sorted: Vec<&Value> = tests.iter().collect();
+    sorted.sort_by_key(|test| (test_rank(&at(test, "/id")), at(test, "/title")));
+    let mut rows = Vec::new();
+    for test in sorted {
+        let id = at(test, "/id");
+        let mut status = at(test, "/latest_status");
+        if status.is_empty() {
+            status = "NOT_RUN".into();
+        }
+        let mut value = test.clone();
+        value["latest_status"] = json!(&status);
+        if let Some(result) = array(state, "/overview_results")
+            .iter()
+            .chain(array(state, "/results").iter())
+            .find(|result| at(result, "/test_id") == id)
+        {
+            value["latest_message"] = json!(at(result, "/message"));
+        }
+        if let Some((name, params)) = runnable.get(&id) {
+            value["run_action"] = json!(name);
+            value["run_params"] = params.clone();
+        }
+        let manual = at(&value, "/run_action").is_empty();
+        let detail = format!(
+            "{} · {} · {}\n{}\n{}\n{}",
+            at(test, "/area"),
+            kind_label(&at(test, "/kind")),
+            status_label(&status),
+            id,
+            at(test, "/description"),
+            if manual {
+                "Manual: use its area screen or the graphical workspace."
+            } else {
+                "Enter runs this test. Full results remain on the Reports screen."
+            }
+        );
+        if !at(&value, "/latest_message").is_empty() {
+            value["latest_message"] = json!(at(&value, "/latest_message"));
+        }
+        rows.push(Action {
+            title: format!("{} {}", status_glyph(&status), at(test, "/title")),
+            detail,
+            kind: ActionKind::Test(value),
+        });
+    }
+    let mut result = vec![
+        Action {
+            title: "Run all tests".into(),
+            detail: "Run every runnable test in order and continue past failures. Manual, deferred and previously failed tests stay listed with their status.".into(),
+            kind: ActionKind::FullTest,
+        },
+        Action {
+            title: "Export issue report".into(),
+            detail: "Create one redacted report with the latest results.".into(),
+            kind: ActionKind::Request("support.export", json!({})),
+        },
+        Action {
+            title: "Hardware overview".into(),
+            detail: "Browse the cached inventory. Enter opens readable component details.".into(),
+            kind: ActionKind::Hardware(crate::hardware::Section::System),
+        },
+        Action {
+            title: "Test plan".into(),
+            detail: "Read qualification gates, dependencies and proposed acceptance counts. No tests are started.".into(),
+            kind: ActionKind::Qualification,
+        },
+    ];
+    result.extend(rows);
+    result
+}
+
 pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Action> {
     match category {
-        Category::System => vec![
-            Action {
-                title: "Hardware overview".into(),
-                detail: "Browse the cached inventory. Enter opens readable component details."
-                    .into(),
-                kind: ActionKind::Hardware(crate::hardware::Section::System),
-            },
-            Action {title:"Test plan".into(),detail:"Read qualification gates, dependencies and proposed acceptance counts. No tests are started.".into(),kind:ActionKind::Qualification},
-            request(
-                "Graphical menu",
-                "Open the high-resolution diagnostics menu.",
-                "graphics.launch",
-                json!({"app":"diagnostics"}),
-            ),
-            test(
-                "Refresh hardware inventory",
-                "Read CPU, RAM, PCI, USB and thermal metadata.",
-                "inventory.readonly",
-                json!({}),
-            ),
-            request(
-                "Core checks",
-                "Check CPU first, then verify 32 MiB of RAM. Advanced tests require both to pass.",
-                "quick",
-                json!({"retry_reason":""}),
-            ),
-        ],
+        Category::System => test_actions(state, onboarding),
         Category::Network => {
             let interfaces = array(state, "/network/interfaces");
             let active = |interface: &&Value| at(interface, "/state").starts_with("connected");
@@ -461,6 +701,11 @@ pub fn actions(category: Category, state: &Value, onboarding: bool) -> Vec<Actio
                 } else {
                     list.push(continue_action);
                 }
+                list.push(Action {
+                    title: "Start all tests".into(),
+                    detail: "Run the full suite automatically: core first, then the remaining tests.".into(),
+                    kind: ActionKind::FullTest,
+                });
             } else {
                 list.push(test(
                     "Read Ethernet status",
@@ -751,6 +996,12 @@ pub fn report_actions(state: &Value, expanded: &[bool; REPORT_GROUPS.len()]) -> 
             });
         }
     }
+    list.push(request(
+        "Create issue report",
+        "Create a local ZIP to attach to a GitHub issue. Works before any tests; nothing is uploaded.",
+        "support.export",
+        json!({}),
+    ));
     list
 }
 
@@ -770,6 +1021,27 @@ pub fn demo_state() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn flat_test_list_shows_every_test_status_and_manual_reason() {
+        let state = json!({
+            "tests": [
+                {"id":"cpu.compute","title":"Bounded CPU computation","area":"CPU","kind":"functional","latest_status":"PASS","description":"Known hash."},
+                {"id":"ethernet.https","title":"Interface-bound HTTPS","area":"Ethernet","kind":"functional","latest_status":"NOT_RUN","description":"Needs a URL."},
+                {"id":"audio.native48","title":"Native 48 kHz audio","area":"Audio","kind":"deferred","latest_status":"NOT_RUN","description":"Deferred."}
+            ],
+            "results": [], "network": {"interfaces": []}
+        });
+        let list = actions(Category::System, &state, false);
+        assert!(list.iter().any(|a| a.title.contains("Run all tests")));
+        for title in ["Bounded CPU computation", "Interface-bound HTTPS", "Native 48 kHz audio"] {
+            assert!(list.iter().any(|a| a.title.contains(title)), "{title}");
+        }
+        let https = list.iter().find(|a| a.title.contains("Interface-bound HTTPS")).unwrap();
+        assert!(https.detail.contains("Manual:"), "{}", https.detail);
+        let cpu = list.iter().find(|a| a.title.contains("Bounded CPU computation")).unwrap();
+        assert!(matches!(&cpu.kind, ActionKind::Test(value)
+            if !at(value, "/run_action").is_empty() && at(value, "/latest_status") == "PASS"));
+    }
     #[test]
     fn onboarding_is_explicit_even_when_a_connection_already_exists() {
         let mut state = demo_state();
@@ -831,6 +1103,7 @@ mod tests {
                             "network.ethernet.connect",
                             "graphics.launch",
                             "results.list",
+                            "support.export",
                             "settings.set"
                         ]
                         .contains(&action)
@@ -893,7 +1166,7 @@ mod tests {
         );
         assert_eq!(
             report_actions(&state, &[false; REPORT_GROUPS.len()]).len(),
-            11
+            12
         );
     }
     #[test]

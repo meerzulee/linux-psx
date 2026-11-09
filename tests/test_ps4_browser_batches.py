@@ -135,4 +135,18 @@ class BatchTests(unittest.TestCase):
         self.assertIsNone(restarted.browser_session(UA,True)['auto_run'])
 
 
+class SummaryStepTests(unittest.TestCase):
+    def test_a_batch_summary_carries_only_each_steps_verdict(self):
+        record={'run_id':'batch','test_id':'browser.batch','status':'INCONCLUSIVE','reports':[
+            {'test_id':'browser.capabilities','status':'INCONCLUSIVE','message':'long text','user_agent':UA},
+            {'test_id':'browser.webgl','status':'PASS'}]}
+        value=APP.summary(record)
+        self.assertEqual(value['steps'],[{'test_id':'browser.capabilities','status':'INCONCLUSIVE'},
+                                         {'test_id':'browser.webgl','status':'PASS'}])
+        self.assertEqual(value['status'],'INCONCLUSIVE')
+
+    def test_other_records_gain_no_steps(self):
+        self.assertNotIn('steps',APP.summary({'run_id':'one','test_id':'cpu.compute','status':'PASS'}))
+
+
 if __name__=='__main__':unittest.main()

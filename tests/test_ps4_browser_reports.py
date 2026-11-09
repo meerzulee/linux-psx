@@ -83,7 +83,7 @@ class BrowserReportsTests(unittest.TestCase):
              mock.patch.object(APP.Path,'is_file',return_value=True),mock.patch.object(self.controller,'_cancellable_capture') as run:
             self.controller.launch_graphics('chromium-manual')
         self.assertEqual(run.call_args_list[0].args[0],['/usr/bin/python3','/run/psx-frontend/prepare-chromium-provider'])
-        self.assertEqual(run.call_args_list[0].kwargs['timeout'],60)
+        self.assertEqual(run.call_args_list[0].kwargs['timeout'],170)
         self.assertEqual(run.call_args_list[1].args[0][-1],'chromium')
         with mock.patch.object(self.controller.runner.fs,'fixture',False), \
              mock.patch.object(APP.Path,'is_file',return_value=True), \

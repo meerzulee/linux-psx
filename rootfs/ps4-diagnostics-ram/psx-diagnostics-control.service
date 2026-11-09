@@ -1,0 +1,20 @@
+[Unit]
+Description=Diagnostix volatile RAM controller
+After=local-fs.target systemd-udev-trigger.service
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/psx-diagnostics/controller.py --socket /run/psx-diagnostics/control.sock --results-dir /run/psx-state/results --bind 127.0.0.1 --port 8080
+RuntimeDirectory=psx-diagnostics
+RuntimeDirectoryMode=0700
+UMask=0077
+Environment=PATH=/usr/local/bin:/usr/bin:/usr/sbin
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1068 @@
+diff --git i/linux/main-aio.c w/linux/main-aio.c
+index 7bd9261..52c0c22 100644
+--- i/linux/main-aio.c
++++ w/linux/main-aio.c
+@@ -49,51 +49,9 @@ static void log_msg(const char *msg)
+         write(1, "\n", 1);
+ }
+ 
+-// Universal kexec blobs
+-asm("kexec_505:\n.incbin \"kexec-build/505/kexec.bin\"\nkexec_505_end:\n");
+-asm("kexec_672:\n.incbin \"kexec-build/672/kexec.bin\"\nkexec_672_end:\n");
+-asm("kexec_700:\n.incbin \"kexec-build/700/kexec.bin\"\nkexec_700_end:\n");
+-asm("kexec_750:\n.incbin \"kexec-build/750/kexec.bin\"\nkexec_750_end:\n");
+-asm("kexec_800:\n.incbin \"kexec-build/800/kexec.bin\"\nkexec_800_end:\n");
+-asm("kexec_850:\n.incbin \"kexec-build/850/kexec.bin\"\nkexec_850_end:\n");
+-asm("kexec_900:\n.incbin \"kexec-build/900/kexec.bin\"\nkexec_900_end:\n");
+-asm("kexec_903:\n.incbin \"kexec-build/903/kexec.bin\"\nkexec_903_end:\n");
+-asm("kexec_960:\n.incbin \"kexec-build/960/kexec.bin\"\nkexec_960_end:\n");
+-asm("kexec_1000:\n.incbin \"kexec-build/1000/kexec.bin\"\nkexec_1000_end:\n");
+-asm("kexec_1050:\n.incbin \"kexec-build/1050/kexec.bin\"\nkexec_1050_end:\n");
+-asm("kexec_1100:\n.incbin \"kexec-build/1100/kexec.bin\"\nkexec_1100_end:\n");
+-asm("kexec_1102:\n.incbin \"kexec-build/1102/kexec.bin\"\nkexec_1102_end:\n");
+-asm("kexec_1150:\n.incbin \"kexec-build/1150/kexec.bin\"\nkexec_1150_end:\n");
++// Dedicated FW12.02 profile; aliases normalize to the reviewed 1200 offsets.
+ asm("kexec_1200:\n.incbin \"kexec-build/1200/kexec.bin\"\nkexec_1200_end:\n");
+-asm("kexec_1250:\n.incbin \"kexec-build/1250/kexec.bin\"\nkexec_1250_end:\n");
+-asm("kexec_1300:\n.incbin \"kexec-build/1300/kexec.bin\"\nkexec_1300_end:\n");
+-asm("kexec_1302:\n.incbin \"kexec-build/1302/kexec.bin\"\nkexec_1302_end:\n");
+-asm("kexec_1350:\n.incbin \"kexec-build/1350/kexec.bin\"\nkexec_1350_end:\n");
+-asm("kexec_1352:\n.incbin \"kexec-build/1352/kexec.bin\"\nkexec_1352_end:\n");
+-asm("kexec_1400:\n.incbin \"kexec-build/1400/kexec.bin\"\nkexec_1400_end:\n");
+-
+-/* Forward declarations for all blob symbols */
+-extern char kexec_505[], kexec_505_end[];
+-extern char kexec_672[], kexec_672_end[];
+-extern char kexec_700[], kexec_700_end[];
+-extern char kexec_750[], kexec_750_end[];
+-extern char kexec_800[], kexec_800_end[];
+-extern char kexec_850[], kexec_850_end[];
+-extern char kexec_900[], kexec_900_end[];
+-extern char kexec_903[], kexec_903_end[];
+-extern char kexec_960[], kexec_960_end[];
+-extern char kexec_1000[], kexec_1000_end[];
+-extern char kexec_1050[], kexec_1050_end[];
+-extern char kexec_1100[], kexec_1100_end[];
+-extern char kexec_1102[], kexec_1102_end[];
+-extern char kexec_1150[], kexec_1150_end[];
+ extern char kexec_1200[], kexec_1200_end[];
+-extern char kexec_1250[], kexec_1250_end[];
+-extern char kexec_1300[], kexec_1300_end[];
+-extern char kexec_1302[], kexec_1302_end[];
+-extern char kexec_1350[], kexec_1350_end[];
+-extern char kexec_1352[], kexec_1352_end[];
+-extern char kexec_1400[], kexec_1400_end[];
+ 
+ // Globals set by main() and used by kernel_main()
+ // kernel_main() runs in kernel context but can still read
+@@ -102,6 +60,7 @@ extern char kexec_1400[], kexec_1400_end[];
+ static fw_offsets_t *g_fw       = (fw_offsets_t *)0;
+ static char         *g_kexec_s  = (char *)0;
+ static char         *g_kexec_e  = (char *)0;
++static int g_kexec_error = -1;
+ 
+ 
+ // Helper functions
+@@ -123,30 +82,8 @@ static fw_offsets_t *find_offsets_by_fw(u16 fw)
+  */
+ static void get_kexec_blob(u16 norm_fw, char **start, char **end)
+ {
+-    switch (norm_fw) {
+-    case  505: *start = kexec_505;  *end = kexec_505_end;  break;
+-    case  672: *start = kexec_672;  *end = kexec_672_end;  break;
+-    case  700: *start = kexec_700;  *end = kexec_700_end;  break;
+-    case  750: *start = kexec_750;  *end = kexec_750_end;  break;
+-    case  800: *start = kexec_800;  *end = kexec_800_end;  break;
+-    case  850: *start = kexec_850;  *end = kexec_850_end;  break;
+-    case  900: *start = kexec_900;  *end = kexec_900_end;  break;
+-    case  903: *start = kexec_903;  *end = kexec_903_end;  break;
+-    case  960: *start = kexec_960;  *end = kexec_960_end;  break;
+-    case 1000: *start = kexec_1000; *end = kexec_1000_end; break;
+-    case 1050: *start = kexec_1050; *end = kexec_1050_end; break;
+-    case 1100: *start = kexec_1100; *end = kexec_1100_end; break;
+-    case 1102: *start = kexec_1102; *end = kexec_1102_end; break;
+-    case 1150: *start = kexec_1150; *end = kexec_1150_end; break;
+-    case 1200: *start = kexec_1200; *end = kexec_1200_end; break;
+-    case 1250: *start = kexec_1250; *end = kexec_1250_end; break;
+-    case 1300: *start = kexec_1300; *end = kexec_1300_end; break;
+-    case 1302: *start = kexec_1302; *end = kexec_1302_end; break;
+-    case 1350: *start = kexec_1350; *end = kexec_1350_end; break;
+-    case 1352: *start = kexec_1352; *end = kexec_1352_end; break;
+-    case 1400: *start = kexec_1400; *end = kexec_1400_end; break;
+-    default:   *start = (char *)0;  *end = (char *)0;      break;
+-    }
++    *start = norm_fw == 1200 ? kexec_1200 : (char *)0;
++    *end = norm_fw == 1200 ? kexec_1200_end : (char *)0;
+ }
+ 
+ // Platform-specific helper functions for AIO launch
+@@ -157,24 +94,94 @@ int kexec_load(char *kernel, unsigned long long kernel_size,
+                char *initrd,  unsigned long long initrd_size,
+                char *cmdline, int vram_mb);
+ 
+-int read_file(char *path, char **ptr, unsigned long long *sz)
++#define DIAG_KERNEL_MAX (64ULL * 1024 * 1024)
++#define DIAG_INITRD_MAX (512ULL * 1024 * 1024)
++#define DIAG_CMDLINE_MAX 511ULL
++
++/* One path, bounded signed reads, and complete cleanup before publishing outputs. */
++int read_file(const char *path, char **ptr, unsigned long long *sz,
++              unsigned long long maximum)
+ {
+-    int fd = open(path, O_RDONLY);
++    int fd = -1, result = -1;
++    off_t end;
++    char *mapped = MAP_FAILED;
++    unsigned long long bytes = 0, done = 0;
++    char extra;
++    *ptr = NULL;
++    *sz = 0;
++    fd = open(path, O_RDONLY | O_NOFOLLOW);
+     if (fd < 0) return -1;
+-    *sz = lseek(fd, 0, SEEK_END);
+-    *ptr = mmap(NULL, *sz, PROT_READ | PROT_WRITE,
+-                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+-    char *p = *ptr;
+-    unsigned long long l = *sz;
+-    lseek(fd, 0, SEEK_SET);
+-    while (l) {
+-        unsigned long long chk = read(fd, p, l);
+-        if (chk <= 0) return -1;
+-        p += chk;
+-        l -= chk;
++    end = lseek(fd, 0, SEEK_END);
++    if (end <= 0 || (unsigned long long)end > maximum ||
++        (unsigned long long)end >= DIAG_INITRD_MAX + 1 ||
++        lseek(fd, 0, SEEK_SET) != 0)
++        goto cleanup;
++    bytes = (unsigned long long)end;
++    mapped = mmap(NULL, bytes + 1, PROT_READ | PROT_WRITE,
++                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++    if (mapped == MAP_FAILED) goto cleanup;
++    while (done < bytes) {
++        size_t chunk = bytes - done > 1024 * 1024 ? 1024 * 1024 : bytes - done;
++        ssize_t count = read(fd, mapped + done, chunk);
++        if (count <= 0 || (size_t)count > chunk) goto cleanup;
++        done += (unsigned long long)count;
+     }
+-    close(fd);
+-    return 0;
++    if (read(fd, &extra, 1) != 0) goto cleanup;
++    mapped[bytes] = 0;
++    if (close(fd) != 0) { fd = -1; goto cleanup; }
++    fd = -1;
++    *ptr = mapped;
++    *sz = bytes;
++    mapped = MAP_FAILED;
++    result = 0;
++cleanup:
++    if (fd >= 0) close(fd);
++    if (mapped != MAP_FAILED) munmap(mapped, bytes + 1);
++    return result;
++}
++
++/* Keep the initramfs file-backed and untouched until kernel copyin. The staged
++ * generation must remain immutable through that copy: MAP_PRIVATE is not a
++ * snapshot. Closing the descriptor retains the mapping's vnode reference. */
++static int map_initramfs(char **ptr, unsigned long long *sz)
++{
++    int fd = -1, result = -1;
++    off_t end;
++    char *mapped = MAP_FAILED;
++    unsigned long long bytes = 0;
++    *ptr = NULL;
++    *sz = 0;
++    fd = open("/data/diagnostix/boot/initramfs.cpio.gz", O_RDONLY | O_NOFOLLOW);
++    if (fd < 0) return -1;
++    end = lseek(fd, 0, SEEK_END);
++    if (end < 18 || (unsigned long long)end > DIAG_INITRD_MAX)
++        goto cleanup;
++    bytes = (unsigned long long)end;
++    mapped = mmap(NULL, bytes, PROT_READ, MAP_PRIVATE, fd, 0);
++    if (mapped == MAP_FAILED || !mapped) goto cleanup;
++    if (lseek(fd, 0, SEEK_END) != end) goto cleanup;
++    if (close(fd) != 0) { fd = -1; goto cleanup; }
++    fd = -1;
++    *ptr = mapped;
++    *sz = bytes;
++    mapped = MAP_FAILED;
++    result = 0;
++cleanup:
++    if (fd >= 0) close(fd);
++    if (mapped != MAP_FAILED) munmap(mapped, bytes);
++    return result;
++}
++
++static int valid_cmdline(char *line, unsigned long long bytes)
++{
++    if (!bytes || bytes > DIAG_CMDLINE_MAX) return 0;
++    if (line[bytes - 1] == '\n') line[--bytes] = 0;
++    if (bytes && line[bytes - 1] == '\r') line[--bytes] = 0;
++    if (!bytes) return 0;
++    for (unsigned long long i = 0; i < bytes; ++i)
++        if ((unsigned char)line[i] < 0x20 || (unsigned char)line[i] > 0x7e)
++            return 0;
++    return 1;
+ }
+ 
+ // evf_open, evf_cancel, evf_close - some events for reboot
+@@ -263,8 +270,7 @@ void kernel_main(void)
+ 
+     *(char *)(kernel_base + g_fw->patch1) = 0x07;
+     *(char *)(kernel_base + g_fw->patch2) = 0x07;
+-    // pstate set before shutdown (needed for PS4 Pro)
+-    *(char *)(kernel_base + g_fw->pstate)  = 0x03;
++    // The pstate byte is changed only after bounded boot preparation succeeds.
+ 
+     asm volatile("mov %%cr0, %%rax\nbts $16, %%rax\nmov %%rax, %%cr0\nsti"
+                  : : : "rax");
+@@ -277,11 +283,12 @@ void kernel_main(void)
+     char *new_kexec = ((char *(*)(unsigned long long, unsigned long long))
+                        kmem_alloc)(*(unsigned long long *)kernel_map,
+                                    g_kexec_e - g_kexec_s);
++    if (!new_kexec) return;
+     for (int i = 0; g_kexec_s + i != g_kexec_e; i++)
+         new_kexec[i] = g_kexec_s[i];
+ 
+     // Launch kexec blob
+-    ((void (*)(void *, void *))new_kexec)((void *)early_printf, NULL);
++    g_kexec_error = ((int (*)(void *, void *))new_kexec)((void *)early_printf, NULL);
+ }
+ 
+ // VRAM default values
+@@ -368,68 +375,35 @@ int main(void)
+     // southbridge
+     int sb_val = get_sb_id();
+ 
+-    // Linux files loading from USB or HDD
+-    char *kernel = NULL; unsigned long long kernel_size = 0;
+-    char *initrd = NULL; unsigned long long initrd_size = 0;
+-    char *cmdline = NULL; unsigned long long cmdline_size = 0;
+-    char *vramstr = NULL; unsigned long long vramstr_size = 0;
+-    int vram_mb = 0;
+-
+-#define L(name, where, wheresz, is_fatal) \
+-    if (read_file("/mnt/usb0/" name, where, wheresz) \
+-     && read_file("/mnt/usb1/" name, where, wheresz) \
+-     && read_file(HDD_BOOT_PATH name, where, wheresz) \
+-     && read_file(HDD_SECOND_BOOT_PATH name, where, wheresz) \
+-     && is_fatal) { \
+-        alert("Failed to load file: " name "\nChecked paths:\n" \
+-                "/mnt/usb0/" name "\n/mnt/usb1/" name "\n" \
+-                HDD_BOOT_PATH name "\n" HDD_SECOND_BOOT_PATH name); \
+-        return 1; \
++    if (fw_ver != 1202 || sb_val != 0x30201) {
++        alert("Diagnostix loader requires FW12.02 and Baikal B1.");
++        return 1;
+     }
+-
+-    L("bzImage",            &kernel,  &kernel_size,  1);
+-    L("initramfs.cpio.gz",  &initrd,  &initrd_size,  1);
+-    L("bootargs.txt",       &cmdline, &cmdline_size,  0);
+-
+-    if (cmdline && cmdline_size) {
+-        for (int i = 0; i < (int)cmdline_size; i++)
+-            if (cmdline[i] == '\n') { cmdline[i] = '\0'; break; }
+-    } else {
+-        cmdline = "panic=0 clocksource=tsc consoleblank=0 net.ifnames=0 "
+-                  "radeon.dpm=0 amdgpu.dpm=0 drm.debug=0 "
+-                  "console=ttyS0,115200n8 console=tty0 "
+-                  "video=HDMI-A-1:1920x1080@60";
++    char *kernel = NULL, *initrd = NULL, *cmdline = NULL;
++    unsigned long long kernel_size = 0, initrd_size = 0, cmdline_size = 0;
++    int result = 1;
++    /* No USB, secondary path, optional file or per-file fallback. */
++    if (read_file("/data/diagnostix/boot/bzImage", &kernel, &kernel_size, DIAG_KERNEL_MAX) ||
++        map_initramfs(&initrd, &initrd_size) ||
++        read_file("/data/diagnostix/boot/bootargs.txt", &cmdline, &cmdline_size, DIAG_CMDLINE_MAX) ||
++        !valid_cmdline(cmdline, cmdline_size)) {
++        alert("Diagnostix boot files missing, invalid or too large. No shutdown requested.");
++        goto cleanup;
+     }
+-
+-    L("vram.txt", &vramstr, &vramstr_size, 0);
+-    if (vramstr && vramstr_size) {
+-        vram_mb = my_atoi(vramstr);
+-        if (vram_mb < VRAM_MB_MIN || vram_mb > VRAM_MB_MAX)
+-            vram_mb = VRAM_MB_DEFAULT;
+-    } else {
+-        vram_mb = VRAM_MB_DEFAULT;
+-    }
+-
+-    // Launch kernel exploit → kernel_main()
+     kexec(kernel_main, (void *)0);
+-
+-    // Launch reboot watchdog thread, then Linux loader
+-    long x, y;
+-    struct thr_param thr = {
+-        .start_func = reboot_thread,
+-        .arg        = NULL,
+-        .stack_base = mmap(NULL, 16384, PROT_READ | PROT_WRITE,
+-                           MAP_PRIVATE | MAP_ANONYMOUS, -1, 0),
+-        .stack_size = 16384,
+-        .tls_base   = NULL,
+-        .tls_size   = 0,
+-        .child_tid  = &x,
+-        .parent_tid = &y,
+-        .flags      = 0,
+-        .rtp        = NULL,
+-    };
+-    thr_new(&thr, sizeof(thr));
+-    kexec_load(kernel, kernel_size, initrd, initrd_size, cmdline,
+-               pack_kexec_args(vram_mb, fw_ver, sb_val));
+-    for (;;);
++    if (g_kexec_error != 0 ||
++        kexec_load(kernel, kernel_size, initrd, initrd_size, cmdline,
++                   pack_kexec_args(1024, fw_ver, sb_val)) != 0) {
++        alert("Diagnostix preparation failed. No shutdown requested; return to Orbis.");
++        goto cleanup;
++    }
++    /* The complete boot image is now armed. Never race allocation with shutdown. */
++    log_msg("Diagnostix prepared; requesting the existing reboot handoff.");
++    reboot_thread(NULL);
++    result = 0;
++cleanup:
++    if (cmdline) munmap(cmdline, cmdline_size + 1);
++    if (initrd) munmap(initrd, initrd_size);
++    if (kernel) munmap(kernel, kernel_size + 1);
++    return result;
+ }
+diff --git i/linux/ps4-kexec-common/acpi.h w/linux/ps4-kexec-common/acpi.h
+index a333b2c..287fd00 100644
+--- i/linux/ps4-kexec-common/acpi.h
++++ w/linux/ps4-kexec-common/acpi.h
+@@ -11,11 +11,10 @@
+ #ifndef ACPI_H
+ #define ACPI_H
+ 
+-#include "types.h"
++#include "kernel.h"
+ 
+ void fix_acpi_tables(void *map_base, u64 phys_base);
+-// For baikal
+-#define PA_TO_DM(x) (((uintptr_t)x) | kern.dmap_base)
++/* PA_TO_DM is defined once in kernel.h, including arithmetic span checks. */
+ 
+ void disableMSI(u64 MSICapabilityRegAddr);
+ u32 msi_mask(unsigned x);
+diff --git i/linux/ps4-kexec-common/kernel.c w/linux/ps4-kexec-common/kernel.c
+index aee9aa2..dbcb348 100644
+--- i/linux/ps4-kexec-common/kernel.c
++++ w/linux/ps4-kexec-common/kernel.c
+@@ -145,31 +145,136 @@ static int resolve_symbols(void)
+     return 1;
+ }
+ 
+-#define	M_WAITOK 0x0002
+-#define	M_ZERO   0x0100
++#define M_WAITOK 0x0002
++#define M_ZERO 0x0100
++#define VM_MEMATTR_DEFAULT 0x06
+ 
+-#define	VM_MEMATTR_DEFAULT		0x06
++/* kmem_free needs the original kernel-map VA, never the direct-map alias. */
++struct contig_record { void *direct; vm_offset_t mapped; size_t bytes, requested; };
++static struct contig_record contig_records[4];
++
++_Static_assert(sizeof(vm_offset_t) == 8 && sizeof(vm_paddr_t) == 8 &&
++               sizeof(size_t) == 8 && sizeof(void *) == 8,
++               "Diagnostix requires the reviewed 64-bit allocator ABI");
++
++/* One failure record, including post-allocation rejection before cleanup.
++ * Addresses are private UART evidence, never a new read or an alternate path.
++ */
++static void contig_report(const char *reason, unsigned int attempts,
++                          size_t requested, size_t rounded, vm_paddr_t high,
++                          vm_offset_t mapped, vm_paddr_t physical,
++                          size_t offset, vm_paddr_t observed)
++{
++    kern.printf("DIAGNOSTIX_ALLOC_V1 reason=%s attempts=%u requested=%llu rounded=%llu "
++                "flags=0x%x low=0 high=0x%llx alignment=0x%x guard_high=0x%llx vm=0x%llx "
++                "physical=0x%llx page_offset=0x%llx observed=0x%llx dmap=0x%llx\n",
++                reason, attempts, (unsigned long long)requested,
++                (unsigned long long)rounded, M_ZERO | M_WAITOK,
++                (unsigned long long)~(vm_paddr_t)0, 1, (unsigned long long)high,
++                (unsigned long long)mapped, (unsigned long long)physical,
++                (unsigned long long)offset, (unsigned long long)observed,
++                (unsigned long long)kern.dmap_base);
++}
++
++void *kernel_alloc_contig_limit(size_t size, vm_paddr_t high)
++{
++    unsigned int slot;
++    size_t bytes, offset = 0;
++    vm_offset_t mapped;
++    vm_paddr_t physical, observed = 0;
++    u64 direct = 0;
++    const char *reason;
++    if (!size || size > 1024ULL * 1024 * 1024 || size > ~(size_t)0 - PAGE_MASK) {
++        contig_report("request-size", 0, size, 0, high, 0, 0, 0, 0);
++        return NULL;
++    }
++    if (!high || high > DIAG_RAM_END) {
++        contig_report("request-high", 0, size, 0, high, 0, 0, 0, 0);
++        return NULL;
++    }
++    if (!diag_dmap_base_valid(kern.dmap_base)) {
++        contig_report("dmap-base", 0, size, 0, high, 0, 0, 0, 0);
++        return NULL;
++    }
++    bytes = (size + PAGE_MASK) & ~(size_t)PAGE_MASK;
++    for (slot = 0; slot < 4 && contig_records[slot].direct; ++slot);
++    if (slot == 4) {
++        contig_report("ledger-full", 0, size, bytes, high, 0, 0, 0, 0);
++        return NULL;
++    }
++    /* Match each upstream call exactly, but bound its outer zero-return retry
++     * at three attempts. Post-allocation validation failures never retry.
++     */
++    unsigned int attempt;
++    for (attempt = 1; attempt <= 3; ++attempt) {
++        kern.printf("DIAGNOSTIX_ALLOC_V2 event=begin policy=UPSTREAM_BOUNDED3 attempt=%u of=3 requested=%llu "
++                    "rounded=%llu flags=0x%x low=0 high=0x%llx alignment=0x%x guard_high=0x%llx\n",
++                    attempt, (unsigned long long)size, (unsigned long long)bytes,
++                    M_ZERO | M_WAITOK, (unsigned long long)~(vm_paddr_t)0, 1,
++                    (unsigned long long)high);
++        mapped = kern.kmem_alloc_contig(*kern.kernel_map, size, M_ZERO | M_WAITOK,
++                                      0, ~(vm_paddr_t)0, 1, 0, VM_MEMATTR_DEFAULT);
++        kern.printf("DIAGNOSTIX_ALLOC_V2 event=end policy=UPSTREAM_BOUNDED3 attempt=%u of=3 requested=%llu "
++                    "rounded=%llu flags=0x%x high=0x%llx alignment=0x%x guard_high=0x%llx vm=0x%llx\n",
++                    attempt, (unsigned long long)size, (unsigned long long)bytes,
++                    M_ZERO | M_WAITOK, (unsigned long long)~(vm_paddr_t)0, 1,
++                    (unsigned long long)high, (unsigned long long)mapped);
++        if (mapped) break;
++    }
++    if (!mapped) {
++        contig_report("kmem-returned-zero", 3, size, bytes, high, 0, 0, 0, 0);
++        return NULL;
++    }
++    physical = kern.pmap_extract(kern.kernel_pmap_store, mapped);
++    if (mapped & PAGE_MASK) { reason = "vm-unaligned"; goto fail; }
++    if (!physical) { reason = "physical-zero"; goto fail; }
++    if (physical & PAGE_MASK) { reason = "physical-unaligned"; goto fail; }
++    if (physical > ~(vm_paddr_t)0 - (bytes - 1)) {
++        reason = "physical-overflow"; goto fail;
++    }
++    if (physical >= high || bytes > high - physical) { reason = "physical-above-high"; goto fail; }
++    if (mapped > ~(vm_offset_t)0 - (bytes - 1)) { reason = "vm-overflow"; goto fail; }
++    if (!diag_ram_span(physical, bytes)) { reason = "physical-not-ram"; goto fail; }
++    if (!diag_pa_to_dm(kern.dmap_base, physical, bytes, &direct)) {
++        reason = "physical-dmap-range"; goto fail;
++    }
++    for (offset = 0; offset < bytes; offset += PAGE_SIZE) {
++        observed = kern.pmap_extract(kern.kernel_pmap_store, mapped + offset);
++        if (observed != physical + offset) { reason = "noncontiguous"; goto fail; }
++        observed = kern.pmap_extract(kern.kernel_pmap_store, direct + offset);
++        if (observed != physical + offset) { reason = "dmap-translation"; goto fail; }
++    }
++    contig_records[slot] = (struct contig_record){
++        (void *)(uintptr_t)direct, mapped, bytes, size};
++    kern.printf("DIAGNOSTIX_ALLOC_V3 event=accepted physical=0x%llx direct=0x%llx rounded=%llu\n",
++                (unsigned long long)physical, (unsigned long long)direct,
++                (unsigned long long)bytes);
++    return contig_records[slot].direct;
++fail:
++    contig_report(reason, attempt, size, bytes, high, mapped, physical, offset, observed);
++    kern.kmem_free(*kern.kernel_map, mapped, bytes);
++    return NULL;
++}
+ 
+ void *kernel_alloc_contig(size_t size)
+ {
+-    // use kmem_alloc_contig instead of contigalloc to avoid messing with a malloc_type...
+-    vm_offset_t ret = 0;
+-    while(!(ret = kern.kmem_alloc_contig(
+-                 *kern.kernel_map, size, M_ZERO | M_WAITOK, (vm_paddr_t)0,
+-                 ~(vm_paddr_t)0, 1, 0, VM_MEMATTR_DEFAULT)));
+-
+-    /*if (!ret) {
+-        kern.printf("Failed to allocate %zud bytes\n", size);
+-        return NULL;
+-    }*/
+-    return (void *)PA_TO_DM(kern.pmap_extract(kern.kernel_pmap_store, ret));
++    return kernel_alloc_contig_limit(size, DIAG_RAM_END);
+ }
+ 
+ void kernel_free_contig(void *addr, size_t size)
+ {
+-    if (!addr)
++    if (!addr) return;
++    for (unsigned int i = 0; i < 4; ++i) {
++        struct contig_record *record = &contig_records[i];
++        if (record->direct != addr) continue;
++        if (record->requested != size) {
++            kern.printf("Diagnostix refuses mismatched allocation cleanup\n");
++            return;
++        }
++        kern.kmem_free(*kern.kernel_map, record->mapped, record->bytes);
++        *record = (struct contig_record){0};
+         return;
+-    kern.kmem_free(*kern.kernel_map, (vm_offset_t)addr, size);
++    }
+ }
+ 
+ int kernel_hook_install(void *target, void *hook)
+diff --git i/linux/ps4-kexec-common/kernel.h w/linux/ps4-kexec-common/kernel.h
+index cc45134..69d5082 100644
+--- i/linux/ps4-kexec-common/kernel.h
++++ w/linux/ps4-kexec-common/kernel.h
+@@ -29,8 +29,6 @@
+ 	((unsigned long)(l2) << PDRSHIFT) | \
+ 	((unsigned long)(l1) << PAGE_SHIFT))
+ 
+-#define PA_TO_DM(x) (((uintptr_t)x) | kern.dmap_base)
+-#define DM_TO_ID(x) (((uintptr_t)x) & (~kern.dmap_base)) // XXX
+ 
+ typedef u64 vm_paddr_t;
+ typedef u64 vm_offset_t;
+@@ -101,6 +99,119 @@ struct ksym_t {
+ 
+ extern struct ksym_t kern;
+ 
++/* Dedicated FW12.02/1024MiB profile. Addressability is not ownership. */
++#define DIAG_RAM_END 0x27f000000ULL /* exclusive, from the existing E820 map */
++#define DIAG_MAP_GIB 16ULL
++#define DIAG_MAP_BYTES (DIAG_MAP_GIB << 30)
++#define DIAG_PML4_PA 0x1000ULL
++#define DIAG_IDENT_PDP_PA 0x2000ULL
++#define DIAG_DMAP_PDP_PA 0x3000ULL
++#define DIAG_GDT_PA 0x4000ULL
++#define DIAG_GDT_BYTES 0x800ULL
++#define DIAG_LOW_END 0x8000ULL
++#define DIAG_CMDLINE_BYTES 512ULL
++
++static inline int diag_dmap_base_valid(u64 base)
++{
++    return base >= 0xffff800000000000ULL &&
++        !(base & ((1ULL << 30) - 1)) &&
++        ((base >> 30) & 511) <= 512 - DIAG_MAP_GIB &&
++        base <= ~(u64)0 - (DIAG_MAP_BYTES - 1);
++}
++
++static inline int diag_pa_to_dm(u64 base, u64 pa, u64 bytes, u64 *direct)
++{
++    *direct = 0;
++    if (!diag_dmap_base_valid(base) || !bytes || pa >= DIAG_MAP_BYTES ||
++        bytes > DIAG_MAP_BYTES - pa)
++        return 0;
++    *direct = base + pa;
++    return 1;
++}
++
++static inline int diag_dm_to_pa(u64 base, u64 direct, u64 bytes, u64 *pa)
++{
++    *pa = 0;
++    if (!diag_dmap_base_valid(base) || direct < base || !bytes ||
++        direct - base >= DIAG_MAP_BYTES || bytes > DIAG_MAP_BYTES - (direct - base))
++        return 0;
++    *pa = direct - base;
++    return 1;
++}
++
++/* These value wrappers serve the existing, fixed physical MMIO/low-memory
++ * sites only after pre-arm base validation. Owned buffers use checked spans. */
++static inline uintptr_t diag_pa_value(uintptr_t pa)
++{
++    u64 direct;
++    return diag_pa_to_dm(kern.dmap_base, pa, 1, &direct) ? direct : 0;
++}
++static inline uintptr_t diag_dm_value(uintptr_t direct)
++{
++    u64 pa;
++    return diag_dm_to_pa(kern.dmap_base, direct, 1, &pa) ? pa : ~(uintptr_t)0;
++}
++#define PA_TO_DM(x) diag_pa_value((uintptr_t)(x))
++#define DM_TO_ID(x) diag_dm_value((uintptr_t)(x))
++
++/* Only complete spans inside an existing SMAP_TYPE_MEMORY interval qualify.
++ * Low 0..0x8000 is owned by the handoff; 4..5GiB is this profile's VRAM. */
++static inline int diag_ram_span(u64 pa, u64 bytes)
++{
++    static const u64 ranges[][2] = {
++        {0x80000ULL, 0x9a000ULL}, {0x100000ULL, 0x400000ULL},
++        {0x480000ULL, 0x680000ULL}, {0x700000ULL, 0x7efe8000ULL},
++        {0x7f000000ULL, 0x80000000ULL}, {0x140000000ULL, DIAG_RAM_END}
++    };
++    if (!bytes || pa >= DIAG_RAM_END || bytes > DIAG_RAM_END - pa)
++        return 0;
++    for (unsigned int i = 0; i < sizeof(ranges) / sizeof(ranges[0]); ++i)
++        if (pa >= ranges[i][0] && pa < ranges[i][1] && bytes <= ranges[i][1] - pa)
++            return 1;
++    return 0;
++}
++
++struct diag_low_layout {
++    u64 thunk, boot_params, command_line, end;
++};
++static inline int diag_plan_low_layout(u64 thunk_bytes, u64 command_bytes,
++                                      struct diag_low_layout *out)
++{
++    *out = (struct diag_low_layout){0};
++    if (!thunk_bytes || thunk_bytes > 0x1000 ||
++        !command_bytes || command_bytes > DIAG_CMDLINE_BYTES)
++        return 0;
++    u64 thunk = DIAG_GDT_PA + DIAG_GDT_BYTES;
++    /* The unchanged thunk places its stack at align_down(thunk_end+0x200,16).
++     * Boot params begin at/after that stack top; the two pushes grow down. */
++    u64 bp = (thunk + thunk_bytes + 0x200 + 15) & ~15ULL;
++    u64 cmd = bp + 0x1000;
++    u64 end = cmd + DIAG_CMDLINE_BYTES; /* reserve the full bounded capacity */
++    if (end > DIAG_LOW_END)
++        return 0;
++    *out = (struct diag_low_layout){thunk, bp, cmd, end};
++    return 1;
++}
++
++/* Three separate 4KiB x86 table pages, independent of native 16KiB pages.
++ * The DMAP base's PDP index is significant (observed 44); sharing the identity
++ * PDPT would map base+5GiB to the wrong physical address. No live table here. */
++static inline int diag_build_page_tables(u64 *table, size_t entries, u64 base)
++{
++    if (!table || entries != 3 * 512 || !diag_dmap_base_valid(base))
++        return 0;
++    for (size_t i = 0; i < entries; ++i) table[i] = 0;
++    u64 l4 = (base >> 39) & 511, l3 = (base >> 30) & 511;
++    table[0] = DIAG_IDENT_PDP_PA | 7;
++    table[l4] = DIAG_DMAP_PDP_PA | 7;
++    for (u64 i = 0; i < DIAG_MAP_GIB; ++i) {
++        table[512 + i] = (i << 30) | 0x87; /* present, RW, user, 1GiB leaf */
++        table[1024 + l3 + i] = (i << 30) | 0x87;
++    }
++    return 1;
++}
++
++
+ static inline int curcpu(void)
+ {
+     int cpuid;
+@@ -115,6 +226,7 @@ extern int (*early_printf)(const char *fmt, ...);
+ void *kernel_resolve(const char *name);
+ 
+ void *kernel_alloc_contig(size_t size);
++void *kernel_alloc_contig_limit(size_t size, vm_paddr_t high);
+ void kernel_free_contig(void *addr, size_t size);
+ 
+ void kernel_remap(void *start, void *end, int perm);
+diff --git i/linux/ps4-kexec-common/kexec.c w/linux/ps4-kexec-common/kexec.c
+index 0c4c3b8..83a70bb 100644
+--- i/linux/ps4-kexec-common/kexec.c
++++ w/linux/ps4-kexec-common/kexec.c
+@@ -107,6 +107,7 @@ int sys_kexec(void *td, struct sys_kexec_args *uap)
+ {
+     int err = 0;
+     size_t initramfs_size = uap->initramfs_size;
++    size_t initramfs_alloc_size = 0;
+     void *image = NULL;
+     void *initramfs = NULL;
+     size_t firmware_size = 0;
+@@ -123,8 +124,16 @@ int sys_kexec(void *td, struct sys_kexec_args *uap)
+ 
+     kern.printf("sys_kexec invoked\n");
+     kexec_print_banner(fw_ver, vram_mb, sb_id);
+-    kern.printf("sys_kexec(%p, %zu, %p, %zu, \"%s\")\n", uap->image,
+-        uap->image_size, uap->initramfs, uap->initramfs_size, uap->cmd_line);
++    if (fw_ver != 1202 || sb_id != SB_BAIKAL || vram_mb != 1024 ||
++        !uap->image || !uap->initramfs || !uap->cmd_line ||
++        uap->image_size < sizeof(struct boot_params) ||
++        uap->image_size > 64ULL * 1024 * 1024 ||
++        initramfs_size < 18 || initramfs_size > 512ULL * 1024 * 1024 ||
++        initramfs_size > ~(size_t)0 - FW_CPIO_SIZE) {
++        err = EINVAL;
++        goto cleanup;
++    }
++    initramfs_alloc_size = initramfs_size + FW_CPIO_SIZE;
+ 
+     // Look up our shutdown hook point
+     void *icc_query_nowait = kern.icc_query_nowait;
+@@ -133,6 +142,129 @@ int sys_kexec(void *td, struct sys_kexec_args *uap)
+         goto cleanup;
+     }
+ 
++    // Copy in kernel image
++    image = kernel_alloc_contig_limit(uap->image_size, DIAG_RAM_END);
++    if (!image) {
++        kern.printf("Failed to allocate image\n");
++        err = ENOMEM;
++        goto cleanup;
++    }
++    err = copyin(uap->image, image, uap->image_size);
++    if (err) {
++        kern.printf("Failed to copy in image\n");
++        goto cleanup;
++    }
++
++    struct setup_header *header = &((struct boot_params *)image)->hdr;
++    size_t setup_bytes = ((size_t)header->setup_sects + 1) * 512;
++    size_t protected_bytes = (size_t)header->syssize * 16;
++    if (header->boot_flag != 0xaa55 || header->header != 0x53726448 ||
++        header->version < 0x20c || !header->setup_sects ||
++        (header->xloadflags & 3) != 3 || !header->relocatable_kernel ||
++        !header->cmdline_size || !protected_bytes ||
++        header->init_size < protected_bytes || header->init_size > 512ULL * 1024 * 1024 ||
++        setup_bytes > uap->image_size || protected_bytes > uap->image_size - setup_bytes) {
++        err = EINVAL;
++        goto cleanup;
++    }
++    // Copy in initramfs
++    initramfs = kernel_alloc_contig(initramfs_alloc_size);
++    if (!initramfs) {
++        kern.printf("Failed to allocate initramfs\n");
++        err = ENOMEM;
++        goto cleanup;
++    }
++
++    err = firmware_extract(((u8*)initramfs));
++    if (err < 0) {
++        kern.printf("Failed to extract GPU firmware\n");
++        err = EINVAL;
++        goto cleanup;
++    } else {
++        if ((size_t)err > FW_CPIO_SIZE) { err = EINVAL; goto cleanup; }
++        firmware_size = (size_t)err;
++    }
++
++    if (initramfs_size) {
++        err = copyin(uap->initramfs, initramfs + firmware_size, initramfs_size);
++        if (err) {
++            kern.printf("Failed to copy in initramfs\n");
++            goto cleanup;
++        }
++    }
++    if (((u8 *)initramfs)[firmware_size] != 0x1f ||
++        ((u8 *)initramfs)[firmware_size + 1] != 0x8b ||
++        ((u8 *)initramfs)[firmware_size + 2] != 8 ||
++        (((u8 *)initramfs)[firmware_size + 3] & 0xe0)) {
++        err = EINVAL;
++        goto cleanup;
++    }
++    initramfs_size += firmware_size;
++
++    // Copy in cmdline
++    cmd_line_maxlen = header->cmdline_size < 511 ? (size_t)header->cmdline_size + 1 : 512;
++    cmd_line = kernel_alloc_contig(cmd_line_maxlen);
++    if (!cmd_line) {
++        kern.printf("Failed to allocate cmdline\n");
++        err = ENOMEM;
++        goto cleanup;
++    }
++    err = copyinstr(uap->cmd_line, cmd_line, cmd_line_maxlen, NULL);
++    if (err) {
++        kern.printf("Failed to copy in cmdline\n");
++        goto cleanup;
++    }
++    cmd_line[cmd_line_maxlen - 1] = 0;
++
++    // Allocate our boot params
++    bp = kernel_alloc_contig(sizeof(*bp));
++    if (!bp) {
++        kern.printf("Failed to allocate bp\n");
++        err = ENOMEM;
++        goto cleanup;
++    }
++
++    // Initialize bp
++    // TODO should probably do this from cpu_quiesce_gate, then bp doesn't
++    // need to be allocated here, just placed directly into low mem
++    set_nix_info(image, bp, initramfs, initramfs_size, cmd_line, (int)vram_mb);
++
++    prepare_boot_params(bp, image);
++
++    if (!diagnostix_prepare_handoff()) { err = EINVAL; goto cleanup; }
++
++    /* The unchanged thunk copies/decompresses at 96 MiB. Refuse any backing
++     * overlap with its complete init_size workspace or its low-memory stub.
++     */
++    void *buffers[] = {image, initramfs, cmd_line, bp};
++    size_t sizes[] = {uap->image_size, initramfs_alloc_size, cmd_line_maxlen, sizeof(*bp)};
++    for (unsigned int i = 0; i < 4; ++i) {
++        u64 start = DM_TO_ID(buffers[i]);
++        u64 bytes = (sizes[i] + PAGE_MASK) & ~(u64)PAGE_MASK;
++        if (!diag_ram_span(start, bytes)) { err = EINVAL; goto cleanup; }
++        u64 end = start + bytes;
++        if (end < start || start < DIAG_LOW_END ||
++            (start < 0x06000000ULL + header->init_size && end > 0x06000000ULL) ||
++            (start < 0x140000000ULL && end > 0x100000000ULL)) {
++            err = EINVAL;
++            goto cleanup;
++        }
++    }
++    if (!kern.pstate_before_shutdown || !kern.gpu_devid_is_9924 ||
++        !kern.set_gpu_freq || !kern.set_pstate || !kern.update_vddnp ||
++        !kern.set_cu_power_gate) { err = EINVAL; goto cleanup; }
++
++    // Hook the final ICC shutdown function
++    if (!kernel_hook_install(hook_icc_query_nowait, icc_query_nowait)) {
++        kern.printf("Failed to install shutdown hook\n");
++        err = EINVAL;
++        goto cleanup;
++    }
++
++    /* All allocation, copies and validation precede GPU/pstate changes. */
++    u64 wp = write_protect_disable();
++    *(u8 *)kern.pstate_before_shutdown = 3;
++    write_protect_restore(wp);
+     // Set gpu frequencies and pstate   
+     //                      FAT&SLIM / PRO
+     if (kern.gpu_devid_is_9924()){
+@@ -163,88 +295,6 @@ int sys_kexec(void *td, struct sys_kexec_args *uap)
+     kern.set_gpu_freq(7, 673); //673 //673
+     kern.update_vddnp(0x12);
+ 
+-    // Copy in kernel image
+-    image = kernel_alloc_contig(uap->image_size);
+-    if (!image) {
+-        kern.printf("Failed to allocate image\n");
+-        err = ENOMEM;
+-        goto cleanup;
+-    }
+-    err = copyin(uap->image, image, uap->image_size);
+-    if (err) {
+-        kern.printf("Failed to copy in image\n");
+-        goto cleanup;
+-    }
+-
+-    // Copy in initramfs
+-    initramfs = kernel_alloc_contig(initramfs_size + FW_CPIO_SIZE);
+-    if (!initramfs) {
+-        kern.printf("Failed to allocate initramfs\n");
+-        err = ENOMEM;
+-        goto cleanup;
+-    }
+-
+-    err = firmware_extract(((u8*)initramfs));
+-    if (err < 0) {
+-        kern.printf("Failed to extract GPU firmware - continuing anyway\n");
+-    } else {
+-        firmware_size = err;
+-    }
+-
+-    if (initramfs_size) {
+-        err = copyin(uap->initramfs, initramfs + firmware_size, initramfs_size);
+-        if (err) {
+-            kern.printf("Failed to copy in initramfs\n");
+-            goto cleanup;
+-        }
+-    }
+-    initramfs_size += firmware_size;
+-
+-    // Copy in cmdline
+-    cmd_line_maxlen = ((struct boot_params *)image)->hdr.cmdline_size + 1;
+-    cmd_line = kernel_alloc_contig(cmd_line_maxlen);
+-    if (!cmd_line) {
+-        kern.printf("Failed to allocate cmdline\n");
+-        err = ENOMEM;
+-        goto cleanup;
+-    }
+-    err = copyinstr(uap->cmd_line, cmd_line, cmd_line_maxlen, NULL);
+-    if (err) {
+-        kern.printf("Failed to copy in cmdline\n");
+-        goto cleanup;
+-    }
+-    cmd_line[cmd_line_maxlen - 1] = 0;
+-
+-    kern.printf("\nkexec parameters:\n");
+-    kern.printf("    Kernel image size:   %zu bytes\n", uap->image_size);
+-    kern.printf("    Initramfs size:      %zu bytes (%zu from user)\n",
+-                initramfs_size, uap->initramfs_size);
+-    kern.printf("    Kernel command line: %s\n", cmd_line);
+-    kern.printf("    Kernel image buffer: %p\n", image);
+-    kern.printf("    Initramfs buffer:    %p\n", initramfs);
+-
+-    // Allocate our boot params
+-    bp = kernel_alloc_contig(sizeof(*bp));
+-    if (!bp) {
+-        kern.printf("Failed to allocate bp\n");
+-        err = ENOMEM;
+-        goto cleanup;
+-    }
+-
+-    // Initialize bp
+-    // TODO should probably do this from cpu_quiesce_gate, then bp doesn't
+-    // need to be allocated here, just placed directly into low mem
+-    set_nix_info(image, bp, initramfs, initramfs_size, cmd_line, (int)vram_mb);
+-
+-    prepare_boot_params(bp, image);
+-
+-    // Hook the final ICC shutdown function
+-    if (!kernel_hook_install(hook_icc_query_nowait, icc_query_nowait)) {
+-        kern.printf("Failed to install shutdown hook\n");
+-        err = EINVAL;
+-        goto cleanup;
+-    }
+-    
+     kern.printf("******************************************************\n");
+     kern.printf("kexec successfully armed. Please shut down the system.\n");
+     kern.printf("******************************************************\n\n");
+@@ -260,7 +310,7 @@ cleanup:
+     kernel_free_contig(cmd_line, cmd_line_maxlen);
+     kernel_free_contig(bp, sizeof(*bp));
+     kernel_free_contig(image, uap->image_size);
+-    kernel_free_contig(initramfs, uap->initramfs_size);
++    kernel_free_contig(initramfs, initramfs_alloc_size);
+     return err;
+ 
+     copyout(NULL, NULL, 0);
+diff --git i/linux/ps4-kexec-common/linux_boot.c w/linux/ps4-kexec-common/linux_boot.c
+index 7ae93a1..0144042 100644
+--- i/linux/ps4-kexec-common/linux_boot.c
++++ w/linux/ps4-kexec-common/linux_boot.c
+@@ -26,7 +26,6 @@ static u64 vram_base = 0x100000000;
+ static u64 vram_size = 1024 * 1024;  /* 1 MB unit - value is now in MB */
+ static int vram_mb = 2048;  /* default 2 GB expressed in MB */
+ 
+-#define DM_PML4_BASE ((kern.dmap_base >> PML4SHIFT) & 0x1ff)
+ 
+ struct desc_ptr {
+     u16 limit;
+@@ -43,6 +42,11 @@ struct desc_struct {
+     u16 limit: 4, avl: 1, l: 1, d: 1, g: 1, base2: 8;
+ } __attribute__((packed));
+ 
++_Static_assert(sizeof(struct desc_struct) * 0x100 == DIAG_GDT_BYTES,
++               "GDT layout must match the pre-arm low-memory planner");
++_Static_assert(sizeof(struct boot_params) == 0x1000,
++               "Boot params must match the low-memory planner");
++
+ typedef void (*jmp_to_linux_t)(uintptr_t linux_startup, uintptr_t bootargs,
+                                uintptr_t new_cr3, uintptr_t gdt_ptr);
+ extern uint8_t *jmp_to_linux;
+@@ -113,6 +117,43 @@ void prepare_boot_params(struct boot_params *bp, u8 *linux_image)
+                       SMAP_TYPE_MEMORY);
+ }
+ 
++/* All layout checks run before the shutdown hook is armed. The low region is
++ * only written later in the existing terminal handoff, after CPUs quiesce. */
++static struct diag_low_layout low_layout;
++int diagnostix_prepare_handoff(void)
++{
++    size_t bytes = 0;
++    low_layout = (struct diag_low_layout){0};
++    if (!diag_dmap_base_valid(kern.dmap_base) || !nix_info.cmd_line)
++        return 0;
++    while (bytes < DIAG_CMDLINE_BYTES && nix_info.cmd_line[bytes]) ++bytes;
++    if (bytes == DIAG_CMDLINE_BYTES)
++        return 0;
++    return diag_plan_low_layout(jmp_to_linux_size, bytes + 1, &low_layout);
++}
++
++/* low_region points at physical DIAG_GDT_PA in production. Keeping its storage
++ * pointer separate from the physical fields makes low pointers unambiguous. */
++static void diagnostix_copy_low_data(void *low_region)
++{
++    u8 *region = low_region;
++    void *thunk_copy = region + (low_layout.thunk - DIAG_GDT_PA);
++    struct boot_params *bp_lo = (void *)(region + (low_layout.boot_params - DIAG_GDT_PA));
++    memcpy(thunk_copy, &jmp_to_linux, jmp_to_linux_size);
++    *bp_lo = *nix_info.bp;
++    struct setup_header *shdr = &bp_lo->hdr;
++    shdr->cmd_line_ptr = low_layout.command_line; /* already physical */
++    bp_lo->ext_cmd_line_ptr = 0;
++    shdr->ramdisk_image = DM_TO_ID(nix_info.initramfs) & 0xffffffff;
++    shdr->ramdisk_size = nix_info.initramfs_size & 0xffffffff;
++    bp_lo->ext_ramdisk_image = DM_TO_ID(nix_info.initramfs) >> 32;
++    bp_lo->ext_ramdisk_size = nix_info.initramfs_size >> 32;
++    shdr->hardware_subarch = X86_SUBARCH_PS4;
++    shdr->type_of_loader = 0xd0;
++    strlcpy((char *)(region + (low_layout.command_line - DIAG_GDT_PA)),
++            nix_info.cmd_line, DIAG_CMDLINE_BYTES);
++}
++
+ #define WR32(a, v) *(volatile u32 *)PA_TO_DM(a) = (v)
+ 
+ #define MC_VM_FB_LOCATION 0x2024
+@@ -243,26 +284,19 @@ static void cpu_quiesce_gate(void *arg)
+     // It doesn't match the ps4 e820 map, but that seems OK.
+     memset((void *)0, 0, 0x1000);
+ 
+-    // Create a new page table hierarchy out of the way of linux
+-    // Accessed via freebsd direct map
+-    pml4_base = (u64 *)PA_TO_DM(0x1000); // "boot loader" as per linux boot.txt
+-    // We only use 1Gbyte mappings. So we need 2 * 0x200 * 8 = 0x2000 bytes :|
+-    memset(pml4_base, 0, 512 * sizeof(u64) * 2);
+-    pdp_base = pml4_base + 512;
+-    u64 pdpe = DM_TO_ID(pdp_base) | PG_RW | PG_V | PG_U;
+-    pml4_base[0] = pdpe;
+-    // Maintain the freebsd direct map
+-    pml4_base[DM_PML4_BASE] = pdpe;
+-    for (u64 i = 0; i < 4; i++) {
+-            pdp_base[i] = (i << 30) | PG_RW | PG_V | PG_U | PG_PS;
++    // Fresh replacement tables: identity and DMAP use separate PDPT pages.
++    pml4_base = (u64 *)PA_TO_DM(DIAG_PML4_PA);
++    if (!diag_build_page_tables(pml4_base, 3 * 512, kern.dmap_base)) {
++        uart_write_str("Diagnostix replacement table validation failed\n");
++        for (;;) cpu_stop();
+     }
+ 
+     uart_write_str("kexec: Setting up GDT...\n");
+ 
+     struct desc_ptr gdt_ptr; //for baikal desc_ptr gdt_ptr;
+-    struct desc_struct *desc = (struct desc_struct *)(pdp_base + 512);
++    struct desc_struct *desc = (struct desc_struct *)PA_TO_DM(DIAG_GDT_PA);
+     gdt_ptr.limit = sizeof(struct desc_struct) * 0x100 - 1;
+-    gdt_ptr.address = DM_TO_ID(desc);
++    gdt_ptr.address = DIAG_GDT_PA; /* already physical */
+ 
+     // clear
+     memset(desc, 0, gdt_ptr.limit + 1);
+@@ -315,35 +349,9 @@ static void cpu_quiesce_gate(void *arg)
+ 
+     uart_write_str("kexec: Relocating stub...\n");
+ 
+-    // Relocate the stub and jump to it
+-    // TODO should thunk_copy be DMAP here?
+-    void *thunk_copy = (void *)(gdt_ptr.address + gdt_ptr.limit + 1);
+-    memcpy(thunk_copy, &jmp_to_linux, jmp_to_linux_size);
+-    // XXX The +0x200 is for the iret stack in linux_thunk.S
+-    uintptr_t lowmem_pos = DM_TO_ID(thunk_copy) + jmp_to_linux_size + 0x200;
+-
+-    uart_write_str("kexec: Setting up boot params...\n");
+-
+-    // XXX we write into this bootargs and pass it to the kernel, but in
+-    // jmp_to_linux we use the bootargs from the image as input. So they
+-    // MUST MATCH!
+-    struct boot_params *bp_lo = (struct boot_params *)lowmem_pos;
+-    *bp_lo = *nix_info.bp;
+-    lowmem_pos += sizeof(struct boot_params);
+-
+-    struct setup_header *shdr = &bp_lo->hdr;
+-    shdr->cmd_line_ptr = lowmem_pos;
+-    shdr->ramdisk_image = DM_TO_ID(nix_info.initramfs) & 0xffffffff;
+-    shdr->ramdisk_size = nix_info.initramfs_size & 0xffffffff;
+-    bp_lo->ext_ramdisk_image = DM_TO_ID(nix_info.initramfs) >> 32;
+-    bp_lo->ext_ramdisk_size = nix_info.initramfs_size >> 32;
+-    shdr->hardware_subarch = X86_SUBARCH_PS4;
+-    // This needs to be nonzero for the initramfs to work
+-    shdr->type_of_loader = 0xd0; // kexec
+-
+-    strlcpy((char *)DM_TO_ID(shdr->cmd_line_ptr), nix_info.cmd_line,
+-        nix_info.bp->hdr.cmdline_size);
+-    lowmem_pos += strlen(nix_info.cmd_line) + 1;
++    // All positions were bounded before arming; low pointers are physical.
++    void *thunk_copy = (void *)(uintptr_t)low_layout.thunk;
++    diagnostix_copy_low_data((void *)(uintptr_t)DIAG_GDT_PA);
+ 
+     uart_write_str("kexec: Cleaning up hardware...\n");
+ 
+@@ -437,8 +445,8 @@ static void cpu_quiesce_gate(void *arg)
+ 
+     ((jmp_to_linux_t)thunk_copy)(
+             DM_TO_ID(nix_info.linux_image),
+-            DM_TO_ID(bp_lo),
+-            DM_TO_ID(pml4_base),
++            low_layout.boot_params,
++            DIAG_PML4_PA,
+             (uintptr_t)&gdt_ptr
+             );
+ 
+diff --git i/linux/ps4-kexec-common/linux_boot.h w/linux/ps4-kexec-common/linux_boot.h
+index 2232b35..f4b670b 100644
+--- i/linux/ps4-kexec-common/linux_boot.h
++++ w/linux/ps4-kexec-common/linux_boot.h
+@@ -83,6 +83,7 @@ OSTRUCT_END
+ void set_nix_info(void *linux_image, struct boot_params *bp, void *initramfs,
+                   size_t initramfs_size, char *cmd_line, int v);
+ void prepare_boot_params(struct boot_params *bp, u8 *linux_image);
++int diagnostix_prepare_handoff(void);
+ int hook_icc_query_nowait(u8 *icc_msg);
+ 
+ #endif

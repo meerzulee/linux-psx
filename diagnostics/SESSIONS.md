@@ -1736,3 +1736,1384 @@ outside Git; one completed test is not stability qualification.
 - UART completed, bytes 3097526..3100426 (2,900 bytes), zero capture events.
   Private before/after receipts, captures and matching transfer hashes remain
   indexed by this experiment ID.
+
+## EXP-20261107-012 — Private USB-free FPKG transferred and verified
+
+- Built Diagnostix RAM alpha1 (`DGNX00001`, version `0.01`) with the unchanged
+  dev6 kernel and all 41 matching base modules. Host package validation and
+  extracted readback of all 20 staged files passed. The 460,128,256-byte package
+  includes locally supplied firmware and remains private.
+- Uploaded a new temporary file and read back all bytes over Orbis FTP. SHA256
+  matched `517531ae200e76106d97a595979de325eb906dadfbf43d524f2789b6207b29a0`
+  before renaming it to `/data/diagnostix-ram-alpha1-0.01.pkg`. Upload took
+  39.48 seconds; readback took 58.56 seconds. No existing boot files changed.
+- UART continuity completed at bytes 3283119..3287025 (3,906 bytes), zero
+  capture events. The console remained in Orbis. The private build/transfer
+  receipts are indexed by this experiment ID; no app install, loader delivery,
+  Linux boot or Power action ran. **USB-free hardware acceptance is pending.**
+
+## OBS-20261107-FPKG-001 — First operator launch stopped before Linux
+
+- The operator installed version `0.01` and selected Boot. Continuous UART
+  recorded GoldHEN accepting the exact 37,000-byte ELF, successful kernel
+  interface/syscall setup, firmware 12.02, 1024 MiB VRAM and Baikal detection.
+  The next loader error was **`Failed to allocate image`**; Linux did not start.
+- This error is emitted for the approximately 11 MiB kernel buffer, before
+  kernel image copy or initramfs allocation. It conflates allocation failure
+  with mapping/range rejection; it does not establish RAM-image exhaustion.
+  The preparation-failed return does not request shutdown.
+- Source inspection also found four full image passes in installation using
+  identical progress labels: embedded verification, copy/hash, staged readback
+  and redundant post-rename readback. No automatic install retry was found.
+- This was an operator-initiated observation in continuous capture, **without
+  a predeclared bounded session**. It is negative diagnostic evidence, not
+  acceptance. Private raw context and offsets are retained under this ID.
+  The next candidate must report the specific allocation rejection and make
+  each installer phase visible before another declared trial.
+
+## EXP-20261107-013 — NOT RUN: FTP unavailable after console transition
+
+- Candidate `0.02` passed native package validation, all 20 extracted member
+  comparisons and 11 FPKG host tests. Its loader03 adds exact allocation
+  rejection records; no allocator-policy fix is claimed. The kernel and RAM
+  image are unchanged. The corrected UI removes one redundant full-image read.
+- FTP failed at connection with `EHOSTUNREACH`, before any package bytes or
+  boot files were sent. No candidate install, payload or Power action ran.
+  Earlier continuous UART independently recorded a Payload Guest launch of
+  `linux-omarchy-4.5-internal-v25.bin`, followed by an Orbis exfatfs
+  `vputx: negative ref cnt` shutdown panic. That is a separate payload event,
+  not a Diagnostix allocation result.
+- Capture continuity completed at bytes 3408674..3434594 (25,920 bytes), zero
+  events, observing the subsequent Orbis startup. The candidate trial did not
+  run and has no acceptance result. Private package/connection receipts remain.
+
+## EXP-20261107-014 — Kernel allocation refusal identified
+
+- New setup evidence: the operator recovered Orbis and reopened FTP; a direct
+  read-only connection confirmed `/user/data/pkg` before starting this session.
+  Upload/readback of the new `0.02` package precedes operator installation.
+- Objective: one explicit Install / Verify and Boot attempt identifies the
+  kernel-buffer rejection through `DIAGNOSTIX_ALLOC_V1`, or observes preparation
+  proceeding. Timeout 20 minutes; stop on preparation failure, terminal fault
+  or UART discontinuity. No automatic retry. Existing package, USB, Omarchy and
+  previous installed generation remained recovery options.
+- The `0.02` FTP upload/readback completed with matching SHA256
+  `aa4098aa113e6cc057d4f549d30f731a1d763a744644dea00d945abee21d76eb`.
+  On the owner's explicit request, the obsolete cached `0.01` installer was
+  removed (460,128,256 bytes); the verified local recovery package remains.
+- Before any loader handoff, the owner requested a cleanup menu and confirmed
+  the console was still in Orbis, installing/verifying `0.02`, with FTP open.
+  Setup was amended to native app `0.03` for **Clear old files**. Kernel,
+  complete RAM image and diagnostic loader03 are byte-identical to `0.02`;
+  the single allocation-diagnosis objective and original timeout are unchanged.
+  Candidate `0.03` passed 11 host tests, native object/link checks and all 20
+  extracted-package comparisons. Its FTP readback matched SHA256
+  `53ac770a6901cd26367540e10760309ad7992b3e3cfe21c9618272d45df8af0b`.
+- Actual execution remained app `0.02` while `0.03` was being transferred.
+  UART identified `DIAGNOSTIX_ALLOC_V1 reason=kmem-returned-zero`, one attempt,
+  request 11,273,216 bytes / rounded 11,288,576, flags `0x101`, high
+  `0xffffffff`, alignment `0x4000`. Allocation returned zero before every
+  post-allocation guard; the kernel image was never copied and Linux did not
+  start. The operator confirmed preparation failed. No shutdown was armed.
+- The diagnostic objective was answered; **boot acceptance failed**. Capture
+  continuity completed at bytes 3559723..3601864 (42,141 bytes), zero events.
+  Next source change restores one reference `M_ZERO|M_WAITOK` call without the
+  upstream outer retry loop; it may wait internally and needs a new trial.
+
+## EXP-20261107-015 — SETUP BLOCKED: waiting allocation trial not reached
+
+- Candidate app `0.04` contains loader04, one reference `M_ZERO|M_WAITOK`
+  allocation call (`0x102`) with entry/return markers. Physical ranges,
+  continuity, input/header checks, mapped-address cleanup and pre-arm order
+  remain unchanged. There is no outer retry and no hard allocation timeout.
+- User requested a single preparation pass and direct launch. App `0.04`
+  copies/hashes once, binds the verified copy to file identities, reuses that
+  unchanged same-launch snapshot for Boot, and has no extra Boot confirmation.
+  Twelve FPKG tests and four actual-source loader suites passed; native builds
+  and all 20 extracted package comparisons passed. Hardware result pending.
+- Plan: one-pass FTP upload (sent-stream SHA, completion ACK and remote size),
+  then operator installs `0.04`, prepares once and selects direct Boot once.
+  Stop on preparation failure, terminal fault or UART discontinuity. Observe
+  90 seconds at allocation / 120 seconds after handoff, 15 minutes overall.
+  A blocked kernel allocation needs operator physical recovery; the timeout
+  cannot cancel it. Local prior packages and known USB remain recovery inputs.
+- Package `0.04` uploaded in 36.96 seconds, hashing its stream once to
+  `6cb9468e29f89a5bb043120cdf932429827277ba0fc23773a9a38a8916e08afa`.
+  FTP completion and final 460,193,792-byte size were confirmed; no full remote
+  reread ran. Obsolete cached installers `0.02` and `0.03` were removed under
+  the owner's cleanup request, leaving only `0.04` in the installer directory.
+  Their local recovery packages and active/previous boot files were preserved.
+- The operator launched/reinstalled native `0.04`, but reported Install / Verify
+  returned to the menu or did not respond, including after the explicit dialog
+  selection. Read-only FTP found active manifest still `0.02`, no stage/journal,
+  and exact packaged `0.04` manifest bytes/hash. The remaining default-Cancel
+  Install dialog was a UX defect; an immediate preflight refusal was also
+  possible and had no detailed status log. The exact runtime cause was not
+  established. Loader04 was **not invoked**, so this is not a WAITOK result.
+- Capture continuity completed at bytes 3623276..3689038 (65,762 bytes), zero
+  events. The trial stopped at setup; no kernel boot acceptance is claimed.
+  App `0.05` removes the Install dialog, shows precise failure reasons and
+  writes a bounded owned status log. Read-only source identities no longer
+  require writable-file link-count semantics; stored/cleanup guards remain.
+
+## EXP-20261107-016 — Native stat ABI mismatch identified; loader not reached
+
+- Candidate app `0.05` starts Install / Verify and Boot directly; cleanup
+  deletion alone retains confirmation. It copies/hashes once and caches the
+  unchanged same-launch identity. Its source preflight logs native mode/link
+  count/size, manifest and the exact failing stage to the owned
+  `/data/diagnostix/launcher-status.log`; no image contents are logged.
+- Thirteen FPKG tests, native object/link checks and all 20 extracted package
+  comparisons passed. Kernel, RAM image and waiting loader04 are unchanged.
+  Plan: upload once, operator installs `0.05`, selects Install / Verify once;
+  inspect the precise setup log on failure, or select direct Boot once when
+  ready. Stop on failure or UART discontinuity; 15 minutes
+  overall, 90 seconds at allocation, 120 seconds after handoff. Physical/USB
+  recovery remains available if an allocation waits indefinitely.
+- Actual UART and the owned status log showed source `bzImage` as mode
+  `300555`, links `0`, size `22144`, instead of the 11,273,216-byte file.
+  The SDK's 128-byte stat object had been passed directly to a native API
+  writing the FreeBSD 9 layout: native links at offset 10 polluted SDK mode,
+  UID at 12 became SDK links, and allocated blocks at 80 became SDK size.
+  Read-only FTP confirmed the packaged file size and manifest. This was our
+  metadata adapter defect, not evidence of a truncated image or failed hash.
+- Preparation stopped before copying/activation; loader04 was not invoked.
+  Capture continuity completed at bytes 3692831..3717418 (24,587 bytes), zero
+  events. No WAITOK or Linux boot result is claimed. App `0.06` introduces an
+  explicit fixed-width conversion and an aligned zeroed 256-byte API buffer;
+  the exact observed wrong fields are reproduced in serialized-ABI tests.
+
+## EXP-20261107-017 — Preparation passed; waiting kernel allocation returned zero
+
+- Objective: app `0.06` reports correct source identities, completes one
+  streamed copy/hash and activates its candidate, then the operator selects
+  Boot once. Changed variable: the native metadata adapter. Kernel, complete
+  RAM image and loader04 bytes/policy are unchanged. Fourteen host tests,
+  ASan/UBSan, native object/link checks and all 20 extracted package comparisons
+  passed; these do not establish PS4 preparation or boot acceptance.
+- Continuous UART was ready; session began at byte 3727244. Bounds: 15 minutes
+  overall, 90 seconds observing allocation and 120 seconds after handoff.
+  Stop on failure or continuity loss; a waiting kernel allocation cannot be
+  cancelled by this observation timeout. No automatic retry. Local prior
+  packages, active/previous boot files and known USB remain recovery inputs.
+- Package `0.06` uploaded in 45.84 seconds with sent-stream SHA256
+  `61fabdad541eff6974f1cb37e4ec7f5d235f341c5f9684e55f89ce4d93836e75`.
+  FTP acknowledged completion and final size 460,193,792 bytes; no full remote
+  reread ran. Only obsolete cached `0.05` was removed under the owner's cleanup
+  request, leaving `/user/data/pkg/diagnostix-ram-alpha1-0.06.pkg`. Its local
+  recovery copy remains.
+- Actual `0.06` source metadata now reports mode `100555`, links `1`, kernel
+  size `11273216` and initramfs size `444785998`. One streamed copy/hash, flush
+  and activation completed; the owned log reported ready and FTP read-only
+  inspection found active manifest `0.06`. Boot reused that snapshot and sent
+  the 37,000-byte ELF once. GoldHEN received and executed it; `sys_kexec` ran.
+- The waiting allocator's entry and return markers both appeared. The first
+  request (11,273,216 bytes, rounded 11,288,576, flags `0x102`, physical high
+  `0xffffffff`, alignment `0x4000`) returned zero. No mapping guard, initramfs
+  kernel allocation, shutdown arming or Linux boot occurred. The owner reported
+  payload failure. The native metadata/preparation fix is observed on this
+  console; the allocation-policy candidate did not solve the boot failure.
+- Capture continuity completed at bytes 3727244..3764490 (37,246 bytes), zero
+  events. No automatic retry. Subsequent source investigation must account for
+  the entire 425 MiB userspace initramfs being read into anonymous RAM before
+  this first kernel allocation; the small working USB bootstrap differs there.
+
+## EXP-20261107-018 — Lazy input accepted; kernel allocation still failed
+
+- App `0.07` carries loader05. The single changed diagnostic variable is
+  initramfs input backing: an exact-byte read-only/private file mapping with
+  no eager reads or prefault, instead of the complete anonymous input copy.
+  Mapping/size/close failures abort without fallback. Kernel allocator flags,
+  limits, guards and embedded kexec bytes are identical to loader04. The
+  verified installed generation remains immutable through kernel copyin.
+- Primary review verified the source delta, reran all four actual-source C
+  suites with ASan/UBSan and all 14 native-launcher tests, and checked all 20
+  extracted FPKG members. Inaccessible host mappings establish no early input
+  access; they do not establish Orbis file paging or contiguous allocation.
+- After EXP017 had completed, a host artifact move consumed the UART volume's
+  reserve. The logger stopped on its 512 MiB free-space floor at 04:46:08;
+  no active experiment crossed that stop. The artifact was restored to its
+  original verified location and duplicate generated build directories removed.
+  Capture was restarted ready at 04:51:06 with generation
+  `6666d07ef26644bcb0e800c050ce438f`, epoch 1. This trial begins at byte 114.
+- Plan: one upload, operator closes `0.06`, installs `0.07`, prepares once and
+  selects Boot once. Observe whether the first kernel allocation advances,
+  then the larger initramfs allocation or a precise failure. Bounds: 15 minutes
+  overall, 90 seconds at allocation, 120 seconds after handoff; stop on failure
+  or continuity loss. An OS allocator wait cannot be cancelled by that timeout.
+  No automatic retry; previous local packages and known USB/physical recovery
+  remain available. No Power command is sent by the host.
+- Package `0.07` uploaded once in 42.96 seconds; sent-stream SHA256 matched
+  `7465418c2c91816dbef22afa15b334c7dfb10df957132a25c47fa98c63f1cf58`.
+  FTP completion and final 460,193,792-byte size were confirmed without a full
+  remote reread. Only obsolete cached `0.06` was removed; its verified local
+  recovery package and active/previous boot generations remain. Ready path:
+  `/user/data/pkg/diagnostix-ram-alpha1-0.07.pkg`.
+- The operator installed `0.07`. One streamed preparation completed and
+  subsequent Install selections reused its verified snapshot. Its 37,032-byte
+  ELF was received and executed once. Reaching `sys_kexec` establishes that
+  opening, mapping, size recheck and descriptor close passed on Orbis; it does
+  not establish demand paging of the whole file during kernel copyin.
+- The first 11,273,216-byte kernel allocation again returned zero under flags
+  `0x102`, high `0xffffffff`, alignment `0x4000`. The input-mapping change did
+  not resolve allocation. No kernel image copy, kernel initramfs allocation,
+  shutdown arming or Linux boot followed. UART then recorded a physical power
+  button and Orbis suspend sequence; the host sent no Power command.
+- Capture continuity completed at bytes 114..88320 (88,206 bytes), zero events.
+  The trial stops here; another run of this payload is not a new diagnostic
+  variable. Further work is source-only review of allocator addressability,
+  the native direct map and the replacement boot page tables.
+
+
+## EXP-20261107-019 — Diagnostix 0.08 FTP readback passed; old cache removed
+
+- Objective: upload only the host-verified Diagnostix `0.08` installer, retrieve
+  the complete temporary file and compare its SHA-256, publish it, then remove
+  only the obsolete cached `0.07` installer under the owner's explicit request.
+  Timeout 20 minutes; stop on FTP error, identity/hash mismatch or capture loss.
+  No installation, payload, boot-file or Power action was included.
+- The anonymous FTP endpoint and `/user/data/pkg` path were confirmed read-only
+  before starting. The only existing Diagnostix installer was the expected
+  460,193,792-byte `0.07` package. The verified local `0.07` recovery package
+  remains at `/var/tmp/psx-diagnostix-fpkg-ram-alpha1-20261107-07/IV0000-DGNX00001_00-DIAGNOSTIX000001.pkg`
+  with SHA256 `7465418c2c91816dbef22afa15b334c7dfb10df957132a25c47fa98c63f1cf58`.
+- Upload and complete FTP readback of `0.08` both returned 460,390,400 bytes
+  with SHA256 `12cd6a33e2fcd93cc925763c8c206f3013ef42ee547ed723aa9efc664438e3df`.
+  The temporary file was renamed to `/user/data/pkg/diagnostix-ram-alpha1-0.08.pkg`.
+  Only `diagnostix-ram-alpha1-0.07.pkg` was then deleted; its removal and the
+  final directory containing only the `0.08` Diagnostix installer were confirmed.
+  The local transfer receipt is `/var/tmp/psx-diagnostix-fpkg-transfer-20261107-08/TRANSFER.json`.
+- Capture continuity completed at bytes 354684..355609 (925 bytes), zero events.
+  This is storage-transfer evidence only: no package installation, loader
+  execution, Linux boot or hardware acceptance is claimed.
+
+
+## Follow-up after EXP-20261107-019 — Loader06 first allocation failed
+
+- The operator reported `preparation failed` after launching Diagnostix `0.08`.
+  This action did not occur inside a bounded session, so it is an operator
+  observation correlated with continuous UART and read-only FTP, not a new
+  acceptance experiment. No retry was requested or performed by the host.
+- The owned launcher log proves that Prepare completed: all six `0.08` source
+  files passed their expected metadata, the new generation completed copy,
+  verification and activation, and the final result was `Installed candidate
+  verified. Ready to boot.` Boot then completed `Send verified loader once`.
+  Active FTP manifest is `0.08`; no `boot.new` staging directory remains.
+- Continuous UART lines 6267..6278 show `sys_kexec` and loader06's first
+  `DIAGNOSTIX_ALLOC_V2` request: 11,273,216 bytes, rounded 11,288,576, flags
+  `0x102`, high `0x27f000000`, alignment `0x4000`. Orbis returned `vm=0x0`;
+  `DIAGNOSTIX_ALLOC_V1` reports `kmem-returned-zero`, followed by `Failed to
+  allocate image`. No post-allocation guard or initramfs allocation was reached.
+- Confirmed cause of the visible alert: the native kernel contiguous allocator
+  refused the first kernel-image buffer. This is not a package, preparation,
+  hash or navigation failure. Expanding the physical high limit did not resolve
+  it. The reason for the allocator's zero return remains unconfirmed; do not
+  infer general RAM exhaustion. The next lower-layer diagnostic is the existing
+  bounded read-only memory-pool observation, not another identical boot retry.
+
+
+## EXP-20261107-020 — Compact 0.09 uploaded; SATA/payload audit complete
+
+- Objective: upload the compact Diagnostix `0.09` upstream-allocation candidate,
+  verify a complete FTP readback and preserve the existing `0.08` installer as
+  rollback. Timeout 20 minutes; stop on FTP error, identity/hash mismatch or
+  capture loss. No remote deletion, installation, payload or Power action.
+- Source audit found no missing SATA/payload component. Loader07 retains the
+  upstream Baikal `disableMSI(0xf80a20e0)` handoff. The matching kernel config
+  has built-in AHCI, SCSI/SD, loop, ext4 and tmpfs support. All five scoped SATA
+  boot arguments occur exactly once, and the initramfs contains the read-only
+  guard. The root is RAM-backed, while the separate read-only SATA inventory
+  gate runs only after Linux starts; it cannot explain the pre-handoff allocator
+  failure. The local audit is `/var/tmp/psx-diagnostix-fpkg-transfer-20261107-09/SATA-PAYLOAD-AUDIT.json`.
+- Upload and complete FTP readback both returned 460,390,400 bytes with SHA256
+  `f41b0ea1c673ad029f40d5feee6d3c05002d6b0045c6fc1117a9452f999b0ee3`.
+  `/user/data/pkg/diagnostix-ram-alpha1-0.09.pkg` was published. Final read-only
+  inspection confirmed both `0.08` and `0.09`, each 460,390,400 bytes. No remote
+  file was deleted. The transfer receipt is `/var/tmp/psx-diagnostix-fpkg-transfer-20261107-09/TRANSFER.json`.
+- Capture continuity completed at bytes 425706..427692 (1,986 bytes), zero events.
+  This is source-review and storage-transfer evidence only; no package
+  installation, loader execution, Linux boot or hardware acceptance is claimed.
+
+
+## Follow-up after EXP-20261107-020 — Loader07 upstream call also returned zero
+
+- The operator launched Diagnostix `0.09` outside a bounded session. Continuous
+  UART lines 7198..7210 confirm `sys_kexec`, policy `UPSTREAM_SINGLE`, the exact
+  unrounded 11,273,216-byte request, high `0xffffffffffffffff`, alignment `1`
+  and independent guard high `0x27f000000`. Orbis again returned `vm=0x0` and
+  `kmem-returned-zero`, followed by `Failed to allocate image`.
+- The upstream size/high/alignment differences are therefore ruled out as the
+  cause of this refusal. No initramfs allocation, Linux handoff or SATA
+  initialization occurred. This is continuous-capture/operator evidence, not a
+  bounded acceptance experiment. No automatic retry was made by the host.
+
+## EXP-20261107-021 — Official sample delivery failed; truncated ELF faulted
+
+- Objective: compare the official unmodified v25 `linux-1024mb.elf` against the
+  intact small internal rescue initramfs (3,330,277 bytes), preserving all boot
+  files. Payload SHA256 `c813d169ef37e4bee574a5058bc6c0b92564e74ab445ef0846d67fa9d1e5ce65`,
+  320,936 bytes. PayLoader reported ready. Stop on stable failure or capture loss.
+- The host used one `send()` and incorrectly treated its short 110,048-byte
+  return as a completed experiment. GoldHEN saved that truncated ELF, launched
+  it, and UART recorded `Fatal trap 12: page fault while in kernel mode`.
+  The official loader never reached its file reader or allocator. This was a
+  host transport error, not a stock-loader result. Capture completed at bytes
+  463190..466283 (3,093 bytes), zero events. No boot file was changed.
+
+## EXP-20261107-022 — Complete sample received after fault; no launch evidence
+
+- Changed variable: one connection with `sendall`, requiring all 320,936 bytes,
+  after EXP021's partial write. PayLoader again reported ready and acknowledged
+  receipt of all 320,936 bytes. The same official hash and small rescue set were
+  preserved. No additional payload or storage action followed.
+- UART confirmed receipt but did not show payload launch, `sys_kexec`, an
+  allocation or Linux. The preceding Fatal trap made further delivery unsafe;
+  capture was stopped at bytes 466283..469102 (2,819 bytes), zero events. There
+  is no valid upstream comparison from this experiment.
+- Stop condition: kernel fault before a valid sample launch. Do not retry in the
+  current Orbis state. A fresh operator-controlled Orbis/GoldHEN recovery is
+  required first. The Diagnostix launcher also uses one `send()` and rejects a
+  short write before closing; its next candidate must use a complete-write loop
+  because GoldHEN can launch a truncated payload. No new package is authorized
+  by this observation alone.
+
+
+## EXP-20261107-023 — Diagnostix 0.10 upload passed; first app launch hung
+
+- Objective: upload the host-verified 0.10 complete-write candidate, install and
+  Prepare it, then inspect state over FTP without selecting Boot or sending a
+  payload. Timeout 20 minutes; stop on FTP/hash failure, capture loss or console
+  fault. Existing packages and installed generations were preserved.
+- Upload and complete FTP readback both returned 460,390,400 bytes with SHA256
+  `f30f4d253720bc53fbf2581545dd1356838ed8e62e45e0a5dc37c2909a35219f`.
+  `/user/data/pkg/diagnostix-ram-alpha1-0.10.pkg` was published; no old package
+  was deleted. The transfer receipt is
+  `/dev/shm/diagnostix-fpkg-10-transfer/TRANSFER.json`.
+- Installation completed and Orbis launched app version 0.10. The operator then
+  reported a blank screen and inability to close it. UART shows no Prepare action
+  or launcher log entry before the hang. Orbis could not suspend thread 101394,
+  and the operator initiated a reboot. No payload was sent and FTP confirmed the
+  active installed generation remained 0.09. The initial startup hang's precise
+  cause is not established by this capture.
+- Capture continuity completed at bytes 537339..573245 (35,906 bytes), zero
+  events. This was a failed first launch, not preparation or Linux evidence.
+
+
+## Follow-up after EXP-20261107-023 — Fresh-boot Prepare and FTP hashes passed
+
+- After the operator rebooted, continuous UART showed GoldHEN/PayLoader ready and
+  a fresh Diagnostix 0.10 launch. This action occurred outside a new bounded
+  session, so it is continuous-capture/operator evidence rather than bounded
+  acceptance. The earlier blank screen did not recur in this launch.
+- Prepare copied all six files, activated the generation and ended with
+  `Installed candidate verified. Ready to boot.` No Boot action, `sys_kexec`,
+  allocation or payload launch followed. FTP found no `.transaction`,
+  `.transaction.new` or `boot.new` marker.
+- Independent streaming FTP SHA-256 verification passed for all six active files:
+  kernel `a7264426ee3b2ffeb030a04bbd7ab070418ecf4c0272b83400b4d5f45473bff4`,
+  initramfs `78b7f494066cc7f4ee7a3d0ef047a952fb7133ab24b29b273dd1a57b065cce72`,
+  bootargs `2ee3acdf69fcaa7671eb0d9158b0539ad989f43b10fd7e49fef138908f21224d`,
+  loader07 `bbd2b4ab45a533449de70483b6c783f2f0a60d7c559f216555d7083d22866753`,
+  and the vram/manifest pins. The receipt is
+  `/dev/shm/diagnostix-fpkg-10-transfer/INSTALLED-VERIFY.json`.
+- Package transfer and fresh-boot preparation integrity therefore pass. This does
+  not establish that Linux will boot: the complete-write loop remains untested on
+  hardware and loader07's separate first-allocation failure remains unresolved.
+  No launch was performed by the host.
+
+
+## Follow-up after EXP-20261107-023 — 0.10 transport passed; loader allocation failed
+
+- After the verified Prepare, the operator selected Boot outside a bounded
+  session. The 0.10 launcher logged `handoff: all 37096 loader bytes written on
+  one connection`, then GoldHEN executed loader07 and UART reached `sys_kexec`.
+  This directly observes the complete-write transport on hardware; no truncated
+  ELF or connection retry occurred.
+- Loader07 again used `UPSTREAM_SINGLE` for the first 11,273,216-byte kernel
+  request with high `0xffffffffffffffff` and alignment `1`. Orbis returned
+  `vm=0x0`, followed by `kmem-returned-zero` and `Failed to allocate image`.
+  No initramfs allocation or Linux handoff followed.
+- FTP still identifies active version 0.10 with no transaction/staging marker.
+  The visible failure is therefore not a preparation failure: Prepare and the
+  complete loader write succeeded, while the separate first kernel-image
+  allocation failed again. Do not infer generic RAM exhaustion or retry the same
+  path without a new diagnostic variable. The next lower-layer investigation is
+  the existing read-only memory-pool observation, not another identical launch.
+
+
+## EXP-20261107-024 — Loader08 bounded retry passed transport; all three allocations refused
+
+- Objective: test only a three-attempt bound on upstream's zero-return allocation
+  retry, keeping loader07's call parameters, paths and guards and app 0.10's
+  complete-write transport. Upload, install, Prepare once, verify over FTP, then
+  one Boot. Timeout 20 minutes; stop on three refusals, a later failure, Linux
+  takeover, console fault or capture loss. Existing packages/generations preserved.
+- Loader08 SHA256 `169ce5324269626d931db5b54d10d1fda6af1d7580e72efdf7de2c4137220191`.
+  App 0.11 package SHA256 `963f8a19890df624de3df689b77eced3db7bfa9704daf4b5f34ebcbce42bc686`.
+  Five loader sanitizer suites, 16 launcher tests, 771 diagnostics Python tests,
+  15 Node tests, native builds, SFO 0.11 and all 23 package readbacks passed.
+- Upload and complete FTP readback both returned 460,390,400 bytes with the
+  expected package hash. `/user/data/pkg/diagnostix-ram-alpha1-0.11.pkg` was
+  published without deleting old packages. Transfer receipt:
+  `/dev/shm/diagnostix-fpkg-11-transfer/TRANSFER.json`.
+- Prepare completed. Independent FTP hashes of all six installed files matched,
+  including the loader08 and manifest `3d4cc9c6203df374bb0bfa212658ddc9a385c47f3c0098493e1b88953e03c779`
+  pins. No transaction marker or earlier Boot followed. Receipt:
+  `/dev/shm/diagnostix-fpkg-11-transfer/INSTALLED-VERIFY.json`.
+- The single Boot wrote all 37,096 loader bytes on one connection. GoldHEN saved
+  and launched the ELF, and UART reached `sys_kexec` with `UPSTREAM_BOUNDED3`.
+  Attempts 1, 2 and 3 each requested 11,273,216 bytes with high
+  `0xffffffffffffffff` and alignment `1`; every attempt returned `vm=0x0`.
+  `kmem-returned-zero attempts=3` and `Failed to allocate image` followed. No
+  fourth call, initramfs allocation or Linux handoff occurred.
+- Capture continuity completed at bytes 1253672..1311921 (58,249 bytes), zero
+  events. Verdict: bounded retry does not resolve the allocator refusal in this
+  console state. Do not repeat this path. The next diagnostic must move down to
+  the read-only memory-pool observation or establish a valid stock comparison;
+  neither is part of this experiment.
+
+## EXP-20261107-025 — Memory report completed after loader08 refusal
+
+- Objective: one existing read-only memory-pool report, without boot, allocation,
+  shutdown or boot-file changes. Owner explicitly authorized continuing the fix
+  and hardware diagnostics. Stop after completion or within 60 seconds, and on
+  mismatch, fault or capture loss. Orbis was at its menu after Diagnostix closed.
+- The 16,240-byte ELF SHA256
+  `a5de6b8c15f189cf12482e11cadce53fc4eb4ab1cdac77d128d69f4cd83c7aa9`
+  matched its reviewed build/source receipt. One complete connection delivered
+  it; GoldHEN confirmed that exact size and execution in ScePartyDaemon.
+- The report matched FW12.02/Baikal B1 fingerprints, completed 253 bounded
+  metadata reads, and left Orbis running. Eight normal segments and two active
+  free lists were reported. For normal selector zero, all counts at orders
+  10..12 were zero across both free lists and all three pools; smaller blocks
+  remained. A separate selector had one order-12 block; special-pool counts
+  were zero. These are unlocked counters, not an ownership or availability grant.
+- The failed 11,273,216-byte request needs 689 native 16 KiB pages and starts
+  the reviewed physical search at order 10. The snapshot is consistent with
+  contiguous-block fragmentation in its selected class. It does not establish
+  general RAM exhaustion or uniquely identify the earlier native zero-return
+  branch. Changing to another pool without its ownership contract is unwarranted.
+- Capture continuity completed at bytes 1345100..1349058 (3,958 bytes), zero
+  events; compact context
+  `20261107_193550_278318-exp-20261107-025-one-verified-read-only-memory-pool-report-after-8943e058.md`.
+  Private send/native-review receipts are in
+  `output/diagnostix-memory-report-20261107-025/`.
+- Conclusion: proceed with source work on owned, noncontiguous staging and
+  validated relocation at terminal takeover. Do not repeat the whole-image
+  contiguous allocation or move shutdown earlier. No Linux boot occurred.
+
+
+## EXP-20261107-026 — Full-size wired-page staging passed; no Linux handoff
+
+- Objective: stage the installed 0.11 kernel and complete RAM initramfs using
+  native wired, noncontiguous backing, validate the physical relocation plan,
+  then free preparation buffers without arming shutdown. Three-minute bound;
+  stop on refusal, fault, completion or capture loss. Existing boot files remain
+  the rollback; no boot-file write or automatic retry was included.
+- The stage-only ELF SHA256 was
+  `ed43a620ab2b80f05cf0935b3ecd6266079191809f3f75c4d005c1a0f221c56b`.
+  The 11,273,216-byte kernel and 444,917,182-byte initramfs-plus-firmware
+  allocation requests succeeded. Firmware extraction, input copies and header
+  checks completed; 444,880,734 initrd bytes were represented by the plan.
+- UART recorded 27,844 relocation records in 41 descriptor nodes, followed by
+  `DIAGNOSTIX_STAGE_V1 PASS` and `cleanup_complete=1 result=0`. All five
+  preparation buffers were freed. No shutdown hook, GPU/pstate handoff, reboot
+  or Linux boot followed. The existing bootstrap patches, syscall installation
+  and retained kexec code are outside that five-buffer cleanup claim.
+- Verdict: **PASS_STAGING_ONLY**, resolving the full-size preparation question
+  for this candidate and installed 0.11 inputs. This does not qualify the new
+  versioned 0.12 path or terminal relocation/Linux boot; Linux boot remains pending.
+- Capture continuity completed at bytes 1364431..1367072 (2,641 bytes), zero
+  events. Compact context:
+  `20261107_195915_696434-exp-20261107-026-full-size-wired-page-staging-and-plan-validatio-7ce14986.md`.
+  Receipt: `output/diagnostix-page-staging-20261107-026/RESULT.json`.
+
+## EXP-20261107-027 — Obsolete-generation cleanup stopped at FTP permission failure
+
+- Objective: delete only six independently identified obsolete Diagnostix
+  generations, preserving active 0.11, rollback 0.10 and the 0.11 installer.
+  Two-minute bound; stop at the first error or capture loss.
+- After correcting FTP transfer mode to `TYPE I` before `SIZE`, the first
+  `DELE` request for the obsolete 0.01 generation's `bzImage` returned 550.
+  No files or directories were deleted; reclaimed bytes were zero. The
+  permission failure ended this attempt without repeating the deletion.
+- Capture continuity completed at bytes 1369190..1369604 (414 bytes), zero
+  events. Compact context:
+  `20261107_200410_674751-exp-20261107-027-remove-six-verified-obsolete-diagnostix-ftp-gen-0e573ba2.md`.
+  Receipt: `output/diagnostix-ftp-cleanup-20261107/CLEANUP.json`.
+
+## EXP-20261107-028 — Child permission change allowed deletion; parent blocked RMD
+
+- Changed variable: `SITE CHMOD 0777` on the verified obsolete 0.01 generation
+  directory after EXP027's permission refusal. Active and rollback permissions
+  remained unchanged. Two-minute bound; stop on error or capture loss.
+- All six files in that one obsolete generation were deleted, reclaiming
+  456,097,558 bytes. Removing its now-empty directory returned FTP 550 because
+  parent-directory write permission was still missing. No other generation was
+  deleted in this attempt; no automatic repeat followed the RMD failure.
+- Capture continuity completed with zero UART bytes and zero events. The FTP
+  receipt establishes storage effects; silent UART is not independent deletion
+  evidence. Compact context:
+  `20261107_200715_733100-exp-20261107-028-scoped-ftp-cache-permission-correction-after-de-38964b11.md`.
+  Receipt: `output/diagnostix-ftp-cleanup-20261107/CLEANUP-PERMISSIONS.json`.
+
+## EXP-20261107-029 — Six obsolete generations removed; active and rollback retained
+
+- Changed variable: temporarily grant group write (`0775`) to the Diagnostix
+  parent and remaining verified obsolete child directories, then restore the
+  parent to `0755`. Two-minute bound; stop on error or capture loss. No loader,
+  boot, active-generation replacement or unrelated cleanup was included.
+- Removed the empty EXP028 directory and the five remaining obsolete
+  generations. This action deleted 2,280,487,950 file bytes; combined with
+  EXP028, six generations totaling **2,736,585,508 bytes** were removed.
+- FTP confirmed parent permission restoration and the final directory listing.
+  Active `boot` version 0.11, rollback 0.10
+  (`previous-4bd5d426e278bcd855499164f55a0958caaed54fa2e27799afa438972deb369c`),
+  the owner marker, launcher log and cached 0.11 installer were preserved.
+- Capture continuity completed with zero UART bytes and zero events; deletion
+  and restoration conclusions come from the FTP receipt. Compact context:
+  `20261107_200927_657933-exp-20261107-029-finish-verified-obsolete-cache-cleanup-with-tem-ef5c937f.md`.
+  Receipt: `output/diagnostix-ftp-cleanup-20261107/CLEANUP-FINAL.json`.
+  Timing limit: the final FTP receipt timestamp is 23 ms after the UART stop
+  fence; storage completion is established by FTP, not by silent UART.
+
+## EXP-20261107-030 — Versioned 0.12 inputs verified; initrd page guard stopped boot
+
+- Objective: one terminal scatter handoff using the versioned 0.12 boot set and
+  explicit 1024 MiB VRAM file. Owner confirmed USB storage disconnected. Setup
+  bounded to 15 minutes; handoff to three minutes, stopping at failure/fault or
+  capture loss. Old active 0.11, rollback 0.10 and installer remained available.
+- Uploaded all six files into `/data/diagnostix/versions/0.12/boot.new`, verified
+  every byte by independent FTP readback, then activated `boot`. Each owned
+  parent marker matched; the temporary base permission was restored to 0755.
+  New subtree directories use 0775 so native app UID1:GID0 can maintain files
+  initially created by FTP UID0:GID0. No transaction/stage marker remained.
+- The 460,521,472-byte 0.12 package passed 23-member extraction/hash checks,
+  SFO checks and full FTP readback; SHA256
+  `c11900e2d374323a8e1859ab28e57070aa2a55edde3b692c1e4cf99176ba4b7b`.
+  It is staged at `/user/data/pkg/diagnostix-ram-alpha1-0.12.pkg`; native app
+  installation was not performed. Seventeen focused launcher tests passed.
+- One connection sent the 172,304-byte boot06 ELF SHA256
+  `7a433a597c882bd78d4958a74d693695ced564d5170defd4f37d5d64e860a432`;
+  GoldHEN received exactly that size and launched it. UART reported FW12.02,
+  Baikal and VRAM1024. The kernel allocation succeeded. The initramfs native
+  wired allocation returned KVA, but a `physical-page` guard refused backing;
+  `Failed to allocate initramfs` and `cleanup_complete=1 result=12` followed.
+- Verdict: **PRE_ARM_PHYSICAL_PAGE_REFUSAL**. No shutdown hook, GPU/pstate
+  handoff or reboot ran. Orbis continued running. This is different from old
+  contiguous allocation returning zero, and does not establish RAM exhaustion.
+  The message combines zero/unaligned/non-E820 cases and lacks the rejected PA.
+  The next diagnostic adds exact page logging in stage-only mode; no identical
+  boot retry or blanket guard relaxation is justified.
+- Capture continuity completed at bytes 1389445..1393549 (4,104 bytes), zero
+  events. Context:
+  `20261107_202048_126682-exp-20261107-030-versioned0-12-full-scatter-relocation-and-linux-ab172d0b.md`.
+  Private receipts: `output/diagnostix-0.12-boot-20261107-030/`.
+
+## EXP-20261107-031 — Native source page wrongly excluded by Linux destination map
+
+- Objective: log the exact failed page with unchanged eligibility guards, same
+  verified 0.12 inputs, and stage-only cleanup. Three-minute bound; no arming,
+  GPU/pstate handoff or reboot. One 172,304-byte ELF SHA256
+  `1dbe419abb65ff4c8ad42e41a6f0fa8f66efb3316246c2c5659848c2516c8f71`
+  was sent on one connection and received at its exact size.
+- The initrd native allocation returned KVA, then offset `0x18e18000` translated
+  to physical `0x28000`; the other three 4 KiB translations were `0x29000`,
+  `0x2a000`, `0x2b000`. Alignment and native-page continuity therefore hold.
+  `ram_span=0` / `page-not-linux-ram` identifies the failed predicate.
+- EXP025's native NORMAL segment zero spans `0x4000..0x2c000`, which includes
+  that wired page. The inherited Linux E820 reserves `0x8000..0x80000`.
+  The allocator guard had incorrectly required staging sources to be valid
+  final Linux RAM. Native ownership and Linux destination eligibility differ.
+  Cleanup completed with result12; Orbis continued running; no boot ran.
+- Next change: retain strict Linux destination ranges and introduce a separate
+  source predicate for already-owned wired buffers. Native NORMAL holes
+  `0x8000..0x2c000` and `0x400000..0x480000` may qualify as sources. Preserve
+  low handoff0..0x8000, ACPIe0000..f0000, VRAM, duplicate and destination-overlap
+  protections, four-subpage translation checks and original-KVA cleanup.
+  Both allocator and planner must use the source policy; the final E820 does
+  not change. This is a targeted source correction, not a global RAM expansion.
+- Capture continuity completed at bytes 1398031..1400472 (2,441 bytes), zero
+  events. Context:
+  `20261107_202913_813911-exp-20261107-031-exact-rejected-native-page-logging-same0-12-inp-38b3137e.md`.
+  Private receipts: `output/diagnostix-page-guard-20261107-031/`.
+
+## EXP-20261107-032 — Corrected sources staged; Linux and RAM root booted without USB storage
+
+- Objective: test only the native source-page policy correction established by
+  EXP031. Predeclared sequence: one stage-only preparation/free, then verify the
+  corrected 0.12 files/package and send one boot-mode loader if staging passed.
+  Setup bound15 minutes; three-minute handoff/stall bound; stop on refusal,
+  terminal fault or capture loss. Recovery0.11/0.10 files retained; no automatic
+  second boot. Owner confirmed USB storage disconnected and authorized running
+  Diagnostix after the correction.
+- ASan/UBSan loader checks passed, including independent source/destination
+  callbacks, real allocator and actual `sys_kexec` regressions for physical
+  `0x28000`, bounds/overlap/duplicate checks and the actual assembly copy loop.
+  Native raw blobs have no dynamic relocations and include their full BSS.
+  Independent Astra review found no new critical blocker; the primary verified
+  the source and build evidence before sending.
+- Stage-only06 ELF172304 SHA256
+  `83868a65c4463a72d2e71b22c054f85b4f7c126bb851842889bab7f16c4402f9`
+  passed full-size preparation: 27844 relocation records,41nodes,
+  initrd444880734bytes, all five buffers freed, no arming or boot.
+- The corrected boot08 ELF172304 SHA256
+  `1d32ee28790eb4ca7ef26e26702af9562b9dcff671e9c87c492c768424e0d9e6`
+  was bundled into app0.12. Native compilation, all23 package member readbacks,
+  SFO0.12 and unchanged launcher checks passed. Package460521472bytes SHA256
+  `996f83d28e5309e9c94afd9a5dd54508c078cb32b13e9e3a2202ea8ea2bcb37e`.
+- With a transaction barrier, replaced only loader/manifest in the owned
+  version directory; all four large/unchanged inputs remained in place. Full
+  independent FTP readback of all six final boot files and the complete package
+  matched. Temporary small backups and the superseded failing0.12 installer
+  were removed after verification;0.11 installer and legacy boot0.11/rollback0.10
+  remained. No journal or staging marker remained. Source-fixed package is at
+  `/user/data/pkg/diagnostix-ram-alpha1-0.12.pkg`. An earlier0.12 package had been
+  installed by the operator during EXP031; installation of this corrected
+  replacement is not established by this direct-loader boot experiment.
+- One boot08 connection sent exactly172304bytes; GoldHEN received that size.
+  Preparation produced27844records/41nodes, installed the shutdown hook and
+  completed the existing Orbis shutdown and terminal relocation. Linux
+  `7.2.11-psx-ps4-baikal-uvd-runtime-dev6` started with `psx.boot=ram`;
+  RAMDISK was at physical0x180000000..0x19a845fff. Linux E820 still reserves the
+  added native source holes. AMDGPU reported1024MiB VRAM.
+- `/init` ran at10.532s after Linux start. The verified root image began
+  inflating into bounded RAM at27.434s. Loop0 mounted the RAM-backed ext4 root
+  read-only at94.028s, UUID0d652fe4-a2f5-45f1-85c9-7ea26a52d67c. Systemd261.2
+  started at111.653s and selected hostname `psx-diagnostics`.
+- Verdict: **PASS_KERNEL_RAM_ROOT_MENU_PENDING**. This is one observed
+  USB-storage-disconnected kernel/RAM-root boot. No kernel panic was observed.
+  The visible/responsive menu, graphics operation, network/SSH/report export,
+  UVD execution, power/reboot behavior and repeated-boot qualification remain
+  unaccepted. Kernel Wi-Fi warnings/scans are separate observations, not loader
+  failure or network acceptance. No further hardware action was taken.
+- Capture continuity completed at bytes1405145..1504859 (99714bytes), zero
+  events. Handoff/root initialization progressed within the planned window;
+  the capture actually closed208s after boot send while waiting for a screen
+  report. Record that observation duration rather than claiming an exact180s
+  stop. Context:
+  `20261107_203529_309250-exp-20261107-032-source-policy-correction-stage-only-validate-fr-b69a978d.md`.
+  Private receipts: `output/diagnostix-source-policy-20261107-032/RESULT.json`
+  and adjacent native/package builds, FTP readbacks and send receipts.
+
+
+## EXP-20261107-033 — Optional modes/report update not delivered
+
+- Objective: deliver the host-built 0.13 candidate and check mode choice and
+  issue export, with the observed 0.12 boot retained as rollback. No updated
+  package, payload or console boot file was sent during this session.
+- The owner initially selected SSH delivery and supplied Linux address .95.
+  TCP22 on the console refused the connection; the owner then reported SSH
+  setup unavailable. Subsequent owner reports described Shutdown and Reboot
+  controls as unavailable; no power dispatch was observed or accepted.
+- The host's duplicate PKG copy reduced the Data filesystem below the UART
+  logger's 512 MiB floor. Capture stopped at21:44:42; the duplicate was removed
+  after the identical original package was verified. This was a host capacity
+  failure caused by the extra copy, not a console or loader failure.
+- Verdict: **ABORTED_INVALID_CONTINUITY_NO_UPDATE**. Closed21:45:16, bytes
+  1513523..1825241 (311718bytes), events369bytes. The earlier completed EXP032
+  boot evidence remains valid. A new continuous capture was independently
+  established READY under generation9186213bb7d94e0ebef9181484a5cad2; no bounded
+  experiment was opened by restarting that logger.
+- Context: `20261107_213000_896898-exp-20261107-033-optional0-13-modes-report-update-return-orbis-v-45974f02.md`.
+  Private capacity recovery: `output/diagnostix-modes-reports-20261107/UART-SPACE-RECOVERY.json`.
+- Source follow-up confirmed the shipped RAM SSH helper retained native-dev3
+  while its kernel was runtime-dev6, and the RAM image omitted the newer host-key
+  service ordering. Both are corrected in the next host build. A separate RAM
+  verifier defect rejected unrelated systemd automount stacks. Narrowing that
+  rejection preserves all three guarded mount identities; the actual PS4 power
+  refusal still needs runtime evidence and is not hardware acceptance.
+
+
+## EXP-20261107-034 — Final 0.13 built and staged; installation and runtime tests pending
+
+- Objective: stage the completed 0.13 installer and its isolated owned version
+  folder, then read back every final byte. Ten-minute bound; stop on capture or
+  transfer failure, retain 0.12 rollback. FTP became reachable after the owner
+  returned to Orbis. No package installation or payload launch was performed.
+- The fresh build includes explicit Automatic/Manual choice, issue-report ZIPs,
+  corrected dev6 SSH/network helper pins, the current host-key service ordering,
+  unrelated-systemd-mount tolerance with exact protected mount checks, and fixed
+  startup availability reasons in the UI and issue report. The exact earlier
+  PS4 power refusal is unproven; physical shutdown/reboot is not accepted here.
+- Host checks passed: workspace51 tests, diagnostics819 Python tests, browser22,
+  fresh TUI75, native FPKG17 and native loader9 checks. Independent streamed image
+  inspection matched all29 frontend files and9 RAM assets, the actual dev6
+  helper guards and the host-key ordering against the frozen source. Package
+  extraction matched23 members and SFO0.13.
+- Package460587008bytes SHA256
+  `4f049b83ade856fa69058b7c603aac7b1af9a7484cb4ff64e2df16c987199ba7`.
+  Initramfs444816511bytes SHA256
+  `9224fd9215b3c63d7c5fb035629082a22ca765cbace98b92225664311ed1a7f6`.
+  Fresh loader172304bytes SHA256
+  `f68bd79e5b73915b6273a394f5203a15b9515ab82a1e6eb641a5630c49d6ee54`;
+  its151516byte kernel blob remains identical to the observed 0.12 boot08 blob.
+- Created only `/user/data/diagnostix/versions/0.13`, with an exact owner marker
+  and transaction barrier. Uploaded all six files to `boot.new`; uploaded and
+  verified the temporary installer, renamed it to
+  `/user/data/pkg/diagnostix-ram-alpha1-0.13.pkg`, then published `boot`.
+  Complete independent readbacks of all six final boot files and the final
+  installer matched their expected size/SHA256. Required `vram.txt` is1024newline.
+  Cleared the completed barrier; no staging folder or partial package remains.
+  The 0.12 boot file listing and manifest bytes remained unchanged.
+- Superseded local installers and compilation/extraction caches were cleared
+  with receipts; source, evidence, pinned dependencies and a complete verified
+  0.12 rollback package remain. No remote recovery generation was removed here.
+- Verdict: **PASS_STAGED_FULL_BYTE_READBACK_INSTALLATION_PENDING**. Transfer
+  work finished in334seconds; the bounded capture was22:17:38..22:25:10.
+  Continuity completed, bytes145840..151856 (6016bytes), zero events. Compact
+  context showed ordinary Orbis activity; no Linux or power test was attempted.
+  New-image installation, mode/report operation, SSH access and actual power
+  behavior still require their own coherent observed experiment.
+- Context: `20261107_221738_647667-exp-20261107-034-stage-final-diagnostix-0-13-installer-and-owned-57239019.md`.
+  Private receipts: `output/diagnostix-final-0.13-20261107/`.
+
+
+## EXP-20261107-035 — Owner-launched 0.13 refused its relocation plan before Linux
+
+- Retrospective diagnosis from continuous UART, not a predeclared bounded
+  hardware marker. The owner installed and launched 0.13 after EXP034 closed,
+  then reported that Diagnostix did not load and requested UART inspection.
+  No agent-initiated payload, retry or power action was performed here.
+- UART identifies `DGNX00001` app version0.13. Install/Verify accepted every
+  packaged size/hash and reported Ready. Boot wrote all172304 loader bytes on
+  one connection; GoldHEN launched that complete ELF. VRAM1024 and FW12.02
+  were selected, and all five wired allocations completed.
+- The planner then logged `DIAGNOSTIX_SCATTER_V1 refused error=7` at
+  VA0xffffff807d7f0000, PA0x85fc000, followed by
+  `DIAGNOSTIX_PAGES_V1 cleanup_complete=1 result=22`. No shutdown hook was armed
+  and Linux was not entered. Error7 is `DIAG_SCATTER_CONFLICT`, not a bad RAM
+  translation, corrupted input, missing VRAM file or a Linux userspace failure.
+- Proven range: this kernel has init_size0x2793000, rounded workspace
+  `[0x06000000,0x08794000)`. Its immediate protected-kernel writes cover
+  `[0x06000000,0x06ac0000)`. The rejected16KiB page at
+  `[0x085fc000,0x08600000)` lies only in the later decompressor workspace.
+  All staging pages/descriptors are consumed before kernel entry, making that
+  particular overlap harmless. The blanket workspace exclusion was too broad.
+- Unrestricted wired allocation can also place data in actual copy targets;
+  merely narrowing the check would leave a general placement-dependent failure.
+  A bounded pre-arm safe-page replacement path is being implemented, with
+  full workspace destination validation, original-page/translation/duplicate
+  checks and the unchanged terminal copy loop retained. No unchanged retry.
+- Verdict: **OBSERVED_PRE_ARM_REFUSAL_CLEANUP_COMPLETE**. This does not establish
+  acceptance or a new completed continuity claim. Exact retrospective slice
+  bytes166648..176958 (10310bytes), SHA256
+  `1a3376e14234724df37d1a8096544de9f9347505342ac5dc78255245d6396007`,
+  from generation9186213bb7d94e0ebef9181484a5cad2. One refusal appears in that
+  continuous generation. Private context/receipts:
+  `output/diagnostix-refusal-20261107-035/`.
+
+
+## EXP-20261107-036 — 0.14 stage-only payload launched into a fault; 0.15 slim correction
+
+- Objective: verify the corrected 0.14 source-policy package and run one
+  stage-only preparation/probe. The 460,849,152-byte package, the six versioned
+  boot files and the 401,680-byte stage-only ELF were uploaded and fully read
+  back. No boot was requested.
+- One connection sent all 401,680 bytes. GoldHEN saved that exact size and
+  launched it into `ScePartyDaemon`; UART then recorded a user SIGSEGV at
+  RIP0x894066, fault address0x1e0, rsp0x917ff8 and rbp0. No `DIAGNOSTIX_*`
+  preparation marker appeared, and GoldHEN reported `failed to launch payload,
+  error: 1`. Target process PID46 restarted as PID70. No Linux entry occurred.
+- Source review attributes the regression to payload size: the 0.14 kexec
+  build embedded its 361,208-byte zero-filled scatter BSS in the outer ELF,
+  growing it from 172,304 to 401,680 bytes. GoldHEN received every byte, so
+  this is not a TCP or package-transfer failure. The exact GoldHEN launch
+  limit is not established, and returning from the stage-only `main` remains
+  an untested separate hazard.
+- Source correction (0.15, not a hardware result): embed only the 21,536-byte
+  non-BSS kexec image, zero the BSS inside the kernel allocation, restore the
+  four-byte upstream footer, and reconstruct the exact 382,748-byte runtime
+  blob byte-for-byte. The outer loader is 41,320 bytes. The app handoff no
+  longer rejects a loader larger than the reported `SO_SNDBUF`; the
+  complete-write loop is the delivery contract. Host build and package
+  extraction passed; no 0.15 console launch has been performed.
+- Verdict: **0.14 OBSERVED_PAYLOAD_LAUNCH_SIGSEGV; 0.15 HOST_BUILD_READY,
+  HARDWARE PENDING**. The 0.14 package is not recommended for installation.
+  Context: `ps4-uart/sessions/20261107_230835_033048-exp-20261107-036-source-collision-correction-stage-verified0-14--04001a24.md`;
+  receipt: `output/diagnostix-refusal-20261107-035/EXP036-RESULT.json`.
+
+
+## EXP-20261108-002 — Obsolete Diagnostix FTP installers and generations removed
+
+- Objective: delete only the verified obsolete Diagnostix 0.11, 0.13 and 0.14
+  installers and the 0.13/0.14 versioned boot directories; preserve the 0.12
+  known-good Linux rollback and the current 0.15 installer. No payload,
+  installation or boot was included.
+- Deleted installers: 0.11 460,390,400 bytes, 0.13 460,587,008 bytes and 0.14
+  460,849,152 bytes. Deleted boot sets: 0.13 (172,304-byte loader) and 0.14
+  (401,680-byte loader), each with the six fixed members, `.owner` and `boot`
+  directory. Combined reclaimed payload/directory bytes: 2,294,582,332.
+- Preserved: `/user/data/pkg/diagnostix-ram-alpha1-0.12.pkg` 460,521,472 bytes,
+  `/user/data/pkg/diagnostix-ram-alpha1-0.15.pkg` 460,455,936 bytes and the
+  0.12 version directory. Unrelated Omarchy, Store, Cobra and personal files
+  were not touched. No permission changes were needed.
+- First attempt deleted the three installers, then stopped before version
+  deletion because the host compared NLST basenames with full paths. The
+  continuation re-read each `bundle.json`, verified the exact six-member boot
+  set and `.owner`, then completed deletion. It did not retry an unchanged
+  destructive step.
+- UART session completed with a 496-byte slice and zero events; the storage
+  result comes from the FTP receipt `/var/tmp/ftp-cleanup-015.json`, not from
+  silent UART. Continuity generation `7143910ecd1048809c9175112d1ad858`.
+
+
+## EXP-20261108-004 — GoldHEN active payload replaced with downloaded v2.4b18.9
+
+- Objective: extract the owner-downloaded `GoldHEN_v2.4b18.9.7z`, verify the
+  contained `goldhen.bin`, replace `/user/data/payload.bin`, and preserve the
+  previous v2.4b18.10 payload. No payload execution, boot or console reboot was
+  performed by the agent.
+- Archive contained six files; `goldhen.bin` is 291,808 bytes, SHA256
+  `ab1849d66816a9f4a3d155b06b51cdc5eb07a7fc5bd4333c90e3af74f802b2b2`, identical
+  to the existing PSFree Enhanced v2.4b18.9 reference copy.
+- Previous active payload was v2.4b18.10, 290,016 bytes, SHA256
+  `c6329401d1810e16c84e6474ac30977dbdc951987c10cdb559370de7d59db0b0`.
+  It was retained as `/user/data/payload.bin.2.4b18.10` and as the named copy
+  `/user/data/payloads/goldhen_v2.4b18.10.bin`.
+- Uploaded the new payload to a temporary name first, verified its complete
+  readback, then renamed the old payload and activated the new one. Final
+  `/user/data/payload.bin` is 291,808 bytes with the expected SHA256. A named
+  copy is at `/user/data/payloads/goldhen_v2.4b18.9.bin`.
+- UART session completed with zero bytes; the storage result comes from the FTP
+  receipt `/var/tmp/replace-goldhen.json`. Reboot/reload is an owner action.
+
+
+## EXP-20261108-005/006/007 — GoldHEN v2.4b18.9 reload and first real 9090 probe
+
+- EXP-005: the owner reloaded the replaced GoldHEN v2.4b18.9 payload. UART
+  recorded `Installing GoldHEN in Kernel...`, `All done!` and `<payloader>
+  Server started at 9090 port`. The active `/user/data/payload.bin` is the
+  downloaded 291,808-byte v2.4b18.9 file, SHA256 `ab1849d6...`.
+- EXP-006 negative finding: an empty TCP port check to 9090 caused
+  `<payloader> Error handling payload` and the service stopped; the subsequent
+  real probe was refused. Do not use an empty connect as a readiness check.
+- EXP-007: after PayLoader was re-enabled, one real 16,240-byte read-only
+  pool-observer ELF was sent on one connection. GoldHEN reported `payload
+  launched successfully`; UART returned the complete `PSX_POOL_V1` report with
+  `status=0`, `reads=253`, `no_boot=1` and `orbis_remains_running=1`. GoldHEN
+  then closed the listening socket (`Server socket closed, 0x80410109`).
+- This proves 9090 transport and the v2.4b18.9 ELF path for the small probe.
+  It is not a Diagnostix boot result. Receipts: `/var/tmp/probe-9090-007.json`
+  and `/var/tmp/probe-9090-006.json`; UART contexts in
+  `ps4-uart/sessions/20261108_014144_041658-exp-20261108-007-*`.
+
+
+## EXP-20261108-008 — 0.15 slim loader direct-send boot reached Linux and RAM root
+
+- Objective: send the exact FPKG-prepared 0.15 loader once from the host after
+  the app's successful Prepare, and observe Linux/RAM-root startup. PayLoader
+  was re-enabled; one connection carried 41,320 bytes, SHA256
+  `bf030db3c3c7f7668947074e0d8eca29d604a5bf1fc3cbbda677ffc6970ee5d6`.
+  No retry and no app Boot-button action.
+- GoldHEN received and launched the ELF. UART recorded `kernel_init()`,
+  `sys_kexec`, successful wired noncontiguous `DIAGNOSTIX_PAGES_V1`
+  allocations for the 11,273,216-byte kernel and 444,947,617-byte
+  initramfs-plus-firmware request, firmware extraction and Linux
+  `7.2.11-psx-ps4-baikal-uvd-runtime-dev6`.
+- Milestones: `Run /init` at 10.518384 s; `loop0` capacity change at
+  93.844443 s; ext4 root UUID `0d652fe4-a2f5-45f1-85c9-7ea26a52d67c` mounted
+  read-only at 93.854327 s; systemd hostname `psx-diagnostics` at 111.477167 s;
+  `Reached target Login Prompts` at 111.994828 s. No kernel panic or Oops was
+  recorded. The owner reports the appliance loaded.
+- Evidence scope: the loader and all six boot files are the exact contents the
+  0.15 FPKG app prepared under `/data/diagnostix/versions/0.15/boot`. This
+  validates the payload, kernel, initramfs, boot arguments and VRAM path. It
+  does not validate the app's own Boot-button handoff, repeated boots, menu
+  interaction, networking, graphics, UVD, export or power behavior.
+- UART session completed with 100,423 bytes from generation
+  `7143910ecd1048809c9175112d1ad858`, zero events. Receipt:
+  `/var/tmp/send-015-loader-008.json`; context:
+  `ps4-uart/sessions/20261108_014513_884727-exp-20261108-008-0-15-first-real-loader-send-user-re-enables-pay-0a9e867c.md`.
+
+
+## Follow-up after EXP-20261108-008 — 0.15 FPKG app Boot path succeeded
+
+- After the direct-send boot, the owner launched Diagnostix 0.15 and selected
+  **Boot Diagnostix** itself. Continuous UART capture (no new bounded marker)
+  recorded `[diagnostix] action: Boot selected`, the verified-snapshot phase,
+  `[diagnostix] handoff: all 41320 loader bytes written on one connection`, and
+  `[diagnostix] result: Loader sent once.`
+- A second Linux boot followed: `Run /init` at 10.271769 s; `loop0` capacity
+  change at 93.491616 s; ext4 root mounted read-only at 93.501589 s; systemd
+  hostname `psx-diagnostics` at 111.153802 s; `Reached target Login Prompts` at
+  111.677004 s. No kernel panic or Oops was recorded.
+- This is continuous-capture/operator evidence for the FPKG app's own
+  `Bundle::boot` handoff, not a bounded session. It validates the 0.15 app
+  Boot path and payload on hardware. It does not establish repeated-boot
+  support, menu interaction, networking, graphics, UVD, export or power
+  acceptance.
+
+
+## EXP-20261108-009 — Accelerated 0.15+TUI package uploaded and fully read back
+
+- Objective: upload only the new zstd-root/TUI package to
+  `/user/data/pkg/diagnostix-ram-alpha1-0.15-accel.pkg`, complete a full FTP
+  readback, and preserve the existing 0.12 and 0.15 installers. No installation,
+  payload, boot or remote deletion was included.
+- Upload and complete readback both returned 424,411,136 bytes with SHA256
+  `2ed980321aca131cb81721cf6ae736397c7621d48943aab5df0fc81953ff0d1f`.
+  The final directory contains the 0.12, 0.15 and 0.15-accel installers.
+- The package carries the 408,688,296-byte initramfs with the zstd root leaf,
+  static decoder, new TUI (`Run all tests`, `Q Power`, `Inconclusive` label)
+  and the zstd BSD notice. It remains a host-built candidate; console
+  installation, Prepare and Boot are pending.
+- UART session completed with 6,212 bytes and zero events; the storage result
+  comes from the FTP receipt `/var/tmp/upload-accel.json`. Continuity generation
+  `7143910ecd1048809c9175112d1ad858`.
+
+
+## Follow-up after EXP-20261108-009 — accelerated 0.15 reached BusyBox rescue; init corrected
+
+- The owner installed the accelerated 0.15 package and selected **Boot
+  Diagnostix**. UART recorded the new RAM init reaching the root inflation:
+  `[diagnostix-ram-init] Inflating one verified root image into bounded RAM.`
+  followed immediately by
+  `[diagnostix-ram-init] STOP: RAM root gzip decompression failed.` and
+  `[diagnostix-ram-init] RAM appliance was not started. Rescue shell; no
+  automatic retry.`
+- Cause: `/init` probed the compressed root with `dd ... | od -An -tx1`. This
+  rescue BusyBox has no `od` applet, so the magic string was empty and the
+  script silently fell back to `gzip -dc` on the zstd leaf. The 1,000 MiB root
+  was never inflated or mounted; the rescue shell changed no storage.
+- Correction: `/init` now dispatches on the embedded
+  `ROOT_COMPRESSION='zstd'` contract from `/etc/psx-ram.env` and has no `od`
+  probe and no silent fallback. The corrected initramfs is 408,688,280 bytes,
+  SHA256 `ce0ed5ea9f97e28707e7d67065df4d2978508beeb5a50388261f69f379721563`;
+  the corrected package is 424,411,136 bytes, SHA256
+  `71bb60b543cc23ef889f254ac735bc6f2dbdbd9fd89c9378fe2da4647fbb7c30`.
+- Host verification: the extracted `/init` contains the env dispatch and no
+  `od`; `/etc/psx-ram.env` pins `ROOT_COMPRESSION='zstd'`; `bin/zstd-dec` is a
+  static x86-64 executable and inflates the packaged leaf to the expected
+  1,048,576,000-byte root SHA256
+  `b5b3a0ec3001fa99816ad68071d93091a6c8d0907aeb4ba384094625b7af0107`; the
+  FPKG readback contains the corrected initramfs pin with 24 members.
+- Scope: host build and readback only. The corrected package still needs
+  console installation, Prepare and a bounded Boot session; the zstd decoder
+  has not yet run on the PS4. The console remained in the BusyBox rescue shell
+  and must be rebooted to Orbis before the next upload. No retry of the failed
+  image is authorized.
+
+
+## EXP-20261108-010 — Corrected accelerated 0.15 package replaced over FTP
+
+- Objective: replace the superseded accelerated 0.15 installer with the
+  corrected `ROOT_COMPRESSION` initramfs and verify a complete remote readback.
+  No installation, Prepare, payload or boot was included.
+- The corrected local package is 424,411,136 bytes, SHA256
+  `71bb60b543cc23ef889f254ac735bc6f2dbdbd9fd89c9378fe2da4647fbb7c30`. It was
+  uploaded to
+  `/user/data/pkg/diagnostix-ram-alpha1-0.15-accel.pkg.partial` in 31.9 s at
+  13,305,126 B/s. A streaming FTP readback returned exactly 424,411,136 bytes
+  with the same SHA256; only then was it renamed over the existing
+  `diagnostix-ram-alpha1-0.15-accel.pkg`.
+- Final remote size is 424,411,136 bytes. The 0.12 and original 0.15
+  installers remain in `/user/data/pkg`. No partial file remains.
+- UART session completed with 1,697 bytes from generation
+  `7143910ecd1048809c9175112d1ad858` and zero events; output was ordinary
+  Orbis ShellCore memory statistics, so the console stayed in Orbis throughout
+  the transfer. Receipt: `/var/tmp/upload-accel-010.json`; context:
+  `ps4-uart/sessions/20261108_024121_462830-exp-20261108-010-upload-corrected-0-15-accel-package-and-full-re-feb28559.md`.
+- Next: install the package, launch Diagnostix 0.15, select **Prepare
+  Diagnostix**, then Boot under a new bounded UART session.
+
+
+## Follow-up after EXP-20261108-010 — SHA-256 bottleneck measured; 8-way hash candidate built
+
+- The corrected zstd package booted successfully: `/init` at 10.503911 s,
+  inflation at 25.889703 s, `loop0` at 73.479360 s, ext4 mounted read-only at
+  73.489382 s, hostname at 91.095268 s, login prompts at 91.612962 s. Total to
+  login was 91.6 s, about 20 s faster than the 111.7 s gzip boot.
+- The remaining inflation is 47.6 s. Comparing the gzip and zstd pre-inflate
+  phases (402 MB versus 364 MB over 16.5 s versus 15.1 s) gives roughly
+  26 MB/s for single-threaded SHA-256, so the two passes cost about 15 s
+  (compressed 364 MB) and 38.5 s (inflated 1,000 MB); zstd decode is only
+  about 9 s. SATA is not involved: `ata1`/`ata2` finish before `/init`, and the
+  root is a loop mount over tmpfs.
+- The next init removes the redundant compressed-leaf SHA-256 pass and
+  verifies the inflated root as eight 125 MiB SHA-256 chunks, run concurrently
+  with one process per CPU. The eight digests are pinned in
+  `/etc/psx-ram.env` as `ROOTFS_CHUNK_SHA256`; `ROOTFS_CHUNK_COUNT=8` and
+  `ROOTFS_CHUNK_MIB=125`.
+- The parallel-hash initramfs is 408,279,269 bytes, SHA256
+  `40e59e5986c94588a3d0037b99942c167cd2fc47a8ca6230c51bb2afd23c8e6e`. The
+  package is 423,952,384 bytes, SHA256
+  `4c49ba0b1d884846263895e5c9a7134881e8006c968c62d06957112dba4ef0bc`, 24
+  members; FPKG readback contains the new initramfs pin and all payload bytes
+  match.
+- Host checks: `/bin/sh -n` passes, and the exact chunk loop verified the real
+  1,000 MiB image under the host shell and `sh`. Expected inflation is about
+  15 s and total boot roughly 45-50 s, pending console measurement.
+- The package has not been uploaded or booted. The console must return to
+  Orbis before the next FTP transfer and bounded Boot session.
+
+
+## EXP-20261108-011 — 8-way hash 0.15 package uploaded and fully read back
+
+- Objective: upload the 8-way chunk SHA-256 package and verify a complete
+  remote readback. No installation, Prepare or boot was included.
+- The local package is 423,952,384 bytes, SHA256
+  `4c49ba0b1d884846263895e5c9a7134881e8006c968c62d06957112dba4ef0bc`. It was
+  uploaded to
+  `/user/data/pkg/diagnostix-ram-alpha1-0.15-accel8.pkg.partial` in 32.9 s at
+  12,903,805 B/s. A streaming FTP readback returned exactly 423,952,384 bytes
+  with the same SHA256; it was then renamed to
+  `diagnostix-ram-alpha1-0.15-accel8.pkg`.
+- Final remote size is 423,952,384 bytes. The 0.12, original 0.15 and previous
+  corrected 0.15-accel installers remain in `/user/data/pkg`. No partial file
+  remains.
+- UART session completed with 8,768 bytes from generation
+  `7143910ecd1048809c9175112d1ad858` and zero events. Output was ordinary
+  Orbis ShellUI scene activity, so the console stayed in Orbis throughout the
+  transfer. Receipt: `/var/tmp/upload-accel8-011.json`; context:
+  `ps4-uart/sessions/20261108_025530_398557-exp-20261108-011-upload-8-way-hash-0-15-accel8-package-and-full--7a987b54.md`.
+- Next: install the package, launch Diagnostix 0.15, select **Prepare
+  Diagnostix**, then Boot under a new bounded UART session.
+
+
+## Follow-up after EXP-20261108-011 — 8-way hash package boot measured at 61.1 s
+
+- The owner installed the 8-way hash package, selected **Prepare Diagnostix**
+  and booted once. No bounded session marker was started for this boot; the
+  result is continuous-capture/operator evidence, not bounded acceptance.
+- Milestones: `Run /init` 10.661233 s; SATA identity message 11.000750 s;
+  inflation 17.295964 s; `loop0` 42.961283 s; ext4 mounted read-only
+  42.970901 s; hostname 60.589990 s; login prompts 61.104250 s.
+- Inflation is 25.67 s (previous single-pass zstd 47.6 s; gzip 66.4 s). Total
+  to login is 61.1 s (previous 91.6 s; gzip 111.7 s), a 30.5 s and 50.6 s
+  improvement respectively. No decompression, checksum, mount, kernel or
+  systemd fault was recorded.
+- The eight SHA-256 jobs reduced the 1 GiB integrity pass from about 38.5 s to
+  about 16.7 s, roughly 2.3x rather than linear 8x scaling. The remaining
+  inflation is about 9 s zstd decode plus 16.7 s integrity verification.
+- Scope: one boot of this image. It validates the chunk contract, zstd
+  decoder, loop mount and boot timing on this console. It does not establish
+  repeated-boot support, TUI interaction, networking, graphics, UVD, browser,
+  report export or power acceptance.
+
+
+## Follow-up after the 8-way hash boot — UI2 flat Tests screen and non-stopping Run all
+
+- Why the UI felt complex: the TUI was built as a qualification harness with
+  ten area tabs, nested reports/settings/power trees and per-area setup menus.
+  The catalogue has only 18 base tests plus browser/UVD extras, so most tabs
+  were setup and observation rather than tests.
+- Why Run all was not full: it stopped on the first FAIL, BLOCKED,
+  UNSUPPORTED, NOT_RUN or non-observation INCONCLUSIVE; it excluded tests that
+  had failed previously and `uvd.avc`; and advanced tests remain gated by the
+  controller's CPU/RAM prerequisites. Tests marked unavailable, deferred or
+  blocked in the catalogue were never runnable by design.
+- UI2 replaces the System action menu with one flat test list: every test shows
+  a status glyph, area, kind, id, description and latest message. Manual,
+  deferred, unavailable and blocked tests stay visible with their reason.
+- Run all now continues past failures and records passed/failed/observed
+  counts; only a terminal `stop_required` result or a lost controller stops it.
+  It still does not retry a previously failed test without changed evidence.
+- The new TUI binary is 1,098,584 bytes, SHA256
+  `a82eb0c6fbbfc1af257d421a3df60e5b4816467fb6af2a54bc9537bd8ec53b34`. The
+  initramfs is 408,290,471 bytes, SHA256
+  `adcbea0c1ef3728c13c56addbf49cded6480f344b8bf9f3acc0ded4def4caf44`; the
+  package is 424,017,920 bytes, SHA256
+  `124a7d4f451b87b1514ea483575fb3b2e387de653aa38d501b54b8c0d42ba440`,
+  24 members. FPKG readback matches every payload byte.
+- Rust TUI tests: 78 pass. The package has not been uploaded or booted; the
+  console was in the Linux appliance and Orbis FTP was unavailable.
+
+
+## Follow-up after UI2 — UI3 core-first logical order
+
+- The UI2 package was not booted. While checking the order, the full queue was
+  found to enqueue the browser launch before Network, Audio and Storage; since
+  Run all stops after the browser launch, those later tests never ran. UI3
+  removes the browser from the area loop and appends it only after the issue
+  report.
+- The flat Tests list and Run all now share one explicit order: hardware
+  inventory, CPU, RAM, Ethernet, OpenGL/Vulkan information, reference renders,
+  audio, storage, UVD, issue report, browser last. Manual, deferred and
+  unavailable tests remain listed after the runnable ones.
+- The new TUI binary is 1,098,584 bytes, SHA256
+  `ded26ba78040eff7639eeb3d2293071fb987672ab28d15e34f8f0bef9490670f`. The
+  initramfs is 408,292,149 bytes, SHA256
+  `0810cb39de6c0c6ca7d57601f2aa0752b476d82108884439dd5539bdd9a60acd`; the
+  package is 424,017,920 bytes, SHA256
+  `0b6dad1dd68889159c4b880d1f00b0193d3756375295f5f2881a82249335797e`,
+  24 members. FPKG readback matches every payload byte.
+- Rust TUI tests: 78 pass. The package has not been uploaded or booted; the
+  console remained in the Linux appliance and Orbis FTP was unavailable.
+
+
+## Follow-up after UI3 — UI4 run controls and report handling
+
+- The issue report is no longer opened automatically when `support.export`
+  finishes during a full run. The run continues to the browser and ends with a
+  summary instead of a forced report view.
+- During a run: **C** or **Esc** cancels the queue, **S** writes
+  `/run/psx-state/full-test-report.txt`, and **V** shows the run summary.
+  Cancelling stops further tests; an in-flight test is allowed to finish and
+  its result is not queued.
+- When the queue ends, a **Full test summary** opens with passed/failed-skipped/
+  observation counts, notes and the saved path. **R** retries the full run only
+  after a required reason, **S** saves the report, and **Esc** closes.
+- The new TUI binary is 1,114,968 bytes, SHA256
+  `b48a07e1775711df1746ffd259bea8c819d8ac4c895c9d21af2d1d6e143ccc75`. The
+  initramfs is 408,297,608 bytes, SHA256
+  `be4af856a7f2e6487810f5af6479fb41280c30b6aa211d55c723c69be534c135`; the
+  package is 424,017,920 bytes, SHA256
+  `1d7beb40b7bed84f2abe2fa3acdb6434c0fe0497b3a3a5a0d43dbf8d9dac8cbf`,
+  24 members. FPKG readback matches every payload byte.
+- Rust TUI tests: 79 pass. The package has not been uploaded or booted; the
+  console remained in the Linux appliance and Orbis FTP was unavailable.
+
+
+## EXP-20261108-012 — UI5 setup-first package uploaded and fully read back
+
+- UI5 makes **Setup the first screen**: Ethernet, Wi-Fi and optional SSH,
+  followed by **Start all tests**. Start leaves Setup and launches the full
+  suite automatically.
+- Every result is appended live to
+  `/run/psx-state/full-test-report.txt` during the run. The summary adds **U**
+  to open or create the issue-report ZIP for submission; Cancel, Save, Retry
+  and the terminal-only stop remain.
+- The new TUI binary is 1,114,968 bytes, SHA256
+  `99ed97442a58af33f96c6c63fae1405b499689d72429ee4f33271990fccf7763`. The
+  initramfs is 408,298,384 bytes, SHA256
+  `a55de3d6e8839ab39600c7837498e8f83703e6eb50f3c9af7d3b96da717ba289`; the
+  package is 424,017,920 bytes, SHA256
+  `04b302ae661053aa4a5d43eacfbe4f38bb7e1ab821124e2c36cfe54612006f5e`,
+  24 members. FPKG readback matches every payload byte.
+- Upload to `/user/data/pkg/diagnostix-ram-alpha1-0.15-ui5.pkg.partial` took
+  90.3 s at 4,693,290 B/s. A streaming readback returned exactly 424,017,920
+  bytes with the same SHA256; it was renamed over the final name. The 0.12,
+  0.15, 0.15-accel and 0.15-accel8 installers remain.
+- UART session completed with 4,116 bytes from generation
+  `7143910ecd1048809c9175112d1ad858` and zero events. Receipt: `/var/tmp/upload-ui5-012.json`.
+- Rust TUI tests: 79 pass. Next: install, **Prepare Diagnostix**, Boot; expect
+  Setup first, then Start, then the live report and summary. The console is
+  still in the Linux appliance.
+
+## EXP-20261109-001 — Run3 dev package uploaded; old installers removed; launcher-owned sets refused
+
+- Objective: upload the logo build, verify it, then remove the previous
+  DiagnostiX versions at the owner's request. No install, payload or boot.
+- The package carries owner SSH keys and stays private. It is 435,617,792 bytes,
+  SHA256 `205295c3f2d6ecaf576cf8455a2dbaceaa3e93cff424dcf493b725809e742454`.
+  Upload to a `.partial` name took 32.8 s; a streaming readback returned every
+  byte with the same SHA256 in 45.5 s, then it was renamed to
+  `/user/data/pkg/diagnostix-ram-alpha1-0.15-run3-dev.pkg`.
+- Removed the 0.12, 0.15, 0.15-accel, 0.15-accel8, 0.15-ui5 and 0.15-ui8
+  installers and the 0.12 boot set (3,073,609,468 bytes). Same-size installer
+  copies stay on the host under `/var/tmp`.
+- `DELE` returned 550 for all 42 members of the seven `boot`/`previous-*` sets
+  in the launcher-owned `0755` directories. The script did not retry them. It
+  also held back the leftover `versions/0.12` marker, because its gate required
+  no failures at all.
+- UART session completed, 541 bytes, zero events; generation
+  `c4e344d9667c4aa8b2889bea5bef9210`. Storage effects come from the FTP
+  receipt `/var/tmp/upload-run3-dev-20261109.json`, not from UART.
+
+## EXP-20261109-002 — Remaining old DiagnostiX boot sets removed
+
+- Changed variable after EXP-20261109-001's 550 refusals: the
+  EXP-20261107-029 procedure, group write (`0775`) on `/user/data/diagnostix`,
+  `/user/data/diagnostix/versions/0.15` and each target. Stop at the first error.
+- Every target was re-identified first: exact six members, manifest product and
+  version, and each `previous-*` name equal to its manifest SHA-256. Removed
+  0.11 and 0.10 in the old unversioned location, five retained 0.15 generations
+  and the empty `versions/0.12` (3,047,545,370 bytes; 6,121,154,838 bytes across
+  both sessions). No error occurred.
+- Both parents were restored and confirmed `drwxr-xr-x`. Kept: the active
+  `versions/0.15/boot` (UI8, manifest SHA `904fc2f9f604…`), all `.owner` markers
+  and both launcher logs. Prepare on the new package will retire that active set
+  to `previous-<manifest SHA>` itself.
+- `linux-psx-diagnostics-usb-v25.bin` under `/user/data/payloads` and
+  `/user/data/linux/boot` were left alone: they are not versions of this app.
+  `/user/app/DGNX00001` was already absent, so the next install is fresh.
+- UART session completed, zero bytes, zero events. Receipt:
+  `/var/tmp/cleanup-run3-002-20261109.json`. Not installed or booted; nothing
+  about this build is verified on the console yet.
+
+## EXP-20261109-003 — Run3 dev first boot: graphics job hang at the end of glmark2
+
+- Objective: first launch and Linux boot of the logo/3D-benchmark build. Operator
+  installed, launched and chose Automatic test.
+- Observed: launcher copied and activated the new set, one loader send, kernel at
+  0 s, root in RAM by 46 s with benchmark tools and owner keys, first display
+  session at 88.76 s. The launcher showed southbridge and firmware as Unknown.
+- Terminal event: `PS4_UVD_RUNTIME CLOSED error=-110` at 267.14 s, then black
+  screen with a cursor; Ctrl+Alt+Fn did nothing. The kernel stayed alive (USB
+  events to 480 s, last line 674 s). The operator held power at about 14:00.
+- Reading of the source: `amdgpu_job_timedout` calls the UVD runtime fault for a
+  timeout on **any** ring and returns with no reset, before the normal `ring
+  timeout` message. The timeout is 2000 ms, so a job stalled from about 265 s.
+  That is 176 s after the display session began: the glmark2-to-vkmark boundary
+  by timing only. UVD was given no work in this run. The close is a consequence,
+  not evidence of decoder damage. Which job hung is **not established**.
+- Identity: booted bzImage SHA256 `a7264426…3bff4` equals the published beta2
+  `7.2.11-psx-ps4-baikal-uvd-runtime-dev6`; all 41 image modules are byte-equal
+  to its release; Mesa manifest `687af5a3…` is dev5. UVD startup lines match four
+  earlier boots of this kernel, so the changed variable is the benchmark.
+- Patch audit against the shipped source: 61 of 77 line-for-line. Of the rest,
+  the ICC power-off, retained-restart and AHCI patches were read and are replaced
+  by later ones; the other 13 were not read individually. `icc_power_off`,
+  `icc_restart` and the UVD poweroff/restart paths are built and registered.
+  Software power paths were not exercised; none is recorded on exact dev6.
+- UART session completed, 116,775 bytes, zero events. SSH was unreachable, so no
+  userspace log or benchmark result was retrieved. No acceptance claim. Do not
+  repeat this workload unchanged: the next run needs a changed variable.
+
+## EXP-20261109-004 — Run4 dev boot with traces: benchmark not reached, SSH did not start
+
+- Objective: upload, install and boot the build with UART traces, glmark2 alone
+  and early Ethernet for SSH. Upload read back byte for byte; operator installed
+  and chose Automatic test with no USB stick and a keyboard.
+- Launcher: firmware read as 12.02. `hw.sce_subsys_subid` returns `errno=1`
+  from an installed app, so the southbridge stays Unknown there; the loader
+  still checks it. `kern.sdk_version` also answers, `machdep.upd_version` is
+  refused and `kern.upd_version` does not exist.
+- `debugfs=on` booted without incident. All `dx/` traces reached UART. Processor,
+  Memory, OpenGL, Vulkan and Ethernet passed; Wi-Fi saw 22 networks.
+- Browser showed FAIL with "baseline completed": all five steps finished and
+  none failed. `browser.capabilities` is always INCONCLUSIVE, so the batch can
+  never be PASS, and the screen treats that as FAIL. A labelling bug.
+- **The benchmark did not run.** A Circle press arrived 5 ms after "Before the
+  last tests" appeared and skipped it, so the earlier hang was not retested.
+- SSH: `sshd -t` returned 1 at controller start and TCP22 on the console
+  refused. A missing host key gives the same code here, and the key is only made
+  when sshd starts. That cause is inferred, not observed on the console.
+- After Ctrl+Q the root shell showed nothing: the service sends stderr to the
+  journal and bash writes its prompt and typed text there. Reproduced on the host.
+- Source review found a benchmark placed after Video decoding could never run,
+  because a decoder PASS always requires a stop. Run6 orders them the other way.
+- UART session completed, 524,358 bytes, zero events. No acceptance claim. Run5
+  and run6 were built afterwards and have not been booted.
+
+## EXP-20261109-005 — Old run packages and the run3 boot set removed
+
+- Operator asked to clear old versions with FTP up. Removed by exact name after
+  checking sizes and manifests: the run3 and run4 packages and the retired run3
+  boot set, 1,302,389,926 bytes. Used the EXP-20261107-029 temporary mode
+  procedure; `versions/0.15` was restored and confirmed `drwxr-xr-x`.
+- Kept: the active run4 boot set, the retired UI8 set the owner chose to keep,
+  logs and `.owner` markers. Receipt: `/var/tmp/cleanup-run5-20261109.json`.
+  The session stays open for the next upload, install and launch.
+
+Run7 continuation of the same session (package SHA256 `51fa215c…`, upload and
+full readback receipt `/var/tmp/upload-run7-20261109.json`):
+
+- Owner installed and launched run7. Kernel `7.2.11-psx-ps4-baikal-uvd-runtime-dev6`.
+  SSH as root reached the console, so the host-key ordering fix held on hardware.
+- First pass: the Picture, Controller and "Before the last tests" questions timed
+  out with no press recorded, which skipped the benchmark and decoder.
+- **Run tests again worked** (second pass, same boot). Browser showed PASS with
+  capabilities INCONCLUSIVE and Canvas, WebGL, animation and video PASS. Picture and
+  Controller (USB) passed. Sound stayed NOT_RUN: no 44.1 kHz fixture.
+- **3D benchmark passed with no hang:** glmark2 score 2871, 180 s, exit 0, zero GPU
+  fault lines, 76 °C peak, screen responsive afterwards. One pass; EXP-003's hang
+  did not recur, and its cause stays unidentified.
+- **Video decoding BLOCKED** before any decoder opened: `uvd.py` needs
+  `/run/psx-diagnostics/uvd-session.json`, a lab record no public run has. A
+  read-only probe found the pinned inputs and firmware correct, no attempt marker,
+  the UVD queue ready and zero terminal-fault lines, so that file was the only
+  blocker. No decode was attempted on this boot.
+- Not exercised: the visible root shell after Ctrl+Q, restart and shutdown on dev6.
+- The root image has no `tar`; logs were pulled with Python's tarfile instead.
+  Private copy: `/var/tmp/diagnostix-run7-logs-20261109/`.
+- UART session completed. No acceptance claim. Session:
+  `20261109_230727_901155-exp-20261109-005-clear-old-diagnostix-packages-and-the-run3-boot-48308b76`.
+
+## EXP-20261110-001 — Canonical UVD decode passes on the RAM image after the benchmark
+
+- One `uvd.scenario canonical-120` over SSH on the running run7 boot, after the
+  CPU, memory, OpenGL, Vulkan, browser and 180 s glmark2 tests of the same boot.
+  Changed variable from the earlier BLOCKED attempt: the same-boot session record
+  now existed, written by hand and naming this bounded UART session.
+- **PASS:** `PASS_EXACT_NV12`, all 120 forced-VAAPI NV12 frames matched the pinned
+  reference. Decoder 0.6 s, job 6.4 s, return code 0. Zero terminal-fault lines,
+  no `PS4_UVD_RUNTIME CLOSED`. SSH stayed up and the screen stayed on tty1.
+- The one-attempt marker was reserved, and the boot is closed to further active
+  tests as designed. `hardware_acceptance` stays false: one pass, one console.
+- Not exercised: run8's self-written record (same decoder path, different record),
+  software restart or shutdown after the decode.
+- UART session completed. Private evidence: `/var/tmp/diagnostix-exp-20261110-001/`.
+  Session:
+  `20261110_001345_800339-exp-20261110-001-one-canonical-120-frame-uvd-decode-on-the-runni-ff2350fc`.
+
+## EXP-20261110-002 — run9 boots with Chromium in place of Firefox; the browser test never starts it
+
+- run9 (SHA256 `1ff375a7…`) uploaded, installed and booted once. The trimmed root,
+  boot chain, `tar` on PATH and removal of Firefox all held. The Chromium pack
+  expanded in 18.3 s and its loop mount and configuration were correct.
+- **Browser FAIL, before Chromium ran:** the launcher runs as psx and could not
+  read the root-private `/etc/psx-diagnostics/boot-set.json` (`[Errno 13]`). The
+  batch reached its deadline at 196.8 s with no steps, and every later test showed
+  BLOCKED by the browser stop. Nothing about the GPU or Chromium was learned.
+- UART session completed. No acceptance claim. Session:
+  `20261110_005104_148685-exp-20261110-002-run9-upload-install-and-one-automatic-boot-chro-80169010`.
+
+## EXP-20261110-003 — Chromium runs with the GPU on, using the launcher fix in RAM
+
+- Same boot as EXP-20261110-002. Changed variable: `launch-chromium-provider` and
+  `prepare-chromium-provider` replaced in `/run/psx-frontend` (RAM only), SHA256
+  `93bb7177…` and `d1b85401…`, so root passes the checked Mesa pin to the launcher.
+- The controller refused `graphics.launch`, as designed, because it still held the
+  failed batch. That record was left alone. `launch-graphics --automatic chromium`
+  was run directly as root over SSH, under the 120 s runtime limit.
+- **Launcher passed as psx:** provider remounted by the new prepare step, service
+  active, launch receipt written, `/lab` served and identified "Chromium family".
+- A second window with the same flags plus a debug port reported WebGL 2 on
+  `ANGLE (AMD, AMD DG1401SNF87ID (radeonsi liverpool ACO), OpenGL 4.6)` with a
+  correct green read-back, and H.264 and VP9 reported as supported.
+  `chrome://sandbox`: namespace and seccomp-BPF, "You are adequately sandboxed."
+- Zero GPU fault lines in the kernel log or UART. The service stopped cleanly and
+  the screen returned to tty1.
+- Not exercised: the five-step automatic batch, which needs a fresh boot. The
+  per-process seccomp sampling matched no processes (its command-line filter was
+  wrong), so sandbox evidence is `chrome://sandbox` on the second window only.
+- Open: Chromium logged Google messaging registration errors despite
+  `--disable-background-networking`, so it tries to reach Google when online.
+- UART session completed. No acceptance claim; one run on one console.
+
+## EXP-20261110-004 — run10 uploaded, never booted
+
+- run10 (SHA256 `498075c2…`) uploaded and read back byte for byte. The UART logger
+  had stopped, and the upload script did not wait for the session to open, so the
+  upload ran outside any bounded session. The read-back is its evidence.
+- The launcher was opened once on run10 and no boot was chosen. Superseded by run11.
+- UART session completed. Session: `20261110_023348_134497-exp-20261110-004-run10-install-and-one-automatic-boot-five-brows-72c89daa`.
+
+## EXP-20261110-005 — run11: GoldHEN's answer misread as an error
+
+- Changed variable: the launcher reads the southbridge under GoldHEN root, through
+  the public SDK entry (syscall 500). A detection payload was rejected because port
+  9090 closes after one payload and the loader needs it (EXP-20261108-007).
+- `southbridge goldhen: rc=-1 errno=256`. The value 0x100 is the SDK version, returned
+  with the carry flag set. The launcher treated it as a failure and never asked for
+  root, so the row stayed Unknown. No boot was chosen.
+- UART session completed. Session: `20261110_031047_126796-exp-20261110-005-run11-upload-install-and-one-automatic-boot-sou-c7deadc1`.
+
+## EXP-20261110-006 — run12: southbridge detected, full Automatic run completes
+
+- Changed variable: the raw GoldHEN answer is used, and a filled backup proves root.
+  run12 (SHA256 `d54da636…`) read back byte for byte.
+- **Southbridge read on hardware:** `goldhen rc=256`, `root rc=0`, `with-root rc=0
+  value=0x30201`, `root-returned rc=0`, and the launcher carried on normally. The
+  operator confirmed "Baikal B1" on the home screen.
+- **One Automatic run on one boot, all from the screen:** Boot 67 s; Processor, Memory,
+  OpenGL, Vulkan, Ethernet and Wi-Fi (17 networks) PASS. Browser (Chromium) PASS: canvas,
+  WebGL, frame pacing and video passed, capabilities INCONCLUSIVE by design. Picture PASS
+  by operator answer. Sound NOT_RUN (no fixture in the manifest), Controller NOT-FOUND.
+  3D benchmark GL 2879. Video decoding PASS in 5.5 s using the self-written session
+  record, the first use of that path; evidence stays unverified by design.
+- Zero GPU fault or hang lines, zero `PS4_UVD_RUNTIME CLOSED`, screen back on tty1. The
+  decode closed the boot to further active tests as designed.
+- 66 err-level kernel lines after the run (26 at the end of boot): 59 `No irq handler for
+  0.227` and one for 0.49, both also seen on earlier boots, then xHCI over-current,
+  `icc: not ready`, an xHCI debugfs duplicate, a failed bridge serial port and no IOAPIC.
+- Open: Chromium again logged 5 Google messaging registration lines.
+- Display detection, read-only: the connector is forced on (`video=HDMI-A-1:...D`), so
+  `status=connected` proves nothing, and `edid` is 0 bytes, so no TV identity is known.
+  The real hot-plug bit is bit 3 of bridge register `TMONREG` (0x7008), read only by
+  `ps4_bridge_detect`, which a forced connector never calls and no boot log records.
+- Not exercised: restart or shutdown after the decode. UART session completed. No
+  acceptance claim; one run on one console.
+  Session: `20261110_032854_717800-exp-20261110-006-run12-upload-install-and-one-automatic-boot-sou-a98f1ebd`.

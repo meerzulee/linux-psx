@@ -10,6 +10,12 @@ development snapshot. It can run the identical local browser laboratory as
 Firefox, with its own profile and separately identified reports. No Chromium
 console launch or sandbox acceptance follows from this host preparation.
 
+The DiagnostiX RAM image no longer uses this as an optional USB provider: it
+ships a trimmed build inside its boot set, in place of Firefox (owner decision,
+2026-11-10). The `manifests/ps4-chromium-provider.json` recipe now describes that
+build, which keeps the browser, sandbox helper, en-US locale, resources and
+licenses. The figures below record the original USB provider.
+
 ## Size and exact inputs
 
 The measured 21-asset glamor boot set is 1,065,892,220 bytes, leaving 7,849,604
@@ -98,6 +104,11 @@ allowed**, and 0755 directory traversal. The diagnostic FAT mount remains
 noexec and root-only; executing the browser directly from FAT is not supported.
 Install the generated configuration as root-owned 0644
 `/etc/psx-diagnostics/chromium-provider.json` in the existing RAM-backed `/etc`.
+
+On the RAM image the launcher runs as psx and cannot read the root-private
+`boot-set.json`. The root prepare step checks the Mesa identity there and passes
+it on as `mesa_manifest_sha256` in the 0644 configuration, which the launcher
+compares with the provider. Without that field (USB flow) it reads the boot set.
 
 The launcher checks that mount, root-selected manifest and executable hashes,
 kernel/Mesa identities, namespace limits and the existing private psx cookie

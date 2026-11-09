@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Meerzulee
+"""Refresh a built DiagnostiX RAM initramfs with current screens, scripts and benchmark tools.
+
+Starts from an initramfs that has already been built, so its kernel modules and
+root image stay byte for byte. Host only: it never touches media or a console.
+"""
+from __future__ import annotations
+
+import argparse
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+from pathlib import Path, PurePosixPath
+import re
+import stat
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+
+REPO = Path(__file__).resolve().parents[1]
+BENCHMARK_MANIFEST = REPO / 'manifests/ps4-diagnostix-benchmark.json'
+DESKTOP = 'rootfs/ps4-diagnostics-desktop/'
+FRONTEND_SOURCES = {
+    'controller.py': 'diagnostics/ps4/controller.py',
+    'prepare-console': DESKTOP + 'prepare-console',
+    'start-console': DESKTOP + 'start-console',
+    'launch-graphics': DESKTOP + 'launch-graphics',
+    'graphics-start': DESKTOP + 'graphics-start',
+    'graphics-client': DESKTOP + 'graphics-client',
+    'graphics-session': DESKTOP + 'graphics-session',
+    'prepare-chromium-provider': DESKTOP + 'prepare-chromium-provider',
+    'launch-chromium-provider': DESKTOP + 'launch-chromium-provider',
+}
+TOOLS_MEMBER = 'psx-bench/tools.tar'
+TOOLS_ROW = 'etc/psx-benchmark.tsv'
+OWNER_KEYS = 'etc/psx-owner-authorized-keys'
+CONTRACT = 'etc/psx-ram-contract.json'
+FRONTEND_ROWS = 'etc/psx-frontend.tsv'
+ROOT_MEMBER = 'psx-ram/rootfs.ext4.gz'
+RAM_ENV = 'etc/psx-ram.env'
+ASSET_ROWS = 'etc/psx-ram-assets.tsv'
+RAM_BOOT = 'psx-ram/ram_boot.py'
+CHROMIUM_MEMBER = 'psx-chromium/chromium.ext4.xz'
+CHROMIUM_ROW = 'etc/psx-chromium.tsv'
+INITRAMFS_LIMIT = 512 << 20  # The loader refuses anything larger.
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def pad(length):
+    return (4 - length % 4) % 4
+
+
+def load(name, path):
+    loader = importlib.machinery.SourceFileLoader(name, str(path))
+    spec = importlib.util.spec_from_loader(name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    loader.exec_module(module)
+    return module
+
+
+def entry(name, mode, data, inode, links=1):
+    """One newc cpio member, the only format the kernel unpacks."""
+    encoded = name.encode() + b'\0'
+    fields = (inode, mode, 0, 0, links, 0, len(data), 0, 0, 0, 0, len(encoded), 0)
+    head = b'070701' + b''.join(f'{value:08X}'.encode() for value in fields)
+    prefix = head + encoded + b'\0' * pad(len(head) + len(encoded))
+    return prefix + data + b'\0' * pad(len(data))
+
+
+def members(raw):
+    found, at = [], 0
+    while True:
+        head = raw[at:at + 110]
+        if head[:6] != b'070701':
+            raise ValueError(f'not a newc cpio member at {at}')
+        fields = [int(head[6 + 8 * index:14 + 8 * index], 16) for index in range(13)]
+        size, name_size = fields[6], fields[11]
+        name = raw[at + 110:at + 110 + name_size - 1].decode()
+        start = at + 110 + name_size
+        start += pad(start)
+        end = start + size
+        end += pad(end)
+        found.append({'name': name, 'at': at, 'start': start, 'size': size, 'end': end, 'head': head,
+                      'prefix': raw[at + 110:start], 'links': fields[4]})
+        at = end
+        if name == 'TRAILER!!!':
+            return found, raw[at:]
+
+
+def fetch(record, cache):
+    """An exact pinned public package, from the cache when it is already there."""
+    path = cache / record['filename']
+    if not path.is_file():
+        with urllib.request.urlopen(record['url'], timeout=180) as response:
+            path.write_bytes(response.read())
+    data = path.read_bytes()
+    if len(data) != record['bytes'] or sha(data) != record['sha256']:
+        raise ValueError('pinned package differs: ' + record['filename'])
+    return path
+
+
+def notice(manifest):
+    lines = ['DiagnostiX 3D benchmark tools', '',
+             'Unmodified binaries from these Arch Linux packages:', '']
+    for package in manifest['packages']:
+        if package['name'] == 'licenses':
+            continue
+        lines += [f"{package['name']} {package['version']}", f"  License: {package['license']}", f"  Package: {package['url']}"]
+        if 'source' in package:
+            lines.append(f"  Source: {package['source']['url']}")
+            lines.append(f"  Source SHA256: {package['source']['sha256']}")
+        lines.append('')
+    return '\n'.join(lines).encode()
+
+
+def add(archive, name, mode, data=None):
+    info = tarfile.TarInfo(name)
+    info.mtime, info.uid, info.gid, info.uname, info.gname = 0, 0, 0, '', ''
+    if data is None:
+        info.type, info.mode = tarfile.DIRTYPE, 0o755
+        archive.addfile(info)
+    else:
+        info.size, info.mode = len(data), mode
+        archive.addfile(info, io.BytesIO(data))
+
+
+def tools_archive(manifest, roots):
+    """A reproducible uncompressed tar; the initramfs around it is already compressed."""
+    files = {'licenses/NOTICE.txt': (0o644, notice(manifest))}
+    for item in manifest['files']:
+        source = roots[item['package']] / item['from']
+        paths = sorted(path for path in source.rglob('*') if path.is_file()) if source.is_dir() else [source]
+        if not paths:
+            raise ValueError('nothing to pack from ' + item['from'])
+        for path in paths:
+            if path.is_symlink() or not path.is_file():
+                raise ValueError('expected a regular file: ' + item['from'])
+            target = str(PurePosixPath(item['to'], path.relative_to(source))) if source.is_dir() else item['to']
+            if target in files:
+                raise ValueError('duplicate target: ' + target)
+            files[target] = (0o755 if path.stat().st_mode & 0o100 else 0o644, path.read_bytes())
+    directories = {str(parent) for name in files for parent in PurePosixPath(name).parents if str(parent) != '.'}
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode='w', format=tarfile.USTAR_FORMAT) as archive:
+        for name in sorted(directories):
+            add(archive, name, 0o755)
+        for name, (mode, data) in sorted(files.items()):
+            add(archive, name, mode, data)
+    data = stream.getvalue()
+    if len(data) > manifest['maximum_archive_bytes']:
+        raise ValueError('benchmark tools exceed their separate budget')
+    return data
+
+
+def build_tools(cache):
+    manifest = json.loads(BENCHMARK_MANIFEST.read_text())
+    cache.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir='/var/tmp') as temporary:
+        roots = {}
+        for package in manifest['packages']:
+            path = fetch(package, cache)
+            root = Path(temporary) / package['name']
+            root.mkdir()
+            subprocess.run(['bsdtar', '-xf', str(path), '-C', str(root)], check=True)
+            roots[package['name']] = root
+        return manifest, tools_archive(manifest, roots)
+
+
+def owner_seed(image, paths):
+    """One line per key, with comments dropped so the image carries no name or address."""
+    lines, fingerprints = [], []
+    for path in paths:
+        line, fingerprint = image.authorized_key(path)
+        lines.append(b' '.join(line.split()[:2]) + b'\n')
+        fingerprints.append(fingerprint)
+    return b''.join(lines), fingerprints
+
+
+def load_browser(root_dir, provider_dir):
+    """The Firefox-free root and the compressed Chromium image, checked against their receipts."""
+    receipt = json.loads((root_dir / 'root.json').read_text())
+    root = (root_dir / 'rootfs.ext4.zst').read_bytes()
+    if len(root) != receipt['compressed_bytes'] or sha(root) != receipt['compressed_sha256']:
+        raise ValueError('the trimmed root differs from its receipt')
+    provider = json.loads((provider_dir / 'provider-manifest.json').read_text())
+    pack = (provider_dir / provider['compressed']).read_bytes()
+    if len(pack) != provider['compressed_bytes'] or sha(pack) != provider['compressed_sha256']:
+        raise ValueError('the Chromium image differs from its receipt')
+    row = (f"{provider['compressed_sha256']}\t{provider['compressed_bytes']}\t{provider['image_sha256']}\t"
+           f"{provider['image_bytes']}\t{provider['provider_manifest_sha256']}\n").encode()
+    return {'receipt': receipt, 'root': root, 'provider': provider, 'pack': pack, 'row': row,
+            'ram_boot': (REPO / 'diagnostics/ps4/ram_boot.py').read_bytes()}
+
+
+def update_ram_env(text, receipt):
+    values = {'ROOTFS_SHA256': receipt['rootfs_sha256'], 'COMPRESSED_SHA256': receipt['compressed_sha256'],
+              'COMPRESSED_BYTES': receipt['compressed_bytes'], 'ROOTFS_CHUNK_SHA256': ' '.join(receipt['chunk_sha256'])}
+    for key, value in values.items():
+        text, count = re.subn(rf"^{key}='[^']*'$", f"{key}='{value}'", text, flags=re.M)
+        if count != 1:
+            raise ValueError('the boot contract has no single ' + key)
+    return text
+
+
+def update_asset_rows(text, name, data):
+    lines = []
+    for line in text.splitlines():
+        fields = line.split('\t')
+        if fields[0] == name:
+            fields[1:3] = [sha(data), str(len(data))]
+        lines.append('\t'.join(fields))
+    return '\n'.join(lines) + '\n'
+
+
+def swap_browser(contract, browser):
+    receipt, provider, ram_boot = browser['receipt'], browser['provider'], browser['ram_boot']
+    contract['rootfs_sha256'] = receipt['rootfs_sha256']
+    contract['boot_source'] = dict(contract['boot_source'], compressed_bytes=receipt['compressed_bytes'],
+                                   compressed_sha256=receipt['compressed_sha256'])
+    contract['packages'] = [name for name in contract['packages'] if name != 'firefox']
+    contract['desktop_policy'] = contract['desktop_policy'].replace('Firefox', 'Chromium')
+    contract['ram_builder_sha256'] = sha(ram_boot)
+    next(row for row in contract['ram_assets']['files'] if row['name'] == 'ram_boot.py').update(
+        sha256=sha(ram_boot), bytes=len(ram_boot))
+    contract['chromium_provider'] = {
+        'provider_id': provider['provider_id'], 'compressed_bytes': provider['compressed_bytes'],
+        'compressed_sha256': provider['compressed_sha256'], 'image_bytes': provider['image_bytes'],
+        'image_sha256': provider['image_sha256'], 'provider_manifest_sha256': provider['provider_manifest_sha256'],
+        'policy': 'Replaces Firefox in this image (owner decision, 2026-11-10); expanded into RAM only for a chosen browser test.'}
+
+
+def repack(base, tui, tools, manifest, revision, owner_keys=(), browser=None):
+    """The new cpio bytes, plus a description of what differs from BASE."""
+    if owner_keys and 'dev' not in revision:
+        raise ValueError('a build carrying owner SSH keys needs "dev" in its revision')
+    raw = gzip.decompress(base.read_bytes())
+    found, tail = members(raw)
+    by_name = {member['name']: member for member in found}
+    if TOOLS_MEMBER in by_name or TOOLS_ROW in by_name:
+        raise ValueError('this base already has benchmark tools; start from the one before it')
+    data = lambda name: raw[by_name[name]['start']:by_name[name]['start'] + by_name[name]['size']]
+
+    image = load('build_ps4_diagnostics', REPO / 'scripts/build-ps4-diagnostics')
+    contract = json.loads(data(CONTRACT))
+    frontend = {name: data('psx-frontend/' + name) for name in image.FRONTEND_FILES}
+    if image.frontend_manifest(frontend, contract['snapshot_sums_sha256']) != contract['frontend_overrides']:
+        raise ValueError('this repository describes the frontend differently from the base')
+
+    frontend.update({name: (REPO / path).read_bytes() for name, path in FRONTEND_SOURCES.items()})
+    frontend['psx-diagnostics-tui'] = tui.read_bytes()
+    contract['frontend_overrides'] = image.frontend_manifest(frontend, contract['snapshot_sums_sha256'])
+    contract['tui_sha256'] = sha(frontend['psx-diagnostics-tui'])
+    contract['frontend_revision'] = revision
+    contract['appliance_version'] = load('ps4_ram_boot', REPO / 'diagnostics/ps4/ram_boot.py').APPLIANCE_VERSION
+    contract['benchmark_tools'] = {
+        'runtime_directory': manifest['runtime_directory'], 'archive_bytes': len(tools), 'archive_sha256': sha(tools),
+        'maximum_archive_bytes': manifest['maximum_archive_bytes'], 'manifest_sha256': sha(BENCHMARK_MANIFEST.read_bytes()),
+        'packages': {package['name']: package['version'] for package in manifest['packages']},
+        'policy': 'Separate budget from the root image and frontend overlay; runs only for a chosen test run after CPU, memory, OpenGL and Vulkan pass.'}
+
+    seed = b''
+    if owner_keys:
+        seed, fingerprints = owner_seed(image, owner_keys)
+        contract.update(ssh_setup_required=False, ssh_authorized_key_sha256=sha(seed),
+                        ssh_authorized_key_fingerprint=', '.join(fingerprints))
+        contract['public_distribution'] = dict(contract['public_distribution'], owner_seed=True)
+
+    if browser:
+        swap_browser(contract, browser)
+
+    # The module that boots is the one packed in this image, so it does the judging.
+    scratch = Path(tempfile.mkdtemp(dir='/var/tmp')) / 'packed_ram_boot.py'
+    scratch.write_bytes(browser['ram_boot'] if browser else data(RAM_BOOT))
+    ram = load('packed_ram_boot', scratch)
+    scratch.unlink()
+    scratch.parent.rmdir()
+    ram.validate_manifest(contract)
+
+    rows = ''.join(f"{row['name']}\t{row['sha256']}\t{row['bytes']}\t{row['mode']}\n"
+                   for row in contract['frontend_overrides']['files']).encode()
+    replacements = {'psx-frontend/' + name: value for name, value in frontend.items()}
+    replacements[FRONTEND_ROWS] = rows
+    replacements[CONTRACT] = ram.encoded(contract)
+    replacements['init'] = (REPO / 'rootfs/ps4-diagnostics/init-ram').read_bytes()
+    if browser:
+        replacements[ROOT_MEMBER] = browser['root']
+        replacements[RAM_BOOT] = browser['ram_boot']
+        replacements[RAM_ENV] = update_ram_env(data(RAM_ENV).decode(), browser['receipt']).encode()
+        replacements[ASSET_ROWS] = update_asset_rows(data(ASSET_ROWS).decode(), 'ram_boot.py', browser['ram_boot']).encode()
+
+    out = bytearray()
+    changed = []
+    for member in found:
+        if member['name'] == 'TRAILER!!!':
+            out += entry('psx-bench', stat.S_IFDIR | 0o755, b'', 990001, links=2)
+            out += entry(TOOLS_MEMBER, stat.S_IFREG | 0o644, tools, 990002)
+            out += entry(TOOLS_ROW, stat.S_IFREG | 0o644, f'{sha(tools)}\t{len(tools)}\n'.encode(), 990003)
+            if seed:
+                out += entry(OWNER_KEYS, stat.S_IFREG | 0o600, seed, 990004)
+            if browser:
+                out += entry('psx-chromium', stat.S_IFDIR | 0o755, b'', 990005, links=2)
+                out += entry(CHROMIUM_MEMBER, stat.S_IFREG | 0o600, browser['pack'], 990006)
+                out += entry(CHROMIUM_ROW, stat.S_IFREG | 0o644, browser['row'], 990007)
+            out += raw[member['at']:member['end']]
+        elif member['name'] in replacements and replacements[member['name']] != data(member['name']):
+            if member['links'] != 1:
+                raise ValueError('cannot replace a hard-linked member: ' + member['name'])
+            value = replacements[member['name']]
+            out += member['head'][:54] + f'{len(value):08X}'.encode() + member['head'][62:] + member['prefix'] + value + b'\0' * pad(len(value))
+            changed.append(member['name'])
+        else:
+            out += raw[member['at']:member['end']]
+    out += tail
+    added = ['psx-bench', TOOLS_MEMBER, TOOLS_ROW] + ([OWNER_KEYS] if seed else [])
+    if browser:
+        added += ['psx-chromium', CHROMIUM_MEMBER, CHROMIUM_ROW]
+    return bytes(out), {'changed': sorted(changed), 'added': added, 'contract': contract,
+                        'overlay_bytes': contract['frontend_overrides']['total_bytes']}
+
+
+def verify(new, base_raw, changed, added, tools):
+    """Everything not named as changed must still be the same bytes as the base."""
+    old_members, _ = members(base_raw)
+    new_members, _ = members(new)
+    read = lambda raw, member: raw[member['start']:member['start'] + member['size']]
+    new_by_name = {member['name']: member for member in new_members}
+    if [m['name'] for m in new_members if m['name'] not in added] != [m['name'] for m in old_members]:
+        raise ValueError('member order changed')
+    for member in old_members:
+        same = read(base_raw, member) == read(new, new_by_name[member['name']])
+        if same == (member['name'] in changed):
+            raise ValueError('unexpected difference in ' + member['name'])
+    if read(new, new_by_name[TOOLS_MEMBER]) != tools:
+        raise ValueError('tools archive differs after packing')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--base', type=Path, required=True, help='initramfs.cpio.gz to start from')
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--tui', type=Path, required=True, help='release diagnostix binary')
+    parser.add_argument('--revision', required=True, help='frontend revision recorded in the boot contract')
+    parser.add_argument('--cache', type=Path, required=True, help='directory for the pinned packages')
+    parser.add_argument('--owner-ssh-key', type=Path, action='append', default=[],
+                        help='public key allowed to log in as root; development builds only, may repeat')
+    parser.add_argument('--chromium-root', type=Path, help='output of trim-ps4-diagnostix-root; replaces Firefox')
+    parser.add_argument('--chromium-provider', type=Path, help='output of prepare-ps4-chromium-provider')
+    args = parser.parse_args()
+    if args.output.exists():
+        raise ValueError('refusing to overwrite ' + str(args.output))
+    if bool(args.chromium_root) != bool(args.chromium_provider):
+        raise ValueError('--chromium-root and --chromium-provider go together')
+    browser = load_browser(args.chromium_root, args.chromium_provider) if args.chromium_root else None
+    manifest, tools = build_tools(args.cache)
+    new, facts = repack(args.base, args.tui, tools, manifest, args.revision, args.owner_ssh_key, browser)
+    verify(new, gzip.decompress(args.base.read_bytes()), facts['changed'], facts['added'], tools)
+    compressed = gzip.compress(new, compresslevel=6, mtime=0)
+    if len(compressed) > INITRAMFS_LIMIT:
+        raise ValueError(f'{len(compressed)} bytes is over the loader limit of {INITRAMFS_LIMIT}')
+    args.output.write_bytes(compressed)
+    print(json.dumps({'output': str(args.output), 'bytes': len(compressed), 'sha256': sha(compressed),
+                      'changed': facts['changed'], 'added': facts['added'], 'overlay_bytes': facts['overlay_bytes'],
+                      'tools_bytes': len(tools), 'tools_sha256': sha(tools),
+                      'tui_sha256': facts['contract']['tui_sha256'], 'revision': args.revision,
+                      'owner_ssh_keys': facts['contract']['ssh_authorized_key_fingerprint'],
+                      'hardware_acceptance': False}, indent=1))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(1)

@@ -1,0 +1,170 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+"""Remove Firefox from the frozen DiagnostiX RAM root, and nothing else.
+
+Chromium replaces it (owner decision, 2026-11-10), because the loader refuses an
+initramfs over 512 MiB and the two browsers do not fit together. The image is
+edited as a file: nothing is mounted and no root privilege is needed.
+"""
+import argparse
+import gzip
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+REPO = Path(__file__).resolve().parents[1]
+FROZEN_SHA256 = 'b5b3a0ec3001fa99816ad68071d93091a6c8d0907aeb4ba384094625b7af0107'
+ROOT_BYTES = 1000 * 1024**2
+ROOT_MEMBER = 'psx-ram/rootfs.ext4.gz'
+CHUNK_MIB = 125
+CHUNK_COUNT = 8
+# The frame the initramfs decoder has already been proven to read on the console.
+WINDOW_LOG = 21
+EPOCH = '1794084766'
+ICON_SIZES = ('128x128', '16x16', '192x192', '22x22', '24x24', '256x256', '32x32', '384x384', '48x48', '64x64')
+TREES = ('/usr/lib/firefox',)
+FILES = ('/usr/bin/firefox',
+         '/usr/share/applications/firefox.desktop',
+         '/usr/share/gnome-shell/search-providers/firefox.search-provider.ini',
+         '/usr/share/metainfo/org.mozilla.firefox.metainfo.xml',
+         '/usr/share/icons/hicolor/scalable/apps/firefox.svg',
+         '/usr/share/icons/hicolor/symbolic/apps/firefox-symbolic.svg',
+         *(f'/usr/share/icons/hicolor/{size}/apps/firefox.png' for size in ICON_SIZES))
+
+
+def load_repack():
+    path = REPO / 'scripts/repack-ps4-diagnostix'
+    loader = importlib.machinery.SourceFileLoader('repack_ps4_diagnostix', str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[loader.name] = module
+    loader.exec_module(module)
+    return module
+
+
+def digest(path, offset=0, count=None):
+    value = hashlib.sha256()
+    with open(path, 'rb') as stream:
+        stream.seek(offset)
+        left = count
+        while left is None or left:
+            chunk = stream.read(1 << 20 if left is None else min(1 << 20, left))
+            if not chunk:
+                break
+            value.update(chunk)
+            left = None if left is None else left - len(chunk)
+    return value.hexdigest()
+
+
+def tool(*argv, **kwargs):
+    # Fixed timestamps, so the same input gives the same image.
+    return subprocess.run([str(item) for item in argv], check=kwargs.pop('check', True), capture_output=True, text=True,
+                          env=dict(os.environ, E2FSPROGS_FAKE_TIME=EPOCH), **kwargs)
+
+
+def debugfs(image, command):
+    return tool('debugfs', '-R', command, image).stdout
+
+
+def entries(image, directory):
+    """(name, mode) for each child; `ls -p` prints /inode/mode/uid/gid/name/size/."""
+    found = []
+    for line in debugfs(image, f'ls -p "{directory}"').splitlines():
+        fields = line.split('/')
+        if len(fields) == 8 and fields[5] not in ('.', '..'):
+            found.append((fields[5], int(fields[2], 8)))
+    return found
+
+
+def removal_commands(image):
+    commands = []
+
+    def walk(directory):
+        for name, mode in entries(image, directory):
+            path = f'{directory}/{name}'
+            if mode & 0o170000 == 0o040000:
+                walk(path)
+            else:
+                commands.append(f'rm "{path}"')
+        commands.append(f'rmdir "{directory}"')
+
+    for tree in TREES:
+        walk(tree)
+    commands += [f'rm "{path}"' for path in FILES]
+    return commands
+
+
+def absent(image, path):
+    return 'File not found' in tool('debugfs', '-R', f'stat "{path}"', image).stderr
+
+
+def clean(image):
+    check = tool('e2fsck', '-fn', image, check=False)
+    if check.returncode != 0:
+        raise ValueError('the edited filesystem does not check clean:\n' + check.stdout[-2000:])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--base', type=Path, required=True, help='initramfs.cpio.gz holding the frozen root')
+    parser.add_argument('--output', type=Path, required=True, help='a new directory')
+    args = parser.parse_args()
+    args.output.mkdir(mode=0o700)
+    repack = load_repack()
+    raw = gzip.decompress(args.base.read_bytes())
+    found, _ = repack.members(raw)
+    member = next(item for item in found if item['name'] == ROOT_MEMBER)
+    frozen_zst = args.output / 'frozen.zst'
+    frozen_zst.write_bytes(raw[member['start']:member['start'] + member['size']])
+    del raw
+    frozen = args.output / 'frozen.ext4'
+    tool('zstd', '-q', '-d', '-f', frozen_zst, '-o', frozen)
+    frozen_zst.unlink()
+    if digest(frozen) != FROZEN_SHA256:
+        raise ValueError('the base root is not the frozen root')
+
+    commands = removal_commands(frozen)
+    (args.output / 'removal.debugfs').write_text('\n'.join(commands) + '\n')
+    result = tool('debugfs', '-w', '-f', args.output / 'removal.debugfs', frozen)
+    complaints = [line for line in (result.stdout + result.stderr).splitlines()
+                  if line and not line.startswith('debugfs') and not line.startswith(('rm ', 'rmdir '))]
+    if complaints:
+        raise ValueError('debugfs reported problems:\n' + '\n'.join(complaints[:20]))
+    for path in (*TREES, *FILES):
+        if not absent(frozen, path):
+            raise ValueError('still present: ' + path)
+    clean(frozen)
+
+    # Copies only blocks still in use, so Firefox's freed blocks compress to nothing.
+    image = args.output / 'rootfs.ext4'
+    tool('e2image', '-r', '-a', frozen, image)
+    frozen.unlink()
+    with image.open('r+b') as stream:
+        stream.truncate(ROOT_BYTES)
+    clean(image)
+    if image.stat().st_size != ROOT_BYTES:
+        raise ValueError('the root changed size')
+
+    compressed = args.output / 'rootfs.ext4.zst'
+    tool('zstd', '-q', '-19', f'--zstd=wlog={WINDOW_LOG}', '-T0', '--check', image, '-o', compressed)
+    receipt = {'schema_version': 1, 'source_rootfs_sha256': FROZEN_SHA256, 'rootfs_bytes': ROOT_BYTES,
+               'rootfs_sha256': digest(image), 'compressed_bytes': compressed.stat().st_size,
+               'compressed_sha256': digest(compressed), 'chunk_mib': CHUNK_MIB,
+               'chunk_sha256': [digest(image, index * CHUNK_MIB << 20, CHUNK_MIB << 20) for index in range(CHUNK_COUNT)],
+               'removed_trees': list(TREES), 'removed_files': list(FILES), 'removed_paths': len(commands),
+               'hardware_acceptance': False}
+    (args.output / 'root.json').write_text(json.dumps(receipt, indent=2) + '\n')
+    print(json.dumps({key: value for key, value in receipt.items() if key != 'chunk_sha256'}, indent=1))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError) as error:
+        print(error, file=sys.stderr)
+        raise SystemExit(1)

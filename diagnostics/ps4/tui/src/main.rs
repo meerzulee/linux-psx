@@ -27,11 +27,19 @@ pub enum Focus {
     Actions,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum DiagnosticScreen {
+    Hidden,
+    Choose,
+    Automatic,
+}
+
 pub enum FormKind {
     Wifi,
     Https,
     SshGithub,
     Retry { action: String, params: Value },
+    FullRetry,
     Observation { run_id: String },
 }
 
@@ -323,6 +331,11 @@ impl SshDialog {
 pub struct App {
     pub state: Value,
     pub onboarding: bool,
+    pub diagnostic_screen: DiagnosticScreen,
+    pub mode_selected: usize,
+    pub automatic_selected: usize,
+    pub automatic_result: Option<Value>,
+    pub issue_report: Option<Value>,
     pub overview: bool,
     pub overview_selected: usize,
     pub overview_offset: Cell<usize>,
@@ -346,6 +359,18 @@ pub struct App {
     pub settings_offset: Cell<usize>,
     pub help: bool,
     pub exit_dialog: bool,
+    pub full_queue: Vec<(String, String, Value)>,
+    pub full_active: bool,
+    pub full_in_flight: bool,
+    pub full_stop_after: bool,
+    pub full_total: usize,
+    pub full_done: usize,
+    pub full_passed: usize,
+    pub full_failed: usize,
+    pub full_observed: usize,
+    pub full_notes: Vec<String>,
+    pub full_reason: String,
+    pub full_current: String,
     pub power_dialog: Option<PowerDialog>,
     pub demo: bool,
     pub ticks: u64,
@@ -357,6 +382,7 @@ pub struct App {
     action_pending: bool,
     power_pending: bool,
     action_title: String,
+    action_name: String,
     last_state: Instant,
     last_job: Instant,
     demo_action: Option<(Instant, String)>,
@@ -375,6 +401,11 @@ impl App {
         Self {
             state: if demo { model::demo_state() } else { json!({}) },
             onboarding: true,
+            diagnostic_screen: DiagnosticScreen::Hidden,
+            mode_selected: 1,
+            automatic_selected: 0,
+            automatic_result: None,
+            issue_report: None,
             overview: false,
             overview_selected: 0,
             overview_offset: Cell::new(0),
@@ -402,6 +433,18 @@ impl App {
             settings_offset: Cell::new(0),
             help: false,
             exit_dialog: false,
+            full_queue: Vec::new(),
+            full_active: false,
+            full_in_flight: false,
+            full_stop_after: false,
+            full_total: 0,
+            full_done: 0,
+            full_passed: 0,
+            full_failed: 0,
+            full_observed: 0,
+            full_notes: Vec::new(),
+            full_reason: String::new(),
+            full_current: String::new(),
             power_dialog: None,
             demo,
             ticks: 0,
@@ -413,6 +456,7 @@ impl App {
             action_pending: false,
             power_pending: false,
             action_title: String::new(),
+            action_name: String::new(),
             last_state: Instant::now()
                 .checked_sub(Duration::from_secs(10))
                 .unwrap_or_else(Instant::now),
@@ -428,7 +472,15 @@ impl App {
     }
     pub fn actions(&self) -> Vec<model::Action> {
         if self.category() == Category::Reports {
-            model::report_actions(&self.state, &self.report_expanded)
+            let mut actions = model::report_actions(&self.state, &self.report_expanded);
+            if let Some(report) = self.latest_issue_report() {
+                actions.push(model::Action {
+                    title: "View issue report".into(),
+                    detail: "Show the saved ZIP path and download link for a GitHub issue.".into(),
+                    kind: ActionKind::Information(report.clone()),
+                });
+            }
+            actions
         } else if self.category() == Category::Settings {
             model::settings_actions(&self.state, self.settings_expanded)
         } else {
@@ -438,7 +490,128 @@ impl App {
             {
                 actions.retain(|item| !matches!(&item.kind, ActionKind::Request("graphics.launch", params) if params["app"]=="diagnostics"));
             }
+            if self.category() == Category::System && self.latest_automatic().is_some() {
+                actions.push(model::Action {
+                    title: "Automatic diagnostics summary".into(),
+                    detail: "Review the last automatic run without starting another.".into(),
+                    kind: ActionKind::AutomaticSummary,
+                });
+            }
             actions
+        }
+    }
+
+    pub fn latest_automatic(&self) -> Option<&Value> {
+        self.automatic_result.as_ref().or_else(|| {
+            self.state
+                .get("automatic")
+                .filter(|value| value.is_object())
+        })
+    }
+
+    pub fn latest_issue_report(&self) -> Option<&Value> {
+        self.issue_report.as_ref().or_else(|| {
+            self.latest_automatic()
+                .and_then(|value| value.get("issue_report"))
+                .filter(|value| model::IssueReport::from_value(value).is_some())
+        })
+    }
+
+    fn choose_mode(&mut self) {
+        self.onboarding = false;
+        self.overview = false;
+        self.diagnostic_screen = DiagnosticScreen::Choose;
+        self.mode_selected = 1;
+        self.notice = "Choose a mode, then press Enter. No tests start until selected.".into();
+    }
+
+    fn manual_diagnostics(&mut self) {
+        self.diagnostic_screen = DiagnosticScreen::Hidden;
+        self.overview = true;
+        self.category = 0;
+        self.selected = 0;
+        self.focus = Focus::Categories;
+        self.notice = "Manual diagnostics. Open an area to choose an individual test.".into();
+    }
+
+    pub fn automatic_actions(&self) -> Vec<&'static str> {
+        let mut actions = Vec::new();
+        if self.latest_issue_report().is_some() {
+            actions.push("View issue report");
+        }
+        actions.extend([
+            "Create issue report",
+            "Manual diagnostics",
+            "Choose diagnostic mode",
+        ]);
+        actions
+    }
+
+    pub fn automatic_running(&self) -> bool {
+        (self.action_name == "diagnostics.auto" && self.busy())
+            || self.active_job.as_ref().is_some_and(|job| {
+                job.title == "Automatic diagnostics"
+                    || model::automatic_progress(&job.data).is_some()
+            })
+    }
+
+    fn diagnostic_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Char('q') => self.open_power_page(),
+            KeyCode::F(1) => self.help = true,
+            KeyCode::F(5) => self.refresh(),
+            KeyCode::Esc if self.diagnostic_screen == DiagnosticScreen::Choose => {
+                self.mode_selected = 1;
+            }
+            KeyCode::Esc | KeyCode::Char('m' | 'M') => self.choose_mode(),
+            KeyCode::Char('v') if self.diagnostic_screen == DiagnosticScreen::Automatic => {
+                self.report = self.latest_automatic().cloned();
+                self.report_scroll = 0;
+            }
+            KeyCode::Up | KeyCode::Down | KeyCode::Home | KeyCode::End => {
+                let (selected, count) = if self.diagnostic_screen == DiagnosticScreen::Choose {
+                    (&mut self.mode_selected, 2)
+                } else {
+                    let count = self.automatic_actions().len();
+                    (&mut self.automatic_selected, count)
+                };
+                *selected = match key.code {
+                    KeyCode::Up => selected.saturating_sub(1),
+                    KeyCode::Down => (*selected + 1).min(count - 1),
+                    KeyCode::Home => 0,
+                    _ => count - 1,
+                };
+            }
+            KeyCode::Enter if self.diagnostic_screen == DiagnosticScreen::Choose => {
+                if self.mode_selected == 1 {
+                    self.manual_diagnostics();
+                } else {
+                    // The chooser is the only automatic submission path. Once
+                    // opened, the progress page cannot submit this action again.
+                    self.diagnostic_screen = DiagnosticScreen::Automatic;
+                    self.automatic_selected = 0;
+                    self.run("Automatic diagnostics", "diagnostics.auto", json!({}));
+                }
+            }
+            KeyCode::Enter => {
+                match self
+                    .automatic_actions()
+                    .get(self.automatic_selected)
+                    .copied()
+                {
+                    Some("View issue report") => {
+                        self.report = self.latest_issue_report().cloned();
+                        self.report_scroll = 0;
+                    }
+                    Some("Create issue report") => {
+                        self.run("Create issue report", "support.export", json!({}));
+                    }
+                    Some("Manual diagnostics") => self.manual_diagnostics(),
+                    Some("Choose diagnostic mode") => self.choose_mode(),
+                    _ => {}
+                }
+            }
+            _ => {}
         }
     }
 
@@ -757,6 +930,7 @@ impl App {
         self.error.clear();
         self.error_action.clear();
         self.action_title = title.into();
+        self.action_name = action.into();
         self.notice = format!("Starting {title}…");
         self.action_pending = true;
         if action == "power.execute" {
@@ -841,12 +1015,315 @@ impl App {
         }
     }
 
+
+    fn full_test_queue(&self) -> Vec<(String, String, Value)> {
+        let mut queue = vec![(
+            "Hardware inventory".into(),
+            "test.run".into(),
+            json!({"test_id": "inventory.readonly", "parameters": {}, "retry_reason": ""}),
+        )];
+        let mut seen = std::collections::HashSet::new();
+        // Core first, then network, graphics, audio, storage. The browser is
+        // deliberately excluded here and launched only after the report.
+        for category in [
+            model::Category::Cpu,
+            model::Category::Network,
+            model::Category::Graphics,
+            model::Category::Audio,
+            model::Category::Storage,
+        ] {
+            for action in model::actions(category, &self.state, false) {
+                let model::ActionKind::Request(name, params) = action.kind else {
+                    continue;
+                };
+                let include = match name {
+                    "test.run" => {
+                        let id = model::at(&params, "/test_id");
+                        id != "uvd.avc" && !self.failed_previous(&params)
+                    }
+                    "graphics.wayland" | "uvd.scenario" => true,
+                    _ => false,
+                };
+                if !include {
+                    continue;
+                }
+                if seen.insert(format!("{}:{}", name, params)) {
+                    queue.push((action.title, name.to_string(), params));
+                }
+            }
+        }
+        let uvd = self
+            .state
+            .pointer("/identity/declared_artifacts/uvd_runtime")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        if uvd {
+            for (scenario, title) in [
+                ("canonical-120", "UVD AVC reference"),
+                ("native720-900", "UVD native 720p30"),
+                ("native1080-900", "UVD native 1080p30"),
+            ] {
+                let params = json!({"scenario": scenario});
+                if seen.insert(format!("uvd.scenario:{}", params)) {
+                    queue.push((title.into(), "uvd.scenario".into(), params));
+                }
+            }
+        }
+        queue.push((
+            "Create issue report".into(),
+            "support.export".into(),
+            json!({}),
+        ));
+        for action in model::actions(model::Category::Browser, &self.state, false) {
+            if let model::ActionKind::Request("graphics.launch", params) = action.kind {
+                if model::at(&params, "/app") == "browser" {
+                    queue.push((action.title, "graphics.launch".into(), params));
+                    break;
+                }
+            }
+        }
+        queue
+    }
+
+    fn start_full_test(&mut self) {
+        if self.demo {
+            self.notice = "Demo preview only; the full test is not executed.".into();
+            return;
+        }
+        if !self.connected {
+            self.notice = "The diagnostic controller is offline.".into();
+            return;
+        }
+        let queue = self.full_test_queue();
+        if queue.is_empty() {
+            self.notice = "No runnable tests are available.".into();
+            return;
+        }
+        self.full_total = queue.len();
+        self.full_done = 0;
+        self.full_passed = 0;
+        let _ = std::fs::create_dir_all("/run/psx-state");
+        let _ = std::fs::write(
+            "/run/psx-state/full-test-report.txt",
+            format!("Diagnostix full test\nQueue: {}\n\n", self.full_total),
+        );
+        self.full_failed = 0;
+        self.full_observed = 0;
+        self.full_notes.clear();
+        self.full_queue = queue;
+        self.full_active = true;
+        self.full_in_flight = false;
+        self.full_stop_after = false;
+        self.start_next_full();
+    }
+
+    fn start_next_full(&mut self) {
+        if !self.full_active {
+            return;
+        }
+        if !self.connected {
+            self.full_active = false;
+            self.notice = "Full test stopped: the controller went offline.".into();
+            return;
+        }
+        let Some((title, action, params)) = self.full_queue.first().cloned() else {
+            self.finish_full(false, false);
+            return;
+        };
+        self.full_queue.remove(0);
+        self.full_done += 1;
+        self.full_current = title.clone();
+        self.full_stop_after = action == "graphics.launch";
+        self.full_in_flight = true;
+        let progress = format!("Full test {}/{} · {}", self.full_done, self.full_total, title);
+        self.run(&title, &action, params);
+        self.notice = progress;
+    }
+
+    fn advance_full(&mut self, result: &Value) {
+        if !self.full_in_flight {
+            return;
+        }
+        self.full_in_flight = false;
+        if !self.full_active {
+            return;
+        }
+        let status = model::at(result, "/status");
+        let test_id = model::at(result, "/test_id");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/run/psx-state/full-test-report.txt")
+        {
+            let line = format!(
+                "[{}/{}] {}\t{}\n",
+                self.full_done,
+                self.full_total,
+                model::status_label(&status),
+                self.full_current
+            );
+            let _ = std::io::Write::write_all(&mut file, line.as_bytes());
+        }
+        let observation = model::array(&self.state, "/tests")
+            .iter()
+            .find(|test| model::at(test, "/id") == test_id)
+            .map(|test| model::at(test, "/kind") == "observation")
+            .unwrap_or(false);
+        if result["stop_required"].as_bool().unwrap_or(false) {
+            let message = model::at(result, "/message");
+            self.full_notes.push(format!(
+                "{}: terminal condition{}",
+                self.full_current,
+                if message.is_empty() { String::new() } else { format!(": {message}") }
+            ));
+            self.finish_full(false, false);
+            return;
+        }
+        if matches!(status.as_str(), "PASS" | "READY") {
+            self.full_passed += 1;
+        } else if status == "INCONCLUSIVE"
+            && (observation || result["observation_required"].as_bool().unwrap_or(false))
+        {
+            self.full_observed += 1;
+        } else {
+            self.full_failed += 1;
+            self.full_notes.push(format!(
+                "{}: {}",
+                self.full_current,
+                model::status_label(&status)
+            ));
+        }
+        if self.full_stop_after {
+            self.finish_full(false, true);
+            return;
+        }
+        self.start_next_full();
+    }
+
+    fn full_summary(&self, cancelled: bool, browser: bool) -> Value {
+        json!({
+            "view": "full_test_summary",
+            "cancelled": cancelled,
+            "browser_launched": browser,
+            "total": self.full_total,
+            "done": self.full_done,
+            "passed": self.full_passed,
+            "failed": self.full_failed,
+            "observed": self.full_observed,
+            "reason": self.full_reason,
+            "notes": self.full_notes
+        })
+    }
+
+    fn full_report_text(&self) -> String {
+        let mut text = format!(
+            "Diagnostix full test\nQueue: {}/{}\nPassed: {}\nFailed or skipped: {}\nObservations: {}\n",
+            self.full_done, self.full_total, self.full_passed, self.full_failed, self.full_observed
+        );
+        if !self.full_reason.is_empty() {
+            text.push_str(&format!("Retry reason: {}\n", self.full_reason));
+        }
+        if self.full_notes.is_empty() {
+            text.push_str("Notes: none\n");
+        } else {
+            text.push_str("Notes:\n");
+            for note in &self.full_notes {
+                text.push_str(&format!("- {note}\n"));
+            }
+        }
+        text
+    }
+
+    fn save_full_report(&mut self) {
+        let path = std::path::Path::new("/run/psx-state/full-test-report.txt");
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::write(path, self.full_report_text()) {
+            Ok(()) => {
+                if let Some(report) = self.report.as_mut() {
+                    if report["view"] == "full_test_summary" {
+                        report["saved_path"] = json!(path.display().to_string());
+                    }
+                }
+                self.notice = format!("Report saved: {}", path.display());
+            }
+            Err(error) => self.notice = format!("Could not save report: {error}"),
+        }
+    }
+
+    fn finish_full(&mut self, cancelled: bool, browser: bool) {
+        self.full_active = false;
+        self.full_in_flight = false;
+        self.full_queue.clear();
+        let summary = self.full_summary(cancelled, browser);
+        self.report = Some(summary);
+        self.report_scroll = 0;
+        self.notice = if cancelled {
+            format!(
+                "Full test cancelled: {} passed, {} failed/skipped, {} observations. S saves the report.",
+                self.full_passed, self.full_failed, self.full_observed
+            )
+        } else if browser {
+            format!(
+                "Full test complete: {} passed, {} failed/skipped, {} observations. Browser launched; S saves the report.",
+                self.full_passed, self.full_failed, self.full_observed
+            )
+        } else {
+            format!(
+                "Full test complete: {} passed, {} failed/skipped, {} observations. S saves the report.",
+                self.full_passed, self.full_failed, self.full_observed
+            )
+        };
+    }
+
+    fn cancel_full(&mut self) {
+        if !self.full_active {
+            return;
+        }
+        self.full_notes.push("Cancelled by operator".into());
+        self.finish_full(true, false);
+    }
+
+    fn open_power_page(&mut self) {
+        self.exit_dialog = false;
+        self.help = false;
+        self.report = None;
+        self.hardware = None;
+        self.diagnostic_screen = DiagnosticScreen::Hidden;
+        self.overview = false;
+        self.onboarding = false;
+        self.full_active = false;
+        self.full_queue.clear();
+        self.full_in_flight = false;
+        self.category = model::CATEGORIES
+            .iter()
+            .position(|category| *category == model::Category::Power)
+            .unwrap_or(9);
+        self.selected = 0;
+        self.focus = Focus::Actions;
+        self.notice = "Power: save reports, then choose a confirmed action.".into();
+    }
+
     fn activate(&mut self) {
         let actions = self.actions();
         let Some(action) = actions.into_iter().nth(self.selected) else {
             return;
         };
         match action.kind {
+            ActionKind::FullTest => {
+                self.full_reason.clear();
+                self.onboarding = false;
+                self.category = 0;
+                self.selected = 0;
+                self.focus = Focus::Actions;
+                self.start_full_test();
+            }
+            ActionKind::ModeChoice => self.choose_mode(),
+            ActionKind::AutomaticSummary => {
+                self.diagnostic_screen = DiagnosticScreen::Automatic;
+                self.automatic_selected = 0;
+            }
             ActionKind::Qualification => match HardwareDialog::qualification() {
                 Ok(dialog) => self.hardware = Some(dialog),
                 Err(message) => self.error = message,
@@ -893,12 +1370,10 @@ impl App {
                 self.report_expanded[group] = !self.report_expanded[group];
             }
             ActionKind::Continue => {
-                self.onboarding = false;
-                self.overview = true;
+                self.choose_mode();
                 self.category = 0;
                 self.selected = 0;
-                self.focus = Focus::Categories;
-                self.notice = "Overview uses saved checks. Open Advanced to choose a test.".into();
+                self.focus = Focus::Actions;
             }
             ActionKind::Wifi(ssid) => {
                 self.form = Some(Form {
@@ -929,6 +1404,30 @@ impl App {
                     selected: 0,
                     error: String::new(),
                 });
+            }
+            ActionKind::Test(value) => {
+                let name = model::at(&value, "/run_action");
+                let params = value
+                    .get("run_params")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
+                if name.is_empty() {
+                    self.report = Some(value);
+                    self.report_scroll = 0;
+                } else if name == "test.run" && self.failed_previous(&params) {
+                    self.form = Some(Form {
+                        kind: FormKind::Retry {
+                            action: name,
+                            params,
+                        },
+                        fields: vec![String::new()],
+                        selected: 0,
+                        error: String::new(),
+                    });
+                } else {
+                    let title = model::at(&value, "/title");
+                    self.run(&title, &name, params);
+                }
             }
             ActionKind::Information(value) | ActionKind::Report(value) => {
                 self.report = Some(value);
@@ -999,6 +1498,16 @@ impl App {
                 } else {
                     params["retry_reason"] = json!(reason);
                     self.run("Retry selected test", action, params.clone());
+                    None
+                }
+            }
+            FormKind::FullRetry => {
+                let reason = form.fields[0].trim();
+                if reason.is_empty() {
+                    Some("Record what changed before another full run".into())
+                } else {
+                    self.full_reason = reason.into();
+                    self.start_full_test();
                     None
                 }
             }
@@ -1076,7 +1585,9 @@ impl App {
     }
 
     pub fn key(&mut self, key: KeyEvent) -> bool {
-        if key.kind == KeyEventKind::Release {
+        if key.kind == KeyEventKind::Release
+            || (key.kind == KeyEventKind::Repeat && key.code == KeyCode::Enter)
+        {
             return false;
         }
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
@@ -1138,8 +1649,49 @@ impl App {
             }
             return false;
         }
-        if self.report.is_some() {
+        if self.full_active {
             match key.code {
+                KeyCode::Esc | KeyCode::Char('c' | 'C') => {
+                    self.cancel_full();
+                    return false;
+                }
+                KeyCode::Char('s' | 'S') => {
+                    self.save_full_report();
+                    return false;
+                }
+                KeyCode::Char('v' | 'V') => {
+                    self.report = Some(self.full_summary(false, false));
+                    self.report_scroll = 0;
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        if self.report.is_some() {
+            let full_summary = self
+                .report
+                .as_ref()
+                .is_some_and(|value| model::at(value, "/view") == "full_test_summary");
+            match key.code {
+                KeyCode::Char('u' | 'U') if full_summary => {
+                    self.report = None;
+                    if let Some(report) = self.issue_report.clone() {
+                        self.report = Some(report);
+                        self.report_scroll = 0;
+                    } else {
+                        self.run("Submit report", "support.export", json!({}));
+                    }
+                }
+                KeyCode::Char('r' | 'R') if full_summary => {
+                    self.report = None;
+                    self.form = Some(Form {
+                        kind: FormKind::FullRetry,
+                        fields: vec![String::new()],
+                        selected: 0,
+                        error: String::new(),
+                    });
+                }
+                KeyCode::Char('s' | 'S') if full_summary => self.save_full_report(),
                 KeyCode::Esc | KeyCode::Enter | KeyCode::Char('v') => self.report = None,
                 KeyCode::Down => self.report_scroll = self.report_scroll.saturating_add(1),
                 KeyCode::Up => self.report_scroll = self.report_scroll.saturating_sub(1),
@@ -1149,13 +1701,17 @@ impl App {
             }
             return false;
         }
+        if self.diagnostic_screen != DiagnosticScreen::Hidden {
+            self.diagnostic_key(key);
+            return false;
+        }
         if !self.onboarding && key.code == KeyCode::F(7) {
             self.overview = !self.overview;
             return false;
         }
         if !self.onboarding && self.overview {
             match key.code {
-                KeyCode::Char('q') => self.exit_dialog = true,
+                KeyCode::Char('q') => self.open_power_page(),
                 KeyCode::F(1) => self.help = true,
                 KeyCode::Char('a' | 'A')
                 | KeyCode::Left
@@ -1177,6 +1733,7 @@ impl App {
                         (self.overview_selected + 6).min(overview::COMPONENTS.len() - 1)
                 }
                 KeyCode::F(5) => self.refresh(),
+                KeyCode::Char('m' | 'M') => self.choose_mode(),
                 KeyCode::Enter | KeyCode::F(2) | KeyCode::F(3) | KeyCode::F(4) | KeyCode::F(6) => {
                     let category = match key.code {
                         KeyCode::F(2) => Category::Network,
@@ -1207,7 +1764,7 @@ impl App {
             return false;
         }
         match key.code {
-            KeyCode::Char('q') => self.exit_dialog = true,
+            KeyCode::Char('q') => self.open_power_page(),
             KeyCode::F(1) => self.help = true,
             KeyCode::F(2) => {
                 self.category = 4;
@@ -1446,10 +2003,36 @@ impl App {
         if result["retry_allowed"].as_bool() == Some(true) {
             self.power_pending = false;
         }
+        let automatic = model::at(&result, "/test_id") == "diagnostics.auto"
+            || self.action_name == "diagnostics.auto";
+        if automatic {
+            self.automatic_result = Some(result.clone());
+            self.automatic_selected = 0;
+            if let Some(report) = result
+                .get("issue_report")
+                .filter(|report| model::IssueReport::from_value(report).is_some())
+            {
+                self.issue_report = Some(report.clone());
+            }
+        }
+        if self.action_name == "support.export" || model::IssueReport::from_value(&result).is_some()
+        {
+            if model::IssueReport::from_value(&result).is_some() {
+                self.issue_report = Some(result.clone());
+            }
+            if !self.full_active {
+                self.report = Some(result.clone());
+                self.report_scroll = 0;
+            }
+        }
+        let full_result = result.clone();
         self.last_report = Some(result);
         self.active_job = None;
         self.action_pending = false;
+        self.job_pending = false;
+        self.action_name.clear();
         self.refresh();
+        self.advance_full(&full_result);
     }
 
     fn refresh_power_request(&mut self) {
@@ -1577,7 +2160,9 @@ impl App {
                         None
                     };
                 let network_selection = if self.category() == Category::Network {
-                    self.actions().get(self.selected).and_then(network_action_key)
+                    self.actions()
+                        .get(self.selected)
+                        .and_then(network_action_key)
                 } else {
                     None
                 };
@@ -1711,7 +2296,19 @@ impl App {
                     self.state["network"]["interfaces"][0]["state"] = json!("connected");
                 }
                 self.action_pending = false;
-                self.complete_job(json!({"status":"INCONCLUSIVE","message":"Demo preview only. No hardware action executed.","hardware_acceptance":false}));
+                let result = if action == "diagnostics.auto" {
+                    json!({"test_id":"diagnostics.auto","status":"INCONCLUSIVE",
+                        "message":"Simulated automatic run. No hardware action executed.",
+                        "steps":model::AUTOMATIC_STEPS.iter().map(|(id, _)|
+                            json!({"test_id":id,"state":"completed","status":"INCONCLUSIVE","message":"Simulated only"})).collect::<Vec<_>>(),
+                        "hardware_acceptance":false})
+                } else if action == "support.export" {
+                    json!({"view":"issue_report_demo","status":"INCONCLUSIVE",
+                        "message":"Demo preview only. No ZIP was created or uploaded.","hardware_acceptance":false})
+                } else {
+                    json!({"status":"INCONCLUSIVE","message":"Demo preview only. No hardware action executed.","hardware_acceptance":false})
+                };
+                self.complete_job(result);
             }
             return;
         }
@@ -1905,6 +2502,201 @@ mod tests {
         app.key(key(KeyCode::Enter));
         assert!(!app.onboarding);
         assert!(app.category() == Category::System);
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        assert_eq!(app.mode_selected, 1);
+        assert!(!app.action_pending);
+    }
+
+    fn controlled_app() -> (App, Receiver<ipc::Request>) {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        let (sender, requests) = std::sync::mpsc::channel();
+        app.demo = false;
+        app.sender = Some(sender);
+        app.connected = true;
+        app.last_state = Instant::now();
+        (app, requests)
+    }
+
+    fn issue_report_fixture() -> Value {
+        json!({"status":"READY","report_id":"fixture-report",
+            "filename":"diagnostix-fixture-report.zip",
+            "path":"/run/psx-diagnostics/support/diagnostix-fixture-report.zip",
+            "sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "bytes":12345,"download_url":"/api/support/reports/fixture-report.zip",
+            "message":"Report archive created. Attach it to your GitHub issue."})
+    }
+
+    #[test]
+    fn mode_choice_and_manual_navigation_never_submit_tests() {
+        let (mut app, requests) = controlled_app();
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Enter));
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        assert_eq!(app.mode_selected, 1);
+        app.receive(ipc::Reply {
+            action: "state".into(),
+            result: Ok(model::demo_state()),
+        });
+        app.tick();
+        app.key(key(KeyCode::Home));
+        app.key(key(KeyCode::F(3)));
+        assert_eq!(app.mode_selected, 0);
+        assert!(requests.try_recv().is_err());
+        app.key(key(KeyCode::Esc));
+        assert_eq!(app.mode_selected, 1);
+        app.key(key(KeyCode::Enter));
+        assert!(app.overview);
+        assert!(app.diagnostic_screen == DiagnosticScreen::Hidden);
+        assert!(!app.busy());
+        assert!(requests.try_recv().is_err());
+        app.key(key(KeyCode::Char('m')));
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        assert_eq!(app.mode_selected, 1);
+        app.key(key(KeyCode::Enter));
+        app.key(key(KeyCode::F(7)));
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|action| matches!(action.kind, ActionKind::ModeChoice))
+            .unwrap();
+        app.focus = Focus::Actions;
+        app.key(key(KeyCode::Enter));
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        assert!(requests.try_recv().is_err());
+    }
+
+    #[test]
+    fn automatic_starts_only_on_explicit_enter_and_refresh_only_polls() {
+        let (mut app, requests) = controlled_app();
+        app.key(key(KeyCode::Esc));
+        app.key(key(KeyCode::Enter));
+        app.key(key(KeyCode::Up));
+        let mut repeated = key(KeyCode::Enter);
+        repeated.kind = KeyEventKind::Repeat;
+        app.key(repeated);
+        assert!(requests.try_recv().is_err());
+        app.key(key(KeyCode::Enter));
+        let request = requests.try_recv().unwrap();
+        assert_eq!(request.action, "diagnostics.auto");
+        assert_eq!(request.params, json!({}));
+        assert!(app.diagnostic_screen == DiagnosticScreen::Automatic);
+        assert!(app.action_pending);
+        app.key(key(KeyCode::Enter));
+        app.key(repeated);
+        assert!(requests.try_recv().is_err());
+        app.receive(ipc::Reply {
+            action: "diagnostics.auto".into(),
+            result: Ok(json!({"id":"auto-job","state":"running"})),
+        });
+        app.key(key(KeyCode::F(5)));
+        assert_eq!(requests.try_recv().unwrap().action, "state");
+        app.tick();
+        let request = requests.try_recv().unwrap();
+        assert_eq!(request.action, "job.get");
+        assert_eq!(request.params, json!({"id":"auto-job"}));
+        app.receive(ipc::Reply {
+            action: "job.get".into(),
+            result: Ok(json!({"id":"auto-job","state":"running","output":[
+                "{\"step_current\":2,\"step_total\":6,\"step_title\":\"CPU\"}"]})),
+        });
+        assert!(app.automatic_running());
+        app.key(key(KeyCode::Enter));
+        app.key(key(KeyCode::F(5)));
+        assert!(requests.try_recv().is_err());
+        let report = issue_report_fixture();
+        app.receive(ipc::Reply {
+            action: "job.get".into(),
+            result: Ok(json!({
+            "id":"auto-job","state":"completed","result":{
+                "test_id":"diagnostics.auto","status":"BLOCKED","message":"Stopped at CPU.",
+                "steps":[{"test_id":"cpu.compute","state":"completed","status":"BLOCKED"},
+                         {"test_id":"memory.pattern","state":"not_run"}],
+                "issue_report":report,"hardware_acceptance":false}})),
+        });
+        assert!(!app.busy());
+        assert!(!app.automatic_running());
+        assert!(app.diagnostic_screen == DiagnosticScreen::Automatic);
+        assert_eq!(app.latest_automatic().unwrap()["status"], "BLOCKED");
+        assert_eq!(app.latest_issue_report().unwrap(), &issue_report_fixture());
+        app.key(key(KeyCode::Enter));
+        assert_eq!(app.report.as_ref().unwrap(), &issue_report_fixture());
+        assert!(requests.try_recv().is_err());
+    }
+
+    #[test]
+    fn report_export_is_one_async_action_without_test_or_kernel_log_requirements() {
+        let (mut app, requests) = controlled_app();
+        app.onboarding = false;
+        app.category = 7;
+        app.state = json!({"results":[],"inventory":{},"kernel_log":{"available":false}});
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|action| matches!(action.kind, ActionKind::Request("support.export", _)))
+            .unwrap();
+        app.key(key(KeyCode::Enter));
+        let request = requests.try_recv().unwrap();
+        assert_eq!(request.action, "support.export");
+        assert_eq!(request.params, json!({}));
+        app.key(key(KeyCode::Enter));
+        assert!(requests.try_recv().is_err());
+        app.receive(ipc::Reply {
+            action: "support.export".into(),
+            result: Ok(json!({"id":"export-job","state":"running"})),
+        });
+        assert_eq!(app.active_job.as_ref().unwrap().id, "export-job");
+        app.receive(ipc::Reply {
+            action: "job.get".into(),
+            result: Ok(json!({
+            "id":"export-job","state":"completed","result":issue_report_fixture()})),
+        });
+        assert!(!app.busy());
+        assert_eq!(app.report.as_ref().unwrap(), &issue_report_fixture());
+        assert_eq!(app.latest_issue_report().unwrap(), &issue_report_fixture());
+        assert_eq!(model::status_label("READY"), "Report ready");
+        app.key(key(KeyCode::Esc));
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|action| action.title == "View issue report")
+            .unwrap();
+        app.key(key(KeyCode::Enter));
+        assert_eq!(app.report.as_ref().unwrap(), &issue_report_fixture());
+        let requests = requests
+            .try_iter()
+            .map(|request| request.action)
+            .collect::<Vec<_>>();
+        assert_eq!(requests, ["state"]);
+        assert!(model::array(&app.state, "/results").is_empty());
+    }
+
+    #[test]
+    fn automatic_metadata_is_optional_and_demo_never_creates_an_archive_or_pass() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        assert!(app.latest_automatic().is_none());
+        assert!(app.latest_issue_report().is_none());
+        app.state["automatic"] = json!({"test_id":"diagnostics.auto","status":"BLOCKED",
+            "issue_report":issue_report_fixture()});
+        assert_eq!(app.latest_automatic().unwrap()["status"], "BLOCKED");
+        assert!(app.latest_issue_report().is_some());
+        app.state.as_object_mut().unwrap().remove("automatic");
+        app.choose_mode();
+        app.mode_selected = 0;
+        app.key(key(KeyCode::Enter));
+        app.demo_action.as_mut().unwrap().0 = Instant::now() - Duration::from_secs(1);
+        app.tick();
+        assert_eq!(app.latest_automatic().unwrap()["status"], "INCONCLUSIVE");
+        assert_eq!(
+            app.latest_automatic().unwrap()["hardware_acceptance"],
+            false
+        );
+        assert!(app.latest_issue_report().is_none());
+        app.key(key(KeyCode::Enter));
+        app.demo_action.as_mut().unwrap().0 = Instant::now() - Duration::from_secs(1);
+        app.tick();
+        assert_eq!(app.report.as_ref().unwrap()["view"], "issue_report_demo");
+        assert!(app.latest_issue_report().is_none());
+        assert!(!app.state.to_string().contains(".zip"));
     }
     #[test]
     fn connected_onboarding_defaults_and_escape_select_continue() {
@@ -1940,11 +2732,17 @@ mod tests {
                 {"name":"psx0","type":"ethernet","state":"connected"},
                 {"name":"wlan0","type":"wifi","state":"disconnected"}
             ]);
-            app.selected = app.actions().iter().position(|item|
-                matches!(item.kind, ActionKind::Request("network.scan", _))).unwrap();
+            app.selected = app
+                .actions()
+                .iter()
+                .position(|item| matches!(item.kind, ActionKind::Request("network.scan", _)))
+                .unwrap();
             let mut next = app.state.clone();
             next["network"]["interfaces"][1]["state"] = json!("connected");
-            app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+            app.receive(ipc::Reply {
+                action: "state".into(),
+                result: Ok(next),
+            });
             let actions = app.actions();
             if onboarding {
                 assert!(matches!(actions[app.selected].kind, ActionKind::Continue));
@@ -1964,12 +2762,21 @@ mod tests {
             {"ssid":"intended","signal":"80","security":"WPA2"},
             {"ssid":"different","signal":"70","security":"WPA2"}
         ]);
-        app.selected = app.actions().iter().position(|item|
-            matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "intended")).unwrap();
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|item| matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "intended"))
+            .unwrap();
         let before = app.selected;
         let mut next = app.state.clone();
-        next["network"]["wifi"]["access_points"].as_array_mut().unwrap().reverse();
-        app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+        next["network"]["wifi"]["access_points"]
+            .as_array_mut()
+            .unwrap()
+            .reverse();
+        app.receive(ipc::Reply {
+            action: "state".into(),
+            result: Ok(next),
+        });
         assert_ne!(app.selected, before);
         assert!(matches!(&app.actions()[app.selected].kind,
             ActionKind::Wifi(ssid) if ssid == "intended"));
@@ -1984,12 +2791,21 @@ mod tests {
         app.state["network"]["wifi"]["access_points"] = json!([
             {"ssid":"gone","signal":"80","security":"WPA2"}
         ]);
-        app.selected = app.actions().iter().position(|item|
-            matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "gone")).unwrap();
+        app.selected = app
+            .actions()
+            .iter()
+            .position(|item| matches!(&item.kind, ActionKind::Wifi(ssid) if ssid == "gone"))
+            .unwrap();
         let mut next = app.state.clone();
         next["network"]["wifi"]["access_points"] = json!([]);
-        app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
-        assert!(matches!(app.actions()[app.selected].kind, ActionKind::Continue));
+        app.receive(ipc::Reply {
+            action: "state".into(),
+            result: Ok(next),
+        });
+        assert!(matches!(
+            app.actions()[app.selected].kind,
+            ActionKind::Continue
+        ));
         assert!(!app.action_pending);
     }
     #[test]
@@ -2001,15 +2817,27 @@ mod tests {
                 {"name":"psx0","type":"ethernet","state":"connected"},
                 {"name":"wlan0","type":"wifi","state":"disconnected"}
             ]);
-            app.selected = app.actions().iter().position(|item| if select_ssh {
-                matches!(item.kind, ActionKind::SshSetup)
-            } else {
-                matches!(item.kind, ActionKind::Request("network.ethernet.disconnect", _))
-            }).unwrap();
+            app.selected = app
+                .actions()
+                .iter()
+                .position(|item| {
+                    if select_ssh {
+                        matches!(item.kind, ActionKind::SshSetup)
+                    } else {
+                        matches!(
+                            item.kind,
+                            ActionKind::Request("network.ethernet.disconnect", _)
+                        )
+                    }
+                })
+                .unwrap();
             let key = network_action_key(&app.actions()[app.selected]);
             let mut next = app.state.clone();
             next["network"]["interfaces"][1]["state"] = json!("connected");
-            app.receive(ipc::Reply { action: "state".into(), result: Ok(next) });
+            app.receive(ipc::Reply {
+                action: "state".into(),
+                result: Ok(next),
+            });
             assert_eq!(network_action_key(&app.actions()[app.selected]), key);
             assert!(!app.action_pending);
         }
@@ -2051,12 +2879,14 @@ mod tests {
         assert!(app.busy());
     }
     #[test]
-    fn continue_opens_overview_and_advanced_switch_preserves_jobs_reports_and_selection() {
+    fn explicit_manual_choice_opens_overview_and_advanced_switch_preserves_state() {
         let mut app = App::new(PathBuf::from("/unreachable"), true);
         assert!(app.onboarding);
         app.key(key(KeyCode::Esc));
         app.key(key(KeyCode::Enter));
         assert!(!app.onboarding);
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        app.key(key(KeyCode::Enter));
         assert!(app.overview);
         app.active_job = Some(Job {
             id: json!("working"),
@@ -2220,7 +3050,7 @@ mod tests {
         assert_eq!(app.state["results"][0]["status"], "FAIL");
         assert_eq!(
             model::report_actions(&app.state, &[true; model::REPORT_GROUPS.len()]).len(),
-            47
+            48
         );
         let large: Vec<_> = (0..250)
             .map(|i| json!({"run_id":format!("run{i}")}))
@@ -2240,7 +3070,7 @@ mod tests {
             {"run_id":"cpu1","test_id":"cpu.compute","status":"PASS"},
             {"run_id":"memory1","test_id":"memory.pattern","status":"PASS"}
         ]);
-        assert_eq!(app.actions().len(), 3);
+        assert_eq!(app.actions().len(), 4);
         app.key(key(KeyCode::Down));
         app.key(key(KeyCode::Right));
         assert!(app.report_expanded[0]);
@@ -2282,7 +3112,7 @@ mod tests {
         app.key(key(KeyCode::F(4)));
         assert!(app.report_expanded[0]);
         assert_eq!(model::array(&app.state, "/results").len(), 1);
-        assert_eq!(app.actions().len(), 3);
+        assert_eq!(app.actions().len(), 4);
     }
     #[test]
     fn reports_up_at_top_returns_to_areas_even_without_saved_reports() {
@@ -2452,6 +3282,9 @@ mod tests {
             .unwrap();
         app.key(key(KeyCode::Enter));
         assert!(app.category() == Category::System);
+        assert!(app.diagnostic_screen == DiagnosticScreen::Choose);
+        assert!(!app.overview);
+        app.key(key(KeyCode::Enter));
         assert!(app.overview);
         app.key(key(KeyCode::F(7)));
         assert!(!app.overview);
@@ -2982,5 +3815,83 @@ mod tests {
         assert_eq!(app.next_id, 0);
         assert!(app.active_job.is_none());
         assert!(app.last_report.is_none());
+    }
+
+    #[test]
+    fn cancel_full_stops_the_queue_and_opens_the_summary() {
+        let mut app = App::new(PathBuf::from("/tmp/diagnostix-test.sock"), true);
+        app.full_active = true;
+        app.full_in_flight = true;
+        app.full_total = 5;
+        app.full_done = 2;
+        app.full_passed = 1;
+        app.full_failed = 1;
+        app.full_current = "Bounded CPU computation".into();
+        app.full_queue = vec![("Next".into(), "test.run".into(), json!({}))];
+        app.cancel_full();
+        assert!(!app.full_active);
+        assert!(app.full_queue.is_empty());
+        let report = app.report.as_ref().unwrap();
+        assert_eq!(report["view"], "full_test_summary");
+        assert_eq!(report["cancelled"], true);
+        assert_eq!(report["passed"], 1);
+        assert_eq!(report["failed"], 1);
+        assert!(app.full_report_text().contains("Passed: 1"));
+    }
+
+    #[test]
+    fn full_test_records_failure_and_finishes_the_queue_instead_of_stopping() {
+        let mut app = App::new(PathBuf::from("/tmp/diagnostix-test.sock"), true);
+        app.full_active = true;
+        app.full_in_flight = true;
+        app.full_total = 1;
+        app.full_done = 1;
+        app.full_current = "Bounded CPU computation".into();
+        app.advance_full(&json!({"status":"FAIL","test_id":"cpu.compute","message":"bad"}));
+        assert_eq!(app.full_failed, 1);
+        assert_eq!(app.full_passed, 0);
+        assert!(!app.full_active);
+        assert!(app.notice.contains("Full test complete: 0 passed, 1 failed/skipped"));
+    }
+
+    #[test]
+    fn q_opens_power_and_full_test_queue_is_bounded_to_tests() {
+        let mut app = App::new(PathBuf::from("/unreachable"), true);
+        app.key(key(KeyCode::Char('q')));
+        assert!(app.category() == Category::Power);
+        assert!(!app.exit_dialog);
+
+        let app = App::new(PathBuf::from("/unreachable"), true);
+        let queue = app.full_test_queue();
+        assert!(queue.iter().any(|(_, action, params)| {
+            action == "test.run" && model::at(params, "/test_id") == "inventory.readonly"
+        }));
+        let core: Vec<_> = queue
+            .iter()
+            .filter(|(_, action, _)| action == "test.run")
+            .map(|(_, _, params)| model::at(params, "/test_id"))
+            .take(3)
+            .collect();
+        assert_eq!(
+            core,
+            ["inventory.readonly", "cpu.compute", "memory.pattern"]
+        );
+        let export = queue
+            .iter()
+            .position(|(_, action, _)| action == "support.export")
+            .unwrap();
+        let browser = queue
+            .iter()
+            .position(|(_, action, params)| {
+                action == "graphics.launch" && model::at(params, "/app") == "browser"
+            })
+            .unwrap();
+        assert!(export < browser);
+        assert!(queue.iter().any(|(_, action, params)| {
+            action == "graphics.launch" && model::at(params, "/app") == "browser"
+        }));
+        assert!(!queue.iter().any(|(_, action, _)| action.starts_with("power.")
+            || action.starts_with("network.")
+            || action.starts_with("ssh.")));
     }
 }

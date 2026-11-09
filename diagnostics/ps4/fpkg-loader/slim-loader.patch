@@ -1,0 +1,105 @@
+--- a/linux/main-aio.c
++++ b/linux/main-aio.c
+@@ -22,6 +22,7 @@
+ #include "aio_types.h"
+ #include "fw_detect.h"
+ #include "fw_offsets.h"
++#include "kexec-build/1200/kexec-layout.h"
+ 
+ void* dlopen(const char*, int);
+ void* dlsym(void*, const char*);
+@@ -50,8 +51,10 @@
+ }
+ 
+ // Dedicated FW12.02 profile; aliases normalize to the reviewed 1200 offsets.
+-asm("kexec_1200:\n.incbin \"kexec-build/1200/kexec.bin\"\nkexec_1200_end:\n");
++asm("kexec_1200:\n.incbin \"kexec-build/1200/kexec.slim\"\nkexec_1200_end:\n");
++asm("kexec_1200_footer:\n.incbin \"kexec-build/1200/kexec.footer\"\nkexec_1200_footer_end:\n");
+ extern char kexec_1200[], kexec_1200_end[];
++extern char kexec_1200_footer[], kexec_1200_footer_end[];
+ 
+ // Globals set by main() and used by kernel_main()
+ // kernel_main() runs in kernel context but can still read
+@@ -283,12 +286,23 @@
+     unsigned long long kernel_map   = kernel_base + g_fw->kernel_map;
+ 
+     // Kernel memory alloc and copy kexec blob
++    const unsigned long long image_bytes =
++        (unsigned long long)(g_kexec_e - g_kexec_s);
++    const unsigned long long footer_bytes =
++        (unsigned long long)(kexec_1200_footer_end - kexec_1200_footer);
++    const unsigned long long image_end =
++        KEXEC_FOOTER_OFFSET + KEXEC_FOOTER_BYTES;
++    if (image_bytes != KEXEC_IMAGE_BYTES || footer_bytes != KEXEC_FOOTER_BYTES) return;
+     char *new_kexec = ((char *(*)(unsigned long long, unsigned long long))
+                        kmem_alloc)(*(unsigned long long *)kernel_map,
+-                                   g_kexec_e - g_kexec_s);
++                                   image_end);
+     if (!new_kexec) return;
+-    for (int i = 0; g_kexec_s + i != g_kexec_e; i++)
++    for (unsigned long long i = 0; i < image_bytes; i++)
+         new_kexec[i] = g_kexec_s[i];
++    for (unsigned long long i = KEXEC_BSS_OFFSET; i < KEXEC_FOOTER_OFFSET; i++)
++        new_kexec[i] = 0;
++    for (unsigned long long i = 0; i < footer_bytes; i++)
++        new_kexec[KEXEC_FOOTER_OFFSET + i] = kexec_1200_footer[i];
+ 
+     // Launch kexec blob
+     g_kexec_error = ((int (*)(void *, void *))new_kexec)((void *)early_printf, NULL);
+--- a/linux/Makefile
++++ b/linux/Makefile
+@@ -53,6 +53,9 @@
+ # ── kexec blob lists ──────────────────────────────────────────────────────────
+ 
+ KEXEC_BINS = $(foreach fw,$(FIRMWARES),$(KEXEC_BUILD_DIR)/$(fw)/kexec.bin)
++KEXEC_LAYOUT_1200 = $(KEXEC_BUILD_DIR)/1200/kexec-layout.h
++KEXEC_SLIM_1200 = $(KEXEC_BUILD_DIR)/1200/kexec.slim
++KEXEC_FOOTER_1200 = $(KEXEC_BUILD_DIR)/1200/kexec.footer
+ # ── AIO target list ───────────────────────────────────────────────────────────
+ 
+ AIO_TARGETS = $(foreach sz,$(SIZES_MB), payloads/linux-$(sz)mb.bin)
+@@ -80,6 +83,35 @@
+ 	    FW_DEFINE=$(call fw_define,$*) \
+ 	    BUILD_DIR=$(abspath $(dir $@))
+ 
++# The runtime .bss is zeroed after the slim image is copied into the kernel
++# allocation. Do not embed the zero-filled BSS in the outer payload.
++$(KEXEC_LAYOUT_1200): $(KEXEC_BUILD_DIR)/1200/kexec.bin
++	@{ echo '#pragma once'; \
++	   readelf -SW $(KEXEC_BUILD_DIR)/1200/kexec.elf | \
++	   awk '$$2==".bss" {bss_a=$$4; bss_s=$$6} $$2==".footer" {foot_a=$$4; foot_s=$$6} END {printf "#define KEXEC_IMAGE_BYTES 0x%sULL\n#define KEXEC_BSS_OFFSET 0x%sULL\n#define KEXEC_BSS_BYTES 0x%sULL\n#define KEXEC_FOOTER_OFFSET 0x%sULL\n#define KEXEC_FOOTER_BYTES 0x%sULL\n", bss_a, bss_a, bss_s, foot_a, foot_s}'; \
++	} > $@
++	test -s $@
++
++$(KEXEC_SLIM_1200): $(KEXEC_BUILD_DIR)/1200/kexec.bin $(KEXEC_LAYOUT_1200)
++	objcopy -O binary \
++	    --only-section .init \
++	    --only-section .text \
++	    --only-section .data \
++	    --only-section .dynamic \
++	    --only-section .rodata \
++	    --only-section .note.gnu.property \
++	    --only-section .dynsym \
++	    --only-section .dynstr \
++	    --only-section .gnu.hash \
++	    $(KEXEC_BUILD_DIR)/1200/kexec.elf $@
++	@{ off=$$(awk '/KEXEC_BSS_OFFSET/ {gsub(/ULL/,"",$$3); print $$3}' $(KEXEC_LAYOUT_1200)); \
++	   truncate -s $$(printf '%d' "$$off") $@; }
++
++$(KEXEC_FOOTER_1200): $(KEXEC_BUILD_DIR)/1200/kexec.bin $(KEXEC_LAYOUT_1200)
++	@{ off=$$(awk '/KEXEC_FOOTER_OFFSET/ {gsub(/ULL/,"",$$3); print $$3}' $(KEXEC_LAYOUT_1200)); \
++	   bytes=$$(awk '/KEXEC_FOOTER_BYTES/ {gsub(/ULL/,"",$$3); print $$3}' $(KEXEC_LAYOUT_1200)); \
++	   dd if=$(KEXEC_BUILD_DIR)/1200/kexec.bin of=$@ bs=1 skip=$$(printf '%d' "$$off") count=$$(printf '%d' "$$bytes") status=none; }
++
+ # ── ELF → BIN conversion ─────────────────────────────────────────────────────
+ 
+ %.bin: %.elf
+@@ -91,7 +123,7 @@
+ 	    -O binary $@
+ 
+ define make-aio-rules
+-payloads/linux-$(1)mb.elf: ../lib/lib.a main-aio.c fw_detect.c fw_offsets.h fw_detect.h sb_detect.h $(KEXEC_BINS)
++payloads/linux-$(1)mb.elf: ../lib/lib.a main-aio.c fw_detect.c fw_offsets.h fw_detect.h sb_detect.h $(KEXEC_BINS) $(KEXEC_LAYOUT_1200) $(KEXEC_SLIM_1200) $(KEXEC_FOOTER_1200)
+ 	@mkdir -p payloads
+ 	$(CC) $(CFLAGS) ../lib/lib.a \
+ 	    -DVRAM_MB_DEFAULT=$(1) \

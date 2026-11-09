@@ -313,6 +313,23 @@ class SSHAccessTests(unittest.TestCase):
         preview = self.access.github_preview("octocat"); self.access.github_add(preview["preview_id"])
         self.assertTrue(self.active)
 
+    def test_a_key_seeded_by_a_development_ram_boot_starts_sshd_with_that_key(self):
+        """What init-ram leaves behind, with no comment, read as the RAM backend does."""
+        self.path(APP.AUTHORIZED).unlink()
+        self.write(APP.OWNER, "")
+        seeded = public_key(7)
+        self.write("/run/psx-state/state/ssh/authorized_keys", seeded + "\n")
+        self.path("/run/psx-state").chmod(0o700); self.path("/run/psx-state/state").chmod(0o700)
+        self.active = False
+        with mock.patch.object(APP, "ram_state", SimpleNamespace(active=lambda root: True, validate=lambda root, fixture: None)):
+            info = self.new_access().initialize()
+        self.assertEqual(self.path(APP.AUTHORIZED).read_text(), seeded + "\n")
+        self.assertEqual(stat.S_IMODE(self.path(APP.AUTHORIZED).stat().st_mode), 0o600)
+        self.assertEqual(len(info["key_fingerprints"]), 1)
+        started = [argv[1:] for argv, _ in self.commands if Path(argv[0]).name == "systemctl" and argv[1] == "start"]
+        self.assertEqual(started, [["start", "sshd.service"]])
+        self.assertIn(APP.AUTHORIZED, self.path(APP.POLICY).read_text())
+
     def test_nonram_configuration_and_wrong_usb_are_rejected(self):
         path = self.path("/proc/self/mountinfo")
         original = path.read_text(); path.write_text(original.replace("- tmpfs", "- ext4"))

@@ -356,7 +356,9 @@ class Runner:
                 "artifact_scope": "Manifest declarations and observed release; not a hash of the running kernel",
                 "runner_sha256": digest(Path(__file__).read_bytes()),
                 "catalogue_sha256": digest(CATALOGUE_PATH.read_bytes()),
-                "uart": session}
+                "uart": session,
+                **{key: manifest[key] for key in ("appliance_version", "frontend_revision")
+                   if isinstance(manifest.get(key), str)}}
 
     @contextlib.contextmanager
     def lock(self):

@@ -9,6 +9,7 @@ const rendererUnknown = () => ({vendor:"",renderer:"",classification:"unknown"})
 const base = (test,status,measurements,renderer=rendererUnknown()) => ({schema_version:1,test_id:`browser.${test}`,status,duration_ms:0,measurements,renderer,scope:"This browser only; no automatic console hardware acceptance"});
 const $ = id => document.getElementById(id);
 let csrf="",busy=false,cancelRequested=false,activeController=null,autoNonce=null,autoBatchId=null;
+let labReady=false,reportPending=false,reportDownload=null,testControlsDisabled=true;
 // Presentation only. Reports and their durable-save sequence remain independent.
 const displayedResults=new Map();
 let displayedMode=null;
@@ -182,6 +183,67 @@ async function jsonRequest(path,payload,timeout=5000) {
     const data=await response.json();if(!response.ok)throw Error(data.error||`Report service failed (${response.status})`);return data;
   } finally {clearTimeout(timer);}
 }
+function issueReportDownload(result) {
+  const id=result?.report_id;
+  if(result?.status!=="READY"||typeof id!=="string"||!/^[a-f0-9]{32}$/.test(id)
+      ||result.filename!==`diagnostix-report-${id}.zip`||result.download_url!==`/api/support/reports/${id}.zip`)
+    throw Error("The report service returned an invalid ZIP download.");
+  return {href:result.download_url,filename:result.filename};
+}
+async function createIssueReport(request=jsonRequest,{timeoutMs=60000,pollMs=500}={}) {
+  const limit=Number.isFinite(timeoutMs)?Math.max(1,Math.min(60000,timeoutMs)):60000;
+  const interval=Number.isFinite(pollMs)?Math.max(1,Math.min(1000,pollMs)):500;
+  try {
+    return await withLimit(async signal=>{
+      const deadline=performance.now()+limit;
+      const remaining=()=>{
+        if(signal.aborted)throw signal.reason;
+        const time=deadline-performance.now();
+        if(time<=0)throw new TestTimeout("Issue report time limit reached");
+        return Math.max(1,Math.min(5000,time));
+      };
+      // A lost submission reply is never retried: the server may already be exporting.
+      const submitted=await request("/api/support/export",{},remaining());
+      remaining();
+      const id=submitted?.id;
+      if(typeof id!=="string"||!/^[a-f0-9]{32}$/.test(id))throw Error("The report service did not confirm an export job.");
+      while(true) {
+        const job=await request(`/api/support/jobs/${id}`,undefined,remaining());
+        remaining();
+        if(job?.id!==id)throw Error("The report service returned a different export job.");
+        if(job.state==="completed")return issueReportDownload(job.result);
+        if(job.state==="failed")throw Error(job.error||"Issue report creation failed.");
+        if(!["running","queued"].includes(job.state))throw Error("The export job has an unknown state.");
+        await new Promise(resolve=>setTimeout(resolve,Math.min(interval,remaining())));
+      }
+    },limit);
+  } catch(error) {
+    if(error instanceof TestTimeout||error?.name==="AbortError")
+      throw Error("Issue report creation timed out. Review Reports before trying again.");
+    throw error;
+  }
+}
+function reportControls() {
+  const disabled=!labReady||!csrf||busy||!!autoBatchId||reportPending,button=$("export-report"),link=$("report-download");
+  if(button)button.disabled=disabled;
+  if(link)link.hidden=disabled||!reportDownload;
+}
+function reportStatus(message,state) {
+  const status=$("report-status");
+  if(status){status.textContent=message;if(status.dataset)status.dataset.state=state;}
+}
+async function downloadIssueReport() {
+  if(!labReady||!csrf||busy||autoBatchId||reportPending)return;
+  reportPending=true;reportDownload=null;controls(testControlsDisabled);
+  reportStatus("Creating issue report…","running");
+  try {
+    reportDownload=await createIssueReport();
+    const link=$("report-download");
+    if(link){link.href=reportDownload.href;link.download=reportDownload.filename;link.title=reportDownload.filename;}
+    reportStatus("ZIP ready. Save it, then attach it to your GitHub issue. Nothing was uploaded.","ready");
+  } catch(error){reportStatus(String(error.message||error),"error");}
+  finally {reportPending=false;controls(testControlsDisabled);}
+}
 function resultLabel(test,result) {
   if(result.status==="INCONCLUSIVE")return test==="capabilities"?"Recorded":"Review";
   return {PASS:"Passed",FAIL:"Failed",UNSUPPORTED:"Unavailable"}[result.status]||result.status;
@@ -248,10 +310,10 @@ async function executeTest(test,suite=null) {
   $("summary").textContent=`${resultLabel(test,result)} · saved${result.measurements.warning?" · review playback":""}`;
   $("output").textContent=JSON.stringify({measurements:result.measurements,renderer:result.renderer,configured_display_mode:entry.display_mode,run_id:entry.run_id},null,2);return entry;
 }
-function controls(disabled){document.querySelectorAll("button[data-test],#run-all").forEach(button=>{button.disabled=disabled;});$("cancel").disabled=!disabled;}
+function controls(disabled){testControlsDisabled=disabled;document.querySelectorAll("button[data-test],#run-all").forEach(button=>{button.disabled=disabled||reportPending;});$("cancel").disabled=!disabled||!busy||reportPending;reportControls();}
 function progressRows(){SUITE_STEPS.forEach(test=>updateStep(test,"pending"));$("progress").value=0;}
 async function run(test) {
-  if(busy||!csrf)return;busy=true;cancelRequested=false;controls(true);$("output").textContent="";
+  if(busy||reportPending||!csrf)return;busy=true;cancelRequested=false;controls(true);$("output").textContent="";
   try {
     displayedMode=null;
     if(test==="all")displayedResults.clear();else displayedResults.delete(test);
@@ -282,12 +344,13 @@ async function finishAutomaticSuite(grant) {
     if(finished.saved!==true||typeof finished.closed!=="boolean")throw Error("Batch completion was not confirmed");
     $("summary").textContent=finished.closed?"Saved · returning to diagnostics":"Saved · close browser to return";
   } catch(error){$("summary").textContent="Finish unavailable · return to diagnostics";$("output").textContent+="\n"+String(error.message||error);}
-  finally {autoNonce=null;autoBatchId=null;}
+  finally {autoNonce=null;autoBatchId=null;reportControls();}
 }
 function initialize() {
   controls(true);$("cancel").disabled=true;progressRows();
   document.querySelectorAll("button[data-test]").forEach(button=>button.addEventListener("click",()=>run(button.dataset.test)));
   $("run-all").addEventListener("click",()=>run("all"));$("cancel").addEventListener("click",()=>{cancelRequested=true;activeController?.abort(Error("Cancelled by the operator"));});
+  $("export-report")?.addEventListener("click",downloadIssueReport);
   $("details-toggle").addEventListener("click",()=>{const show=$("output").hidden;$("output").hidden=!show;$("readings").hidden=show;$("details-toggle").setAttribute("aria-expanded",String(show));$("details-toggle").textContent=show?"Metrics":"Details";});
   (async()=>{try{let session=await jsonRequest("/api/session");if(typeof session.csrf_token!=="string")throw Error("Invalid report session");csrf=session.csrf_token;
     const state=await jsonRequest("/api/state");$("connection").textContent="Connected";$("browser").textContent=clientIdentity().browser_family;$("system").textContent=`${state.system.hostname} · ${state.system.kernel_release}`;
@@ -298,7 +361,7 @@ function initialize() {
       if(performance.now()>=pendingDeadline)break;
       session=await jsonRequest("/api/session",undefined,pendingDeadline-performance.now());
     }
-    controls(false);$("cancel").disabled=true;
+    labReady=true;controls(false);$("cancel").disabled=true;
     const grant=session.auto_run;
     if(grant?.suite==="baseline"&&typeof grant.nonce==="string"&&/^[A-Za-z0-9_-]{32,128}$/.test(grant.nonce)
         &&typeof grant.batch_id==="string"&&/^[0-9]{8}T[0-9]{6}Z-[a-f0-9]{12}$/.test(grant.batch_id)
@@ -307,5 +370,5 @@ function initialize() {
     }
   }catch(error){$("connection").textContent="Report service unavailable";$("system").textContent=String(error.message||error);}})();
 }
-if(typeof module!=="undefined"&&module.exports)module.exports={SUITE_STEPS,frameStatistics,videoStatistics,stopReason,runSequence,withLimit,TestTimeout,classify};
+if(typeof module!=="undefined"&&module.exports)module.exports={SUITE_STEPS,frameStatistics,videoStatistics,stopReason,runSequence,withLimit,TestTimeout,classify,issueReportDownload,createIssueReport};
 if(typeof document!=="undefined")initialize();

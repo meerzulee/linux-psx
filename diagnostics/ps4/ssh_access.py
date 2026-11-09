@@ -21,6 +21,14 @@ import subprocess
 import sys
 import threading
 import time
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+if '/run/psx-ram' not in sys.path:
+    sys.path.insert(1, '/run/psx-ram')
+try:
+    import ram_state
+except ImportError:
+    ram_state = None
 
 RELEASE = "7.2.11-psx-ps4-baikal-native-dev3"
 RUNTIME = "/run/psx-ssh-access"
@@ -78,6 +86,12 @@ class SSHAccess:
         self.clock = clock or time.monotonic
         self.previews = {}
         self.guard = threading.RLock()
+
+    def ram(self):
+        return ram_state is not None and ram_state.active(self.root)
+
+    def persistent_path(self):
+        return '/run/psx-state/state/ssh/authorized_keys' if self.ram() else PERSISTENT
 
     def path(self, name):
         path = self.root / name.lstrip("/")
@@ -268,6 +282,10 @@ class SSHAccess:
             raise
 
     def media(self):
+        if self.ram():
+            ram_state.validate(self.root, fixture=self.fixture)
+            self.private_directory('/run/psx-state/state/ssh')
+            return self.path('/run/psx-state').stat().st_dev
         mounts = [m for m in self.mounts() if m["target"] == "/run/psx-media"]
         if len(mounts) != 1 or mounts[0]["fs"] != "vfat" or "rw" not in mounts[0]["options"]:
             raise AccessError("The selected diagnostic USB must be mounted writable.")
@@ -319,7 +337,7 @@ class SSHAccess:
     def merge(self, additions=None):
         device = self.media()
         self.private_directory("/root/.ssh")
-        directory = os.open(self.path(str(Path(PERSISTENT).parent)), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        directory = os.open(self.path(str(Path(self.persistent_path()).parent)), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
         try:
             if os.fstat(directory).st_dev != device:
                 raise AccessError("SSH state crosses the selected USB filesystem.")
@@ -450,7 +468,8 @@ class SSHAccess:
                     except Exception: pass
                 raise
             result = {"added": len(set(merged) - set(before)), "total": len(merged),
-                      "fingerprints": list(merged.values()), "persisted": True, "ssh_ready": False}
+                      "fingerprints": list(merged.values()), "persisted": not self.ram(), "ssh_ready": False,
+                      "state_lifetime": "this boot" if self.ram() else "USB installation"}
             try: self.close_password(lease, start=True)
             except Exception:
                 result["message"] = ("Keys were saved, but SSH readiness could not be confirmed. "
