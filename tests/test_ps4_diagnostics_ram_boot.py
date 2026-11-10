@@ -127,6 +127,25 @@ class RAMBoot(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'exact finalized clean dev6'): B.build(source, out)
             self.assertFalse(out.exists())
 
+    def test_shutdown_limits_are_written_into_the_ram_copy_of_etc(self):
+        text = (REPO / 'rootfs/ps4-diagnostics/init-ram').read_text()
+        self.assertLess(text.index('\ninstall_fast_stop\n'), text.index('exec switch_root'))
+        functions = text[text.index('write_stop_setting() {'):text.index('install_loader_firmware() {')]
+        root = self.directory()
+        (root / 'etc/systemd/system').mkdir(parents=True)
+        script = 'umask 077\nsay() { echo "$*" >&2; }\n' + functions.replace('/newroot', str(root)) + 'install_fast_stop\n'
+        subprocess.run(['/bin/sh', '-c', script], check=True, capture_output=True)
+        expected = {'system.conf.d': '[Manager]\nDefaultTimeoutStopSec=5s\n',
+                    'user.conf.d': '[Manager]\nDefaultTimeoutStopSec=5s\n',
+                    'system/user@.service.d': '[Service]\nTimeoutStopSec=5s\n',
+                    'system/poweroff.target.d': '[Unit]\nJobTimeoutSec=20s\n',
+                    'system/reboot.target.d': '[Unit]\nJobTimeoutSec=20s\n'}
+        for directory, content in expected.items():
+            path = root / 'etc/systemd' / directory / '90-psx-fast-stop.conf'
+            with self.subTest(directory=directory):
+                self.assertEqual(path.read_text(), content)
+                self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+
     def test_shell_and_service_keep_backing_state_and_zero_usb_dependency(self):
         script = REPO / 'rootfs/ps4-diagnostics/init-ram'
         subprocess.run(['/bin/sh', '-n', str(script)], check=True, capture_output=True)

@@ -3224,3 +3224,19 @@ full readback receipt `/var/tmp/upload-run7-20261109.json`):
 - Not exercised: proof that nothing reaches Google, because the console had no network
   connection during the browser test. Restart or shutdown after the decode on this build.
   UART session completed. No acceptance claim; one boot on one Baikal B1 console.
+
+## EXP-20261110-012 — ordered Turn off and Restart on `power1`, with no UART record
+
+- Changed variable: how the console stops. `ram-alpha1-0.16-power1` asks systemd for
+  `poweroff` or `reboot` first and calls the kernel directly only when systemd refuses or
+  stalls for 15 s. The boot script caps systemd's stop waits in the RAM copy of `/etc`.
+  No owner SSH key, loader and root unchanged. Package SHA256 `323eaaaf…`, read back byte
+  for byte.
+- **Invalid session.** Continuous capture stopped at 20:34:57, before the operator ran the
+  test, so it holds only idle Orbis output and no Linux line from this build.
+- The operator reported that one run "died immediately", without saying at which step, then
+  reported that the build works and closed the investigation. The console was back on Orbis
+  at about 22:19.
+- Not established: the step that run reached, the time from Turn off to power-off, and the
+  `last_shutdown_cause` after a Turn off or Restart on this build. No acceptance claim.
+  EXP-20261110-013 was opened for a rerun and aborted with no console action.

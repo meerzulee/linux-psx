@@ -1275,6 +1275,11 @@ impl Engine {
     }
 
     fn power(&mut self, operation: &str) {
+        trace::line(&format!("power {operation}: showing the closing screen"));
+        self.with(|snapshot| {
+            snapshot.note = Some(power_message(operation).to_owned());
+            snapshot.screen = Screen::Starting;
+        });
         trace::line(&format!("power {operation}: releasing the report"));
         self.report.lock().unwrap().release();
         if self.options.usb_dir.is_none() {
@@ -1284,9 +1289,17 @@ impl Engine {
         self.with(|snapshot| snapshot.usb = "USB stick: safe to remove".into());
         let reply = self.call("power.execute", json!({"operation": operation, "confirm": true}));
         trace::line(&format!("power {operation}: controller replied, accepted={}", reply.is_ok()));
-        if let Err(error) = reply {
-            trace::line(&format!("power {operation}: {error}"));
-            self.with(|snapshot| snapshot.note = Some(error));
+        match reply {
+            Err(error) => {
+                trace::line(&format!("power {operation}: {error}"));
+                self.with(|snapshot| snapshot.note = Some(error));
+            }
+            Ok(_) => {
+                // Normally the system stops this program during this wait.
+                thread::sleep(POWER_WAIT);
+                trace::line(&format!("power {operation}: still running after {}s", POWER_WAIT.as_secs()));
+                self.with(|snapshot| snapshot.note = Some(POWER_STALLED.into()));
+            }
         }
     }
 
@@ -1329,6 +1342,14 @@ impl Engine {
             }
         }
     }
+}
+
+/// Longer than the controller's own wait before it calls the kernel directly.
+const POWER_WAIT: Duration = Duration::from_secs(30);
+const POWER_STALLED: &str = "The console is still on. Hold the power button to turn it off.";
+
+fn power_message(operation: &str) -> &'static str {
+    if operation == "shutdown" { "Turning off..." } else { "Restarting to PS4..." }
 }
 
 /// After a safety stop the controller refuses more tests until the console restarts.
@@ -1398,6 +1419,12 @@ fn render_summary(snapshot: &Snapshot) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_closing_screen_names_the_action() {
+        assert_eq!(power_message("shutdown"), "Turning off...");
+        assert_eq!(power_message("reboot-orbis"), "Restarting to PS4...");
+    }
 
     #[test]
     fn the_report_never_carries_the_login_address() {

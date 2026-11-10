@@ -232,6 +232,23 @@ install_owner_ssh_keys() {
         say 'Owner SSH keys could not be installed.'
     fi
 }
+write_stop_setting() {
+    stop_file=/newroot/etc/systemd/$1
+    mkdir -p -m 0755 "${stop_file%/*}" \
+        && printf '[%s]\n%s\n' "$2" "$3" > "$stop_file" \
+        && chmod 0644 "$stop_file" \
+        || say "Could not write $1; the slower systemd default stays."
+}
+install_fast_stop() {
+    # A program that ignores the stop signal is ended after 5 seconds rather than
+    # systemd's 90 (120 for a user session), and a stalled shutdown is forced after
+    # 20 seconds rather than 30 minutes. /etc here is this boot's RAM copy.
+    write_stop_setting system.conf.d/90-psx-fast-stop.conf Manager DefaultTimeoutStopSec=5s
+    write_stop_setting user.conf.d/90-psx-fast-stop.conf Manager DefaultTimeoutStopSec=5s
+    write_stop_setting system/user@.service.d/90-psx-fast-stop.conf Service TimeoutStopSec=5s
+    write_stop_setting system/poweroff.target.d/90-psx-fast-stop.conf Unit JobTimeoutSec=20s
+    write_stop_setting system/reboot.target.d/90-psx-fast-stop.conf Unit JobTimeoutSec=20s
+}
 install_loader_firmware() {
     # The package carries no console firmware. The loader adds this file to early
     # boot from the running system, and Video decoding reads it at the root path.
@@ -375,6 +392,7 @@ install_benchmark_tools
 install_chromium_pack
 install_owner_ssh_keys
 install_loader_firmware
+install_fast_stop
 mount --move /dev /newroot/dev || rescue 'Cannot move dev.'
 mount --move /proc /newroot/proc || rescue 'Cannot move proc.'
 mount --move /sys /newroot/sys || rescue 'Cannot move sys.'

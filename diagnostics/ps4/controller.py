@@ -78,6 +78,10 @@ IMMEDIATE_POWER_PROFILES = {
                                            'ps4-baikal-diagnostix-ram-alpha1'),
 }
 IMMEDIATE_POWER_RECORD = '/run/psx-power/power-dispatch.json'
+# An ordered stop takes about a second, and init-ram caps each program at 5 seconds,
+# so this wait only runs out if systemd itself has stalled.
+POWER_ORDERED_GRACE_SECONDS = 15
+POWER_SYSTEMCTL_SECONDS = 3
 POWER_BOOT_STAGES = {
     'identity': 'the running boot identity could not be verified',
     'profile': 'the power profile could not be verified',
@@ -1325,6 +1329,32 @@ class Controller:
             error = ctypes.get_errno()
             raise OSError(error, os.strerror(error))
 
+    def _power_system_request(self, operation):
+        """Queue systemd's ordered stop: programs exit and filesystems unmount first."""
+        if self.runner.fs.fixture or self.runner.fs.root != Path('/') or os.geteuid() != 0:
+            raise ValueError('Fixture roots never ask systemd to power off.')
+        verb = {'shutdown': 'poweroff', 'reboot-orbis': 'reboot'}[operation]
+        subprocess.run(['/usr/bin/systemctl', verb, '--no-block'], check=True, timeout=POWER_SYSTEMCTL_SECONDS,
+                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def _power_ordered_stop(self, operation, record):
+        """Ordered stop first. The direct kernel call stays for a refused or stalled one."""
+        try:
+            trace(f'power {operation}: asking systemd for an ordered stop')
+            self._power_system_request(operation)
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            trace_failure(f'power {operation}: ordered stop', error)
+            record['stop_method'] = 'direct after a refused ordered stop'
+        else:
+            trace(f'power {operation}: ordered stop accepted')
+            record['stop_method'] = 'ordered'
+            # systemd ends this process as the stop proceeds, so returning from
+            # this wait means the stop never got that far.
+            time.sleep(POWER_ORDERED_GRACE_SECONDS)
+            trace(f'power {operation}: ordered stop stalled, calling the kernel directly')
+            record['stop_method'] = 'direct after a stalled ordered stop'
+        self._power_kernel_call(operation)
+
     def request_power_now(self, operation):
         identity = self._power_boot
         if identity is None:
@@ -1370,15 +1400,15 @@ class Controller:
                             dispatch_state='issuing_shutdown' if operation == 'shutdown' else 'issuing_kernel_restart',
                             message='Power requested now; physical outcome is unobserved. Unsaved reports may be lost.')
                     self._power_ram_record(record)
-                    # Publish a completed RAM job before entering a kernel call
-                    # which may never return. No service/worker/USB wait occurs.
+                    # Publish a completed RAM job before the power request, which
+                    # may never return. No worker or USB wait occurs.
                     with self.jobs.guard:
                         self.jobs.records[identifier].update(state='completed', result=dict(record),
                                                              completed_at=diagnostics.timestamp())
                         if self.jobs.active == identifier:
                             self.jobs.active = None
                     entered_call = True
-                    self._power_kernel_call(operation)
+                    self._power_ordered_stop(operation, record)
                     record.update(dispatch_state='request_returned_physical_outcome_unobserved')
                 except Exception as error:
                     definite_refusal = isinstance(error, OSError) and error.errno in (1, 22, 38)

@@ -278,6 +278,49 @@ class ImmediatePowerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'cancelled'):
             self.controller.runner.command(['unused'], 1)
 
+    def test_ordered_stop_runs_first_and_kernel_call_waits_for_the_grace_period(self):
+        with mock.patch.object(APP, 'POWER_ORDERED_GRACE_SECONDS', .4), \
+                mock.patch.object(self.controller, '_power_system_request') as ordered:
+            self.request('reboot-orbis')
+            deadline = time.monotonic() + 2
+            while not ordered.called and time.monotonic() < deadline:
+                time.sleep(.005)
+            ordered.assert_called_once_with('reboot-orbis')
+            self.kernel_call.assert_not_called()
+            record = self.outcome('request_returned_physical_outcome_unobserved')
+        self.assertEqual(record['stop_method'], 'direct after a stalled ordered stop')
+        self.kernel_call.assert_called_once_with('reboot-orbis')
+
+    def test_refused_ordered_stop_calls_the_kernel_without_waiting(self):
+        with mock.patch.object(APP, 'POWER_ORDERED_GRACE_SECONDS', 30), \
+                mock.patch.object(self.controller, '_power_system_request',
+                                  side_effect=subprocess.TimeoutExpired('systemctl', 3)):
+            started = time.monotonic()
+            self.request()
+            record = self.outcome('request_returned_physical_outcome_unobserved')
+        self.assertLess(time.monotonic() - started, 1)
+        self.assertEqual(record['stop_method'], 'direct after a refused ordered stop')
+        self.kernel_call.assert_called_once_with('shutdown')
+
+    def test_ordered_stop_uses_only_plain_poweroff_and_reboot(self):
+        with mock.patch.object(self.controller.runner.fs, 'root', Path('/')), \
+                mock.patch.object(self.controller.runner.fs, 'fixture', False), \
+                mock.patch.object(APP.os, 'geteuid', return_value=0), \
+                mock.patch.object(APP.subprocess, 'run') as run:
+            self.controller._power_system_request('shutdown')
+            self.controller._power_system_request('reboot-orbis')
+        self.assertEqual([call.args[0] for call in run.call_args_list],
+                         [['/usr/bin/systemctl', 'poweroff', '--no-block'],
+                          ['/usr/bin/systemctl', 'reboot', '--no-block']])
+        for call in run.call_args_list:
+            self.assertTrue(call.kwargs['check'])
+            self.assertEqual(call.kwargs['timeout'], APP.POWER_SYSTEMCTL_SECONDS)
+
+    def test_fixture_root_never_reaches_systemctl(self):
+        with mock.patch.object(APP.subprocess, 'run', side_effect=AssertionError('real systemctl')):
+            with self.assertRaisesRegex(ValueError, 'Fixture'):
+                self.controller._power_system_request('shutdown')
+
     def test_real_syscall_helper_refuses_fixture_before_loading_libc(self):
         with mock.patch.object(APP.ctypes, 'CDLL', side_effect=AssertionError('real syscall')):
             with self.assertRaisesRegex(ValueError, 'Fixture'):

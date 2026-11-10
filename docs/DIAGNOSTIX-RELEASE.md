@@ -3,17 +3,18 @@
 ## The app is not released yet
 
 The installable app (0.16) is separate from the kit described below. Local candidate
-`ram-alpha1-0.16-nofw2` was built on 2026-11-10 for this review.
+`ram-alpha1-0.16-power1` was built on 2026-11-10 for this review.
 
 | Requirement | State |
 | --- | --- |
 | No owner SSH keys | Done. Built without `--owner-ssh-key`. A scan for the owner's public keys finds none in the initramfs, and the same scan finds one in the private dev build. |
 | No background contact with Google | Built. Chromium provider `psx4` blocks every name except the local lab, and Browser passed with it. **Open:** a network capture to prove nothing reaches Google. |
 | Reports leave out identifiers | Done in code and host tests. Serial numbers, MAC and IP addresses, network names and console IDs are removed. |
-| Automatic run on this exact build | Done once, on one Baikal B1 console (EXP-20261110-011). |
+| Automatic run on this exact build | Done once on the build before it, on one Baikal B1 console (`nofw2`, EXP-20261110-011). `power1` changes only how the console stops. The operator reports that it works, with no UART record (EXP-20261110-012). |
 | No Sony firmware in the package | Done. The package build fails if any is found, and Automatic passed without it (EXP-20261110-011). |
 | Git holds no firmware | Done. The 10 MediaTek Wi-Fi files are fetched from pinned public sources at build time. |
-| Complete corresponding source | **Open.** The kernel, BusyBox, glmark2, vkmark and Chromium inputs need their source published with the binary. |
+| Complete corresponding source | **Open.** The kernel source is published with beta2, and the alpha7 release carries the BusyBox source and the source of its root image. Still to publish: Chromium 151 and the packages in its image, glmark2, vkmark and GNU tar, which 0.16 added. |
+| Launcher refuses a console it can't identify | **Open.** `supported()` in `diagnostics/ps4/fpkg/ui.cpp` treats an unread firmware or southbridge as a match, so the Baikal-only kernel can start on a console it wasn't built for. |
 | Legal notice | **Open.** The manual's notice (`manual/12-legal-notice.md`) says Linux psX doesn't redistribute firmware. Change it when a package that includes firmware is published. |
 
 Firmware policy (owner decisions, 2026-11-10): the package carries no Sony

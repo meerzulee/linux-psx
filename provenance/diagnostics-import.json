@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "a66065073fc8bfd0051264a39b45283ace7309a01e84305ade61d897449823e6",
-      "destination_bytes": 187122,
+      "destination_sha256": "eabe96d9c3f65b4c91f2c6f261fff3ef718861e2dd73aa5b419c77cfae8918d9",
+      "destination_bytes": 188955,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -218,6 +218,13 @@
           "prior_destination_sha256": "bf8617a9357a72c2c90b6e1f5c5f392644aa3851445b7d2d2b17bcefd4105feb",
           "destination_sha256": "a66065073fc8bfd0051264a39b45283ace7309a01e84305ade61d897449823e6",
           "destination_bytes": 187122,
+          "mode": "0644"
+        },
+        {
+          "reason": "Ask for an ordered stop before the direct kernel call.",
+          "prior_destination_sha256": "a66065073fc8bfd0051264a39b45283ace7309a01e84305ade61d897449823e6",
+          "destination_sha256": "eabe96d9c3f65b4c91f2c6f261fff3ef718861e2dd73aa5b419c77cfae8918d9",
+          "destination_bytes": 188955,
           "mode": "0644"
         }
       ]
@@ -3309,8 +3316,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
-      "destination_bytes": 216587,
+      "destination_sha256": "cd693aa3ba6a623bca5a262be34ebe3f151e30bfd357bb9a134786e70fd9b02d",
+      "destination_bytes": 217670,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -3936,6 +3943,13 @@
           "prior_destination_sha256": "69b0592ce7824bf1528d4d07c90355a907a3df9ea83cf56f140e105deba14dba",
           "destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
           "destination_bytes": 216587,
+          "mode": "0644"
+        },
+        {
+          "reason": "Shutdown change and its release records, 2026-11-10",
+          "prior_destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
+          "destination_sha256": "cd693aa3ba6a623bca5a262be34ebe3f151e30bfd357bb9a134786e70fd9b02d",
+          "destination_bytes": 217670,
           "mode": "0644"
         }
       ]
@@ -5106,8 +5120,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_power_immediate.py",
-      "destination_sha256": "2798cc918b24e36a8fa31831dc14cf478a8322cc452623153384ed6c9b68784a",
-      "destination_bytes": 21128,
+      "destination_sha256": "644804aa3b8eeb7f6e99189fe6cfc7f84cfff1938a1a5aefb41c4f82c8e648e1",
+      "destination_bytes": 23756,
       "mode": "0644",
       "purpose": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5131,6 +5145,13 @@
           "prior_destination_sha256": "b1d099ee94db393512a65aa1cd45891b669e25f5a509ec7ce8b905f611839654",
           "destination_sha256": "2798cc918b24e36a8fa31831dc14cf478a8322cc452623153384ed6c9b68784a",
           "destination_bytes": 21128,
+          "mode": "0644"
+        },
+        {
+          "reason": "Cover the ordered stop.",
+          "prior_destination_sha256": "2798cc918b24e36a8fa31831dc14cf478a8322cc452623153384ed6c9b68784a",
+          "destination_sha256": "644804aa3b8eeb7f6e99189fe6cfc7f84cfff1938a1a5aefb41c4f82c8e648e1",
+          "destination_bytes": 23756,
           "mode": "0644"
         }
       ]
@@ -5171,8 +5192,8 @@
     },
     {
       "path": "docs/DIAGNOSTIX-RELEASE.md",
-      "destination_sha256": "0de46a57c6564d13f71d267c259db17a73a9d74c58be057bef27fbe577982147",
-      "destination_bytes": 10389,
+      "destination_sha256": "ba01540fe95734c5028965a182154bdd5d9eca6e181581595f479c71e351352f",
+      "destination_bytes": 10908,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5253,6 +5274,13 @@
           "destination_sha256": "0de46a57c6564d13f71d267c259db17a73a9d74c58be057bef27fbe577982147",
           "destination_bytes": 10389,
           "mode": "0644"
+        },
+        {
+          "reason": "Shutdown change and its release records, 2026-11-10",
+          "prior_destination_sha256": "0de46a57c6564d13f71d267c259db17a73a9d74c58be057bef27fbe577982147",
+          "destination_sha256": "ba01540fe95734c5028965a182154bdd5d9eca6e181581595f479c71e351352f",
+          "destination_bytes": 10908,
+          "mode": "0644"
         }
       ]
     },
@@ -5291,8 +5319,8 @@
     },
     {
       "path": "rootfs/ps4-diagnostics/init-ram",
-      "destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
-      "destination_bytes": 22497,
+      "destination_sha256": "58fbd334442f613f202f591f4ea395d7e777ec27f00e723c34f01e909cbf73b3",
+      "destination_bytes": 23511,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5358,6 +5386,13 @@
           "prior_destination_sha256": "6af599aacd99e7b743f89f7fb5e7fc6c5a3e587fc5a30b0dbb27e8826058f452",
           "destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
           "destination_bytes": 22497,
+          "mode": "0644"
+        },
+        {
+          "reason": "Cap shutdown stop times in the RAM image.",
+          "prior_destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
+          "destination_sha256": "58fbd334442f613f202f591f4ea395d7e777ec27f00e723c34f01e909cbf73b3",
+          "destination_bytes": 23511,
           "mode": "0644"
         }
       ]
@@ -7246,8 +7281,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_ram_boot.py",
-      "destination_sha256": "0a061cae062fba3deacadf5f06b9a4136bded1949303a6a5914d740219584e17",
-      "destination_bytes": 19381,
+      "destination_sha256": "62713d599431262ac9bc93f81f68e7370b367413ef2aed0b9c25a2915c13ddbb",
+      "destination_bytes": 20721,
       "mode": "0644",
       "purpose": "Implement optional USB-free Diagnostix RAM alpha1, bounded dedicated loader, fixed native FPKG packaging and volatile-state integration; retain USB contracts and upstream licenses.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7271,6 +7306,13 @@
           "prior_destination_sha256": "537afc083a70d84b8431a488fd7b91689a02603d165b2e9735c30443b707c2f8",
           "destination_sha256": "0a061cae062fba3deacadf5f06b9a4136bded1949303a6a5914d740219584e17",
           "destination_bytes": 19381,
+          "mode": "0644"
+        },
+        {
+          "reason": "Cover the shutdown limits.",
+          "prior_destination_sha256": "0a061cae062fba3deacadf5f06b9a4136bded1949303a6a5914d740219584e17",
+          "destination_sha256": "62713d599431262ac9bc93f81f68e7370b367413ef2aed0b9c25a2915c13ddbb",
+          "destination_bytes": 20721,
           "mode": "0644"
         }
       ]
@@ -7998,8 +8040,8 @@
     },
     {
       "path": "diagnostics/ps4/tui/src/bin/diagnostix/live.rs",
-      "destination_sha256": "2c858415612ca648c8e51775b997e8f0a173b2edebadcf5358002ced970e0e1d",
-      "destination_bytes": 64703,
+      "destination_sha256": "4fb7452021b48fbd193b71bbf19b41bc7021ada1c9f52e9b830ea9459ad3a9ec",
+      "destination_bytes": 65899,
       "mode": "0644",
       "purpose": "DiagnostiX run screen: live run, USB report, LAN download, controller input",
       "origin": "New Linux psX source after diagnostic import",
@@ -8065,6 +8107,13 @@
           "prior_destination_sha256": "cc7d68e9c55ca4a99b7ec28fc0a45d266f5a9662019a1a9c4d8e1820576cba2f",
           "destination_sha256": "2c858415612ca648c8e51775b997e8f0a173b2edebadcf5358002ced970e0e1d",
           "destination_bytes": 64703,
+          "mode": "0644"
+        },
+        {
+          "reason": "Show a closing screen during power actions.",
+          "prior_destination_sha256": "2c858415612ca648c8e51775b997e8f0a173b2edebadcf5358002ced970e0e1d",
+          "destination_sha256": "4fb7452021b48fbd193b71bbf19b41bc7021ada1c9f52e9b830ea9459ad3a9ec",
+          "destination_bytes": 65899,
           "mode": "0644"
         }
       ]
@@ -10500,6 +10549,55 @@
     },
     {
       "reason": "The manual is now in Git.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Ask for an ordered stop before the direct kernel call.",
+      "paths": [
+        "diagnostics/ps4/controller.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Cover the ordered stop.",
+      "paths": [
+        "tests/test_ps4_diagnostics_power_immediate.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Cap shutdown stop times in the RAM image.",
+      "paths": [
+        "rootfs/ps4-diagnostics/init-ram"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Cover the shutdown limits.",
+      "paths": [
+        "tests/test_ps4_diagnostics_ram_boot.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Show a closing screen during power actions.",
+      "paths": [
+        "diagnostics/ps4/tui/src/bin/diagnostix/live.rs"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Shutdown change and its release records, 2026-11-10",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Shutdown change and its release records, 2026-11-10",
       "paths": [
         "docs/DIAGNOSTIX-RELEASE.md"
       ],
