@@ -42,7 +42,7 @@ The home screen shows the console's southbridge and firmware, and what this vers
 
 ![A finished run](images/diagnostix-app-finished.webp)
 
-_Sample results, not a real console._
+_A run on the project's PS4 Slim with Baikal B1, 2026-11-11, redrawn on a development computer from that run's results._
 
 A run takes about 6 minutes on the tested console. **Manual test** starts the same Linux and lets you choose the tests.
 

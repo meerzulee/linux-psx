@@ -2,8 +2,8 @@
   <h1>Linux psX</h1>
   <p><strong>Linux kernels for PlayStation 4 and PlayStation 5, with PS4 graphics drivers and diagnostics.</strong></p>
   <p>
-    <a href="https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2">PS4 Baikal beta2</a>
-    &middot; <a href="#diagnostix">Diagnostix</a>
+    <a href="https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2">PS4 kernel 7.2.11</a>
+    &middot; <a href="https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-0.16-beta1">DiagnostiX app</a>
     &middot; <a href="docs/BUILDING.md">Build</a>
     &middot; <a href="https://github.com/meerzulee/linux-psx/wiki">Wiki</a>
     &middot; <a href="https://github.com/meerzulee/linux-psx/issues">Issues</a>
@@ -34,10 +34,11 @@ individual recorded builds; fresh builds and other consoles need their own tests
 | HDMI audio | 🧪 44.1 kHz command; audible check deferred; 48 kHz open | ⏳ | ⏳ |
 | Temperature / fan | 🧪 Historical temperature readings; fan unqualified | ⏳ | ⏳ |
 | Blu-ray / optical | 🧪 Device detected | ⏳ | ⏳ |
-| Power | ✅ Shutdown / normal restart with UVD; ~1.1 s to ICC on dev5 | ⏳ | ⏳ |
+| Power | ✅ Turn off / restart to Orbis in about 3 s, after full runs with UVD | ⏳ | ⏳ |
 
-Power results: one corrected-image restart and one shutdown on this Slim;
-the new immediate Power path still needs its own hardware check.
+Power: an ordered Turn off and an ordered restart to Orbis each completed on the
+beta2 kernel after a full DiagnostiX run
+([EXP-20261110-015](diagnostics/SESSIONS.md#exp-20261110-015--the-launcher-finds-the-usb-stick-ordered-turn-off-and-restart)).
 Ethernet: 20 SSH logins and verified 4 MiB transfers each way passed after
 reconnecting the laptop's Wi-Fi; the precise LAN fault remains unresolved.
 
@@ -63,33 +64,35 @@ Example manufacturer peaks, **read / write in MB/s**; these are not PS4 benchmar
 
 [Specifications, actual results and benchmark plan →](docs/PS4-STORAGE-COMPARISON.md)
 
-## Diagnostix
+## DiagnostiX
 
-Diagnostix finds out what works on a PS4. The app starts Linux from the console's
+DiagnostiX tests the kernel on your PS4. The app starts Linux from the console's
 memory, runs every test by itself and saves one report you can share. Serial
 numbers, MAC addresses and console IDs are left out of the report, and nothing is
 uploaded automatically.
 
+**[Download the app](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-0.16-beta1)**
+and install it on a PS4 running GoldHEN. Plug in a USB stick and choose
+**Automatic test**; a run takes about 6 minutes. Linux has been tested on a PS4 Slim
+with Baikal B1 on firmware 12.02. Any other PS4 on 12.02 can choose **Try Linux
+anyway**, and any PS4 can save its console info, which helps us
+[port the kernel to it](manual/09-help-port-your-console.md).
+[How to use it](manual/06-diagnostix.md).
+
 <p align="center">
   <a href="docs/images/diagnostix-app-home.png"><img src="docs/images/diagnostix-app-home.png" width="280" alt="Diagnostix app home screen showing the console's southbridge and firmware"></a>
   <a href="docs/images/diagnostix-app-testing.png"><img src="docs/images/diagnostix-app-testing.png" width="280" alt="Diagnostix running its graphics tests, with sample data"></a>
-  <a href="docs/images/diagnostix-app-finished.png"><img src="docs/images/diagnostix-app-finished.png" width="280" alt="A finished Diagnostix run, with sample data"></a>
+  <a href="docs/images/diagnostix-app-finished.png"><img src="docs/images/diagnostix-app-finished.png" width="280" alt="A finished DiagnostiX run on the project's Baikal B1 console"></a>
 </p>
 
-Home, a test in progress and a finished run, rendered from the real interface on a
-development computer with sample results. [Image notes](docs/images/README.md).
+Home, a test in progress with sample data, and the results of a real run on the
+project's Baikal B1, all drawn by the app's own code on a development computer.
+[Image notes](docs/images/README.md).
 
-**Status:** the app is not a public download yet. One full automatic run has passed on
-version 0.16, on one PS4 Slim with a Baikal B1 southbridge. Sony's firmware is no longer
-in the package, because each console supplies its own when the app starts. The package
-still carries MediaTek Wi-Fi firmware, and its license and source duties are open. [What the app needs before release](docs/DIAGNOSTIX-RELEASE.md#the-app-is-not-released-yet).
+The older USB kit boots from a USB drive with your own loader. It contains no
+firmware and is for people comfortable on a Linux computer.
 
-The download available today is the older USB kit. It contains no firmware and is
-for people comfortable on a Linux computer. It has network and SSH setup, a
-hardware Overview and tabbed tests for CPU/RAM, networking, X11/Wayland,
-OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
-
-[Download the experimental firmware-free kit](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-alpha7-20261107) ·
+[USB kit](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-alpha7-20261107) ·
 [Local firmware setup](docs/DIAGNOSTIX-RELEASE.md) ·
 [Image and setup guide](docs/DIAGNOSTICS.md) ·
 [Source](diagnostics/) · [TUI](diagnostics/ps4/tui/) ·

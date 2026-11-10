@@ -5,14 +5,14 @@ kernel or complete test suite has passed.
 
 ## The app, version 0.16
 
-Rendered on a development computer on 2026-11-10 from the interface code in this
-repository. They are not console captures, and every result in them is sample data.
+Rendered on a development computer from the interface code in this repository.
+They are not console captures. Home and Test in progress show sample data.
 
 | Image | How it was made |
 | --- | --- |
 | [Home](diagnostix-app-home.png) | `diagnostics/ps4/fpkg/tests/ui_preview.cpp`, 1920x1080. Noto Sans stands in for the console's system font. |
 | [Test in progress](diagnostix-app-testing.png) | `diagnostix --demo graphics` in a 120x33 terminal, drawn with the console font and palette. |
-| [Finished run](diagnostix-app-finished.png) | `diagnostix --demo finished`, made the same way. |
+| [Finished run](diagnostix-app-finished.png) | The results of the first run in [EXP-20261110-015](../../diagnostics/SESSIONS.md#exp-20261110-015--the-launcher-finds-the-usb-stick-ordered-turn-off-and-restart) on the project's Baikal B1, 2026-11-11, copied from its UART trace and drawn by the app's view code the same way. The run time and the report folder's date are worked out from the trace. |
 
 ## The USB kit
 
