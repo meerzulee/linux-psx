@@ -206,6 +206,7 @@ fn main() -> io::Result<()> {
                 manual: arguments.iter().any(|item| item == "--manual") || live::requested_manual(&command_line),
                 ram_root: value_after(&arguments, "--ram-root").map_or_else(|| PathBuf::from("/run/psx-state/diagnostix"), PathBuf::from),
                 usb_dir: value_after(&arguments, "--usb-dir").map(PathBuf::from),
+                console: live::requested_console(&command_line),
             })
         }
     }

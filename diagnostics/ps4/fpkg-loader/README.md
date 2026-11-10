@@ -13,8 +13,8 @@ replaces genuinely colliding source/descriptor pages before arming. The older
 0.12 boot is one historical observation, not proof of placement independence.
 
 Version 0.16 changes only the boot directory name. The current app 0.16 profile
-targets FW12.02 / Baikal B1 and fixed 1024 MiB
-VRAM. It reads only `/data/diagnostix/versions/0.16/boot/`: `vram.txt`,
+targets FW12.02 and fixed 1024 MiB VRAM on any southbridge family it can identify
+(`any-southbridge.patch`), and has only been tested on Baikal B1. It reads only `/data/diagnostix/versions/0.16/boot/`: `vram.txt`,
 `bzImage`, `initramfs.cpio.gz` and `bootargs.txt` are all required. The VRAM file
 is checked first and accepts only `1024` or `1024\n`; there is no default,
 other VRAM selection, USB fallback or legacy-path fallback. Building creates

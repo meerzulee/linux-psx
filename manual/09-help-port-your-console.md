@@ -8,13 +8,13 @@ You don't have to be a kernel developer. You do need to be comfortable following
 
 - **The console**, and time for a series of short tests on it.
 - **Its details:** the model number, southbridge and system software version. [Is My Console Supported?](02-compatibility.md) shows how to find them.
-- **A way to boot Linux on it.** Preparing a console to run homebrew is outside this project, so this part has to be working already.
+- **A way to run homebrew on it, with GoldHEN.** On firmware 12.02 the [DiagnostiX app](06-diagnostix.md) can start Linux for you. Preparing a console to run homebrew is outside this project, so this part has to be working already.
 - **A USB drive and a USB keyboard.**
 - **A serial (UART) adapter, if you can connect one.** It's optional at the start. When a console hangs before the screen comes on, it's the only way to see why, so a port goes much faster with one.
 
 ## How to start
 
-1. Find your model and southbridge.
+1. Find your model, then open the [DiagnostiX app](06-diagnostix.md) with a USB stick plugged in and choose **Save console info**. It writes your southbridge and firmware to `DiagnostiX/console-info.txt`. On firmware 12.02 you can also choose **Try Linux anyway** and note what happens. A black screen is a useful result too.
 2. If any Linux already runs on your console, even with problems, save its device list and kernel log:
 
    ```sh
@@ -23,7 +23,7 @@ You don't have to be a kernel developer. You do need to be comfortable following
    ```
 
    Look through them and remove anything personal, such as serial numbers and MAC addresses.
-3. Fill in the [report form](https://github.com/meerzulee/linux-psx/issues/new?template=report.yml) and choose **My console isn't supported yet and I'd like to help port it**. Title it with your model and southbridge, for example `Report: CUH-1215A, Belize`. Attach the two files, and say which kernel produced them and what does and doesn't work.
+3. Fill in the [report form](https://github.com/meerzulee/linux-psx/issues/new?template=report.yml) and choose **My console isn't supported yet and I'd like to help port it**. Title it with your model and southbridge, for example `Report: CUH-1215A, Belize`. Attach `console-info.txt`, any DiagnostiX report and the two log files, and say which kernel produced them and what does and doesn't work.
 
 The maintainer will reply with what to try first.
 

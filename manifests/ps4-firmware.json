@@ -19,7 +19,7 @@
       "note": "Linux 5.4.247 PS4 Baikal kernel (fork of codedwrench/ps4-linux) whose extra_firmware/ directory the historical 5.4.247-DFAUS kernel embedded through CONFIG_EXTRA_FIRMWARE.",
       "url": "https://raw.githubusercontent.com/feeRnt/ps4-linux-12xx/{commit}/{path}",
       "api_url": "https://api.github.com/repos/feeRnt/ps4-linux-12xx/contents/{path}?ref={commit}",
-      "license": "None recorded. MediaTek vendor Wi-Fi driver firmware; keep it local and do not redistribute it."
+      "license": "None recorded. MediaTek vendor Wi-Fi driver firmware. The owner approved redistributing these files unchanged inside the DiagnostiX app package on 2026-11-11; Git holds none."
     }
   },
   "files": [

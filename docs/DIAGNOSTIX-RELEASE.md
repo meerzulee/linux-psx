@@ -1,21 +1,25 @@
-# Diagnostix experimental release
+# DiagnostiX releases
 
-## The app is not released yet
+## The app: 0.16 beta1
 
-The installable app (0.16) is separate from the kit described below. Local candidate
-`ram-alpha1-0.16-power1` was built on 2026-11-10 for this review.
+DiagnostiX 0.16 beta1 is the installable PS4 app, released on 2026-11-11 as
+[`diagnostix-0.16-beta1`](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-0.16-beta1).
+The release file `diagnostix-0.16-beta1.pkg` is the local build `ram-alpha1-0.16-try3`,
+byte for byte (SHA256 `41b54cd2e97b3a4e2f55882ebd50da9ab22982153a72ecc320ee1f1fa529f2cd`,
+396,361,728 bytes). Its Linux part is build `try2`, and its kernel is beta2,
+`7.2.11-psx-ps4-baikal-uvd-runtime-dev6`, unchanged.
 
 | Requirement | State |
 | --- | --- |
-| No owner SSH keys | Done. Built without `--owner-ssh-key`. A scan for the owner's public keys finds none in the initramfs, and the same scan finds one in the private dev build. |
-| No background contact with Google | Built. Chromium provider `psx4` blocks every name except the local lab, and Browser passed with it. **Open:** a network capture to prove nothing reaches Google. |
+| No owner SSH keys | Done. Built without `--owner-ssh-key`. A scan for the owner's public keys finds none in the initramfs or in the decompressed root image. |
+| No background contact with Google | Built. Chromium provider `psx4` blocks every name except the local lab, and Browser passed with it (EXP-20261110-011, EXP-20261110-015). No network capture has been taken. |
 | Reports leave out identifiers | Done in code and host tests. Serial numbers, MAC and IP addresses, network names and console IDs are removed. |
-| Automatic run on this exact build | Done once on the build before it, on one Baikal B1 console (`nofw2`, EXP-20261110-011). `power1` changes only how the console stops. The operator reports that it works, with no UART record (EXP-20261110-012). |
-| No Sony firmware in the package | Done. The package build fails if any is found, and Automatic passed without it (EXP-20261110-011). |
-| Git holds no firmware | Done. The 10 MediaTek Wi-Fi files are fetched from pinned public sources at build time. |
-| Complete corresponding source | **Open.** The kernel source is published with beta2, and the alpha7 release carries the BusyBox source and the source of its root image. Still to publish: Chromium 151 and the packages in its image, glmark2, vkmark and GNU tar, which 0.16 added. |
-| Launcher refuses a console it can't identify | **Open.** `supported()` in `diagnostics/ps4/fpkg/ui.cpp` treats an unread firmware or southbridge as a match, so the Baikal-only kernel can start on a console it wasn't built for. |
-| Legal notice | **Open.** The manual's notice (`manual/12-legal-notice.md`) says Linux psX doesn't redistribute firmware. Change it when a package that includes firmware is published. |
+| Automatic run on this exact build | Done twice on one Baikal B1 console (EXP-20261110-015), with Turn off after one run and Restart after the other. |
+| No Sony firmware in the package | Done. The package build fails if any is found, and Automatic passed without it (EXP-20261110-011, EXP-20261110-015). |
+| Git holds no firmware | Done. The 10 MediaTek Wi-Fi and Bluetooth files are fetched from pinned public sources at build time. |
+| Complete corresponding source | Done. The kernel source is in the beta2 release. The alpha7 release carries the BusyBox source and the source of the root image. `diagnostix-0.16-beta1-source.tar.zst` in the beta1 release adds glmark2, vkmark, GNU tar, the loader, and the recipes of the Chromium image. The app's own source is this repository at the release tag. |
+| Any PS4 can use the app | Built. On firmware 12.02, a console with another or unread southbridge, or a Pro, can save its info or choose **Try Linux anyway**, and the loader no longer refuses it. Other or unread firmware can save its info only, because the loader holds addresses for 12.02. Linux has only been tested on Baikal B1, and these paths have no hardware run yet. |
+| Legal notice | Done. `manual/12-legal-notice.md` names the 10 MediaTek files in the package and their sources. |
 
 Firmware policy (owner decisions, 2026-11-10): the package carries no Sony
 firmware, and Git holds no firmware. Each console supplies its own GPU and UVD
@@ -57,7 +61,9 @@ build time, and the app downloads nothing on the console.
 
 A published package redistributes the files inside it even though Git holds none
 of them. The manifest records a license for only one of them,
-`mediatek/mt7668pr2h.bin`, so publishing needs the owner's explicit approval.
+`mediatek/mt7668pr2h.bin`, under `LICENCE.mediatek`. The other 9 come from the
+`extra_firmware/` folder of `feeRnt/ps4-linux-12xx`, with no recorded license. The owner
+approved publishing the package with all 10 on 2026-11-11.
 
 ## The USB kit
 

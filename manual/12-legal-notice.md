@@ -24,7 +24,16 @@ Public kernel binaries are accompanied by complete corresponding source and the 
 
 ## Firmware
 
-Linux psX doesn't host or redistribute device firmware, and its kernels embed none. Some drivers need firmware supplied separately. A public download location doesn't by itself establish permission to redistribute a file, so check the license of each file before sharing anything you've assembled.
+Linux psX kernels embed no firmware, and the kernel downloads and the alpha7 kit include none.
+
+The DiagnostiX app package includes no Sony firmware. Each console supplies its own GPU and video decoder files through the loader at boot, and they stay in that console's memory.
+
+The app package does include 10 MediaTek Wi-Fi and Bluetooth firmware files, so the Wi-Fi test works:
+
+- `mediatek/mt7668pr2h.bin` comes from [linux-firmware](https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git) under its `LICENCE.mediatek`.
+- The other 9 come from the `extra_firmware/` folder of the public [ps4-linux-12xx](https://github.com/feeRnt/ps4-linux-12xx) kernel tree, which records no license for them. They are MediaTek's vendor firmware, included unchanged, and will be removed if the rights holder asks.
+
+Git holds no firmware. A public download location doesn't by itself establish permission to redistribute a file, so check the license of each file before sharing anything you've assembled.
 
 ## Development status
 

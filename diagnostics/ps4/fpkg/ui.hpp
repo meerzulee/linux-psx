@@ -46,13 +46,17 @@ struct Console {
 };
 const char* southbridge_name(uint32_t id);
 std::string firmware_name(uint32_t version);
-// A value that could not be read never blocks: the loader makes the final check.
-bool supported(const Console& console);
+// DiagnostiX is for any PS4. Linux has only been tested on a PS4 Slim with Baikal B1,
+// and the loader only knows firmware 12.02. Every other console can still help a port.
+enum class Fit { Tested, Untested, InfoOnly };
+Fit console_fit(const Console& console);
+// The boot argument that tells Linux which console it is on, for one that isn't tested.
+std::string console_argument(const Console& console);
 
 enum class Button { Cross, Circle };
 enum class Files { Ready, Missing, Repair, Problem };
 enum class LastRun { None, Finished, Stopped };
-enum class Action { Automatic, Manual, SaveInfo, Clear, About };
+enum class Action { Automatic, Manual, SaveInfo, TryLinux, Clear, About };
 
 struct HomeView {
   Console console;
@@ -72,6 +76,7 @@ void read_last_run(const std::string& text, HomeView* view);
 
 void draw_home(Surface& surface, const Faces& faces, const HomeView& view);
 void draw_no_usb(Surface& surface, const Faces& faces, int choice);
+void draw_try_linux(Surface& surface, const Faces& faces, int choice);
 void draw_starting(Surface& surface, const Faces& faces, bool manual);
 void draw_about(Surface& surface, const Faces& faces);
 void draw_progress(Surface& surface, const Faces& faces, const ProgressUpdate& update);

@@ -28,10 +28,13 @@ pub struct Options {
     pub ram_root: PathBuf,
     /// An already mounted folder standing in for a stick. Development only.
     pub usb_dir: Option<PathBuf>,
+    /// Named by the launcher when it isn't the console Linux was tested on.
+    pub console: Option<String>,
 }
 
-/// What this build's loader insists on, so reaching Linux implies both.
-const SOUTHBRIDGE: &str = "Baikal B1";
+/// The launcher only names a console that isn't this one.
+const TESTED_CONSOLE: &str = "Baikal B1";
+/// What this build's loader insists on, so reaching Linux implies it.
 const FIRMWARE: &str = "12.02";
 const ANSWER_SECONDS: u32 = 60;
 const BEFORE_LAST_SECONDS: u32 = 120;
@@ -237,9 +240,22 @@ pub fn requested_manual(command_line: &str) -> bool {
     command_line.split_whitespace().any(|word| word == "dx.mode=manual")
 }
 
-fn report_name() -> String {
+/// The launcher writes dashes for spaces, because a boot argument can't hold one.
+pub fn requested_console(command_line: &str) -> Option<String> {
+    let value = command_line.split_whitespace().find_map(|word| word.strip_prefix("dx.console="))?;
+    let name: String = value
+        .chars()
+        .filter(|letter| letter.is_ascii_alphanumeric() || *letter == '-')
+        .take(32)
+        .map(|letter| if letter == '-' { ' ' } else { letter })
+        .collect();
+    let name = name.trim().to_owned();
+    (!name.is_empty()).then_some(name)
+}
+
+fn report_name(console: &str) -> String {
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |time| time.as_secs());
-    let stem = SOUTHBRIDGE.to_ascii_lowercase().replace(' ', "-");
+    let stem = console.to_ascii_lowercase().replace(' ', "-");
     match report::date_from_unix(now) {
         Some(date) => format!("{date}-{stem}"),
         None => format!("run-{stem}"),
@@ -311,7 +327,7 @@ struct Engine {
 }
 
 pub fn run(shared: Shared, presses: Receiver<Press>, pads: Arc<AtomicUsize>, options: Options) {
-    let report = Arc::new(Mutex::new(Report::new(&options.ram_root, &report_name())));
+    let report = Arc::new(Mutex::new(Report::new(&options.ram_root, &report_name(options.console.as_deref().unwrap_or(TESTED_CONSOLE)))));
     let mut engine = Engine {
         shared,
         presses,
@@ -444,8 +460,9 @@ impl Engine {
                     self.identity = state["identity"].clone();
                     let release = state["system"]["kernel_release"].as_str().unwrap_or("").to_owned();
                     let linux = release.split('-').next().unwrap_or("").to_owned();
+                    let console = self.console_name().to_owned();
                     self.with(|snapshot| {
-                        snapshot.console = format!("{SOUTHBRIDGE}  ·  Firmware {FIRMWARE}  ·  Linux {linux}");
+                        snapshot.console = format!("{console}  ·  Firmware {FIRMWARE}  ·  Linux {linux}");
                         snapshot.note = None;
                         snapshot.screen = Screen::Running;
                     });
@@ -466,11 +483,16 @@ impl Engine {
         }
     }
 
+    fn console_name(&self) -> &str {
+        self.options.console.as_deref().unwrap_or(TESTED_CONSOLE)
+    }
+
     fn write_console_facts(&self) {
+        let console = self.console_name();
         let release = self.identity["kernel_release"].as_str().unwrap_or("unknown");
         let mode = if self.options.manual { "manual" } else { "automatic" };
         let body = format!(
-            "DiagnostiX report\nSouthbridge: {SOUTHBRIDGE} (required by this build's loader)\nFirmware: {FIRMWARE} (required by this build's loader)\nLinux: {release}\nMode: {mode}\nCPU: {}\nMemory: {}\nSony PCI devices:\n{}\n",
+            "DiagnostiX report\nSouthbridge: {console} (read by the launcher)\nFirmware: {FIRMWARE} (required by this build's loader)\nLinux: {release}\nMode: {mode}\nCPU: {}\nMemory: {}\nSony PCI devices:\n{}\n",
             cores(),
             memory(),
             sony_devices(),
@@ -1277,7 +1299,7 @@ impl Engine {
     fn power(&mut self, operation: &str) {
         trace::line(&format!("power {operation}: showing the closing screen"));
         self.with(|snapshot| {
-            snapshot.note = Some(power_message(operation).to_owned());
+            snapshot.note = Some(POWER_FINISHING.to_owned());
             snapshot.screen = Screen::Starting;
         });
         trace::line(&format!("power {operation}: releasing the report"));
@@ -1286,7 +1308,11 @@ impl Engine {
             usb::unmount();
         }
         trace::line(&format!("power {operation}: stick unmounted, asking the controller"));
-        self.with(|snapshot| snapshot.usb = "USB stick: safe to remove".into());
+        self.with(|snapshot| {
+            snapshot.usb = "USB stick: safe to remove".into();
+            snapshot.note = Some(power_message(operation).to_owned());
+        });
+        thread::sleep(POWER_PAUSE);
         let reply = self.call("power.execute", json!({"operation": operation, "confirm": true}));
         trace::line(&format!("power {operation}: controller replied, accepted={}", reply.is_ok()));
         match reply {
@@ -1347,6 +1373,9 @@ impl Engine {
 /// Longer than the controller's own wait before it calls the kernel directly.
 const POWER_WAIT: Duration = Duration::from_secs(30);
 const POWER_STALLED: &str = "The console is still on. Hold the power button to turn it off.";
+const POWER_FINISHING: &str = "Finishing up...";
+/// Long enough to read the message before the screen goes.
+const POWER_PAUSE: Duration = Duration::from_secs(2);
 
 fn power_message(operation: &str) -> &'static str {
     if operation == "shutdown" { "Turning off..." } else { "Restarting to PS4..." }
@@ -1567,6 +1596,11 @@ mod tests {
         assert!(requested_manual("quiet dx.mode=manual psx.boot=ram"));
         assert!(!requested_manual("quiet psx.boot=ram"));
         assert!(!requested_manual("xdx.mode=manual"));
+        assert_eq!(requested_console("quiet dx.console=PS4-Pro-Baikal-B1 x").as_deref(), Some("PS4 Pro Baikal B1"));
+        assert_eq!(requested_console("dx.console=Belize2-A0").as_deref(), Some("Belize2 A0"));
+        assert_eq!(requested_console("quiet psx.boot=ram"), None);
+        assert_eq!(requested_console("dx.console=$(x)").as_deref(), Some("x"));
+        assert_eq!(requested_console("dx.console=/"), None);
     }
 
     #[test]

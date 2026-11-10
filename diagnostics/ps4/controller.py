@@ -1353,6 +1353,9 @@ class Controller:
             time.sleep(POWER_ORDERED_GRACE_SECONDS)
             trace(f'power {operation}: ordered stop stalled, calling the kernel directly')
             record['stop_method'] = 'direct after a stalled ordered stop'
+        # Only a stop systemd refused or never finished gets here. Nothing else will end these.
+        record['worker_groups_killed'] = self._kill_power_workers()
+        record['graphics_units_killed'] = self._kill_power_graphics()
         self._power_kernel_call(operation)
 
     def request_power_now(self, operation):
@@ -1390,8 +1393,6 @@ class Controller:
                 record['job_id'] = identifier
                 entered_call = False
                 try:
-                    record['worker_groups_killed'] = self._kill_power_workers()
-                    record['graphics_units_killed'] = self._kill_power_graphics()
                     with self._power_guard_lock:
                         if (record['cancelled'] or self._power_now is not record
                                 or time.monotonic() >= record['dispatch_deadline_monotonic']):

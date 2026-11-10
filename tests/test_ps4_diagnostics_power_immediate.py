@@ -215,21 +215,44 @@ class ImmediatePowerTests(unittest.TestCase):
         self.assertEqual(self.kernel_call.call_count, 2)
 
     def test_expired_presubmission_can_never_dispatch_later(self):
-        entered, release = threading.Event(), threading.Event()
-        def pause():
-            entered.set(); release.wait(3)
-            return []
-        with mock.patch.object(self.controller, '_kill_power_graphics', side_effect=pause):
+        held = {}
+        def hold(title, function):
+            held['dispatch'] = function
+            return {'id': 'held', 'state': 'running', 'title': title}
+        with mock.patch.object(self.controller.jobs, 'submit_now', side_effect=hold):
             self.request()
-            try:
-                self.assertTrue(entered.wait(1))
-                self.controller._power_now['dispatch_deadline_monotonic'] = time.monotonic() - 1
-                self.assertTrue(self.controller.power_status()['shutdown']['available'])
-                self.assertTrue(self.controller._power_now['cancelled'])
-            finally:
-                release.set()
-            self.outcome('failed_no_retry')
+        record = self.controller._power_now
+        record['dispatch_deadline_monotonic'] = time.monotonic() - 1
+        self.assertTrue(self.controller.power_status()['shutdown']['available'])
+        self.assertTrue(record['cancelled'])
+        self.assertEqual(held['dispatch']('held')['dispatch_state'], 'failed_no_retry')
         self.kernel_call.assert_not_called()
+
+    def test_ordered_stop_force_kills_nothing_while_systemd_is_working(self):
+        with mock.patch.object(APP, 'POWER_ORDERED_GRACE_SECONDS', .4), \
+                mock.patch.object(self.controller, '_power_system_request') as ordered, \
+                mock.patch.object(self.controller, '_kill_power_workers', return_value=0) as workers, \
+                mock.patch.object(self.controller, '_kill_power_graphics', return_value=[]) as graphics:
+            self.request()
+            deadline = time.monotonic() + 2
+            while not ordered.called and time.monotonic() < deadline:
+                time.sleep(.005)
+            ordered.assert_called_once_with('shutdown')
+            workers.assert_not_called()
+            graphics.assert_not_called()
+            self.outcome('request_returned_physical_outcome_unobserved')
+            workers.assert_called_once_with()
+            graphics.assert_called_once_with()
+
+    def test_refused_ordered_stop_ends_programs_before_the_kernel_call(self):
+        order = []
+        with mock.patch.object(self.controller, '_power_system_request', side_effect=OSError('refused')), \
+                mock.patch.object(self.controller, '_kill_power_workers', side_effect=lambda: order.append('workers') or 0), \
+                mock.patch.object(self.controller, '_kill_power_graphics', side_effect=lambda: order.append('graphics') or []):
+            self.kernel_call.side_effect = lambda operation: order.append('kernel')
+            self.request()
+            self.outcome('request_returned_physical_outcome_unobserved')
+        self.assertEqual(order, ['workers', 'graphics', 'kernel'])
 
     def test_fixed_graphics_cgroups_exclude_controller_and_unrelated_units(self):
         root = self.fixture.fixture / 'sys/fs/cgroup/system.slice'

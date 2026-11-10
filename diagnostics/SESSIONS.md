@@ -3240,3 +3240,34 @@ full readback receipt `/var/tmp/upload-run7-20261109.json`):
 - Not established: the step that run reached, the time from Turn off to power-off, and the
   `last_shutdown_cause` after a Turn off or Restart on this build. No acceptance claim.
   EXP-20261110-013 was opened for a rerun and aborted with no console action.
+
+## EXP-20261110-015 — the launcher finds the USB stick; ordered Turn off and Restart
+
+- Changed variables: build `try2` stops the console through systemd without force-killing
+  programs first, and keeps the Linux screen on its own console until the end. Build `try3`
+  changes only the launcher: it borrows root from GoldHEN while it reads or writes the stick,
+  and counts a stick only when one is mounted. Linux bytes are the same in both
+  (initramfs `5066c949…`, loader `8c270a1a…`). `try3` package SHA256 `41b54cd2…`, read back
+  byte for byte. No owner SSH key: the repack recorded none, and a scan of the initramfs and
+  the decompressed root image found neither of the owner's public keys.
+- **`try2` on hardware:** three launches showed "No USB stick found" with a stick mounted at
+  `/mnt/usb0`, and none started Linux. The app's sandbox hides the stick.
+- **`try3` on hardware, first launch:** `stick access: root borrowed`, then `usb stick:
+  found`. Orbis unmounted and remounted the stick once; the launcher reported it gone and
+  found again. Automatic test repaired the installed files, then started Linux. Boot 67 s,
+  Processor, Memory, USB, Temperature, OpenGL, Vulkan, Browser (Chromium), Ethernet and
+  Wi-Fi (19 networks) PASS, **3D benchmark GL 2891**, **Video decoding PASS (H.264)**. Sound
+  SKIPPED (no fixture), Controller NOT-FOUND. **Turn off:** closing screen, stick unmounted,
+  systemd accepted the ordered stop, and power went off 3.3 s after the menu choice with no
+  forced kill. The operator saw the turning-off screen. The next Orbis boot reported
+  `last_shutdown_cause 00`.
+- **`try3`, second launch:** stick found, installed files already verified. Same results:
+  Boot 66 s, GL 2889, Video decoding PASS, Wi-Fi 15 networks. **Restart to PS4:** the ordered
+  stop was accepted, and the system restarted 3.3 s after the menu choice. Orbis started
+  with `powerup_cause MAIN_SOC` and `last_shutdown_cause 00`. The operator reported all
+  good.
+- Both Linux boots: zero panic, Oops or BUG lines, zero amdgpu `*ERROR*` lines, zero GPU
+  fault, hang or reset lines. The loader's UVD check matched (`crc32=a465ba07`).
+- Not exercised: **Try Linux anyway** and the untested-console tiers, Save console info,
+  a run without a stick. UART session completed. One console, two boots; no acceptance
+  claim. Released as DiagnostiX 0.16 beta1 on the owner's decision (2026-11-11).

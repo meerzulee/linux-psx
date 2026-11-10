@@ -48,8 +48,8 @@
       "adaptations": [
         "Synchronize final browser and explicit network UI source after both agent freezes."
       ],
-      "destination_sha256": "eabe96d9c3f65b4c91f2c6f261fff3ef718861e2dd73aa5b419c77cfae8918d9",
-      "destination_bytes": 188955,
+      "destination_sha256": "86a2299ab8e4ad46e6a6845064a3b187b42a38ed3c212d4abc9c0dc6a5ded642",
+      "destination_bytes": 189027,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -225,6 +225,13 @@
           "prior_destination_sha256": "a66065073fc8bfd0051264a39b45283ace7309a01e84305ade61d897449823e6",
           "destination_sha256": "eabe96d9c3f65b4c91f2c6f261fff3ef718861e2dd73aa5b419c77cfae8918d9",
           "destination_bytes": 188955,
+          "mode": "0644"
+        },
+        {
+          "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+          "prior_destination_sha256": "eabe96d9c3f65b4c91f2c6f261fff3ef718861e2dd73aa5b419c77cfae8918d9",
+          "destination_sha256": "86a2299ab8e4ad46e6a6845064a3b187b42a38ed3c212d4abc9c0dc6a5ded642",
+          "destination_bytes": 189027,
           "mode": "0644"
         }
       ]
@@ -1224,8 +1231,17 @@
       "bytes": 5202,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
-      "destination_bytes": 5202
+      "destination_sha256": "09a23abcc6e1d65877d61b059d719358359dca49e35988f2fb36095a2d98fd03",
+      "destination_bytes": 5281,
+      "destination_adaptations": [
+        {
+          "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
+          "prior_destination_sha256": "e6275edb4f114792219082c9f63aed6a5261e7ff442595c5db53d3d94dfb23bb",
+          "destination_sha256": "09a23abcc6e1d65877d61b059d719358359dca49e35988f2fb36095a2d98fd03",
+          "destination_bytes": 5281,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "origin_path": "manifests/ps4-initramfs-seed.json",
@@ -3316,8 +3332,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "cd693aa3ba6a623bca5a262be34ebe3f151e30bfd357bb9a134786e70fd9b02d",
-      "destination_bytes": 217670,
+      "destination_sha256": "6016197f020d8bbe8e6d33e54f6ee3278213b94f97ac9fff5a8a3c30b0d90752",
+      "destination_bytes": 220089,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -3950,6 +3966,13 @@
           "prior_destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
           "destination_sha256": "cd693aa3ba6a623bca5a262be34ebe3f151e30bfd357bb9a134786e70fd9b02d",
           "destination_bytes": 217670,
+          "mode": "0644"
+        },
+        {
+          "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
+          "prior_destination_sha256": "cd693aa3ba6a623bca5a262be34ebe3f151e30bfd357bb9a134786e70fd9b02d",
+          "destination_sha256": "6016197f020d8bbe8e6d33e54f6ee3278213b94f97ac9fff5a8a3c30b0d90752",
+          "destination_bytes": 220089,
           "mode": "0644"
         }
       ]
@@ -5120,8 +5143,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_power_immediate.py",
-      "destination_sha256": "644804aa3b8eeb7f6e99189fe6cfc7f84cfff1938a1a5aefb41c4f82c8e648e1",
-      "destination_bytes": 23756,
+      "destination_sha256": "93aef151de8cef80d278263acaf8881191c2ad89343b4892af72299fab9ee767",
+      "destination_bytes": 25311,
       "mode": "0644",
       "purpose": "Add alpha7/dev6 terminal power with atomic worker cancellation, independent TUI power IPC, exact frozen package policy, rescue signal fix and scoped hardware evidence.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5152,6 +5175,13 @@
           "prior_destination_sha256": "2798cc918b24e36a8fa31831dc14cf478a8322cc452623153384ed6c9b68784a",
           "destination_sha256": "644804aa3b8eeb7f6e99189fe6cfc7f84cfff1938a1a5aefb41c4f82c8e648e1",
           "destination_bytes": 23756,
+          "mode": "0644"
+        },
+        {
+          "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+          "prior_destination_sha256": "644804aa3b8eeb7f6e99189fe6cfc7f84cfff1938a1a5aefb41c4f82c8e648e1",
+          "destination_sha256": "93aef151de8cef80d278263acaf8881191c2ad89343b4892af72299fab9ee767",
+          "destination_bytes": 25311,
           "mode": "0644"
         }
       ]
@@ -5192,8 +5222,8 @@
     },
     {
       "path": "docs/DIAGNOSTIX-RELEASE.md",
-      "destination_sha256": "ba01540fe95734c5028965a182154bdd5d9eca6e181581595f479c71e351352f",
-      "destination_bytes": 10908,
+      "destination_sha256": "5ee4994fef5aa58bf3d13a6e281fe0721789740e17f5ec1fa06d63028dc1858f",
+      "destination_bytes": 11458,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5281,6 +5311,20 @@
           "destination_sha256": "ba01540fe95734c5028965a182154bdd5d9eca6e181581595f479c71e351352f",
           "destination_bytes": 10908,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "ba01540fe95734c5028965a182154bdd5d9eca6e181581595f479c71e351352f",
+          "destination_sha256": "ceb7277d0ddc4d48cc75b95e5dcb88f7f44a88b3e2c3ce808c56e49295fb5a7d",
+          "destination_bytes": 11001,
+          "mode": "0644"
+        },
+        {
+          "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
+          "prior_destination_sha256": "ceb7277d0ddc4d48cc75b95e5dcb88f7f44a88b3e2c3ce808c56e49295fb5a7d",
+          "destination_sha256": "5ee4994fef5aa58bf3d13a6e281fe0721789740e17f5ec1fa06d63028dc1858f",
+          "destination_bytes": 11458,
+          "mode": "0644"
         }
       ]
     },
@@ -5319,8 +5363,8 @@
     },
     {
       "path": "rootfs/ps4-diagnostics/init-ram",
-      "destination_sha256": "58fbd334442f613f202f591f4ea395d7e777ec27f00e723c34f01e909cbf73b3",
-      "destination_bytes": 23511,
+      "destination_sha256": "ca6a383a57fc38207b1f430d6cbc5252a5705a7d56c639bb9174a4bbe37381fa",
+      "destination_bytes": 23923,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5393,6 +5437,13 @@
           "prior_destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
           "destination_sha256": "58fbd334442f613f202f591f4ea395d7e777ec27f00e723c34f01e909cbf73b3",
           "destination_bytes": 23511,
+          "mode": "0644"
+        },
+        {
+          "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+          "prior_destination_sha256": "58fbd334442f613f202f591f4ea395d7e777ec27f00e723c34f01e909cbf73b3",
+          "destination_sha256": "ca6a383a57fc38207b1f430d6cbc5252a5705a7d56c639bb9174a4bbe37381fa",
+          "destination_bytes": 23923,
           "mode": "0644"
         }
       ]
@@ -5629,8 +5680,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/bundle.hpp",
-      "destination_sha256": "bcdb4a314a183aaa79c660a000717fde2837cdb50311159b437f493dc7914189",
-      "destination_bytes": 4175,
+      "destination_sha256": "c548a8ee887c2304d0e289747720552dbe18ed0ea79dea0a030192e8322c553a",
+      "destination_bytes": 4355,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5697,13 +5748,20 @@
           "destination_sha256": "bcdb4a314a183aaa79c660a000717fde2837cdb50311159b437f493dc7914189",
           "destination_bytes": 4175,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "bcdb4a314a183aaa79c660a000717fde2837cdb50311159b437f493dc7914189",
+          "destination_sha256": "c548a8ee887c2304d0e289747720552dbe18ed0ea79dea0a030192e8322c553a",
+          "destination_bytes": 4355,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/main.cpp",
-      "destination_sha256": "968ec2bcb087c3f2a426f0b5d0a75eb89d63ba9bbd2f703e46358bea9a6e4e60",
-      "destination_bytes": 15179,
+      "destination_sha256": "348aafd7029c0b0b64dbb939a6e1978c35f13a08f9bdf0e332d943d450c2bec4",
+      "destination_bytes": 20889,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5847,6 +5905,20 @@
           "destination_sha256": "968ec2bcb087c3f2a426f0b5d0a75eb89d63ba9bbd2f703e46358bea9a6e4e60",
           "destination_bytes": 15179,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "968ec2bcb087c3f2a426f0b5d0a75eb89d63ba9bbd2f703e46358bea9a6e4e60",
+          "destination_sha256": "86b801f7afe5b7c8a1bf756523a4dd7b2ee8904122a275123b19ebef66f53e02",
+          "destination_bytes": 19266,
+          "mode": "0644"
+        },
+        {
+          "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+          "prior_destination_sha256": "86b801f7afe5b7c8a1bf756523a4dd7b2ee8904122a275123b19ebef66f53e02",
+          "destination_sha256": "348aafd7029c0b0b64dbb939a6e1978c35f13a08f9bdf0e332d943d450c2bec4",
+          "destination_bytes": 20889,
+          "mode": "0644"
         }
       ]
     },
@@ -5876,8 +5948,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/bundle.cpp",
-      "destination_sha256": "96c6c88e474f26c1be1040de8eb0feda98ac8343432a33d95a1804ea671c5b4f",
-      "destination_bytes": 43426,
+      "destination_sha256": "5d8c2602dcf62f970a7e62f5bb4ea148b7ce78dc1444182cfdbf3415edbce12b",
+      "destination_bytes": 43630,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5992,6 +6064,13 @@
           "prior_destination_sha256": "ef2643d8dc57ba85fe6fb1bc4c066fb1e5488141acd12823ba4cdabf244f16c1",
           "destination_sha256": "96c6c88e474f26c1be1040de8eb0feda98ac8343432a33d95a1804ea671c5b4f",
           "destination_bytes": 43426,
+          "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "96c6c88e474f26c1be1040de8eb0feda98ac8343432a33d95a1804ea671c5b4f",
+          "destination_sha256": "5d8c2602dcf62f970a7e62f5bb4ea148b7ce78dc1444182cfdbf3415edbce12b",
+          "destination_bytes": 43630,
           "mode": "0644"
         }
       ]
@@ -6393,8 +6472,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/tests/bundle_test.cpp",
-      "destination_sha256": "bc182df6570cfaa80ae7100b4c42e25b378636e263f67e410c879ff3d8ebc747",
-      "destination_bytes": 30339,
+      "destination_sha256": "76d76794f1dea9b60c18c01756ac5b85d40fb02f34e39b26166ec478a7a0384f",
+      "destination_bytes": 30639,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6510,13 +6589,20 @@
           "destination_sha256": "bc182df6570cfaa80ae7100b4c42e25b378636e263f67e410c879ff3d8ebc747",
           "destination_bytes": 30339,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "bc182df6570cfaa80ae7100b4c42e25b378636e263f67e410c879ff3d8ebc747",
+          "destination_sha256": "76d76794f1dea9b60c18c01756ac5b85d40fb02f34e39b26166ec478a7a0384f",
+          "destination_bytes": 30639,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/tests/test_fpkg.py",
-      "destination_sha256": "7844f47245aaac52bc63da076e424b9a001cd316624b713324d6b8c7e7ed27a5",
-      "destination_bytes": 15619,
+      "destination_sha256": "5b10191ba49be0e137f814d79be3b7d264e314a58d1a496c603b82c6d2f2e22b",
+      "destination_bytes": 15738,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6653,6 +6739,13 @@
           "destination_sha256": "7844f47245aaac52bc63da076e424b9a001cd316624b713324d6b8c7e7ed27a5",
           "destination_bytes": 15619,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "7844f47245aaac52bc63da076e424b9a001cd316624b713324d6b8c7e7ed27a5",
+          "destination_sha256": "5b10191ba49be0e137f814d79be3b7d264e314a58d1a496c603b82c6d2f2e22b",
+          "destination_bytes": 15738,
+          "mode": "0644"
         }
       ]
     },
@@ -6764,8 +6857,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/test_entry.c",
-      "destination_sha256": "e65022e2d36d99ad76a8a03054aef42a1dfaaecaafe150684dff887d7b144dab",
-      "destination_bytes": 4019,
+      "destination_sha256": "c656ab3055f3bf368800837d59261b6c068ee33f4fd0c11bb1c1ff3965a8e1f0",
+      "destination_bytes": 4324,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6804,13 +6897,20 @@
           "destination_sha256": "e65022e2d36d99ad76a8a03054aef42a1dfaaecaafe150684dff887d7b144dab",
           "destination_bytes": 4019,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "e65022e2d36d99ad76a8a03054aef42a1dfaaecaafe150684dff887d7b144dab",
+          "destination_sha256": "c656ab3055f3bf368800837d59261b6c068ee33f4fd0c11bb1c1ff3965a8e1f0",
+          "destination_bytes": 4324,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/build.py",
-      "destination_sha256": "7aaad0cad196fd9cec00cafad4e0343c08de9e3d68d2fa25c709b69ce2053cb3",
-      "destination_bytes": 13279,
+      "destination_sha256": "e74f9859f32f1dd490834a6f7bd8d75c1502b35f14caed2efdb4d2b3b486f635",
+      "destination_bytes": 13344,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6883,6 +6983,13 @@
           "prior_destination_sha256": "2177b7f485203b0885e6584ab502038e8303485569c915e34d5dbcebf7425a9e",
           "destination_sha256": "7aaad0cad196fd9cec00cafad4e0343c08de9e3d68d2fa25c709b69ce2053cb3",
           "destination_bytes": 13279,
+          "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "7aaad0cad196fd9cec00cafad4e0343c08de9e3d68d2fa25c709b69ce2053cb3",
+          "destination_sha256": "e74f9859f32f1dd490834a6f7bd8d75c1502b35f14caed2efdb4d2b3b486f635",
+          "destination_bytes": 13344,
           "mode": "0644"
         }
       ]
@@ -7002,8 +7109,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/README.md",
-      "destination_sha256": "e136edd7a8df3042c08652ff50e76d63cc94213250653274d063378cfeee076e",
-      "destination_bytes": 14287,
+      "destination_sha256": "9a9dda19f64549afbc7353c65c11d8c5222c8b82d6b0b5f005f3b16f1454981a",
+      "destination_bytes": 14382,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7084,6 +7191,13 @@
           "destination_sha256": "e136edd7a8df3042c08652ff50e76d63cc94213250653274d063378cfeee076e",
           "destination_bytes": 14287,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "e136edd7a8df3042c08652ff50e76d63cc94213250653274d063378cfeee076e",
+          "destination_sha256": "9a9dda19f64549afbc7353c65c11d8c5222c8b82d6b0b5f005f3b16f1454981a",
+          "destination_bytes": 14382,
+          "mode": "0644"
         }
       ]
     },
@@ -7120,8 +7234,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/provenance.json",
-      "destination_sha256": "275cbd877fe57b55a785137fe5aef634fb811a2e529aaaa3417d72642d01084b",
-      "destination_bytes": 13397,
+      "destination_sha256": "598080cc3b685a1cb3acf8aaaea89e9f607977e2321ce2c83bd7363b9f92fa29",
+      "destination_bytes": 13538,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7202,6 +7316,13 @@
           "destination_sha256": "275cbd877fe57b55a785137fe5aef634fb811a2e529aaaa3417d72642d01084b",
           "destination_bytes": 13397,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "275cbd877fe57b55a785137fe5aef634fb811a2e529aaaa3417d72642d01084b",
+          "destination_sha256": "598080cc3b685a1cb3acf8aaaea89e9f607977e2321ce2c83bd7363b9f92fa29",
+          "destination_bytes": 13538,
+          "mode": "0644"
         }
       ]
     },
@@ -7281,8 +7402,8 @@
     },
     {
       "path": "tests/test_ps4_diagnostics_ram_boot.py",
-      "destination_sha256": "62713d599431262ac9bc93f81f68e7370b367413ef2aed0b9c25a2915c13ddbb",
-      "destination_bytes": 20721,
+      "destination_sha256": "0675a94b909c6b985ef620be210f1385a780e32dd3d9b313928c021a546476e3",
+      "destination_bytes": 20990,
       "mode": "0644",
       "purpose": "Implement optional USB-free Diagnostix RAM alpha1, bounded dedicated loader, fixed native FPKG packaging and volatile-state integration; retain USB contracts and upstream licenses.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7313,6 +7434,13 @@
           "prior_destination_sha256": "0a061cae062fba3deacadf5f06b9a4136bded1949303a6a5914d740219584e17",
           "destination_sha256": "62713d599431262ac9bc93f81f68e7370b367413ef2aed0b9c25a2915c13ddbb",
           "destination_bytes": 20721,
+          "mode": "0644"
+        },
+        {
+          "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+          "prior_destination_sha256": "62713d599431262ac9bc93f81f68e7370b367413ef2aed0b9c25a2915c13ddbb",
+          "destination_sha256": "0675a94b909c6b985ef620be210f1385a780e32dd3d9b313928c021a546476e3",
+          "destination_bytes": 20990,
           "mode": "0644"
         }
       ]
@@ -7742,8 +7870,8 @@
     },
     {
       "path": "diagnostics/ps4/tui/src/bin/diagnostix/main.rs",
-      "destination_sha256": "47d9ba22371c6ec98bbcccab3130ce40bde5ba1f8335d11662eac9cedf327920",
-      "destination_bytes": 12965,
+      "destination_sha256": "824bedc8cf8e6bc4e15ae8d9dedb8dc8960f3ebd96fd8a7b33b96011738389a6",
+      "destination_bytes": 13030,
       "mode": "0644",
       "purpose": "New DiagnostiX launcher UI and after-boot run screen, with sample scenes only. Adds pinned qrcodegen 1.8.0 (MIT) for the report download QR code.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7781,6 +7909,13 @@
           "prior_destination_sha256": "acfad4449ae72f278703558e2638ab061c539b859aae3ba481772406d4a47096",
           "destination_sha256": "47d9ba22371c6ec98bbcccab3130ce40bde5ba1f8335d11662eac9cedf327920",
           "destination_bytes": 12965,
+          "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "47d9ba22371c6ec98bbcccab3130ce40bde5ba1f8335d11662eac9cedf327920",
+          "destination_sha256": "824bedc8cf8e6bc4e15ae8d9dedb8dc8960f3ebd96fd8a7b33b96011738389a6",
+          "destination_bytes": 13030,
           "mode": "0644"
         }
       ]
@@ -7930,8 +8065,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/ui.cpp",
-      "destination_sha256": "f525ce3d36a576ace5e4695c484e39cde916a6b4f989bb3d2420fb5cc25f2655",
-      "destination_bytes": 25446,
+      "destination_sha256": "bb7f44021a488cea11d2a6b88d7dae21a8b652e9d275ec37bd68e36f87c7e9b7",
+      "destination_bytes": 27576,
       "mode": "0644",
       "purpose": "New DiagnostiX launcher UI and after-boot run screen, with sample scenes only. Adds pinned qrcodegen 1.8.0 (MIT) for the report download QR code.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7963,13 +8098,20 @@
           "destination_sha256": "f525ce3d36a576ace5e4695c484e39cde916a6b4f989bb3d2420fb5cc25f2655",
           "destination_bytes": 25446,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "f525ce3d36a576ace5e4695c484e39cde916a6b4f989bb3d2420fb5cc25f2655",
+          "destination_sha256": "bb7f44021a488cea11d2a6b88d7dae21a8b652e9d275ec37bd68e36f87c7e9b7",
+          "destination_bytes": 27576,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/ui.hpp",
-      "destination_sha256": "68f403724e848a06b0dde6333880d5f8c49838cab3fb132ca53b32722c59e1d5",
-      "destination_bytes": 3345,
+      "destination_sha256": "3997d38977ec284238d7f61cb164436d7a73f536bb632ef0b97cc156e2ceab4c",
+      "destination_bytes": 3710,
       "mode": "0644",
       "purpose": "New DiagnostiX launcher UI and after-boot run screen, with sample scenes only. Adds pinned qrcodegen 1.8.0 (MIT) for the report download QR code.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7994,13 +8136,20 @@
           "destination_sha256": "68f403724e848a06b0dde6333880d5f8c49838cab3fb132ca53b32722c59e1d5",
           "destination_bytes": 3345,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "68f403724e848a06b0dde6333880d5f8c49838cab3fb132ca53b32722c59e1d5",
+          "destination_sha256": "3997d38977ec284238d7f61cb164436d7a73f536bb632ef0b97cc156e2ceab4c",
+          "destination_bytes": 3710,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/tests/ui_test.cpp",
-      "destination_sha256": "ab7efb013c4927b4cddea4b268bdac2140824a40f09dc9648f84b8310879bf1a",
-      "destination_bytes": 2400,
+      "destination_sha256": "98c22e76046fc325f910ebdc97f376370aa0aac4e3949d0a31f0c960ca0c72ef",
+      "destination_bytes": 3207,
       "mode": "0644",
       "purpose": "New DiagnostiX launcher UI and after-boot run screen, with sample scenes only. Adds pinned qrcodegen 1.8.0 (MIT) for the report download QR code.",
       "origin": "New Linux psX source after diagnostic import",
@@ -8018,13 +8167,20 @@
           "destination_sha256": "ab7efb013c4927b4cddea4b268bdac2140824a40f09dc9648f84b8310879bf1a",
           "destination_bytes": 2400,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "ab7efb013c4927b4cddea4b268bdac2140824a40f09dc9648f84b8310879bf1a",
+          "destination_sha256": "98c22e76046fc325f910ebdc97f376370aa0aac4e3949d0a31f0c960ca0c72ef",
+          "destination_bytes": 3207,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/tests/ui_preview.cpp",
-      "destination_sha256": "fb2b58abd017b5f678c7bce9ca9194861873680df89419b8bd42fd4ea7c680e9",
-      "destination_bytes": 2903,
+      "destination_sha256": "dfca042d70d53f770fb158741cd45b87c4333567811cff1754eff58218a0d58f",
+      "destination_bytes": 3040,
       "mode": "0644",
       "purpose": "New DiagnostiX launcher UI and after-boot run screen, with sample scenes only. Adds pinned qrcodegen 1.8.0 (MIT) for the report download QR code.",
       "origin": "New Linux psX source after diagnostic import",
@@ -8035,13 +8191,20 @@
           "destination_sha256": "fb2b58abd017b5f678c7bce9ca9194861873680df89419b8bd42fd4ea7c680e9",
           "destination_bytes": 2903,
           "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "fb2b58abd017b5f678c7bce9ca9194861873680df89419b8bd42fd4ea7c680e9",
+          "destination_sha256": "dfca042d70d53f770fb158741cd45b87c4333567811cff1754eff58218a0d58f",
+          "destination_bytes": 3040,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/tui/src/bin/diagnostix/live.rs",
-      "destination_sha256": "4fb7452021b48fbd193b71bbf19b41bc7021ada1c9f52e9b830ea9459ad3a9ec",
-      "destination_bytes": 65899,
+      "destination_sha256": "15915ecb0e7bb2a215465dd155b75a6fd741439192eabccef6fd86f450380986",
+      "destination_bytes": 67588,
       "mode": "0644",
       "purpose": "DiagnostiX run screen: live run, USB report, LAN download, controller input",
       "origin": "New Linux psX source after diagnostic import",
@@ -8114,6 +8277,20 @@
           "prior_destination_sha256": "2c858415612ca648c8e51775b997e8f0a173b2edebadcf5358002ced970e0e1d",
           "destination_sha256": "4fb7452021b48fbd193b71bbf19b41bc7021ada1c9f52e9b830ea9459ad3a9ec",
           "destination_bytes": 65899,
+          "mode": "0644"
+        },
+        {
+          "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+          "prior_destination_sha256": "4fb7452021b48fbd193b71bbf19b41bc7021ada1c9f52e9b830ea9459ad3a9ec",
+          "destination_sha256": "85c39546c87f3e3e051dc642f42e2aabc3d010f390ec758bd8c17851d7c5fe7a",
+          "destination_bytes": 67302,
+          "mode": "0644"
+        },
+        {
+          "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+          "prior_destination_sha256": "85c39546c87f3e3e051dc642f42e2aabc3d010f390ec758bd8c17851d7c5fe7a",
+          "destination_sha256": "15915ecb0e7bb2a215465dd155b75a6fd741439192eabccef6fd86f450380986",
+          "destination_bytes": 67588,
           "mode": "0644"
         }
       ]
@@ -8338,8 +8515,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/console_read.cpp",
-      "destination_sha256": "ed0650726dc2def0dda38ca798054ef0afa42ed412afd93781727933447b6d3a",
-      "destination_bytes": 1600,
+      "destination_sha256": "f58eaf226dc30f0a74ad597bd731f6c56780bb81fe5f45ae2c4052556806f289",
+      "destination_bytes": 1880,
       "mode": "0644",
       "purpose": "Launcher reads the southbridge under GoldHEN root for one read; the kernel refuses it to an installed app.",
       "origin": "New Linux psX source after diagnostic import",
@@ -8350,13 +8527,20 @@
           "destination_sha256": "ed0650726dc2def0dda38ca798054ef0afa42ed412afd93781727933447b6d3a",
           "destination_bytes": 1600,
           "mode": "0644"
+        },
+        {
+          "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+          "prior_destination_sha256": "ed0650726dc2def0dda38ca798054ef0afa42ed412afd93781727933447b6d3a",
+          "destination_sha256": "f58eaf226dc30f0a74ad597bd731f6c56780bb81fe5f45ae2c4052556806f289",
+          "destination_bytes": 1880,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/console_read.hpp",
-      "destination_sha256": "4d29a747dbb3310297ad7e7cb4d661f5892629e7923b90c4016c55183fbd84cd",
-      "destination_bytes": 1161,
+      "destination_sha256": "005de394c179fa8086fb1c5e95cc0ef4a1218bb05da75d01caec8b3523698c92",
+      "destination_bytes": 1612,
       "mode": "0644",
       "purpose": "Launcher reads the southbridge under GoldHEN root for one read; the kernel refuses it to an installed app.",
       "origin": "New Linux psX source after diagnostic import",
@@ -8367,13 +8551,20 @@
           "destination_sha256": "4d29a747dbb3310297ad7e7cb4d661f5892629e7923b90c4016c55183fbd84cd",
           "destination_bytes": 1161,
           "mode": "0644"
+        },
+        {
+          "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+          "prior_destination_sha256": "4d29a747dbb3310297ad7e7cb4d661f5892629e7923b90c4016c55183fbd84cd",
+          "destination_sha256": "005de394c179fa8086fb1c5e95cc0ef4a1218bb05da75d01caec8b3523698c92",
+          "destination_bytes": 1612,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/tests/console_read_test.cpp",
-      "destination_sha256": "40e7d05fd12cb594052a8eb62092bf950e0ef62d255213ac8e4e4a0609c0d398",
-      "destination_bytes": 3518,
+      "destination_sha256": "de41b8dd7bf1118ed3fd2883aa3281198827a98782956c45bd72e22045f36f70",
+      "destination_bytes": 4000,
       "mode": "0644",
       "purpose": "Launcher reads the southbridge under GoldHEN root for one read; the kernel refuses it to an installed app.",
       "origin": "New Linux psX source after diagnostic import",
@@ -8383,6 +8574,13 @@
           "prior_destination_sha256": "ebfbd32d96eae9998bcc08046833bb98437aa4e7a0037a2eac9ef03d6ee99122",
           "destination_sha256": "40e7d05fd12cb594052a8eb62092bf950e0ef62d255213ac8e4e4a0609c0d398",
           "destination_bytes": 3518,
+          "mode": "0644"
+        },
+        {
+          "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+          "prior_destination_sha256": "40e7d05fd12cb594052a8eb62092bf950e0ef62d255213ac8e4e4a0609c0d398",
+          "destination_sha256": "de41b8dd7bf1118ed3fd2883aa3281198827a98782956c45bd72e22045f36f70",
+          "destination_bytes": 4000,
           "mode": "0644"
         }
       ]
@@ -8425,6 +8623,14 @@
       "destination_bytes": 2540,
       "mode": "0644",
       "purpose": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/fpkg-loader/any-southbridge.patch",
+      "destination_sha256": "44d67f28b35988c3adcf5dee38732f2c6b8f4c6d605169e95a6174b492070c0c",
+      "destination_bytes": 1140,
+      "mode": "0644",
+      "purpose": "Loader accepts any southbridge family it can identify, 2026-11-10",
       "origin": "New Linux psX source after diagnostic import"
     }
   ],
@@ -10598,6 +10804,209 @@
     },
     {
       "reason": "Shutdown change and its release records, 2026-11-10",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/bundle.hpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/main.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/bundle.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/tests/bundle_test.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/tests/test_fpkg.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/test_entry.c"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/build.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/README.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/provenance.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/tui/src/bin/diagnostix/main.rs"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/ui.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/ui.hpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/tests/ui_test.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg/tests/ui_preview.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Any PS4 can use DiagnostiX: console tiers, loader accepts any southbridge, start marker, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/tui/src/bin/diagnostix/live.rs"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Loader accepts any southbridge family it can identify, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/any-southbridge.patch"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/controller.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+      "paths": [
+        "tests/test_ps4_diagnostics_power_immediate.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+      "paths": [
+        "rootfs/ps4-diagnostics/init-ram"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+      "paths": [
+        "tests/test_ps4_diagnostics_ram_boot.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Turn off keeps the closing screen and force-kills nothing while systemd works, 2026-11-10",
+      "paths": [
+        "diagnostics/ps4/tui/src/bin/diagnostix/live.rs"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+      "paths": [
+        "diagnostics/ps4/fpkg/main.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+      "paths": [
+        "diagnostics/ps4/fpkg/console_read.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+      "paths": [
+        "diagnostics/ps4/fpkg/console_read.hpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Launcher borrows root for USB stick access and counts only a mounted stick, 2026-11-11",
+      "paths": [
+        "diagnostics/ps4/fpkg/tests/console_read_test.cpp"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
+      "paths": [
+        "manifests/ps4-firmware.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "DiagnostiX 0.16 beta1 release: try3 launcher USB access through borrowed root, any-PS4 tiers and loader southbridge gate, ordered systemd power stop, session EXP-20261110-015, MediaTek redistribution decision 2026-11-11",
       "paths": [
         "docs/DIAGNOSTIX-RELEASE.md"
       ],

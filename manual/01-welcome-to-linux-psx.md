@@ -32,7 +32,7 @@ Linux psX is in **beta**. Everything we list as working has passed a test on a r
 
 **The kernel** is the core of the project. It doesn't depend on any particular distribution, desktop, package manager or init system.
 
-**DiagnostiX** is a small Linux system built on that kernel. It exists to test hardware, and its results feed the compatibility list.
+**DiagnostiX** is a PS4 app that starts a small Linux system built on that kernel. It exists to test hardware, and its results feed the compatibility list.
 
 **Mesa** is the graphics driver that runs in userspace. PS4 patches for it live here too, but the kernel doesn't need them.
 
@@ -44,7 +44,7 @@ A Linux psX kernel is one part of a working system. You supply the rest:
 
 - a loader that suits your console and its firmware;
 - an initramfs and a root filesystem;
-- device firmware, which this project never hosts or redistributes.
+- device firmware, which kernel downloads don't include.
 
 [Booting a Kernel](04-booting-a-kernel.md) goes through each of those. Preparing a console to run homebrew is outside this project.
 

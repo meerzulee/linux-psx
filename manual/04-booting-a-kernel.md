@@ -45,7 +45,7 @@ On a Baikal console that means:
 - **Display:** the Liverpool AMDGPU firmware and a 1920×1080 EDID.
 - **Wi-Fi and Bluetooth:** files for the console's radio. The project's console has an MT7668, and another Baikal Slim has a Marvell SDIO radio.
 
-This project doesn't host or redistribute firmware. A public download location doesn't by itself give permission to redistribute a file. The [booting notes](../docs/BOOTING.md#early-firmware-and-the-initramfs) list the exact MT7668 files and their license status.
+Kernel downloads don't include firmware. A public download location doesn't by itself give permission to redistribute a file. The [booting notes](../docs/BOOTING.md#early-firmware-and-the-initramfs) list the exact MT7668 files and their license status.
 
 ## The first boot
 

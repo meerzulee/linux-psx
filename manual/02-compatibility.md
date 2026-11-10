@@ -50,7 +50,7 @@ lspci -nn | grep 104d
 
 The kernel has no separate entry for Belize 2, and we have no recorded output from one. If you have one, please [send us yours](09-help-port-your-console.md).
 
-**If Linux doesn't run on the console yet,** the only check today is the marking on the chip itself, inside the console. The DiagnostiX app will show the southbridge on its home screen once it's [public](06-diagnostix.md). Until then, choose **Not sure** on the [report form](https://github.com/meerzulee/linux-psx/issues/new?template=report.yml).
+**If Linux doesn't run on the console yet,** open the [DiagnostiX app](06-diagnostix.md). Its home screen shows the southbridge, the firmware version and whether the console is a Pro, and **Save console info** writes them to a USB stick. The app needs GoldHEN to read the southbridge. Without the app, the only check is the marking on the chip itself, inside the console, and you can choose **Not sure** on the [report form](https://github.com/meerzulee/linux-psx/issues/new?template=report.yml).
 
 ## The hardware
 

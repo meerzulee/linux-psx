@@ -21,19 +21,28 @@ bool read_southbridge(const BoardCalls& calls, uint32_t* value) {
   // The kernel refuses this value to an installed app. A small payload could read
   // it, but GoldHEN's payload port closes after one payload and the loader needs
   // that one (EXP-20261108-007), so borrow root for this single read instead.
-  const long version = calls.goldhen(kGoldhenVersion, nullptr);
-  calls.note("goldhen", version, 0, 0);
-  if (version < kGoldhenFirstSdk) return false;
   JailbreakBackup backup{};
-  const long granted = calls.goldhen(kGoldhenJailbreak, &backup);
-  calls.note("root", granted, 0, 0);
+  if (!borrow_root(calls.goldhen, calls.note, &backup)) return false;
+  const bool found = read_once(calls, "with-root", value);
+  return_root(calls.goldhen, calls.note, &backup);
+  return found;
+}
+
+bool borrow_root(GoldhenCall goldhen, NoteCall note, JailbreakBackup* backup) {
+  const long version = goldhen(kGoldhenVersion, nullptr);
+  note("goldhen", version, 0, 0);
+  if (version < kGoldhenFirstSdk) return false;
+  *backup = JailbreakBackup{};
+  const long granted = goldhen(kGoldhenJailbreak, backup);
+  note("root", granted, 0, 0);
   // GoldHEN's return codes cannot tell success from failure, so a filled backup is
   // the proof. An empty one cannot be restored: it would clear the credentials.
-  if (!backup.cr_prison) return false;
-  const bool found = read_once(calls, "with-root", value);
+  return backup->cr_prison != nullptr;
+}
+
+void return_root(GoldhenCall goldhen, NoteCall note, JailbreakBackup* backup) {
   // Paths resolve differently as root, so this comes before any other work.
-  const long restored = calls.goldhen(kGoldhenUnjailbreak, &backup);
-  calls.note("root-returned", restored, 0, 0);
-  return found;
+  const long restored = goldhen(kGoldhenUnjailbreak, backup);
+  note("root-returned", restored, 0, 0);
 }
 }  // namespace diagnostix

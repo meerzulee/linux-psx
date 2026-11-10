@@ -41,7 +41,7 @@ static void alert(const char *s){assert(s);}
 static void log_msg(const char *s){assert(s);}
 static void kernel_main(void){assert(0);}
 static void kexec(void (*fn)(void),void *arg){assert(fn==kernel_main&&!arg&&reads==4);g_kexec_error=bootstrap_error;}
-static int pack_kexec_args(int v,u16 f,int b){assert(v==1024&&f==1202&&b==0x30201);return 1;}
+static int pack_kexec_args(int v,u16 f,int b){assert(v==1024&&f==1202&&b==sb);return 1;}
 static int kexec_load(char *a,unsigned long long b,char *c,unsigned long long d,char *e,int v)
 {assert(a&&b&&c&&d&&e&&v==1&&reads==4&&!rebooted);loads++;return load_error;}
 static void __attribute__((unused)) reboot_thread(void *p){assert(!p&&loads==1&&!load_error&&!bootstrap_error);rebooted++;}
@@ -51,19 +51,27 @@ static int munmap(void *p,size_t n){for(int i=0;i<4;i++)if(buffers[i]==p){assert
 #undef main
 int main(void)
 {
- for(int kind=0;kind<10;kind++){
+ for(int kind=0;kind<11;kind++){
   fw=1202;sb=0x30201;reads=unmaps=fail_read=load_error=bootstrap_error=rebooted=loads=bad_line=bad_vram=0;
   if(kind<4)fail_read=kind+1;
   if(kind==4)load_error=1;
   if(kind==5)bootstrap_error=1;
   if(kind==6)bad_line=1;
   if(kind==7)fw=1200;
-  if(kind==8)sb=0x30200;
+  if(kind==8)sb=-1;
+  if(kind==10)sb=0x70100;
   if(kind==9)bad_vram=1;
   assert(diag_entry()!=0&&!rebooted);for(int i=0;i<4;i++)assert(!buffers[i]);
  }
  fw=1202;sb=0x30201;reads=unmaps=fail_read=load_error=bootstrap_error=rebooted=loads=bad_line=bad_vram=0;
  assert(diag_entry()==0&&unmaps==4);
+ /* Every southbridge family may try: Baikal B1 is only the one that has been tested. */
+ for(int kind=0;kind<3;kind++){
+  static const int others[]={0x20200,0x10200,0x40100};
+  sb=others[kind];reads=unmaps=rebooted=loads=0;
+  assert(diag_entry()==0&&unmaps==4&&loads==1);
+ }
+ sb=0x30201;
 #ifdef DIAGNOSTIX_STAGE_ONLY
  assert(rebooted==0);puts("actual stage-only entry: real paths, exact cleanup and no reboot on success or failure PASS");
 #else

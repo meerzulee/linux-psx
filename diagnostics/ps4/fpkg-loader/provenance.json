@@ -10,7 +10,7 @@
   "linux_boot_thunk_changed": true,
   "ddr3_probe_included": false,
   "hardware_acceptance": false,
-  "revision": "fw1202-baikal-b1-phase-aware-bounce-0.16",
+  "revision": "fw1202-any-southbridge-phase-aware-bounce-0.16",
   "change_from_loader_build02": "Adds one bounded allocator rejection record; allocation flags, bounds, attempts, mapping checks, cleanup and handoff remain unchanged.",
   "change_from_loader_build03": "Restore reference M_ZERO|M_WAITOK flags 0x102 for one call, with begin/end logging; no outer retry. All physical/header/size/cleanup/arm guards and kernel below-4GiB cap remain unchanged.",
   "evidence": {
@@ -202,6 +202,10 @@
     {
       "name": "uvd-firmware.patch",
       "sha256": "6a264930b1678e22c71bc5d9546af5a1f53d929934b7069178cc2a3e434b3b29"
+    },
+    {
+      "name": "any-southbridge.patch",
+      "sha256": "44d67f28b35988c3adcf5dee38732f2c6b8f4c6d605169e95a6174b492070c0c"
     }
   ],
   "uvd_firmware": {

@@ -80,9 +80,15 @@ int main(int argc, char** argv) {
 
   HomeView other = baikal();
   other.console.southbridge = 0x10200;
+  draw_home(surface, faces, other);
+  save("6-home-help-port");
+
   other.console.firmware = 0x11000001;
   draw_home(surface, faces, other);
-  save("6-home-not-supported");
+  save("6-home-help-port-other-firmware");
+
+  draw_try_linux(surface, faces, 0);
+  save("6-try-linux");
 
   ProgressUpdate update{};
   update.operation = "Setting up DiagnostiX";

@@ -248,6 +248,12 @@ install_fast_stop() {
     write_stop_setting system/user@.service.d/90-psx-fast-stop.conf Service TimeoutStopSec=5s
     write_stop_setting system/poweroff.target.d/90-psx-fast-stop.conf Unit JobTimeoutSec=20s
     write_stop_setting system/reboot.target.d/90-psx-fast-stop.conf Unit JobTimeoutSec=20s
+    # By default systemd stops the app first and resets its screen, so the console
+    # looks as if it died. Left out of the stop, the closing screen stays up until
+    # the power goes. The other two lines keep the usual start order.
+    write_stop_setting system/psx-diagnostics-console.service.d/90-psx-keep-screen.conf Unit 'DefaultDependencies=no
+Requires=sysinit.target
+After=sysinit.target basic.target'
 }
 install_loader_firmware() {
     # The package carries no console firmware. The loader adds this file to early

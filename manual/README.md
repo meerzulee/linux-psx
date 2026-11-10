@@ -21,6 +21,6 @@ The manual begins with a console that can already load a Linux payload. Preparin
 | 11 | [Contributing](11-contributing.md) | Hardware reports, patches and the rules for hardware testing. |
 | 12 | [Legal Notice](12-legal-notice.md) | Project independence, licenses, credits and firmware. |
 
-Reviewed on **2026-11-10** against the repository, the published releases and the recorded hardware experiments. Every result applies to the exact build it names.
+Reviewed on **2026-11-11** against the repository, the published releases and the recorded hardware experiments. Every result applies to the exact build it names.
 
 Read the chapters in order, or use the table to jump to a topic.

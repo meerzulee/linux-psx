@@ -6,11 +6,12 @@ DiagnostiX gives every check one of a few results. They're deliberately narrow: 
 
 | Result | What happened | What it tells you |
 | --- | --- | --- |
-| **Passed** | The check ran and met its pass condition. | It worked, once, on this boot. |
-| **Failed** | The check ran and didn't meet its pass condition. | Worth reporting. |
-| **Inconclusive** | The check ran but couldn't establish an answer. | Neither a pass nor a fail. Write down what you saw. |
-| **Blocked** | Something it depends on hasn't passed, or setup is missing. | Look at the lower check first. |
-| **Not run** | The check hasn't been run on this boot. | Nothing about the hardware. |
+| **PASS** | The check ran and met its pass condition. | It worked, once, on this boot. |
+| **FAIL** | The check ran and didn't meet its pass condition. | Worth reporting. |
+| **FOUND** | The hardware was detected, and this check only looks for it. | The device is there. Detection alone is never a pass. |
+| **NOT FOUND** | The check looked and the device wasn't there. | Missing hardware, a missing driver, or nothing plugged in. |
+| **SKIPPED** | The check couldn't run, for example because a test file or cable is missing. | Nothing about the hardware. |
+| **BLOCKED** | A check it depends on didn't pass. | Look at the lower check first. |
 
 Earlier boots stay separate from the current one, so an old pass can't hide a new failure.
 
@@ -50,9 +51,9 @@ Never upload these at all:
 - raw, unreviewed UART or packet captures;
 - a used USB drive image.
 
-## Coming next: one file to share
+## One file to share
 
-The app version in development builds a single `diagnostix-report.zip`. It holds a summary, the console details, the benchmark score, a progress log, a size-limited kernel log and the detailed test report. Serial numbers, MAC addresses, IP addresses, network names and console IDs are removed. It still won't post anything for you. You read it, then attach it to an issue yourself.
+The DiagnostiX app builds a single `diagnostix-report.zip`. It holds a summary, the console details, the benchmark score, a progress log, a size-limited kernel log and the detailed test report. Serial numbers, MAC addresses, IP addresses, network names and console IDs are removed. It still won't post anything for you. You read it, then attach it to an issue yourself.
 
 <!-- manual-navigation -->
 

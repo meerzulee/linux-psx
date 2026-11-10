@@ -20,8 +20,10 @@
 #include "bundle_pins.hpp"
 #include "console_read.hpp"
 #include "controller.hpp"
+#include "native_stat.hpp"
 #include "ui.hpp"
 extern "C" int sysctlbyname(const char*, void*, size_t*, const void*, size_t);
+extern "C" int sysctl(const int*, unsigned, void*, size_t*, const void*, size_t);
 namespace {
 namespace ui = diagnostix::ui;
 using diagnostix::Result;
@@ -136,10 +138,10 @@ void progress(const diagnostix::ProgressUpdate& update,void*) {
   ui::draw_progress(screen.canvas(),fonts.faces,update);
   screen.present(++frame_id);
 }
-void launch_boot(diagnostix::Bundle& bundle,diagnostix::Result& result,bool& ready,bool& attempted,std::string& status,bool manual) {
+void launch_boot(diagnostix::Bundle& bundle,diagnostix::Result& result,bool& ready,bool& attempted,std::string& status,bool manual,const std::string& extra) {
   if(!ready || attempted)return;
   attempted=true;ready=false;
-  result=bundle.boot(manual);status=bundle.status(result);
+  result=bundle.boot(manual,extra);status=bundle.status(result);
 }
 void launch_install(diagnostix::Bundle& bundle,diagnostix::Result& result,bool& ready,bool attempted,std::string& status) {
   if(attempted){result=diagnostix::Result::AlreadyAttempted;ready=false;status=bundle.status(result);return;}
@@ -183,25 +185,114 @@ ui::Console read_console() {
   for(const char* name:{"hw.sce_subsys_subid","kern.sdk_version","machdep.upd_version","kern.upd_version"})probe_sysctl(name);
   return console;
 }
-const char* usb_root() {
-  for(const char* path:{"/mnt/usb0","/mnt/usb1"}) {
-    const int directory=open(path,O_RDONLY|O_DIRECTORY);
-    if(directory>=0){close(directory);return path;}
+void note_quiet(const char*,long,int,uint32_t){}
+// The PS4 hides USB sticks from an installed app: no launcher log ever found one while
+// GoldHEN's FTP saw the same stick mounted. Each use of the stick borrows root, as the
+// southbridge read does, and gives it back before anything else runs. Nested uses share one.
+int stick_depth=0; bool stick_root=false, stick_told=false; diagnostix::JailbreakBackup stick_backup{};
+class StickAccess {
+ public:
+  StickAccess() {
+    if(stick_depth++)return;
+    stick_root=diagnostix::borrow_root(goldhen_sdk,note_quiet,&stick_backup);
+    if(!stick_told){stick_told=true;trace("stick access: root %s",stick_root?"borrowed":"refused, using the app's own view");}
   }
+  ~StickAccess() {
+    if(--stick_depth||!stick_root)return;
+    diagnostix::return_root(goldhen_sdk,note_quiet,&stick_backup); stick_root=false;
+  }
+  StickAccess(const StickAccess&)=delete; StickAccess& operator=(const StickAccess&)=delete;
+};
+// The empty mount folder exists without a stick, so a stick counts only when the
+// folder is on another device than /mnt.
+bool mounted(const char* path) {
+  const int folder=open(path,O_RDONLY|O_DIRECTORY); if(folder<0)return false;
+  const int parent=open("/mnt",O_RDONLY|O_DIRECTORY); if(parent<0){close(folder);return false;}
+  struct stat inside{}, outside{};
+  const bool found=diagnostix::native_fstat(folder,&inside)==0&&diagnostix::native_fstat(parent,&outside)==0&&inside.st_dev!=outside.st_dev;
+  close(folder); close(parent);
+  return found;
+}
+// Call with a StickAccess held.
+const char* usb_root() {
+  for(const char* path:{"/mnt/usb0","/mnt/usb1"}) if(mounted(path))return path;
   return nullptr;
 }
-bool save_console_info(const ui::Console& console) {
-  const char* root=usb_root(); if(!root)return false;
+// Empty when there is no stick or the folder can't be made.
+std::string stick_folder() {
+  const char* root=usb_root(); if(!root)return {};
   std::string path=std::string(root)+"/DiagnostiX";
-  if(mkdir(path.c_str(),0777)!=0&&errno!=EEXIST)return false;
-  path+="/console-info.txt";
-  FILE* file=fopen(path.c_str(),"w"); if(!file)return false;
-  const bool written=fprintf(file,"console: %s\nsouthbridge: %s (0x%06x)\nfirmware: %s\n",console.pro?"PS4 Pro":"PS4",console.southbridge_known?ui::southbridge_name(console.southbridge):"Unknown",console.southbridge&0xFFFFFF,console.firmware_known?ui::firmware_name(console.firmware).c_str():"Unknown")>0;
-  return fclose(file)==0&&written;
+  if(mkdir(path.c_str(),0777)!=0&&errno!=EEXIST)return {};
+  return path;
+}
+// Flushed, because the file has to survive Linux taking over the console right after.
+bool write_stick_file(const std::string& path,const std::string& text) {
+  const int file=open(path.c_str(),O_WRONLY|O_CREAT|O_TRUNC,0666); if(file<0)return false;
+  bool ok=write(file,text.data(),text.size())==static_cast<ssize_t>(text.size())&&fsync(file)==0;
+  if(close(file)!=0)ok=false;
+  return ok;
+}
+std::string sysctl_text(const char* name) {
+  char value[128]={}; size_t length=sizeof(value)-1;
+  return sysctlbyname(name,value,&length,nullptr,0)==0?std::string(value):std::string();
+}
+uint64_t sysctl_number(const char* name) {
+  uint64_t value=0; size_t length=sizeof(value);
+  return sysctlbyname(name,&value,&length,nullptr,0)==0?value:0;
+}
+// Only values that describe the model of hardware. Nothing that identifies one console.
+bool save_console_info(const ui::Console& console) {
+  StickAccess access;
+  const std::string folder=stick_folder(); if(folder.empty())return false;
+  char summary[256];
+  snprintf(summary,sizeof(summary),"console: %s\nsouthbridge: %s (0x%06x)\nfirmware: %s (0x%08x)\n",console.pro?"PS4 Pro":"PS4",console.southbridge_known?ui::southbridge_name(console.southbridge):"Unknown",console.southbridge&0xFFFFFF,console.firmware_known?ui::firmware_name(console.firmware).c_str():"Unknown",console.firmware);
+  std::string text=summary;
+  const std::string cpu=sysctl_text("hw.model"); if(!cpu.empty())text+="cpu: "+cpu+"\n";
+  if(const uint64_t cores=sysctl_number("hw.ncpu"))text+="cpu-cores: "+std::to_string(cores)+"\n";
+  if(const uint64_t memory=sysctl_number("hw.physmem"))text+="memory-bytes: "+std::to_string(memory)+"\n";
+  return write_stick_file(folder+"/console-info.txt",text);
+}
+// Linux replaces this once it reaches the stick. Until then it is the only sign that a
+// start was tried, so a hang before that still shows on the next launch.
+void mark_started() {
+  StickAccess access;
+  const std::string folder=stick_folder(); if(folder.empty()){trace("start marker: no stick");return;}
+  trace("start marker: %s",write_stick_file(folder+"/last-run.txt","state=running\nstage=\nfolder=\n")?"saved":"failed");
+}
+void clear_started() {
+  StickAccess access;
+  const std::string folder=stick_folder(); if(!folder.empty())unlink((folder+"/last-run.txt").c_str());
+}
+// Names only, so no value is read: this shows what the PS4 system exposes.
+void list_sysctl_names() {
+  constexpr unsigned longest=22; int current[longest]={1}; size_t depth=1;
+  for(int count=0;count<6000;++count) {
+    int ask[longest+2]={0,2}; memcpy(ask+2,current,depth*sizeof(int));
+    int next[longest]; size_t bytes=sizeof(next);
+    if(sysctl(ask,depth+2,next,&bytes,nullptr,0)!=0){trace("sysctl list: ended after %d names, errno=%d",count,errno);return;}
+    depth=bytes/sizeof(int); memcpy(current,next,bytes);
+    ask[1]=1; memcpy(ask+2,current,depth*sizeof(int));
+    char name[160]={}; size_t length=sizeof(name)-1;
+    if(sysctl(ask,depth+2,name,&length,nullptr,0)==0)trace("sysctl name: %s",name);
+  }
+  trace("sysctl list: stopped at the limit");
+}
+// A test aid: the one console we have can stand in for one we don't. A word in this file
+// can only mark a value as unread, which makes the app more careful and never less.
+void apply_test_file(ui::Console& console) {
+  StickAccess access;
+  const char* root=usb_root(); if(!root)return;
+  FILE* file=fopen((std::string(root)+"/DiagnostiX/simulate-console.txt").c_str(),"r"); if(!file)return;
+  char buffer[256]={}; const size_t count=fread(buffer,1,sizeof(buffer)-1,file); fclose(file); buffer[count]=0;
+  trace("test file: %s",buffer);
+  if(strstr(buffer,"southbridge"))console.southbridge_known=false;
+  if(strstr(buffer,"firmware"))console.firmware_known=false;
+  if(strstr(buffer,"sysctl-list"))list_sysctl_names();
 }
 // Written by Linux as tests run, so a run that never finished is visible here.
 void refresh_last_run(ui::HomeView& home) {
   home.last=ui::LastRun::None; home.last_stage.clear();
+  StickAccess access;
   const char* root=usb_root(); if(!root)return;
   const std::string path=std::string(root)+"/DiagnostiX/last-run.txt";
   FILE* file=fopen(path.c_str(),"r"); if(!file)return;
@@ -216,7 +307,7 @@ ui::Files files_state(Result result) {
     default: return ui::Files::Problem;
   }
 }
-enum class Page { Home, About, CleanupReview, CleanupConfirm, NoUsb, Starting };
+enum class Page { Home, About, CleanupReview, CleanupConfirm, NoUsb, TryLinux, Starting };
 } // namespace
 int main() {
   setvbuf(stdout,nullptr,_IONBF,0); setvbuf(stderr,nullptr,_IONBF,0);
@@ -233,9 +324,9 @@ int main() {
   const size_t pin_count=sizeof(kBundlePins)/sizeof(kBundlePins[0]);
   diagnostix::Bundle bundle(kBundlePins,pin_count,progress,nullptr);
   // Startup hashes a matching installed candidate once; this launch reuses its snapshot.
-  auto result=bundle.inspect(); bool ready=result==Result::Ready, handoff_attempted=false, manual=false;
+  auto result=bundle.inspect(); bool ready=result==Result::Ready, handoff_attempted=false, manual=false, untested=false;
   std::string status=bundle.status(result); diagnostix::CleanupPreview cleanup; size_t review_page=0;
-  ui::HomeView home; home.console=read_console(); home.files=files_state(result);
+  ui::HomeView home; home.console=read_console(); apply_test_file(home.console); home.files=files_state(result);
   trace("home screen ready: files=%d ready=%d",(int)home.files,ready);
   for(size_t index=0;index<pin_count;++index)home.install_bytes+=kBundlePins[index].bytes;
   if(home.files==ui::Files::Problem)home.problem=status;
@@ -250,14 +341,17 @@ int main() {
       if(!ready){home.problem=status;page=Page::Home;choice=0;return;}
     }
     ui::draw_starting(screen.canvas(),faces,manual); screen.present(++frame_id);
-    trace("handing over to the loader");
-    launch_boot(bundle,result,ready,handoff_attempted,status,manual);
+    mark_started();
+    const std::string extra=untested?ui::console_argument(home.console):std::string();
+    trace("handing over to the loader: %s",extra.empty()?"tested console":extra.c_str());
+    launch_boot(bundle,result,ready,handoff_attempted,status,manual,extra);
     trace("handover returned: %s",status.c_str());
     if(result==Result::Sent){page=Page::Starting;}
-    else{home.problem=status;home.files=files_state(result);page=Page::Home;choice=0;}
+    else{clear_started();home.problem=status;home.files=files_state(result);page=Page::Home;choice=0;}
   };
   for(;;) {
-    if(frames++%60==0){
+    if(frames++%120==0){
+      StickAccess access;
       const bool usb=usb_root()!=nullptr;
       if(usb!=home.usb){home.usb=usb;refresh_last_run(home);trace("usb stick: %s",usb?"found":"gone");}
     }
@@ -269,6 +363,7 @@ int main() {
       case Page::CleanupReview: ui::draw_cleanup_review(canvas,faces,cleanup,review_page,choice); break;
       case Page::CleanupConfirm: ui::draw_cleanup_confirm(canvas,faces,cleanup,choice); break;
       case Page::NoUsb: ui::draw_no_usb(canvas,faces,choice); break;
+      case Page::TryLinux: ui::draw_try_linux(canvas,faces,choice); break;
       case Page::Starting: ui::draw_starting(canvas,faces,manual); break;
     }
     screen.present(++frame_id);
@@ -290,6 +385,7 @@ int main() {
             trace("chosen: %s test, usb=%d",manual?"manual":"automatic",home.usb);
             if(home.usb)start(); else{page=Page::NoUsb;choice=0;}
             break;
+          case ui::Action::TryLinux: page=Page::TryLinux;choice=0; break;
           case ui::Action::SaveInfo:
             if(save_console_info(home.console))home.notice="Saved to your USB stick as DiagnostiX/console-info.txt.";
             else home.problem="Could not write to the USB stick.";
@@ -302,6 +398,12 @@ int main() {
           }
           case ui::Action::About: page=Page::About;choice=0; break;
         }
+      } else if(page==Page::TryLinux) {
+        if(choice==1) {
+          manual=false;untested=true;choice=0;
+          trace("chosen: try Linux anyway, usb=%d",home.usb);
+          if(home.usb)start(); else page=Page::NoUsb;
+        } else {page=Page::Home;choice=0;}
       } else if(page==Page::NoUsb) {
         if(choice==1)start(); else{page=Page::Home;choice=0;}
       } else if(page==Page::CleanupReview) {

@@ -32,7 +32,8 @@ class Bundle {
   Result install();                 // Explicit menu action; no extra confirmation.
   // Reuse this launch's unchanged verified snapshot; no retry. Manual adds
   // dx.mode=manual to the arguments; Automatic sends the loader unchanged.
-  Result boot(bool manual = false);
+  // Extra is one more boot argument, added only when it isn't empty.
+  Result boot(bool manual = false, const std::string& extra = std::string());
   std::string status(Result result) const;
   CleanupResult preview_cleanup(CleanupPreview* preview); // Read-only; saves a bounded exact plan.
   CleanupResult clear_old_files(uint64_t* reclaimed);      // UI confirmation of that preview only.
@@ -64,8 +65,8 @@ class Bundle {
   static void file_progress(const char*, uint64_t done, uint64_t total, void* context);
   Result inspect_state(bool allow_verification);
   Result install_state();
-  Result boot_state(bool manual);
-  bool prepare_manual(uint8_t* loader, size_t length);
+  Result boot_state(bool manual, const std::string& extra);
+  bool prepare_arguments(uint8_t* loader, size_t length, bool manual, const std::string& extra);
   std::string current_identity();
   std::string generation_identity(const std::string& directory);
   bool preflight(const std::string& directory, bool readonly_source = false);

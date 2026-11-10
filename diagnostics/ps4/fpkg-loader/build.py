@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: BSD-2-Clause
 # Copyright (c) 2026 Meerzulee and Linux psX contributors.
-"""Build the dedicated FW12.02/Baikal B1 Diagnostix loader; never deploy it."""
+"""Build the dedicated FW12.02 Diagnostix loader; never deploy it."""
 import argparse
 import hashlib
 import importlib.util
@@ -68,7 +68,7 @@ def build(args):
     slim_patch=HERE/'slim-loader.patch'
     subprocess.run(['git','apply','--check','--whitespace=error',str(slim_patch)],cwd=source,check=True)
     subprocess.run(['git','apply','--whitespace=error',str(slim_patch)],cwd=source,check=True)
-    for version_patch in (HERE/'version-0.15.patch',HERE/'version-0.16.patch',HERE/'uvd-firmware.patch'):
+    for version_patch in (HERE/'version-0.15.patch',HERE/'version-0.16.patch',HERE/'uvd-firmware.patch',HERE/'any-southbridge.patch'):
         subprocess.run(['git','apply','--check','--whitespace=error',str(version_patch)],cwd=source,check=True)
         subprocess.run(['git','apply','--whitespace=error',str(version_patch)],cwd=source,check=True)
     for name in OVERLAYS:
@@ -85,7 +85,7 @@ def build(args):
       'input_sha256':inputs,'toolchain':tools,'changed_sources':{n:{'before':original.get(n),'after':adapted[n]} for n in sorted(set(CHANGED)|set(SCATTER_CHANGED)|added)},
       'mode':'stage-only' if args.stage_only else 'boot',
       'profile':{'boot_directory':'/data/diagnostix/versions/0.16/boot/','required_vram_file':'1024 or 1024 newline; no override', 'firmware_raw':1202,'firmware_normalized':1200,
-                 'southbridge_subid':0x30201,'vram_mib':1024,'kernel_max_bytes':64*1024**2,
+                 'southbridge':'any family it can identify; tested on Baikal B1 (0x30201)','vram_mib':1024,'kernel_max_bytes':64*1024**2,
                  'initramfs_max_bytes':512*1024**2,'cmdline_max_bytes':511,'fallback':False,
                  'allocation':'one native wired kmem_alloc per buffer, independent 16KiB physical pages; validated linked physical relocation descriptors',
                  'allocator_flags':None,'allocator_request_size':'unrounded byte size','allocator_entry_offset':'0x4659e0',

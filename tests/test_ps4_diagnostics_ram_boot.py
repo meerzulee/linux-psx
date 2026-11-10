@@ -145,6 +145,9 @@ class RAMBoot(unittest.TestCase):
             with self.subTest(directory=directory):
                 self.assertEqual(path.read_text(), content)
                 self.assertEqual(path.stat().st_mode & 0o777, 0o644)
+        screen = root / 'etc/systemd/system/psx-diagnostics-console.service.d/90-psx-keep-screen.conf'
+        self.assertEqual(screen.read_text(),
+                         '[Unit]\nDefaultDependencies=no\nRequires=sysinit.target\nAfter=sysinit.target basic.target\n')
 
     def test_shell_and_service_keep_backing_state_and_zero_usb_dependency(self):
         script = REPO / 'rootfs/ps4-diagnostics/init-ram'

@@ -3,6 +3,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "ui.hpp"
 #include <stdio.h>
+#include <algorithm>
 #include <initializer_list>
 #ifdef DIAGNOSTIX_HOST_TEST
 #include <ft2build.h>
@@ -214,9 +215,10 @@ struct Hint { const char* title; Color color; std::string first, second; };
 Hint home_hint(const HomeView& view) {
   if (!view.problem.empty()) return {"SOMETHING WENT WRONG", bad, view.problem, ""};
   if (!view.notice.empty()) return {"DONE", good, view.notice, ""};
-  if (!supported(view.console)) {
-    return {"NOT SUPPORTED YET", caution, "This version runs on firmware 12.02 with a Baikal B1 southbridge.",
-            "Saving your console info helps add support for it later."};
+  const Fit fit = console_fit(view.console);
+  if (fit == Fit::InfoOnly) {
+    return {"HELP PORT THIS CONSOLE", accent, "This version can only start Linux on firmware 12.02.",
+            "Save your console info and send it with the report form. It helps add support for this console."};
   }
   if (view.last == LastRun::Stopped) {
     if (view.last_stage.empty()) {
@@ -224,6 +226,10 @@ Hint home_hint(const HomeView& view) {
               "Starting again runs the same tests."};
     }
     return {"LAST RUN STOPPED", caution, "The last run reached " + view.last_stage + " and then stopped.", "Its report is on your USB stick."};
+  }
+  if (fit == Fit::Untested) {
+    return {"HELP PORT THIS CONSOLE", accent, "Linux has only been tested on a PS4 Slim with Baikal B1. It may not start on this console.",
+            "Save your console info, try Linux, and send us what happens. A failed start helps too."};
   }
   if (view.files == Files::Missing) {
     return {"FIRST RUN", accent, "Automatic test installs DiagnostiX once, about " + storage_size(view.install_bytes) + ", then starts.",
@@ -302,10 +308,25 @@ std::string firmware_name(uint32_t version) {
   return value;
 }
 
-bool supported(const Console& console) {
-  const bool firmware_fits = !console.firmware_known || ((console.firmware >> 16) & 0xffff) == 0x1202;
-  const bool board_fits = !console.southbridge_known || (console.southbridge & 0xFFFFFF) == 0x30201;
-  return firmware_fits && board_fits;
+namespace {
+bool loader_firmware(const Console& console) {
+  return console.firmware_known && ((console.firmware >> 16) & 0xffff) == 0x1202;
+}
+bool tested_southbridge(const Console& console) {
+  return console.southbridge_known && (console.southbridge & 0xFFFFFF) == 0x30201;
+}
+}  // namespace
+
+Fit console_fit(const Console& console) {
+  if (!loader_firmware(console)) return Fit::InfoOnly;
+  return tested_southbridge(console) && !console.pro ? Fit::Tested : Fit::Untested;
+}
+
+std::string console_argument(const Console& console) {
+  std::string name = console.pro ? "PS4-Pro-" : "";
+  name += console.southbridge_known ? southbridge_name(console.southbridge) : "Unknown";
+  std::replace(name.begin(), name.end(), ' ', '-');
+  return "dx.console=" + name;
 }
 
 std::string storage_size(uint64_t bytes) {
@@ -344,12 +365,16 @@ void read_last_run(const std::string& text, HomeView* view) {
 
 std::vector<Row> home_rows(const HomeView& view) {
   std::vector<Row> rows;
-  if (supported(view.console)) {
-    const bool install = view.files != Files::Ready;
+  const Fit fit = console_fit(view.console);
+  const bool install = view.files != Files::Ready;
+  if (fit == Fit::Tested) {
     rows.push_back({Action::Automatic, "Automatic test", install ? "Sets up the files, then runs every test by itself" : "Starts Linux and runs every test by itself", true});
     rows.push_back({Action::Manual, "Manual test", install ? "Sets up the files, then lets you choose the tests" : "Starts Linux and lets you choose the tests", true});
   } else {
-    rows.push_back({Action::SaveInfo, "Save console info", view.usb ? "Writes the model, southbridge and firmware to your USB stick" : "Plug in a USB stick first", view.usb});
+    rows.push_back({Action::SaveInfo, "Save console info", view.usb ? "Writes what DiagnostiX can read about this console to your USB stick" : "Plug in a USB stick first", view.usb});
+    if (fit == Fit::Untested) {
+      rows.push_back({Action::TryLinux, "Try Linux anyway", install ? "Sets up the files, then tries to start Linux" : "Tries to start Linux and runs every test it can", true});
+    }
   }
   rows.push_back({Action::Clear, "Clear old files", "Review and remove old installers and boot images", true});
   rows.push_back({Action::About, "About", "Credits, source and compatibility", true});
@@ -361,8 +386,8 @@ void draw_home(Surface& surface, const Faces& faces, const HomeView& view) {
   rounded_card(surface, kLeft, 232, kColumn, 104, panel, border, 14);
   const Console& console = view.console;
   fact(surface, faces, kLeft + 36, "CONSOLE", console.pro ? "PS4 Pro" : "PS4", foreground);
-  fact(surface, faces, kLeft + 200, "SOUTHBRIDGE", console.southbridge_known ? southbridge_name(console.southbridge) : "Unknown", supported(console) ? foreground : caution);
-  fact(surface, faces, kLeft + 420, "FIRMWARE", console.firmware_known ? firmware_name(console.firmware).c_str() : "Unknown", supported(console) ? foreground : caution);
+  fact(surface, faces, kLeft + 200, "SOUTHBRIDGE", console.southbridge_known ? southbridge_name(console.southbridge) : "Unknown", tested_southbridge(console) ? foreground : caution);
+  fact(surface, faces, kLeft + 420, "FIRMWARE", console.firmware_known ? firmware_name(console.firmware).c_str() : "Unknown", loader_firmware(console) ? foreground : caution);
   const char* files = view.files == Files::Ready ? "Verified" : view.files == Files::Missing ? "Not installed" : view.files == Files::Repair ? "Needs repair" : "Problem";
   fact(surface, faces, kLeft + 610, "FILES", files, view.files == Files::Ready ? good : view.files == Files::Missing ? muted : caution);
   fact(surface, faces, kLeft + 860, "USB STICK", view.usb ? "Found" : "Not found", view.usb ? good : caution);
@@ -391,6 +416,17 @@ void draw_no_usb(Surface& surface, const Faces& faces, int choice) {
   footer(surface, faces, {{&kCross, "Select"}, {&kCircle, "Back"}});
 }
 
+void draw_try_linux(Surface& surface, const Faces& faces, int choice) {
+  header(surface, faces, "Before you try");
+  rounded_card(surface, 460, 300, 1000, 540, panel, border, 18);
+  text(surface, faces.title, 510, 385, "Linux hasn't been tested here", foreground);
+  int baseline = paragraph(surface, faces.body, 510, 450, 900, 40, "It has only run on a PS4 Slim with Baikal B1. On this console the screen may stay black. If nothing happens after 3 minutes, hold the power button to turn the console off.", muted);
+  paragraph(surface, faces.small, 510, baseline + 14, 900, 32, "Linux runs from memory and doesn't write to the internal drive. Open DiagnostiX again afterwards to see how far it got.", muted);
+  const char* const rows[] = {"Go back", "Try Linux anyway"};
+  choice_rows(surface, faces, 510, 650, 900, rows, choice);
+  footer(surface, faces, {{&kCross, "Select"}, {&kCircle, "Back"}});
+}
+
 void draw_starting(Surface& surface, const Faces& faces, bool manual) {
   header(surface, faces, manual ? "Manual test" : "Automatic test");
   rounded_card(surface, kLeft, 300, kColumn, 460, panel, border, 18);
@@ -412,6 +448,7 @@ void draw_about(Surface& surface, const Faces& faces) {
   text(surface, faces.body, 470, 630, "github.com/meerzulee/linux-psx", accent);
   text(surface, faces.small, 470, 715, "Experimental. A passing test covers that check on this boot only.", muted);
   text(surface, faces.small, 470, 765, "Linux runs from memory. Reports leave out serials, MAC addresses and console IDs.", muted);
+  text(surface, faces.small, 470, 815, "Made for any PS4. Tested on a PS4 Slim with Baikal B1.", muted);
   footer(surface, faces, {{&kCircle, "Back"}});
 }
 

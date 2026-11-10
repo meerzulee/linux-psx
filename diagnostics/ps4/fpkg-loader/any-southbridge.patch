@@ -1,0 +1,26 @@
+--- a/linux/main-aio.c
++++ b/linux/main-aio.c
+@@ -392,8 +392,10 @@
+     // southbridge
+     int sb_val = get_sb_id();
+ 
+-    if (fw_ver != 1202 || sb_val != 0x30201) {
+-        alert("Diagnostix loader requires FW12.02 and Baikal B1.");
++    // Any southbridge may try; kexec chooses its hardware path from this family.
++    int sb_family = sb_val > 0 ? (sb_val >> 16) & 0xF : 0;
++    if (fw_ver != 1202 || sb_family < 1 || sb_family > 4) {
++        alert("Diagnostix loader requires FW12.02 and a southbridge it can identify.");
+         return 1;
+     }
+     char *kernel = NULL, *initrd = NULL, *cmdline = NULL, *vram = NULL;
+--- a/linux/ps4-kexec-common/kexec.c
++++ b/linux/ps4-kexec-common/kexec.c
+@@ -151,7 +151,7 @@
+ 
+     kern.printf("sys_kexec invoked\n");
+     kexec_print_banner(fw_ver, vram_mb, sb_id);
+-    if (fw_ver != 1202 || sb_id != SB_BAIKAL || vram_mb != 1024 ||
++    if (fw_ver != 1202 || sb_id < SB_AEOLIA || sb_id > SB_BELIZE2 || vram_mb != 1024 ||
+         !uap->image || !uap->initramfs || !uap->cmd_line ||
+         uap->image_size < sizeof(struct boot_params) ||
+         uap->image_size > 64ULL * 1024 * 1024 ||

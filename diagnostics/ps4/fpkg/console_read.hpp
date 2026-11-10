@@ -26,4 +26,11 @@ struct BoardCalls {
 
 // True only when *value holds the whole four-byte hw.sce_subsys_subid.
 bool read_southbridge(const BoardCalls& calls, uint32_t* value);
+
+// Root from GoldHEN for one short piece of work. True only when the backup was filled;
+// return_root must then follow before anything else runs.
+using GoldhenCall = long (*)(uint64_t command, void* data);
+using NoteCall = void (*)(const char* step, long result, int error, uint32_t value);
+bool borrow_root(GoldhenCall goldhen, NoteCall note, JailbreakBackup* backup);
+void return_root(GoldhenCall goldhen, NoteCall note, JailbreakBackup* backup);
 }  // namespace diagnostix

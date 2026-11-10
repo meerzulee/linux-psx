@@ -529,9 +529,9 @@ Result Bundle::install_state() {
   detail_.clear(); finish("Copied and verified once; ready to boot");
   return Result::Ready;
 }
-Result Bundle::boot(bool manual) {
+Result Bundle::boot(bool manual, const std::string& extra) {
   detail_.clear(); pending_log_.clear(); logging_ = true; record("action", manual ? "Manual boot selected; entry" : "Boot selected; entry");
-  const auto result = boot_state(manual); record("result", status(result)); logging_ = false; return result;
+  const auto result = boot_state(manual, extra); record("result", status(result)); logging_ = false; return result;
 }
 bool redirect_loader_arguments(uint8_t* loader, size_t length, const std::string& from, const std::string& to) {
   if (to.size() > from.size() || !length) return false;
@@ -544,21 +544,22 @@ bool redirect_loader_arguments(uint8_t* loader, size_t length, const std::string
   memcpy(found, to.data(), to.size());
   return true;
 }
-bool Bundle::prepare_manual(uint8_t* loader, size_t length) {
+bool Bundle::prepare_arguments(uint8_t* loader, size_t length, bool with_manual, const std::string& extra) {
   constexpr size_t loader_limit = 511;
   const auto arguments = join(root_ + "/boot", "bootargs.txt");
   const auto manual = join(namespace_base_, "manual-bootargs.txt");
   std::string text;
   if (!small_read(arguments, &text, loader_limit)) return problem("Manual", arguments, "could not read boot arguments", errno);
   while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) text.pop_back();
-  text += " dx.mode=manual";
+  if (with_manual) text += " dx.mode=manual";
+  if (!extra.empty()) text += " " + extra;
   if (text.size() > loader_limit) return problem("Manual", manual, "boot arguments are too long", 0);
   if (exists(manual) && unlink(manual.c_str()) != 0) return problem("Manual", manual, "could not replace the old file", errno);
   if (!small_write(manual, text) || !flush_dir(namespace_base_)) return problem("Manual", manual, "could not save boot arguments", errno);
   if (!redirect_loader_arguments(loader, length, arguments, manual)) return problem("Manual", arguments, "path is not in this loader once", 0);
   return true;
 }
-Result Bundle::boot_state(bool manual) {
+Result Bundle::boot_state(bool manual, const std::string& extra) {
   cleanup_pending_ = false;
   if (attempted_) return Result::AlreadyAttempted;
   start("Boot Diagnostix", 2); phase(1, "Check this launch's verified snapshot");
@@ -570,7 +571,7 @@ Result Bundle::boot_state(bool manual) {
   bool loaded = fd >= 0;
   if (fd >= 0) { while (got < loader.bytes) { ssize_t n = read(fd, bytes + got, loader.bytes - got); if (n < 0 && errno == EINTR) continue; if (n <= 0) break; got += n; } if (close(fd) != 0) loaded = false; }
   if (!loaded || got != loader.bytes || current_identity() != verified_current_) { verified_current_.clear(); free(bytes); return Result::Invalid; }
-  if (manual && !prepare_manual(bytes, loader.bytes)) { free(bytes); return Result::IoError; }
+  if ((manual || !extra.empty()) && !prepare_arguments(bytes, loader.bytes, manual, extra)) { free(bytes); return Result::IoError; }
   // One attempt per app launch, including connection/partial-send failures.
   attempted_ = true;
   phase(2, "Send verified loader once");

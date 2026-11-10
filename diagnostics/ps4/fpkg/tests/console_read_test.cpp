@@ -110,5 +110,15 @@ int main() {
     assert(run(&value) && value == 0x30201 && order.back() == "unroot");
   }
   pass("a filled backup always returns root, whatever the answer was");
+
+  reset({});
+  JailbreakBackup backup{};
+  assert(diagnostix::borrow_root(fake_goldhen, fake_note, &backup) && order == Steps({"version", "root"}));
+  diagnostix::return_root(fake_goldhen, fake_note, &backup);
+  assert(order.back() == "unroot" && restored_prison == &prison);
+  reset({});
+  version_result = 14;
+  assert(!diagnostix::borrow_root(fake_goldhen, fake_note, &backup) && order == Steps({"version"}));
+  pass("other work can borrow root and give the same backup back");
   return 0;
 }

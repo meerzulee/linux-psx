@@ -149,14 +149,14 @@ class TransactionTests(unittest.TestCase):
 namespace diagnostix {
 enum class Result { Ready, Sent, HandoffFailed, Invalid };
 const char* message(Result){return "status";}
-struct Bundle { int calls=0; bool manual=false; Result outcome=Result::Sent; Result boot(bool chosen){++calls;manual=chosen;return outcome;} std::string status(Result){return "status";} };
+struct Bundle { int calls=0; bool manual=false; std::string extra; Result outcome=Result::Sent; Result boot(bool chosen,const std::string& added){++calls;manual=chosen;extra=added;return outcome;} std::string status(Result){return "status";} };
 }
 ''' + method + r'''
 int main(){for(auto outcome:{diagnostix::Result::Sent,diagnostix::Result::HandoffFailed,diagnostix::Result::Invalid}){
 diagnostix::Bundle bundle;bundle.outcome=outcome;auto result=diagnostix::Result::Ready;bool ready=false,attempted=false;std::string status;
-launch_boot(bundle,result,ready,attempted,status,false);assert(bundle.calls==0&&!attempted);
-ready=true;launch_boot(bundle,result,ready,attempted,status,true);assert(bundle.calls==1&&bundle.manual&&attempted&&!ready&&result==outcome&&status=="status");
-launch_boot(bundle,result,ready,attempted,status,false);assert(bundle.calls==1);
+launch_boot(bundle,result,ready,attempted,status,false,"");assert(bundle.calls==0&&!attempted);
+ready=true;launch_boot(bundle,result,ready,attempted,status,true,"dx.console=Unknown");assert(bundle.calls==1&&bundle.manual&&bundle.extra=="dx.console=Unknown"&&attempted&&!ready&&result==outcome&&status=="status");
+launch_boot(bundle,result,ready,attempted,status,false,"");assert(bundle.calls==1);
 }}
 '''
         with tempfile.TemporaryDirectory(prefix='psx-fpkg-dispatch-tests-', dir='/var/tmp') as temporary:

@@ -105,6 +105,9 @@ int main(int argc,char**argv){assert(argc==2);fs::path home=argv[1];fs::create_d
     Bundle again(source.pins.data(),source.pins.size());again.paths(source.path,root,base);
     assert(again.inspect()==Result::Ready&&"the arguments file must not fail the install check");
     assert(again.boot(true)==Result::Sent&&read(manual)=="console=ttyS0 dx.mode=manual");
+    Bundle named(source.pins.data(),source.pins.size());named.paths(source.path,root,base);
+    assert(named.inspect()==Result::Ready&&named.boot(false,"dx.console=Belize-B0")==Result::Sent);
+    assert(read(manual)=="console=ttyS0 dx.console=Belize-B0"&&named.sent.find(manual)!=std::string::npos);
 
     const auto other_base=home/"manual-absent",other_root=other_base/"versions/0.16";
     Inputs absent(home/"manual-absent-source",'n',"0.16");
