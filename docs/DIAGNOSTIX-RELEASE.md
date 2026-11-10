@@ -14,7 +14,7 @@ The installable app (0.16) is separate from the kit described below. Local candi
 | No Sony firmware in the package | Done. The package build fails if any is found, and Automatic passed without it (EXP-20261110-011). |
 | Git holds no firmware | Done. The 10 MediaTek Wi-Fi files are fetched from pinned public sources at build time. |
 | Complete corresponding source | **Open.** The kernel, BusyBox, glmark2, vkmark and Chromium inputs need their source published with the binary. |
-| Legal notice | **Open.** The manual's notice (`manual/10-legal-notice.md`, not in Git yet) says Linux psX doesn't redistribute firmware. Change it when a package that includes firmware is published. |
+| Legal notice | **Open.** The manual's notice (`manual/12-legal-notice.md`) says Linux psX doesn't redistribute firmware. Change it when a package that includes firmware is published. |
 
 Firmware policy (owner decisions, 2026-11-10): the package carries no Sony
 firmware, and Git holds no firmware. Each console supplies its own GPU and UVD

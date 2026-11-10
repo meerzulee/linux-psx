@@ -5171,8 +5171,8 @@
     },
     {
       "path": "docs/DIAGNOSTIX-RELEASE.md",
-      "destination_sha256": "12f632a27a30523fe8a1aded64b538a1ebbd74e2013af9a14d8c9aecf3e7cb57",
-      "destination_bytes": 10405,
+      "destination_sha256": "0de46a57c6564d13f71d267c259db17a73a9d74c58be057bef27fbe577982147",
+      "destination_bytes": 10389,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5238,6 +5238,20 @@
           "prior_destination_sha256": "68bfc190b1105172ed2fa0f10dd725176ae27bb82cb430b46f3edee0cd32b6f2",
           "destination_sha256": "12f632a27a30523fe8a1aded64b538a1ebbd74e2013af9a14d8c9aecf3e7cb57",
           "destination_bytes": 10405,
+          "mode": "0644"
+        },
+        {
+          "reason": "Follow the renumbered manual chapter for the legal notice.",
+          "prior_destination_sha256": "12f632a27a30523fe8a1aded64b538a1ebbd74e2013af9a14d8c9aecf3e7cb57",
+          "destination_sha256": "d9714674e0d9f0e0223ac2c370860afe7eec7f2763fc66cbc91475e9727f1d9a",
+          "destination_bytes": 10405,
+          "mode": "0644"
+        },
+        {
+          "reason": "The manual is now in Git.",
+          "prior_destination_sha256": "d9714674e0d9f0e0223ac2c370860afe7eec7f2763fc66cbc91475e9727f1d9a",
+          "destination_sha256": "0de46a57c6564d13f71d267c259db17a73a9d74c58be057bef27fbe577982147",
+          "destination_bytes": 10389,
           "mode": "0644"
         }
       ]
@@ -10472,6 +10486,20 @@
     },
     {
       "reason": "Record that linux-ps4 went private and update the DiagnostiX release status.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Follow the renumbered manual chapter for the legal notice.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "The manual is now in Git.",
       "paths": [
         "docs/DIAGNOSTIX-RELEASE.md"
       ],

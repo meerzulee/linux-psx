@@ -4,9 +4,9 @@ Updated: 2026-11-06. Scope: the current Linux 7.2.11 native dev3 work,
 before the separate Linux 7.3 port. This is a plan with explicit gates;
 unchecked gates are not hardware results.
 
-The separate combined dev4 [Baikal beta1](https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta1)
-is now published with matching modules and corresponding source. Its recorded
-scope includes the 900-frame native 1080p decode and software power-off.
+The separate combined dev4 Baikal beta1 was published with matching modules and
+corresponding source, and beta2 has since replaced it. Its recorded scope
+includes the 900-frame native 1080p decode and software power-off.
 The [2026-11-06 storage comparison](PS4-STORAGE-COMPARISON.md#current-read-benchmark-2026-11-06)
 adds short read measurements: USB about 106 MB/s, internal HDD about 71 MB/s.
 These observations do not complete the repeat-boot, write or endurance gates.

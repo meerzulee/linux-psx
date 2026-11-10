@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "linux-psx",
+  "account_id": "83791e53c0962d36e545aec2a88c3319",
+  "compatibility_date": "2026-11-09",
+  "workers_dev": true,
+  "preview_urls": false,
+  "build": {
+    "command": "bun run check && SITE_URL=https://linux.mrz.sh SITE_BASE=/ bun run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "force-trailing-slash",
+    "not_found_handling": "none"
+  },
+  "routes": [
+    { "pattern": "linux.mrz.sh", "custom_domain": true }
+  ]
+}

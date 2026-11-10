@@ -1,0 +1,24 @@
+{
+  "name": "linux-psx-manual",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": ">=1.4.4"
+  },
+  "scripts": {
+    "build": "bun build.mjs",
+    "dev": "bun build.mjs && bun serve.mjs",
+    "preview": "bun serve.mjs",
+    "check": "bun build.mjs --check",
+    "deploy:check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.3"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.2"
+  }
+}
