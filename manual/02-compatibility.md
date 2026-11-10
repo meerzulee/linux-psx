@@ -87,7 +87,7 @@ These results are from the project's PS4 Slim with a Baikal B1 southbridge, on L
 | Display and OpenGL | `working` | Liverpool GPU, OpenGL 4.6, 1920×1080 at 60 Hz, and a glmark2 score of 2890. |
 | USB keyboard and mouse | `working` | Working. |
 | Wi-Fi and Bluetooth audio | `working` | Working, with firmware supplied separately. |
-| Shutdown and restart | `beta` | Both passed on the build just before beta2, and restart returns to the PS4 system. |
+| Shutdown and restart | `working` | Both work, and restart returns to the PS4 system. |
 | Vulkan | `beta` | Works through the PS4 Mesa candidate, and reference images match. |
 | H.264 video decoding | `beta` | A 1080p clip matched a reference on all 900 frames. One stream at a time, 8-bit. See [Mesa and Video](08-mesa-and-video.md). |
 | Ethernet | `beta` | DHCP, SSH and verified file transfers. See [Ethernet](../docs/ETHERNET.md). |
