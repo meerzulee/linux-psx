@@ -11,7 +11,7 @@ Use the newest kernel listed for your console. Each kernel is built for a specif
 ## Linux 7.2.11 beta2
 
 - **Kernel release:** `7.2.11-psx-ps4-baikal-uvd-runtime-dev6`
-- **Tested:** it passed full DiagnostiX runs on the project's PS4 Slim (Baikal B1, firmware 12.02) on 2026-11-10 and 2026-11-11: OpenGL, Vulkan, browser, Ethernet, Wi-Fi, the 3D benchmark and H.264 decoding. Turn off and Restart to the PS4 system each worked after a run, in about 3 seconds.
+- **Tested:** on 2026-11-11 it passed two full DiagnostiX runs on the project's PS4 Slim (Baikal B1, firmware 12.02): OpenGL, Vulkan, browser, Ethernet, Wi-Fi, the 3D benchmark and H.264 decoding. Turn off and Restart to the PS4 system each worked after a run, in about 3 seconds.
 - **Modules:** 41, shipped as one matched set.
 - **Source:** the complete patched source is in the same release.
 
