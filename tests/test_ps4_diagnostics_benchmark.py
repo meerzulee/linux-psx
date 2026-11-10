@@ -687,6 +687,137 @@ class OwnerKeyBootStepTests(unittest.TestCase):
         self.assertLess(text.index("\ninstall_owner_ssh_keys\n"), text.index("mount --move /run"))
 
 
+class LoaderFirmwareBootStepTests(unittest.TestCase):
+    """The step that exposes the loader's UVD file at the read-only root's path."""
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(dir="/var/tmp")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.firmware = self.root / "liverpool_uvd.bin"
+        self.target = self.root / "target"
+        self.target.mkdir()
+        self.writable = self.root / "writable"
+
+    def run_step(self, mount_status=0):
+        source = (ROOT / "rootfs/ps4-diagnostics/init-ram").read_text()
+        body = source.split("install_loader_firmware() {\n", 1)[1].split("\n}\n", 1)[0]
+        for old, new in (("/run/psx-writable/firmware-amdgpu", str(self.writable)),
+                         ("/newroot/usr/lib/firmware/amdgpu", str(self.target)),
+                         ("/lib/firmware/amdgpu/liverpool_uvd.bin", str(self.firmware))):
+            body = body.replace(old, new)
+        script = ('say() { echo "SAY $*"; }\nmount() { echo "MOUNT $*"; return ' + str(mount_status) + '; }\n'
+                  "install_loader_firmware() {\n" + body + "\n}\ninstall_loader_firmware\necho finished\n")
+        return subprocess.run(["/bin/sh", "-c", script], capture_output=True, text=True, timeout=10)
+
+    def test_the_loaders_file_is_copied_and_bound_over_the_root_directory(self):
+        self.firmware.write_bytes(b"uvd")
+        self.firmware.chmod(0o600)
+        result = self.run_step()
+        copied = self.writable / "liverpool_uvd.bin"
+        self.assertEqual(copied.read_bytes(), b"uvd")
+        self.assertEqual(copied.stat().st_mode & 0o777, 0o644)
+        self.assertIn(f"MOUNT --bind {self.writable} {self.target}\n", result.stdout)
+        self.assertIn("ready for Video decoding", result.stdout)
+        self.assertTrue(result.stdout.endswith("finished\n"))
+
+    def test_no_file_from_the_loader_does_not_stop_the_boot(self):
+        result = self.run_step()
+        self.assertIn("No UVD firmware from the loader", result.stdout)
+        self.assertNotIn("MOUNT", result.stdout)
+        self.assertTrue(result.stdout.endswith("finished\n"))
+        self.assertFalse(self.writable.exists())
+
+    def test_a_planted_link_is_not_followed(self):
+        outside = self.root / "outside"
+        outside.write_bytes(b"secret")
+        self.firmware.symlink_to(outside)
+        result = self.run_step()
+        self.assertNotIn("MOUNT", result.stdout)
+        self.assertFalse(self.writable.exists())
+
+    def test_a_root_without_the_directory_does_not_stop_the_boot(self):
+        self.firmware.write_bytes(b"uvd")
+        self.target.rmdir()
+        result = self.run_step()
+        self.assertNotIn("MOUNT", result.stdout)
+        self.assertTrue(result.stdout.endswith("finished\n"))
+
+    def test_a_failed_bind_does_not_stop_the_boot(self):
+        self.firmware.write_bytes(b"uvd")
+        result = self.run_step(mount_status=1)
+        self.assertIn("could not be installed", result.stdout)
+        self.assertTrue(result.stdout.endswith("finished\n"))
+
+    def test_init_runs_it_after_the_writable_mount_and_before_run_moves(self):
+        text = (ROOT / "rootfs/ps4-diagnostics/init-ram").read_text()
+        self.assertLess(text.index("/run/psx-writable\n"), text.index("\ninstall_loader_firmware\n"))
+        self.assertLess(text.index("\ninstall_loader_firmware\n"), text.index("mount --move /run"))
+
+
+class PackageFirmwareCheckTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(dir="/var/tmp")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.check = module("package_firmware_check", ROOT / "scripts/check-ps4-package-firmware")
+        self.blob = bytes(range(256)) * 4
+        self.rules = {"fragments": ("firmware/amdgpu/liverpool_", "firmware/mrvl/"),
+                      "files": {hashlib.sha256(self.blob).hexdigest(): "amdgpu/liverpool_x.bin"},
+                      "blocks": {hashlib.sha256(self.blob).hexdigest(): "amdgpu/liverpool_x.bin"}}
+
+    def image(self, *blocks):
+        data = bytearray(1024 * (2 + len(blocks)))
+        data[1024 + 56:1024 + 58] = b"\x53\xef"
+        for index, block in enumerate(blocks):
+            data[1024 * (2 + index):1024 * (3 + index)] = block
+        path = self.root / "image"
+        path.write_bytes(data)
+        return path
+
+    def test_every_forbidden_file_is_named_by_hash_only(self):
+        manifest = json.loads((ROOT / "manifests/ps4-package-forbidden-firmware.json").read_text())
+        self.assertEqual(manifest["binary_policy"], "Hashes only; no firmware bytes are stored here.")
+        names = {item["name"] for item in manifest["forbidden_files"]}
+        self.assertIn("amdgpu/liverpool_uvd.bin", names)
+        self.assertIn("mrvl/sd8797_uapsta.bin", names)
+        self.assertFalse(any("mediatek" in name or "edid" in name or "MT7668" in name for name in names))
+        for item in manifest["forbidden_files"]:
+            self.assertEqual(set(item), {"name", "bytes", "sha256", "block_sha256"})
+            self.assertTrue(item["block_sha256"])
+
+    def test_a_named_or_matching_file_is_reported(self):
+        self.assertTrue(self.check.check_file("x", "lib/firmware/mrvl/a.bin", b"other", self.rules))
+        self.assertTrue(self.check.check_file("x", "renamed.bin", self.blob, self.rules))
+        self.assertEqual(self.check.check_file("x", "lib/firmware/mediatek/a.bin", b"other", self.rules), [])
+
+    def test_a_copy_inside_a_tar_is_reported(self):
+        stream = io.BytesIO()
+        with tarfile.open(fileobj=stream, mode="w") as archive:
+            info = tarfile.TarInfo("tools/renamed.bin")
+            info.size = len(self.blob)
+            archive.addfile(info, io.BytesIO(self.blob))
+        self.assertTrue(self.check.check_tar("tools", stream.getvalue(), self.rules))
+
+    def test_an_image_holding_the_bytes_is_reported_whatever_the_name(self):
+        with mock.patch.object(self.check, "firmware_paths", return_value=[]):
+            self.assertTrue(self.check.check_image("root", self.image(b"\0" * 1024, self.blob), self.rules))
+
+    def test_a_clean_image_passes(self):
+        with mock.patch.object(self.check, "firmware_paths", return_value=["/usr/lib/firmware/amdgpu"]):
+            self.assertEqual(self.check.check_image("root", self.image(b"\1" * 1024), self.rules), [])
+
+    def test_a_forbidden_root_path_is_reported(self):
+        paths = ["/usr/lib/firmware/amdgpu/liverpool_new.bin"]
+        with mock.patch.object(self.check, "firmware_paths", return_value=paths):
+            self.assertTrue(self.check.check_image("root", self.image(b"\1" * 1024), self.rules))
+
+    def test_something_other_than_ext4_is_refused(self):
+        path = self.root / "other"
+        path.write_bytes(bytes(8192))
+        with self.assertRaisesRegex(ValueError, "ext4"):
+            self.check.check_image("root", path, self.rules)
+
+
 class OwnerSeedTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(dir="/var/tmp")
@@ -831,6 +962,62 @@ class PackTests(unittest.TestCase):
         REPACK.verify(same_order, base, ["a"], [REPACK.TOOLS_MEMBER], b"tar")
         with self.assertRaisesRegex(ValueError, "unexpected difference"):
             REPACK.verify(same_order, base, [], [REPACK.TOOLS_MEMBER], b"tar")
+
+    def test_verify_accepts_only_the_members_named_as_dropped(self):
+        fw = "lib/firmware/mrvl/a.bin"
+        base = b"".join([REPACK.entry("a", 0o100644, b"one", 1), REPACK.entry(fw, 0o100644, b"two", 2),
+                         REPACK.entry("TRAILER!!!", 0, b"", 3)])
+        without = b"".join([REPACK.entry("a", 0o100644, b"one", 1), REPACK.entry(REPACK.TOOLS_MEMBER, 0o100644, b"tar", 4),
+                            REPACK.entry("TRAILER!!!", 0, b"", 3)])
+        REPACK.verify(without, base, [], [REPACK.TOOLS_MEMBER], b"tar", [fw])
+        with self.assertRaisesRegex(ValueError, "member order"):
+            REPACK.verify(without, base, [], [REPACK.TOOLS_MEMBER], b"tar")
+        kept = b"".join([REPACK.entry("a", 0o100644, b"one", 1), REPACK.entry(fw, 0o100644, b"two", 2),
+                         REPACK.entry(REPACK.TOOLS_MEMBER, 0o100644, b"tar", 4), REPACK.entry("TRAILER!!!", 0, b"", 3)])
+        with self.assertRaisesRegex(ValueError, "member order"):
+            REPACK.verify(kept, base, [], [REPACK.TOOLS_MEMBER], b"tar", [fw])
+
+    def browser_inputs(self, base, provider_id="chromium-test"):
+        temporary = tempfile.TemporaryDirectory(dir="/var/tmp")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        (root / "manifests").mkdir()
+        (root / "diagnostics/ps4").mkdir(parents=True)
+        (root / "diagnostics/ps4/ram_boot.py").write_bytes(b"boot")
+        (root / "manifests/ps4-chromium-provider.json").write_text(
+            json.dumps({"provider_id": provider_id, "base_rootfs_sha256": base}))
+        trimmed, provider = root / "trimmed", root / "provider"
+        trimmed.mkdir(); provider.mkdir()
+        (trimmed / "rootfs.ext4.zst").write_bytes(b"root")
+        (trimmed / "root.json").write_text(json.dumps({
+            "compressed_bytes": 4, "compressed_sha256": hashlib.sha256(b"root").hexdigest(), "rootfs_sha256": "a" * 64}))
+        (provider / "pack").write_bytes(b"pack")
+        (provider / "provider-manifest.json").write_text(json.dumps({
+            "provider_id": "chromium-test", "compressed": "pack", "compressed_bytes": 4,
+            "compressed_sha256": hashlib.sha256(b"pack").hexdigest(), "image_sha256": "b" * 64, "image_bytes": 8,
+            "provider_manifest_sha256": "c" * 64}))
+        return root, trimmed, provider
+
+    def test_a_chromium_image_built_for_this_root_is_accepted(self):
+        root, trimmed, provider = self.browser_inputs("a" * 64)
+        with mock.patch.object(REPACK, "REPO", root):
+            self.assertEqual(REPACK.load_browser(trimmed, provider)["pack"], b"pack")
+
+    def test_a_chromium_image_built_for_another_root_is_refused(self):
+        for base, provider_id in (("d" * 64, "chromium-test"), ("a" * 64, "chromium-other")):
+            root, trimmed, provider = self.browser_inputs(base, provider_id)
+            with mock.patch.object(REPACK, "REPO", root), self.assertRaisesRegex(ValueError, "not built against this root"):
+                REPACK.load_browser(trimmed, provider)
+
+    def test_the_dropped_set_leaves_the_other_firmware_alone(self):
+        drop = lambda name: name == REPACK.DROPPED_DIRECTORY or name.startswith(REPACK.DROPPED_FIRMWARE)
+        self.assertTrue(drop("lib/firmware/amdgpu/liverpool_uvd.bin"))
+        self.assertTrue(drop("lib/firmware/amdgpu/liverpool_vce.bin"))
+        self.assertTrue(drop("lib/firmware/mrvl/sd8797_uapsta.bin"))
+        self.assertTrue(drop("lib/firmware/mrvl"))
+        for name in ("lib/firmware/edid/1920x1080.bin", "lib/firmware/mediatek/mt7668pr2h.bin",
+                     "lib/firmware/WIFI_RAM_CODE_MT7668.bin", "lib/firmware/amdgpu"):
+            self.assertFalse(drop(name), name)
 
 
 if __name__ == "__main__":

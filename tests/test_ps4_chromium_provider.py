@@ -27,6 +27,8 @@ class ChromiumProviderTests(unittest.TestCase):
         for flag in ("--ozone-platform=x11", "--use-gl=angle", "--use-angle=gl", "--disable-features=Vulkan,VulkanFromANGLE"):
             self.assertIn(flag, argv)
         self.assertFalse(any("no-sandbox" in x or "disable-gpu-sandbox" in x or "ignore-gpu-blocklist" in x for x in argv))
+        # Chromium registers with Google on its own otherwise, and DiagnostiX promises it sends nothing.
+        self.assertIn("--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1", argv)
         self.assertTrue(any(x.startswith("--user-data-dir=/home/psx/") for x in argv))
 
     def test_changed_flags_or_remote_lab_cannot_change_fixed_launch_scope(self):

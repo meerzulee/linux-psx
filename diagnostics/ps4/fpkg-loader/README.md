@@ -108,14 +108,27 @@ without boot; `--yasm` names an existing private yasm binary. The builder reject
 unresolved native relocations and verifies that the raw kexec blob includes its
 complete BSS/workspace extent. Native kernel code uses general registers only.
 
-Nine host suites cover actual entry/readers, wired allocation, kernel preparation,
-address/layout helpers, stage-only entry/preparation, scatter planning and the
-assembly copy loop. ASan/UBSan fixtures use synthetic memory and injected APIs;
+Ten host suites cover actual entry/readers, wired allocation, kernel preparation,
+address/layout helpers, the UVD firmware read, stage-only entry/preparation, scatter
+planning and the assembly copy loop. ASan/UBSan fixtures use synthetic memory and injected APIs;
 they do not invoke console syscalls, MMIO or devices. Independent physical-memory
 reconstruction compares outputs and padding, exercises descriptor boundaries,
 and rejects source/control conflicts, duplicate/subpage mappings and malformed
 sizes. Host assembly checks do not execute privileged CR3/GDT changes or qualify
 the complete console handoff.
+
+## UVD firmware from the running kernel
+
+`uvd-firmware.patch` adds `amdgpu/liverpool_uvd.bin` to the loader's firmware
+archive. It reads 313,912 bytes at kernel offset `0x8cbff0`, which is inside the
+kernel's read-only segment on FW12.00/12.02, and checks CRC32 `a465ba07`. It then
+adds the standard 256-byte AMD header, using the same values as the file the driver
+was tested with. Any mismatch leaves the file out and the boot continues. A Gladius
+console skips this step.
+
+The loader's archive comes first in the initramfs, so a copy of the same name in the
+package replaces the loader's. EXP-20261110-008 removed the package's early-boot copy
+and passed Video decoding on one Baikal B1 console.
 
 ## Earlier candidates (historical)
 

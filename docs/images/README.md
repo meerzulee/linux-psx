@@ -1,7 +1,22 @@
 # Diagnostix screenshots
 
-These images illustrate the PS4 interface. They are historical console captures,
-not evidence that a new image, kernel or complete test suite has passed.
+These images illustrate the PS4 interface. They are not evidence that a new image,
+kernel or complete test suite has passed.
+
+## The app, version 0.16
+
+Rendered on a development computer on 2026-11-10 from the interface code in this
+repository. They are not console captures, and every result in them is sample data.
+
+| Image | How it was made |
+| --- | --- |
+| [Home](diagnostix-app-home.png) | `diagnostics/ps4/fpkg/tests/ui_preview.cpp`, 1920x1080. Noto Sans stands in for the console's system font. |
+| [Test in progress](diagnostix-app-testing.png) | `diagnostix --demo graphics` in a 120x33 terminal, drawn with the console font and palette. |
+| [Finished run](diagnostix-app-finished.png) | `diagnostix --demo finished`, made the same way. |
+
+## The USB kit
+
+Historical console captures of the earlier USB kit.
 
 | Image | Origin and changes |
 | --- | --- |

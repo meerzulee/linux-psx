@@ -49,65 +49,72 @@
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "4311cddd0a9dbabf94978e6ea4056af9a18c160a",
-      "available": true,
+      "available": false,
       "resolved_commit": "4311cddd0a9dbabf94978e6ea4056af9a18c160a",
       "url": "https://github.com/meerzulee/linux-ps4/commit/4311cddd0a9dbabf94978e6ea4056af9a18c160a",
       "author": "Meerzulee",
-      "subject": "v67: MT7668 internal WiFi + zram + sky2 chip_id + 14\u00d7 boot speedup"
+      "subject": "v67: MT7668 internal WiFi + zram + sky2 chip_id + 14\u00d7 boot speedup",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "4ec638d8462e7ba6189e62f2be32da74990590fc",
-      "available": true,
+      "available": false,
       "resolved_commit": "4ec638d8462e7ba6189e62f2be32da74990590fc",
       "url": "https://github.com/meerzulee/linux-ps4/commit/4ec638d8462e7ba6189e62f2be32da74990590fc",
       "author": "Meerzulee",
-      "subject": "v69: sky2 MDIO scan proves PHY not on bus \u2014 ethernet path closed"
+      "subject": "v69: sky2 MDIO scan proves PHY not on bus \u2014 ethernet path closed",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "671128be35a5ab978c653482ac03807a72088edb",
-      "available": true,
+      "available": false,
       "resolved_commit": "671128be35a5ab978c653482ac03807a72088edb",
       "url": "https://github.com/meerzulee/linux-ps4/commit/671128be35a5ab978c653482ac03807a72088edb",
       "author": "Meerzulee",
-      "subject": "xhci-aeolia: imod_interval=40000 + caps validate-and-retry on Baikal"
+      "subject": "xhci-aeolia: imod_interval=40000 + caps validate-and-retry on Baikal",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
-      "available": true,
+      "available": false,
       "resolved_commit": "82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
       "url": "https://github.com/meerzulee/linux-ps4/commit/82acaf447e8e976ddc2cc4b93b743bdf99b2c962",
       "author": "Meerzulee",
-      "subject": "v76e-B1.1-\u03b1: drop DEPTH=0 override \u2014 GFX VMID 1 page-616 \u2705, Hyprland GL-renders \ud83c\udf89"
+      "subject": "v76e-B1.1-\u03b1: drop DEPTH=0 override \u2014 GFX VMID 1 page-616 \u2705, Hyprland GL-renders \ud83c\udf89",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
-      "available": true,
+      "available": false,
       "resolved_commit": "e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
       "url": "https://github.com/meerzulee/linux-ps4/commit/e01ef2188818ba511120f7f6b2d7e86a9eebacd0",
       "author": "Meerzulee",
-      "subject": "v40 (CANDIDATE): pre-allocate IRQ 9 desc for ACPI SCI - THE actual fix"
+      "subject": "v40 (CANDIDATE): pre-allocate IRQ 9 desc for ACPI SCI - THE actual fix",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
-      "available": true,
+      "available": false,
       "resolved_commit": "f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
       "url": "https://github.com/meerzulee/linux-ps4/commit/f5aea5d4d442d3227039d5bd0e7acb05aa4b01c7",
       "author": "Meerzulee",
-      "subject": "v60: HDMI WORKING \u2014 preserve firmware-trained DP TX state on Liverpool"
+      "subject": "v60: HDMI WORKING \u2014 preserve firmware-trained DP TX state on Liverpool",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "meerzulee/linux-ps4",
       "commit": "f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
-      "available": true,
+      "available": false,
       "resolved_commit": "f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
       "url": "https://github.com/meerzulee/linux-ps4/commit/f61663b369b76f1fc7e8cf29dd946a1bfc5b1e75",
       "author": "Meerzulee",
-      "subject": "Document development hosts and pinned source acquisition"
+      "subject": "Document development hosts and pinned source acquisition",
+      "error": "Repository made private by its owner on 2026-11-10."
     },
     {
       "repository": "ps4-linux/ps4-linux-loader",

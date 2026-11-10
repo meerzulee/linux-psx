@@ -65,17 +65,29 @@ Example manufacturer peaks, **read / write in MB/s**; these are not PS4 benchmar
 
 ## Diagnostix
 
-A lightweight USB diagnostic system with a **1 GiB core boot-set cap**:
-network and SSH setup, readable hardware details, grouped reports, themes and
-font settings. A quick hardware Overview leads to the advanced tabbed tests. Selected tests cover CPU/RAM, networking, X11/Wayland,
-OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
+Diagnostix finds out what works on a PS4. The app starts Linux from the console's
+memory, runs every test by itself and saves one report you can share. Serial
+numbers, MAC addresses and console IDs are left out of the report, and nothing is
+uploaded automatically.
 
 <p align="center">
-  <a href="docs/images/diagnostix-network.png"><img src="docs/images/diagnostix-network.png" width="420" alt="Diagnostix network setup with Wi-Fi names and connection identifiers removed"></a>
-  <a href="docs/images/diagnostix-hardware.png"><img src="docs/images/diagnostix-hardware.png" width="420" alt="Diagnostix GPU inventory captured on PS4"></a>
+  <a href="docs/images/diagnostix-app-home.png"><img src="docs/images/diagnostix-app-home.png" width="280" alt="Diagnostix app home screen showing the console's southbridge and firmware"></a>
+  <a href="docs/images/diagnostix-app-testing.png"><img src="docs/images/diagnostix-app-testing.png" width="280" alt="Diagnostix running its graphics tests, with sample data"></a>
+  <a href="docs/images/diagnostix-app-finished.png"><img src="docs/images/diagnostix-app-finished.png" width="280" alt="A finished Diagnostix run, with sample data"></a>
 </p>
 
-Network setup and GPU inventory. [Capture and privacy-edit notes](docs/images/README.md).
+Home, a test in progress and a finished run, rendered from the real interface on a
+development computer with sample results. [Image notes](docs/images/README.md).
+
+**Status:** the app is not a public download yet. One full automatic run has passed on
+version 0.16, on one PS4 Slim with a Baikal B1 southbridge. Sony's firmware is no longer
+in the package, because each console supplies its own when the app starts. The package
+still carries MediaTek Wi-Fi firmware, and its license and source duties are open. [What the app needs before release](docs/DIAGNOSTIX-RELEASE.md#the-app-is-not-released-yet).
+
+The download available today is the older USB kit. It contains no firmware and is
+for people comfortable on a Linux computer. It has network and SSH setup, a
+hardware Overview and tabbed tests for CPU/RAM, networking, X11/Wayland,
+OpenGL/Vulkan, Firefox/Chromium and experimental UVD.
 
 [Download the experimental firmware-free kit](https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-alpha7-20261107) ·
 [Local firmware setup](docs/DIAGNOSTIX-RELEASE.md) ·

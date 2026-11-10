@@ -7,6 +7,13 @@ from pathlib import Path
 import subprocess
 HERE=Path(__file__).resolve().parent
 
+def uvd_fixture(firmware):
+    pin='#define UVD_RAW_CRC32 0xa465ba07U'
+    if pin not in firmware:raise ValueError('UVD checksum pin differs')
+    header=firmware[firmware.index('struct firmware_header {'):firmware.index('static inline char hex')]
+    body=firmware[firmware.index('#define UVD_KERNEL_OFFSET'):firmware.index('struct fw_info_t *get_fw_info()')]
+    return header+body.replace(pin,'#define UVD_RAW_CRC32 uvd_test_crc')
+
 def check(source, output):
     source=Path(source).resolve();output=Path(output).absolute();output.mkdir(exist_ok=False,parents=True)
     main=(source/'linux/main-aio.c').read_text()
@@ -19,9 +26,10 @@ def check(source, output):
       'pages':(source/'linux/ps4-kexec-common/diagnostix_pages.inc').read_text(),
       'kexec':kexec[kexec.index('u8 sb_id = 0;'):kexec.index('int kexec_init(')],
       'address':boot[boot.index('static u64 vram_base'):boot.index('#define WR32')],
+      'uvd':uvd_fixture((source/'linux/ps4-kexec-common/firmware.c').read_text()),
     }
     rows={}
-    for name in ('entry','io','pages','kexec','address','entry_stage','kexec_stage'):
+    for name in ('entry','io','pages','kexec','address','uvd','entry_stage','kexec_stage'):
         fixture=name.removesuffix('_stage');body=production[fixture]
         inc=output/(name+'.inc');inc.write_text(body)
         exe=output/name
@@ -31,6 +39,7 @@ def check(source, output):
              str(HERE/('test_'+fixture+'.c'))]
         if name.endswith('_stage'):cmd+=['-DDIAGNOSTIX_STAGE_ONLY']
         if fixture=='kexec':cmd+=[str(source/'linux/ps4-kexec-common/diagnostix_scatter.c')]
+        if fixture=='uvd':cmd+=[str(source/'linux/ps4-kexec-common/crc32.c')]
         cmd+=['-o',str(exe)]
         subprocess.run(cmd,check=True,env=dict(os.environ,TMPDIR=str(output)))
         r=subprocess.run([str(exe)],check=True,capture_output=True,text=True,timeout=15)

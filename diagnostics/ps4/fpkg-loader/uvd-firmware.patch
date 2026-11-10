@@ -1,0 +1,86 @@
+--- a/linux/ps4-kexec-common/firmware.c
++++ b/linux/ps4-kexec-common/firmware.c
+@@ -338,6 +338,48 @@
+     }
+ }
+ 
++/*
++ * FW12.00/12.02: the UVD image sits in the kernel's read-only segment. Only an
++ * exact match is wrapped and added, using the standard amdgpu common header, so
++ * the result is byte for byte the 314168-byte file the driver was tested with.
++ * Any other kernel adds nothing and the rest of the archive is unaffected.
++ */
++#define UVD_KERNEL_OFFSET 0x8cbff0ULL
++#define UVD_RAW_SIZE FW_UVD_RAW_SIZE
++#define UVD_RAW_CRC32 0xa465ba07U
++#define UVD_UCODE_VERSION 0x012a6509U
++
++static int add_uvd_firmware(u8 **p, const char *path)
++{
++    const u8 *raw = (const u8 *)(kern.kern_base + UVD_KERNEL_OFFSET);
++    u32 crc = crc32(0, raw, UVD_RAW_SIZE);
++
++    kern.printf("firmware_extract: UVD kernel range crc32=%x expected=%x\n",
++                crc, UVD_RAW_CRC32);
++    if (crc != UVD_RAW_CRC32) {
++        kern.printf("firmware_extract: UVD left out, kernel range differs\n");
++        return 0;
++    }
++
++    cpio_hdr(p, path, FILE, FW_HEADER_SIZE + UVD_RAW_SIZE);
++    struct firmware_header *fhdr = (struct firmware_header*)*p;
++    memset(fhdr, 0, sizeof(*fhdr));
++    fhdr->size_bytes = sizeof(*fhdr) + UVD_RAW_SIZE;
++    fhdr->header_size_bytes = offsetof(struct firmware_header, raw);
++    fhdr->header_version_major = 1;
++    fhdr->header_version_minor = 0;
++    fhdr->ip_version_major = 4;
++    fhdr->ip_version_minor = 2;
++    fhdr->ucode_version = UVD_UCODE_VERSION;
++    fhdr->ucode_size_bytes = UVD_RAW_SIZE;
++    fhdr->ucode_array_offset_bytes = sizeof(*fhdr);
++    fhdr->crc32 = crc;
++    *p += sizeof(*fhdr);
++    memcpy(*p, raw, UVD_RAW_SIZE);
++    *p += UVD_RAW_SIZE;
++    return 1;
++}
++
+ struct fw_info_t *get_fw_info() {
+     if (kern.gc_get_fw_info) {
+         return kern.gc_get_fw_info();
+@@ -463,6 +505,14 @@
+     cpio_hdr(&p, sdma1_path, FILE, FW_HEADER_SIZE + fw_sizes->sdma1);
+     if (!copy_sdma_firmware(&p, "SDMA1", info->sdma1, fw_sizes->sdma1, 1))
+         return -1;
++
++    if (!(kern.gpu_devid_is_9924 && kern.gpu_devid_is_9924())) {
++        char uvd_path[64];
++        kern.snprintf(uvd_path, sizeof(uvd_path), "%sliverpool_uvd.bin", dir_path);
++        kern.printf("firmware_extract: Extract %s \n", uvd_path);
++        add_uvd_firmware(&p, uvd_path);
++    }
++
+     cpio_hdr(&p, "TRAILER!!!", FILE, 0);
+ 
+     size_t size = p - (u8*)dest;
+--- a/linux/ps4-kexec-common/firmware.h
++++ b/linux/ps4-kexec-common/firmware.h
+@@ -53,11 +53,14 @@
+ 
+ #define FW_HEADER_SIZE 256
+ 
+-// Leave space for 16 files (currently 12)
+-#define FW_CPIO_SIZE (EAP_HDD_KEY_SIZE + EDID_SIZE + (CPIO_HEADER_SIZE * 16) + FW_CE_SIZE + FW_ME_SIZE + \
++// UVD image kept in the 12.00/12.02 kernel, without its 256-byte header
++#define FW_UVD_RAW_SIZE 313912
++
++// Leave space for 18 archive entries (currently 17)
++#define FW_CPIO_SIZE (EAP_HDD_KEY_SIZE + EDID_SIZE + (CPIO_HEADER_SIZE * 18) + FW_CE_SIZE + FW_ME_SIZE + \
+                        FW_MEC_SIZE + FW_MEC2_SIZE + FW_PFP_SIZE + \
+                        FW_RLC_SIZE + FW_SDMA_SIZE + FW_SDMA1_SIZE + \
+-                       FW_HEADER_SIZE * 8)
++                       FW_HEADER_SIZE * 9 + FW_UVD_RAW_SIZE)
+ 
+ ssize_t firmware_extract(void *dest);
+ 

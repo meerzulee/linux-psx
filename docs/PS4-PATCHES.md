@@ -1,5 +1,10 @@
 # PS4 patch imports and active target
 
+> `meerzulee/linux-ps4` went private on 2026-11-10, so links to it no longer open
+> for the public. The commit IDs below remain the record of where each patch came
+> from. The patches themselves are in `platforms/ps4/patches/` with their original
+> authorship, and new work goes to this repository.
+
 ## Active Linux psX target
 
 `targets/6.18-ps4-baikal.env` is the buildable root target. It uses the same

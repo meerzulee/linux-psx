@@ -77,6 +77,22 @@ summaries beyond the ordinary recent-report list. No check starts automatically.
 Nerd Font icons appear in the known graphical terminal; VT/SSH uses plain
 markers with the same readable status labels.
 
+## DiagnostiX run screen
+
+The `diagnostix` binary is the full-screen view of the DiagnostiX app's RAM image
+(0.16 at this revision). It runs the tests in order and shows one page of results.
+To see it on a development computer with sample data:
+
+```sh
+cargo build --locked --release --bin diagnostix
+./target/release/diagnostix --demo finished
+```
+
+The scenes are `starting`, `basics`, `graphics`, `ask-sound`, `ask-ethernet`,
+`before-last`, `finished`, `finished-no-usb`, `download` and `manual`. Every scene
+says "sample data" in its header. Hints name keyboard keys by default, and `--pad`
+shows controller buttons instead.
+
 ## Controls
 
 | Key | Action |

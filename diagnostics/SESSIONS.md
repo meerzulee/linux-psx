@@ -3117,3 +3117,110 @@ full readback receipt `/var/tmp/upload-run7-20261109.json`):
 - Not exercised: restart or shutdown after the decode. UART session completed. No
   acceptance claim; one run on one console.
   Session: `20261110_032854_717800-exp-20261110-006-run12-upload-install-and-one-automatic-boot-sou-a98f1ebd`.
+
+## EXP-20261110-007 — 0.16: launcher confirmed, Automatic not reached
+
+- Changed variable: 0.16 over run12, with no Picture or Controller question and no
+  stripe on the launcher's left edge. Package SHA256 `cc256e85…`, private dev build.
+- The operator confirmed that the v0.16 launcher reads Baikal B1 and that the stripe
+  is gone. The home screen logged `files=1 ready=0`.
+- Automatic was not chosen before a host process restart stopped the UART logger, so
+  this session's continuity is invalid. It says nothing about the 0.16 Automatic run.
+
+## EXP-20261110-008 — UVD firmware read from the running kernel at boot
+
+- Changed variable: where the early-boot UVD firmware comes from. The loader
+  (`uvd-firmware.patch`, SHA256 `6a264930…`; `loader.elf` `58f8230e…`) reads the
+  313,912-byte range at kernel offset `0x8cbff0`, checks CRC32 `a465ba07` and adds the
+  standard AMD header. The package's early-boot `lib/firmware/amdgpu/liverpool_uvd.bin`
+  was removed, so the loader's copy was the only one the driver could load. The
+  root-image copy stayed, because `uvd.py` pins it. Private dev build on 0.16 run1,
+  package SHA256 `9c7dd48d…`, read back byte for byte.
+- Before the run, on the host: the loader function run against the local 12.02 kernel
+  image produced a file identical to the working one (`62a43ef4…`).
+- **On hardware:** the loader logged `UVD kernel range crc32=a465ba07 expected=a465ba07`.
+  The driver logged `Found UVD firmware Version: 1.101 Family ID: 9`, then
+  `PS4_UVD_READY BEGIN ... payload=313912 crc=a465ba07`, `PS4_UVD_RUNTIME STARTED` and
+  `QUEUE_READY`.
+- First Automatic pass, same boot: "Before the last tests" went unanswered for 120 s with
+  no USB stick, so 3D benchmark and Video decoding were skipped as designed.
+- The operator chose Run tests again and answered Cross. Boot, Processor, Memory,
+  Temperature, OpenGL, Vulkan, Browser (Chromium) and Wi-Fi (25 networks) PASS, 3D
+  benchmark GL 2879, **Video decoding PASS (H.264)** in 6 s. The operator confirmed
+  "pass". Ethernet SKIPPED (no cable, `link=0`, so no SSH), Sound SKIPPED (no fixture),
+  USB and Controller NOT-FOUND.
+- Zero panic, Oops or BUG lines and zero GPU fault, hang or reset lines. 80
+  `No irq handler` lines, a kind also seen on earlier boots.
+- Not exercised: the 8 GPU files from the loader alone (the package's copies still
+  replace them), removing the root-image UVD copy, a boot without VCE firmware, restart
+  or shutdown after the decode. UART session completed. No acceptance claim; one boot on
+  one Baikal B1 console.
+
+## EXP-20261110-009 — the 8 GPU firmware files come from the running kernel only
+
+- Changed variable: where the early-boot GPU firmware comes from. On top of the
+  EXP-20261110-008 build, the package's early-boot `liverpool_{pfp,me,ce,mec,mec2,rlc,
+  sdma,sdma1}.bin` were removed, so the loader's copies were the only ones. The loader is
+  unchanged (`58f8230e…`). VCE, EDID, Marvell and MT7668 files and the root image stayed.
+  Package SHA256 `4ffd0d02…`, read back byte for byte.
+- Before the run, on the host: the loader's whole firmware step, run against the local
+  12.02 kernel image, built a 408,924-byte archive (capacity 445,864). RLC matches the
+  package's older copy. The other 7 files differ from it by 2,172 to 13,365 microcode
+  bytes, so this boot ran the 12.02 GPU microcode under this kernel for the first time.
+- **On hardware:** the loader extracted all 8 files and UVD (`crc32=a465ba07`). No amdgpu
+  firmware or `*ERROR*` line. One Automatic pass, answered Cross at the last-tests prompt:
+  Boot 67 s, Processor, Memory, Temperature, OpenGL, Vulkan, Browser (Chromium) and Wi-Fi
+  (30 networks) PASS, **3D benchmark GL 2887** (2879 on the package's copies), **Video
+  decoding PASS (H.264)**. The operator confirmed "pass". Ethernet SKIPPED (no cable), Sound
+  SKIPPED (no fixture), USB and Controller NOT-FOUND.
+- Zero panic, Oops or BUG lines and zero GPU fault, hang or reset lines.
+- Not exercised: a boot without VCE firmware, removing the root-image firmware, restart
+  or shutdown after the decode. UART session completed. No acceptance claim; one boot on
+  one Baikal B1 console.
+
+## EXP-20261110-010 — the package carries no GPU, UVD, VCE or Marvell firmware
+
+- Changed variable: on top of EXP-20261110-009, the package's VCE and both Marvell files
+  were removed from early boot, and all 10 `liverpool_*` and both Marvell files from the root
+  image. The boot script binds the loader's UVD file over the root's `amdgpu` directory.
+  Build `ram-alpha1-0.16-nofw1`, no owner SSH key, loader unchanged (`58f8230e…`). Package
+  SHA256 `b745c48b…`, read back byte for byte.
+- Before the run, on the host: `scripts/check-ps4-package-firmware` passed on this package
+  and failed on the EXP-20261110-009 package, by name and by raw blocks.
+- **On hardware:** the loader extracted all 8 GPU files and UVD (`crc32=a465ba07`), init
+  reported the loader's UVD ready, and the driver found UVD 1.101 family 9. One Automatic
+  pass: Boot 66 s, Processor, Memory, Temperature, OpenGL, Vulkan and Wi-Fi (29 networks)
+  PASS, **3D benchmark GL 2888**, **Video decoding PASS (H.264)**. Ethernet SKIPPED (no
+  cable), Sound SKIPPED (no fixture), USB and Controller NOT-FOUND.
+- **Browser FAILED after 18 s, before Chromium started.** The Chromium image mounted and
+  unmounted within 31 ms, then the prepare step exited with an error. The image records the
+  root it was built against and `prepare-chromium-provider` refuses any other, and this
+  root is new. That cause comes from the source and the timing; the private diagnostic
+  report was not read, because this build has no SSH.
+- Zero panic, Oops or BUG lines, zero amdgpu `*ERROR*` lines, zero GPU fault, hang or reset
+  lines, and no VCE lines.
+- Fix for the next build: Chromium image `psx4` is built against this root, and
+  `repack-ps4-diagnostix` now refuses a Chromium image built for another root.
+- Not exercised: Browser on this root, restart or shutdown after the decode. UART session
+  completed. No acceptance claim; one boot on one Baikal B1 console.
+
+## EXP-20261110-011 — the firmware-free package with a Chromium image built for its root
+
+- Changed variable: the Chromium image. `psx4` is built against the EXP-20261110-010 root,
+  so its root check passes. Build `ram-alpha1-0.16-nofw2`, no owner SSH key, loader and root
+  unchanged. Package SHA256 `3b9d53f8…`, read back byte for byte. `psx4` carries the Google
+  block that arrived with `psx3`, so this was the first console run of that block; the
+  browser runs before this one used `psx2`.
+- Before the run, on the host: the Chromium root check, run with the real package files,
+  failed for `nofw1` and passed for `nofw2`.
+- **On hardware:** the loader extracted all 8 GPU files and UVD (`crc32=a465ba07`), init
+  reported the loader's UVD ready, and the driver found UVD 1.101 family 9. One Automatic
+  pass: Boot 67 s, Processor, Memory, Temperature, OpenGL, Vulkan, **Browser (Chromium)** and
+  Wi-Fi (21 networks) PASS, **3D benchmark GL 2890**, **Video decoding PASS (H.264)**.
+  Ethernet SKIPPED (no cable), Sound SKIPPED (no fixture), USB and Controller NOT-FOUND. The
+  operator reported all passed.
+- Zero panic, Oops or BUG lines, zero amdgpu `*ERROR*` lines, zero GPU fault, hang or reset
+  lines, and no VCE lines.
+- Not exercised: proof that nothing reaches Google, because the console had no network
+  connection during the browser test. Restart or shutdown after the decode on this build.
+  UART session completed. No acceptance claim; one boot on one Baikal B1 console.

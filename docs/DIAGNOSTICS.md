@@ -175,8 +175,10 @@ profile merely to make unrelated artifacts pass its hashes.
 * Build the process-local Mesa candidate using
   `python3 userspace/mesa/build-candidate.py --help` and the pinned source/patch
   manifest in `userspace/mesa/`. No Omarchy Mesa source path is used.
-* Fetch the public historical BusyBox/firmware seed using
-  `python3 scripts/fetch-ps4-initramfs-seed`. Its immutable URL, size and SHA256
+* Fetch the historical BusyBox/firmware seed using
+  `python3 scripts/fetch-ps4-initramfs-seed`. Its source repository went private
+  on 2026-11-10, so the download no longer works and this step needs an existing
+  local copy. Its URL, size and SHA256
   are in `manifests/ps4-initramfs-seed.json`; the reduced firmware-member pins
   are in `manifests/ps4-diagnostic-seed-firmware.json`. The old seed is input
   data, never the installed root or a claimed accepted boot.

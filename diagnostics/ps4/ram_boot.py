@@ -40,8 +40,9 @@ PINS = {
     'modules_sha256': '0e50c537c2395154cff659d9722d165027d0ecea875dfcb14d32d798f9c9e14d',
     'rootfs_sha256': 'b5b3a0ec3001fa99816ad68071d93091a6c8d0907aeb4ba384094625b7af0107',
 }
-# The frozen root with only Firefox removed, for Chromium (owner decision, 2026-11-10).
-CHROMIUM_ROOT_SHA256 = '6fb9fc119c94679e3e2a86c86e1182cf0563256f975f833ad321ec95b6ada0c7'
+# The frozen root without Firefox (Chromium replaces it) and without console firmware
+# (each console's loader supplies it). Owner decisions, 2026-11-10.
+CHROMIUM_ROOT_SHA256 = '6db5b00608cf102925b753f46bb773772f62fc1824de03922779ab0b84066385'
 SOURCE_SUMS = 'd48fe0a6c2827084634cd6fc20102f9161143afaa03b33d72d5a56a74348f9cd'
 SOURCE_INIT = '72badba925a3c9ede549d805a7a298fa65b4e7358e96f54c2c4a5e999135ce2a'
 REPO = Path(__file__).resolve().parents[2]

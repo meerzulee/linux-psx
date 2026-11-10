@@ -1,5 +1,65 @@
 # Diagnostix experimental release
 
+## The app is not released yet
+
+The installable app (0.16) is separate from the kit described below. Local candidate
+`ram-alpha1-0.16-nofw2` was built on 2026-11-10 for this review.
+
+| Requirement | State |
+| --- | --- |
+| No owner SSH keys | Done. Built without `--owner-ssh-key`. A scan for the owner's public keys finds none in the initramfs, and the same scan finds one in the private dev build. |
+| No background contact with Google | Built. Chromium provider `psx4` blocks every name except the local lab, and Browser passed with it. **Open:** a network capture to prove nothing reaches Google. |
+| Reports leave out identifiers | Done in code and host tests. Serial numbers, MAC and IP addresses, network names and console IDs are removed. |
+| Automatic run on this exact build | Done once, on one Baikal B1 console (EXP-20261110-011). |
+| No Sony firmware in the package | Done. The package build fails if any is found, and Automatic passed without it (EXP-20261110-011). |
+| Git holds no firmware | Done. The 10 MediaTek Wi-Fi files are fetched from pinned public sources at build time. |
+| Complete corresponding source | **Open.** The kernel, BusyBox, glmark2, vkmark and Chromium inputs need their source published with the binary. |
+| Legal notice | **Open.** The manual's notice (`manual/10-legal-notice.md`, not in Git yet) says Linux psX doesn't redistribute firmware. Change it when a package that includes firmware is published. |
+
+Firmware policy (owner decisions, 2026-11-10): the package carries no Sony
+firmware, and Git holds no firmware. Each console supplies its own GPU and UVD
+files through the loader at boot.
+
+`repack-ps4-diagnostix` leaves out the 8 GPU files, the UVD and VCE files and the
+two Marvell files. `trim-ps4-diagnostix-root` removes the same files from the root
+image and writes only the blocks still in use, so deleted bytes do not remain.
+`diagnostics/ps4/fpkg/build.py` then runs `scripts/check-ps4-package-firmware`,
+which fails on a forbidden name or on matching bytes in early boot, in the tools
+archive, or anywhere in the embedded filesystem images. Its manifest holds hashes
+only. VCE is removed outright, because nothing loads it.
+
+The loader reads a 313,912-byte UVD range from the running 12.02 kernel, checks its
+CRC32, adds the standard AMD firmware header, and leaves the file out on any
+mismatch. The result is `amdgpu/liverpool_uvd.bin` (314,168 bytes, SHA256
+`62a43ef4814f59fdd6772792e0a9303e016fe2e17ad30b36412d1fa7ce4cd5cb`). The boot
+script exposes that file at the root path Video decoding reads. If the loader
+left it out, the boot continues and Video decoding reports the problem. The stock
+232,752-byte `liverpool_uvd.bin` cannot replace it, because the driver rejects
+that file and GPU initialization does not complete (EXP-20261105-004).
+
+With the package's early-boot copies removed, the loader's UVD file passed Video
+decoding (EXP-20261110-008), and its 8 GPU files passed OpenGL, Vulkan, the 3D
+benchmark and Video decoding (EXP-20261110-009), each once on one Baikal B1
+console. With the root-image copies also removed, the same tests passed once more
+(EXP-20261110-010), and Browser passed once its Chromium image was built for this root
+(EXP-20261110-011).
+
+The package build starts from a frozen local base image that still holds these
+files, and removes them. The older full-image builder that made that base needs
+the historical seed from `linux-ps4`, which went private on 2026-11-10, so that
+builder only runs with an existing local copy. Rebuilding that lineage with no seed would
+change every pinned hash after it, so it needs its own hardware qualification.
+
+The 10 MediaTek Wi-Fi files stay in the package (owner decision, 2026-11-10).
+`scripts/fetch-ps4-firmware` fetches them from their pinned public repositories at
+build time, and the app downloads nothing on the console.
+
+A published package redistributes the files inside it even though Git holds none
+of them. The manifest records a license for only one of them,
+`mediatek/mt7668pr2h.bin`, so publishing needs the owner's explicit approval.
+
+## The USB kit
+
 The public release consists of a **kernel/source kit and a firmware-free image
 template**. The template is not bootable and is not a disk image to flash. A
 host finalizer adds the user's local, checksum-matched firmware and creates a

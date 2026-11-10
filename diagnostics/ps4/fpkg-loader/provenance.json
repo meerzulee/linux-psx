@@ -198,6 +198,18 @@
     {
       "name": "version-0.16.patch",
       "sha256": "391adea12a9d0585e007d8c192a6e0a6948e0163492eedda7867fabd63c12a69"
+    },
+    {
+      "name": "uvd-firmware.patch",
+      "sha256": "6a264930b1678e22c71bc5d9546af5a1f53d929934b7069178cc2a3e434b3b29"
     }
-  ]
+  ],
+  "uvd_firmware": {
+    "source": "running FW12.00/12.02 kernel read-only segment",
+    "offset": "0x8cbff0",
+    "raw_bytes": 313912,
+    "raw_crc32": "a465ba07",
+    "on_mismatch": "left out; boot continues",
+    "hardware_acceptance": false
+  }
 }

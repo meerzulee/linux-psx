@@ -2,11 +2,11 @@
 
 This optional OpenOrbis application packages one pinned experimental Baikal
 RAM appliance. It is independent of the ordinary kernel build and has its own
-title ID `DGNX00001` (version `0.15`).
+title ID `DGNX00001` (version `0.16`).
 
-Version 0.15 uses its own native directory
-`/data/diagnostix/versions/0.15/boot`. Preparation explicitly creates only the
-owned `/data/diagnostix`, `versions` and `0.15` directories, checking each
+Version 0.16 uses its own native directory
+`/data/diagnostix/versions/0.16/boot`. Preparation explicitly creates only the
+owned `/data/diagnostix`, `versions` and `0.16` directories, checking each
 parent's regular-directory and owner marker before proceeding. It refuses
 symlinks, foreign owners and nonempty unowned directories. Read-only startup
 never creates parents. Existing `/data/diagnostix/boot`, sibling versions and
@@ -23,7 +23,7 @@ Version 0.10 fixed the GoldHEN loader transport. One blocking connection writes
 until every loader byte is sent, retrying interrupted calls and continuing after
 short writes. A zero or error return fails the handoff without reconnecting or
 retrying. The previous single nonblocking `send()` could deliver a truncated ELF.
-That complete-write transport is unchanged through 0.15.
+That complete-write transport is unchanged through 0.16.
 
 The interface uses a centered 1080-pixel column, rounded dark cards and a teal
 focus color instead of full-width menu rows. Cleanup pages retain enough width
@@ -40,7 +40,7 @@ reading the old RAM image. Selecting **Prepare Diagnostix** runs immediately
 and reuses an unchanged verified snapshot without another payload read.
 
 A fresh or changed candidate is copied and hashed together in one 64 KiB
-streaming pass into `/data/diagnostix/versions/0.15/boot.new`. Every size and SHA-256 must
+streaming pass into `/data/diagnostix/versions/0.16/boot.new`. Every size and SHA-256 must
 match the compiled pins; write, flush and close errors stop activation.
 The app binds the completed stage's directory inode and six member metadata
 snapshots to the activated generation, without rereading the image. It relies
@@ -63,7 +63,7 @@ Source preflight accepts regular read-only PFS files regardless of their
 reported link count; compiled hashes and sizes still apply. Writable stage,
 installed and cleanup identities retain their unique-link requirement.
 Explicit Install and Boot actions record bounded metadata in the private
-`/data/diagnostix/versions/0.15/launcher-status.log` only when the namespace already has its
+`/data/diagnostix/versions/0.16/launcher-status.log` only when the namespace already has its
 valid owner marker. The 8 KiB log records action entry, phases, source stat
 fields, directory-enumeration EOF errno, and precise failure reasons. Aliased
 or unknown existing log files are preserved. Startup and cleanup preview stay
@@ -107,7 +107,7 @@ installer names `diagnostix-ram-alpha1-0.01.pkg`,
 Each must be a regular, non-aliased PKG with the Diagnostix ContentID in its
 header and the known size: 460128256 bytes for 0.01/0.02, 460193792 for 0.03
 through 0.07, or 460390400 for 0.08 through 0.10. It does not hash those large
-cached installers again. The 0.11, 0.12, 0.13 and 0.14 installers, current 0.15 installer, future versions and other
+cached installers again. The 0.11, 0.12, 0.13, 0.14 and 0.15 installers, current 0.16 installer, future versions and other
 packages are preserved. This frozen cleanup allowlist does not traverse legacy
 boot storage or sibling version directories.
 
@@ -156,7 +156,7 @@ The bundle directory must contain exactly `bzImage`, `initramfs.cpio.gz`,
 {
   "schema": 1,
   "product": "Diagnostix",
-  "version": "0.15",
+  "version": "0.16",
   "profile": "ps4-baikal-diagnostix-ram-alpha1",
   "kernel_release": "7.2.11-psx-ps4-baikal-uvd-runtime-dev6",
   "files": {

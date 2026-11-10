@@ -50,6 +50,10 @@ RAM_BOOT = 'psx-ram/ram_boot.py'
 CHROMIUM_MEMBER = 'psx-chromium/chromium.ext4.xz'
 CHROMIUM_ROW = 'etc/psx-chromium.tsv'
 INITRAMFS_LIMIT = 512 << 20  # The loader refuses anything larger.
+# Each console's loader supplies its own GPU and UVD firmware at boot. The Marvell
+# files are for Wi-Fi chips this package does not use.
+DROPPED_FIRMWARE = ('lib/firmware/amdgpu/liverpool_', 'lib/firmware/mrvl/')
+DROPPED_DIRECTORY = 'lib/firmware/mrvl'
 
 
 def sha(data):
@@ -197,6 +201,10 @@ def load_browser(root_dir, provider_dir):
     pack = (provider_dir / provider['compressed']).read_bytes()
     if len(pack) != provider['compressed_bytes'] or sha(pack) != provider['compressed_sha256']:
         raise ValueError('the Chromium image differs from its receipt')
+    spec = json.loads((REPO / 'manifests/ps4-chromium-provider.json').read_text())
+    if spec['provider_id'] != provider['provider_id'] or spec['base_rootfs_sha256'] != receipt['rootfs_sha256']:
+        # The console refuses a Chromium image built against a different root.
+        raise ValueError('the Chromium image was not built against this root')
     row = (f"{provider['compressed_sha256']}\t{provider['compressed_bytes']}\t{provider['image_sha256']}\t"
            f"{provider['image_bytes']}\t{provider['provider_manifest_sha256']}\n").encode()
     return {'receipt': receipt, 'root': root, 'provider': provider, 'pack': pack, 'row': row,
@@ -301,8 +309,13 @@ def repack(base, tui, tools, manifest, revision, owner_keys=(), browser=None):
 
     out = bytearray()
     changed = []
+    dropped = []
     for member in found:
-        if member['name'] == 'TRAILER!!!':
+        if member['name'] == DROPPED_DIRECTORY or member['name'].startswith(DROPPED_FIRMWARE):
+            if member['links'] != 1:
+                raise ValueError('cannot drop a hard-linked member: ' + member['name'])
+            dropped.append(member['name'])
+        elif member['name'] == 'TRAILER!!!':
             out += entry('psx-bench', stat.S_IFDIR | 0o755, b'', 990001, links=2)
             out += entry(TOOLS_MEMBER, stat.S_IFREG | 0o644, tools, 990002)
             out += entry(TOOLS_ROW, stat.S_IFREG | 0o644, f'{sha(tools)}\t{len(tools)}\n'.encode(), 990003)
@@ -325,19 +338,21 @@ def repack(base, tui, tools, manifest, revision, owner_keys=(), browser=None):
     added = ['psx-bench', TOOLS_MEMBER, TOOLS_ROW] + ([OWNER_KEYS] if seed else [])
     if browser:
         added += ['psx-chromium', CHROMIUM_MEMBER, CHROMIUM_ROW]
-    return bytes(out), {'changed': sorted(changed), 'added': added, 'contract': contract,
+    return bytes(out), {'changed': sorted(changed), 'added': added, 'dropped': sorted(dropped), 'contract': contract,
                         'overlay_bytes': contract['frontend_overrides']['total_bytes']}
 
 
-def verify(new, base_raw, changed, added, tools):
-    """Everything not named as changed must still be the same bytes as the base."""
+def verify(new, base_raw, changed, added, tools, dropped=()):
+    """Everything not named as changed or dropped must still be the same bytes as the base."""
     old_members, _ = members(base_raw)
     new_members, _ = members(new)
     read = lambda raw, member: raw[member['start']:member['start'] + member['size']]
     new_by_name = {member['name']: member for member in new_members}
-    if [m['name'] for m in new_members if m['name'] not in added] != [m['name'] for m in old_members]:
+    if [m['name'] for m in new_members if m['name'] not in added] != [m['name'] for m in old_members if m['name'] not in dropped]:
         raise ValueError('member order changed')
     for member in old_members:
+        if member['name'] in dropped:
+            continue
         same = read(base_raw, member) == read(new, new_by_name[member['name']])
         if same == (member['name'] in changed):
             raise ValueError('unexpected difference in ' + member['name'])
@@ -364,13 +379,14 @@ def main():
     browser = load_browser(args.chromium_root, args.chromium_provider) if args.chromium_root else None
     manifest, tools = build_tools(args.cache)
     new, facts = repack(args.base, args.tui, tools, manifest, args.revision, args.owner_ssh_key, browser)
-    verify(new, gzip.decompress(args.base.read_bytes()), facts['changed'], facts['added'], tools)
+    verify(new, gzip.decompress(args.base.read_bytes()), facts['changed'], facts['added'], tools, facts['dropped'])
     compressed = gzip.compress(new, compresslevel=6, mtime=0)
     if len(compressed) > INITRAMFS_LIMIT:
         raise ValueError(f'{len(compressed)} bytes is over the loader limit of {INITRAMFS_LIMIT}')
     args.output.write_bytes(compressed)
     print(json.dumps({'output': str(args.output), 'bytes': len(compressed), 'sha256': sha(compressed),
-                      'changed': facts['changed'], 'added': facts['added'], 'overlay_bytes': facts['overlay_bytes'],
+                      'changed': facts['changed'], 'added': facts['added'], 'dropped': facts['dropped'],
+                      'overlay_bytes': facts['overlay_bytes'],
                       'tools_bytes': len(tools), 'tools_sha256': sha(tools),
                       'tui_sha256': facts['contract']['tui_sha256'], 'revision': args.revision,
                       'owner_ssh_keys': facts['contract']['ssh_authorized_key_fingerprint'],

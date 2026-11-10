@@ -126,8 +126,12 @@ The initial comparison explicitly requests:
 
 No GPU blocklist override, forced unsafe software renderer, headless mode,
 remote-debugging port or sandbox-disabling flags are added. Background network
-and component-update flags limit unrelated activity; they are not a network
-firewall. This OpenGL/ANGLE path is a recorded browser-backend difference from
+and component-update flags limit unrelated activity. They did not stop Chromium
+registering for Google's messaging service on the console (EXP-20261110-006), so
+provider `psx3` also passes `--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE
+127.0.0.1`. Every name now fails to resolve except the local lab address, whatever
+Chromium tries to reach. A host run of Chromium 155 with this rule loaded the lab
+and made no DNS lookup or connection. It has not run on a console yet. This OpenGL/ANGLE path is a recorded browser-backend difference from
 Firefox and does not resume the separate Vulkan presentation investigation.
 Do not rely on an unverified `--disable-vulkan` switch.
 

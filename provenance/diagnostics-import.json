@@ -541,8 +541,8 @@
       "bytes": 4816,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "69b230041e6d5a2365fdee0025d3dd8bf9875e61a41e6ed0ff555728b7fcff6c",
-      "destination_bytes": 8316,
+      "destination_sha256": "6add1645421a6ce6ff0a58ccf73e0602832410084b5e199f865509b2d7793a24",
+      "destination_bytes": 8944,
       "destination_adaptations": [
         {
           "reason": "Add cached current-boot Overview with Advanced navigation; keep job status responsive across durable USB saves while preserving exclusive work and no early power dispatch; record concluded staging experiment",
@@ -556,6 +556,13 @@
           "prior_destination_sha256": "a4cfd544fb316fdae72dd211cb7127cbbbe501ce7ebade15c1afc504878ba16f",
           "destination_sha256": "69b230041e6d5a2365fdee0025d3dd8bf9875e61a41e6ed0ff555728b7fcff6c",
           "destination_bytes": 8316,
+          "mode": "0644"
+        },
+        {
+          "reason": "Document the DiagnostiX run screen and its demo scenes; no code change.",
+          "prior_destination_sha256": "69b230041e6d5a2365fdee0025d3dd8bf9875e61a41e6ed0ff555728b7fcff6c",
+          "destination_sha256": "6add1645421a6ce6ff0a58ccf73e0602832410084b5e199f865509b2d7793a24",
+          "destination_bytes": 8944,
           "mode": "0644"
         }
       ]
@@ -1072,8 +1079,8 @@
       "adaptations": [
         "Identify standalone Linux source/image-build ownership."
       ],
-      "destination_sha256": "3f28a20d7a772c403990d5b1c301c60602adab6de1d9a1858925f1f47dc00efb",
-      "destination_bytes": 8470,
+      "destination_sha256": "450975231ec643bb39b40a6a185f6812813b136125881a6544f8910afee4ebc0",
+      "destination_bytes": 8857,
       "destination_adaptations": [
         {
           "reason": "Chromium replaces Firefox in the RAM image (owner decision, 2026-11-10); trimmed provider, boot step and root pin.",
@@ -1087,6 +1094,13 @@
           "prior_destination_sha256": "cb12e57a439a9fb73fe87610f553d9d145f441a4b08ff4adf1bb0edb97eaac25",
           "destination_sha256": "3f28a20d7a772c403990d5b1c301c60602adab6de1d9a1858925f1f47dc00efb",
           "destination_bytes": 8470,
+          "mode": "0644"
+        },
+        {
+          "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+          "prior_destination_sha256": "3f28a20d7a772c403990d5b1c301c60602adab6de1d9a1858925f1f47dc00efb",
+          "destination_sha256": "450975231ec643bb39b40a6a185f6812813b136125881a6544f8910afee4ebc0",
+          "destination_bytes": 8857,
           "mode": "0644"
         }
       ]
@@ -1132,14 +1146,28 @@
       "bytes": 2519,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "5a4e07e49e10ed9ca32960744b1b4bfddc1381fecd73cb7bfd92cfc3fafd5ad7",
-      "destination_bytes": 2349,
+      "destination_sha256": "08f0b6118b8cf464ee5158b3def51bdd2abb6cab678df98eff03415b7a852605",
+      "destination_bytes": 2413,
       "destination_adaptations": [
         {
           "reason": "Chromium replaces Firefox in the RAM image (owner decision, 2026-11-10); trimmed provider, boot step and root pin.",
           "prior_destination_sha256": "c37e89ebbdac7305a3ab0080e40981938324e2360f07441baec69418c02b0c0c",
           "destination_sha256": "5a4e07e49e10ed9ca32960744b1b4bfddc1381fecd73cb7bfd92cfc3fafd5ad7",
           "destination_bytes": 2349,
+          "mode": "0644"
+        },
+        {
+          "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+          "prior_destination_sha256": "5a4e07e49e10ed9ca32960744b1b4bfddc1381fecd73cb7bfd92cfc3fafd5ad7",
+          "destination_sha256": "2485190531bf6a5b0ff45d905159b371636ccbd4ce5422c9b51138ee91bcb108",
+          "destination_bytes": 2413,
+          "mode": "0644"
+        },
+        {
+          "reason": "Build the Chromium image against the firmware-free root.",
+          "prior_destination_sha256": "2485190531bf6a5b0ff45d905159b371636ccbd4ce5422c9b51138ee91bcb108",
+          "destination_sha256": "08f0b6118b8cf464ee5158b3def51bdd2abb6cab678df98eff03415b7a852605",
+          "destination_bytes": 2413,
           "mode": "0644"
         }
       ]
@@ -1435,8 +1463,8 @@
       "adaptations": [
         "Synchronize final browser/helper/lab source; preserve initial import hash and MIT/upstream notices."
       ],
-      "destination_sha256": "93bb71774b1016ee3b609fbfcf9716e825bacecab973a6955b74e7ea7efe8c94",
-      "destination_bytes": 6463,
+      "destination_sha256": "d81ad06ecd4700523e30a3e1e1ab2eb3500b078480cc29b1c2e36164aef51cdc",
+      "destination_bytes": 6523,
       "sync_history": [
         {
           "origin_head": "bbff47f25249d32e867ced1a400229cdf5a28737",
@@ -1458,6 +1486,13 @@
           "prior_destination_sha256": "41c91343b8dfabd0a37c2cc4c886006ef428097bc3611c2542111582a14c716e",
           "destination_sha256": "93bb71774b1016ee3b609fbfcf9716e825bacecab973a6955b74e7ea7efe8c94",
           "destination_bytes": 6463,
+          "mode": "0755"
+        },
+        {
+          "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+          "prior_destination_sha256": "93bb71774b1016ee3b609fbfcf9716e825bacecab973a6955b74e7ea7efe8c94",
+          "destination_sha256": "d81ad06ecd4700523e30a3e1e1ab2eb3500b078480cc29b1c2e36164aef51cdc",
+          "destination_bytes": 6523,
           "mode": "0755"
         }
       ]
@@ -2375,8 +2410,8 @@
       "bytes": 2026,
       "mode": "0644",
       "adaptations": [],
-      "destination_sha256": "27b8dd9e71b1e3952edb153bc913e209f5de73821b3469a5cb6c2874e8f6bb73",
-      "destination_bytes": 6233,
+      "destination_sha256": "58572695096699639f23778d2acc7b2fbbe7cdbe251ed682f76f16959994788b",
+      "destination_bytes": 6426,
       "destination_adaptations": [
         {
           "reason": "Chromium replaces Firefox in the RAM image (owner decision, 2026-11-10); trimmed provider, boot step and root pin.",
@@ -2390,6 +2425,13 @@
           "prior_destination_sha256": "cbf983d919a789d064be03e18410ba296cc9eb67633d64e26325c23bfb46e6c8",
           "destination_sha256": "27b8dd9e71b1e3952edb153bc913e209f5de73821b3469a5cb6c2874e8f6bb73",
           "destination_bytes": 6233,
+          "mode": "0644"
+        },
+        {
+          "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+          "prior_destination_sha256": "27b8dd9e71b1e3952edb153bc913e209f5de73821b3469a5cb6c2874e8f6bb73",
+          "destination_sha256": "58572695096699639f23778d2acc7b2fbbe7cdbe251ed682f76f16959994788b",
+          "destination_bytes": 6426,
           "mode": "0644"
         }
       ]
@@ -3087,8 +3129,8 @@
     },
     {
       "path": "docs/DIAGNOSTICS.md",
-      "destination_sha256": "2a0bf67d1baaf58045f1fc3d696c63bff885328a3a9ce70d33b1229c415e0d60",
-      "destination_bytes": 17002,
+      "destination_sha256": "c604b0c002b32c46e9fa1e2be4b6470593d1a438c06473f152e806deb0ede7f6",
+      "destination_bytes": 17115,
       "mode": "0644",
       "purpose": "Standalone source ownership/build handoff support.",
       "destination_adaptations": [
@@ -3224,6 +3266,13 @@
           "destination_sha256": "2a0bf67d1baaf58045f1fc3d696c63bff885328a3a9ce70d33b1229c415e0d60",
           "destination_bytes": 17002,
           "mode": "0644"
+        },
+        {
+          "reason": "Record that linux-ps4 went private and update the DiagnostiX release status.",
+          "prior_destination_sha256": "2a0bf67d1baaf58045f1fc3d696c63bff885328a3a9ce70d33b1229c415e0d60",
+          "destination_sha256": "c604b0c002b32c46e9fa1e2be4b6470593d1a438c06473f152e806deb0ede7f6",
+          "destination_bytes": 17115,
+          "mode": "0644"
         }
       ]
     },
@@ -3260,8 +3309,8 @@
     },
     {
       "path": "diagnostics/SESSIONS.md",
-      "destination_sha256": "c2b69b16cb6350afef708b27bb6996fa9a719cd3e7590e6bcea23535ab8e5ea6",
-      "destination_bytes": 208966,
+      "destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
+      "destination_bytes": 216587,
       "mode": "0644",
       "purpose": "Combined post-import Linux source freeze: explicit local SSH enrollment with audited expiry/OS compatibility, CPU/RAM prerequisites, bounded browser batch lifecycle and auto-close, fixed browser layout/palette, SSH UI/IPC, canonical diagnostic experiment ledger, and MIT notice installation for future full roots; frozen 28-asset artifact retained",
       "origin": "New Linux psX source after diagnostic import",
@@ -3852,6 +3901,41 @@
           "prior_destination_sha256": "ad4177df9a453b92e5bf56d8807e860c19c916afed1c695f73b2385deb286476",
           "destination_sha256": "c2b69b16cb6350afef708b27bb6996fa9a719cd3e7590e6bcea23535ab8e5ea6",
           "destination_bytes": 208966,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+          "prior_destination_sha256": "c2b69b16cb6350afef708b27bb6996fa9a719cd3e7590e6bcea23535ab8e5ea6",
+          "destination_sha256": "c6182631ebf20ccba01aa3e2c8bd72147fd1b847242af7bfdd094ffd3c1aaf67",
+          "destination_bytes": 209519,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+          "prior_destination_sha256": "c6182631ebf20ccba01aa3e2c8bd72147fd1b847242af7bfdd094ffd3c1aaf67",
+          "destination_sha256": "eac863954b9fbaba13f39617460469ce089187c8ff9e97e8e8f461fd9b86d5bf",
+          "destination_bytes": 211536,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-009: GPU firmware from the running kernel at boot",
+          "prior_destination_sha256": "eac863954b9fbaba13f39617460469ce089187c8ff9e97e8e8f461fd9b86d5bf",
+          "destination_sha256": "8e83ac7339e6e680e9596d990f714f54ac16ba7d75bb258f11128aaf831abc3b",
+          "destination_bytes": 213155,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-010.",
+          "prior_destination_sha256": "8e83ac7339e6e680e9596d990f714f54ac16ba7d75bb258f11128aaf831abc3b",
+          "destination_sha256": "69b0592ce7824bf1528d4d07c90355a907a3df9ea83cf56f140e105deba14dba",
+          "destination_bytes": 215088,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-011 and the firmware-free release state.",
+          "prior_destination_sha256": "69b0592ce7824bf1528d4d07c90355a907a3df9ea83cf56f140e105deba14dba",
+          "destination_sha256": "65fff69dd0955108529ecaf3e0c9dbc425f88e63b3e867643342e6bce3a79651",
+          "destination_bytes": 216587,
           "mode": "0644"
         }
       ]
@@ -5087,11 +5171,76 @@
     },
     {
       "path": "docs/DIAGNOSTIX-RELEASE.md",
-      "destination_sha256": "6cc4607e05a31348dc4385507c0ddd6943c11382578eacd42ba687d3efbeae87",
-      "destination_bytes": 6304,
+      "destination_sha256": "12f632a27a30523fe8a1aded64b538a1ebbd74e2013af9a14d8c9aecf3e7cb57",
+      "destination_bytes": 10405,
       "mode": "0644",
       "purpose": "Prepare a separate firmware-free fresh-filesystem public image template and local firmware finalizer, with complete source-pinned BusyBox/musl kit, stripped owner access and regenerated artifact contracts.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+          "prior_destination_sha256": "6cc4607e05a31348dc4385507c0ddd6943c11382578eacd42ba687d3efbeae87",
+          "destination_sha256": "a8f478d7b714df2a1754d0eeb133a8e121ba03a109658c3268773416a3a7a422",
+          "destination_bytes": 7675,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record the owner firmware decision: pinned sources in scripts, included at build, never in Git",
+          "prior_destination_sha256": "a8f478d7b714df2a1754d0eeb133a8e121ba03a109658c3268773416a3a7a422",
+          "destination_sha256": "b3a7093754dba72426b8d76da2ba827bf6657c4f092be51e3bc14fe20e29473b",
+          "destination_bytes": 8834,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+          "prior_destination_sha256": "b3a7093754dba72426b8d76da2ba827bf6657c4f092be51e3bc14fe20e29473b",
+          "destination_sha256": "dace965c5a03604f7f5bc3eaa90b1d9c872a684cf6c53b7b9616e328088fb5b3",
+          "destination_bytes": 9197,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-009: GPU firmware from the running kernel at boot",
+          "prior_destination_sha256": "dace965c5a03604f7f5bc3eaa90b1d9c872a684cf6c53b7b9616e328088fb5b3",
+          "destination_sha256": "644c8604bd732e23199ba99244a85622409605768fe0c6dc07b35d866ae0bd24",
+          "destination_bytes": 9420,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record the owner decision to fetch the MediaTek Wi-Fi files at build time",
+          "prior_destination_sha256": "644c8604bd732e23199ba99244a85622409605768fe0c6dc07b35d866ae0bd24",
+          "destination_sha256": "a2d4d141a6310f4c3c1eedad09666c68f5d27d63f37acbad89b17850bf095f61",
+          "destination_bytes": 9640,
+          "mode": "0644"
+        },
+        {
+          "reason": "Describe the firmware-free package.",
+          "prior_destination_sha256": "a2d4d141a6310f4c3c1eedad09666c68f5d27d63f37acbad89b17850bf095f61",
+          "destination_sha256": "0baaa8682242a2bfdc026e2ed7c66e909ba8586251da38b681c174ad2af49929",
+          "destination_bytes": 10127,
+          "mode": "0644"
+        },
+        {
+          "reason": "Describe the firmware-free package and its test result.",
+          "prior_destination_sha256": "0baaa8682242a2bfdc026e2ed7c66e909ba8586251da38b681c174ad2af49929",
+          "destination_sha256": "924d765a6286237085b834c1c492316288431dd3d1af9bbaa94f893380a13680",
+          "destination_bytes": 10227,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-011 and the firmware-free release state.",
+          "prior_destination_sha256": "924d765a6286237085b834c1c492316288431dd3d1af9bbaa94f893380a13680",
+          "destination_sha256": "68bfc190b1105172ed2fa0f10dd725176ae27bb82cb430b46f3edee0cd32b6f2",
+          "destination_bytes": 10302,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record that linux-ps4 went private and update the DiagnostiX release status.",
+          "prior_destination_sha256": "68bfc190b1105172ed2fa0f10dd725176ae27bb82cb430b46f3edee0cd32b6f2",
+          "destination_sha256": "12f632a27a30523fe8a1aded64b538a1ebbd74e2013af9a14d8c9aecf3e7cb57",
+          "destination_bytes": 10405,
+          "mode": "0644"
+        }
+      ]
     },
     {
       "path": "tests/test_ps4_diagnostics_usb_stage.py",
@@ -5128,8 +5277,8 @@
     },
     {
       "path": "rootfs/ps4-diagnostics/init-ram",
-      "destination_sha256": "6af599aacd99e7b743f89f7fb5e7fc6c5a3e587fc5a30b0dbb27e8826058f452",
-      "destination_bytes": 21477,
+      "destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
+      "destination_bytes": 22497,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5189,6 +5338,13 @@
           "destination_sha256": "6af599aacd99e7b743f89f7fb5e7fc6c5a3e587fc5a30b0dbb27e8826058f452",
           "destination_bytes": 21477,
           "mode": "0644"
+        },
+        {
+          "reason": "Expose the loader's UVD file at the root path now that the package carries no console firmware.",
+          "prior_destination_sha256": "6af599aacd99e7b743f89f7fb5e7fc6c5a3e587fc5a30b0dbb27e8826058f452",
+          "destination_sha256": "82fab15ae8cf5e975d2b5c0d75fc7184bafe4cad60576560a28d51967ceddb1f",
+          "destination_bytes": 22497,
+          "mode": "0644"
         }
       ]
     },
@@ -5211,8 +5367,8 @@
     },
     {
       "path": "docs/DIAGNOSTIX-FPKG.md",
-      "destination_sha256": "6789fe33005dbaece3318adbeac06ac5e66ccab3711349380b079f5f5b513d7f",
-      "destination_bytes": 31435,
+      "destination_sha256": "924b1b0a0fac45c2422a3f3ca1b6572cdf91c6f902f4facf9d1104b248497657",
+      "destination_bytes": 32181,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5404,6 +5560,20 @@
           "prior_destination_sha256": "dd0df7c205b0b3c4f389510088a1a5d5e6ac87921617e20e0997a2ee8a122311",
           "destination_sha256": "6789fe33005dbaece3318adbeac06ac5e66ccab3711349380b079f5f5b513d7f",
           "destination_bytes": 31435,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+          "prior_destination_sha256": "6789fe33005dbaece3318adbeac06ac5e66ccab3711349380b079f5f5b513d7f",
+          "destination_sha256": "dd9da13aff069687ea25460c57165af138f94d16a1193fa6ece44cd8b4cd71ba",
+          "destination_bytes": 32157,
+          "mode": "0644"
+        },
+        {
+          "reason": "Record the owner firmware decision: pinned sources in scripts, included at build, never in Git",
+          "prior_destination_sha256": "dd9da13aff069687ea25460c57165af138f94d16a1193fa6ece44cd8b4cd71ba",
+          "destination_sha256": "924b1b0a0fac45c2422a3f3ca1b6572cdf91c6f902f4facf9d1104b248497657",
+          "destination_bytes": 32181,
           "mode": "0644"
         }
       ]
@@ -5779,8 +5949,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg/build.py",
-      "destination_sha256": "8efa8a508a8fb60a0a41d703839a6d75201fd345fc23e0f947b75f413920972a",
-      "destination_bytes": 19390,
+      "destination_sha256": "b364718e8cf3fc6032c29ed28b2c70bbd4921d014e606c1e3b1f8ef4fd11c782",
+      "destination_bytes": 19627,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -5917,13 +6087,20 @@
           "destination_sha256": "8efa8a508a8fb60a0a41d703839a6d75201fd345fc23e0f947b75f413920972a",
           "destination_bytes": 19390,
           "mode": "0644"
+        },
+        {
+          "reason": "Refuse to package firmware that each console's loader supplies.",
+          "prior_destination_sha256": "8efa8a508a8fb60a0a41d703839a6d75201fd345fc23e0f947b75f413920972a",
+          "destination_sha256": "b364718e8cf3fc6032c29ed28b2c70bbd4921d014e606c1e3b1f8ef4fd11c782",
+          "destination_bytes": 19627,
+          "mode": "0644"
         }
       ]
     },
     {
       "path": "diagnostics/ps4/fpkg/README.md",
-      "destination_sha256": "a46f1e19d1d44263eef2ef9485304c76b780e3595c8bc7df595ae26d26c6d192",
-      "destination_bytes": 12732,
+      "destination_sha256": "beff337e6b97b6b3d402ca7c68ea481f81cc219366f1cebf8868a937afa810e1",
+      "destination_bytes": 12738,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6031,6 +6208,13 @@
           "prior_destination_sha256": "9790eb57173fc7ba8d3479dc97d795f12291e9da4508f446281916d2eedf7359",
           "destination_sha256": "a46f1e19d1d44263eef2ef9485304c76b780e3595c8bc7df595ae26d26c6d192",
           "destination_bytes": 12732,
+          "mode": "0644"
+        },
+        {
+          "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+          "prior_destination_sha256": "a46f1e19d1d44263eef2ef9485304c76b780e3595c8bc7df595ae26d26c6d192",
+          "destination_sha256": "beff337e6b97b6b3d402ca7c68ea481f81cc219366f1cebf8868a937afa810e1",
+          "destination_bytes": 12738,
           "mode": "0644"
         }
       ]
@@ -6441,8 +6625,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/check.py",
-      "destination_sha256": "8ec16f198c39b486015b6e2b637f6c54c76df49ffa9f6e91d019326afd305582",
-      "destination_bytes": 4855,
+      "destination_sha256": "b1136bb278a5d00232f54d17c454f0f780f886c088d0296d5cd5f5182478829f",
+      "destination_bytes": 5457,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6473,6 +6657,13 @@
           "prior_destination_sha256": "b7e6c2fd84ff08b75811f2fdfe9bdae190dda579216439681fe637ee03751ced",
           "destination_sha256": "8ec16f198c39b486015b6e2b637f6c54c76df49ffa9f6e91d019326afd305582",
           "destination_bytes": 4855,
+          "mode": "0644"
+        },
+        {
+          "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+          "prior_destination_sha256": "8ec16f198c39b486015b6e2b637f6c54c76df49ffa9f6e91d019326afd305582",
+          "destination_sha256": "b1136bb278a5d00232f54d17c454f0f780f886c088d0296d5cd5f5182478829f",
+          "destination_bytes": 5457,
           "mode": "0644"
         }
       ]
@@ -6569,8 +6760,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/build.py",
-      "destination_sha256": "2177b7f485203b0885e6584ab502038e8303485569c915e34d5dbcebf7425a9e",
-      "destination_bytes": 12941,
+      "destination_sha256": "7aaad0cad196fd9cec00cafad4e0343c08de9e3d68d2fa25c709b69ce2053cb3",
+      "destination_bytes": 13279,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6636,6 +6827,13 @@
           "prior_destination_sha256": "9bf8fa626fde2d3ac930dae3036c8baa67ad49c162e4c8c3a38b5a6fdf406136",
           "destination_sha256": "2177b7f485203b0885e6584ab502038e8303485569c915e34d5dbcebf7425a9e",
           "destination_bytes": 12941,
+          "mode": "0644"
+        },
+        {
+          "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+          "prior_destination_sha256": "2177b7f485203b0885e6584ab502038e8303485569c915e34d5dbcebf7425a9e",
+          "destination_sha256": "7aaad0cad196fd9cec00cafad4e0343c08de9e3d68d2fa25c709b69ce2053cb3",
+          "destination_bytes": 13279,
           "mode": "0644"
         }
       ]
@@ -6755,8 +6953,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/README.md",
-      "destination_sha256": "98ffdb5d9040e22100217b75f8da4f1495221517dfa5e3e0c8b185f9af3c84dd",
-      "destination_bytes": 13565,
+      "destination_sha256": "e136edd7a8df3042c08652ff50e76d63cc94213250653274d063378cfeee076e",
+      "destination_bytes": 14287,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6830,6 +7028,13 @@
           "destination_sha256": "98ffdb5d9040e22100217b75f8da4f1495221517dfa5e3e0c8b185f9af3c84dd",
           "destination_bytes": 13565,
           "mode": "0644"
+        },
+        {
+          "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+          "prior_destination_sha256": "98ffdb5d9040e22100217b75f8da4f1495221517dfa5e3e0c8b185f9af3c84dd",
+          "destination_sha256": "e136edd7a8df3042c08652ff50e76d63cc94213250653274d063378cfeee076e",
+          "destination_bytes": 14287,
+          "mode": "0644"
         }
       ]
     },
@@ -6866,8 +7071,8 @@
     },
     {
       "path": "diagnostics/ps4/fpkg-loader/provenance.json",
-      "destination_sha256": "af2d4bda45827af60fc1c38893149b379c1be2cbb8fcd44e7db86b8b4014c69f",
-      "destination_bytes": 13016,
+      "destination_sha256": "275cbd877fe57b55a785137fe5aef634fb811a2e529aaaa3417d72642d01084b",
+      "destination_bytes": 13397,
       "mode": "0644",
       "purpose": "Add explicit USB-free RAM profile and private Diagnostix FPKG/loader source; preserve USB behavior, artifact pins, lifecycle gates and upstream credits. Host checks do not establish hardware acceptance.",
       "origin": "New Linux psX source after diagnostic import",
@@ -6941,6 +7146,13 @@
           "destination_sha256": "af2d4bda45827af60fc1c38893149b379c1be2cbb8fcd44e7db86b8b4014c69f",
           "destination_bytes": 13016,
           "mode": "0644"
+        },
+        {
+          "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+          "prior_destination_sha256": "af2d4bda45827af60fc1c38893149b379c1be2cbb8fcd44e7db86b8b4014c69f",
+          "destination_sha256": "275cbd877fe57b55a785137fe5aef634fb811a2e529aaaa3417d72642d01084b",
+          "destination_bytes": 13397,
+          "mode": "0644"
         }
       ]
     },
@@ -6954,8 +7166,8 @@
     },
     {
       "path": "diagnostics/ps4/ram_boot.py",
-      "destination_sha256": "6ad2f8ea48a68d5ff9994074c530b76d54fc3a77462cf72bc661809d7a089db0",
-      "destination_bytes": 31958,
+      "destination_sha256": "4c55e1c5efa1626ac5e9242affa1a9a70328101c7cdcc0409ab04254c01d6132",
+      "destination_bytes": 32024,
       "mode": "0644",
       "purpose": "Implement optional USB-free Diagnostix RAM alpha1, bounded dedicated loader, fixed native FPKG packaging and volatile-state integration; retain USB contracts and upstream licenses.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7007,6 +7219,13 @@
           "prior_destination_sha256": "af42fbe36e0fdd67bbdd565276e0b5710b0ac2a553cb5b377d46cde2ff38c002",
           "destination_sha256": "6ad2f8ea48a68d5ff9994074c530b76d54fc3a77462cf72bc661809d7a089db0",
           "destination_bytes": 31958,
+          "mode": "0644"
+        },
+        {
+          "reason": "Pin the root image without Firefox and console firmware.",
+          "prior_destination_sha256": "6ad2f8ea48a68d5ff9994074c530b76d54fc3a77462cf72bc661809d7a089db0",
+          "destination_sha256": "4c55e1c5efa1626ac5e9242affa1a9a70328101c7cdcc0409ab04254c01d6132",
+          "destination_bytes": 32024,
           "mode": "0644"
         }
       ]
@@ -7913,8 +8132,8 @@
     },
     {
       "path": "scripts/repack-ps4-diagnostix",
-      "destination_sha256": "ad168d88b2b28b0d23e83be6b24fb660f65873a22fa074a72c58b73fe6878cf5",
-      "destination_bytes": 19256,
+      "destination_sha256": "03c55894786c1c46eb3f69362835c2cfd0bd541b723f1b1f1f8c9a5acf8748f6",
+      "destination_bytes": 20353,
       "mode": "0755",
       "purpose": "Adds the 3D benchmark: pinned glmark2 and vkmark, unpacked at boot into their own read-only RAM, run as a fixed graphics session and judged by the controller.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7946,13 +8165,27 @@
           "destination_sha256": "ad168d88b2b28b0d23e83be6b24fb660f65873a22fa074a72c58b73fe6878cf5",
           "destination_bytes": 19256,
           "mode": "0755"
+        },
+        {
+          "reason": "Drop GPU, UVD, VCE and Marvell firmware members.",
+          "prior_destination_sha256": "ad168d88b2b28b0d23e83be6b24fb660f65873a22fa074a72c58b73fe6878cf5",
+          "destination_sha256": "b346e732f6dc40d262e3bfa9158bb38a10969ea3164c024e7c108263bc0f7678",
+          "destination_bytes": 19999,
+          "mode": "0755"
+        },
+        {
+          "reason": "Refuse a Chromium image built for another root.",
+          "prior_destination_sha256": "b346e732f6dc40d262e3bfa9158bb38a10969ea3164c024e7c108263bc0f7678",
+          "destination_sha256": "03c55894786c1c46eb3f69362835c2cfd0bd541b723f1b1f1f8c9a5acf8748f6",
+          "destination_bytes": 20353,
+          "mode": "0755"
         }
       ]
     },
     {
       "path": "tests/test_ps4_diagnostics_benchmark.py",
-      "destination_sha256": "16b4acbb200b891c294ccd4f8de62b673cea8ace58d1eff915b4655baac7026e",
-      "destination_bytes": 45969,
+      "destination_sha256": "037a1104697c54450f14eb5377cfb3e28d614abcdf2eb0699db9ba66a2998392",
+      "destination_bytes": 56608,
       "mode": "0644",
       "purpose": "Adds the 3D benchmark: pinned glmark2 and vkmark, unpacked at boot into their own read-only RAM, run as a fixed graphics session and judged by the controller.",
       "origin": "New Linux psX source after diagnostic import",
@@ -7998,6 +8231,20 @@
           "destination_sha256": "16b4acbb200b891c294ccd4f8de62b673cea8ace58d1eff915b4655baac7026e",
           "destination_bytes": 45969,
           "mode": "0644"
+        },
+        {
+          "reason": "Cover the firmware-free package steps.",
+          "prior_destination_sha256": "16b4acbb200b891c294ccd4f8de62b673cea8ace58d1eff915b4655baac7026e",
+          "destination_sha256": "002ae8e89dc74caefc20bd4be38c657e51693a489b64c2724b00c9baf27953b8",
+          "destination_bytes": 54636,
+          "mode": "0644"
+        },
+        {
+          "reason": "Cover the Chromium root guard.",
+          "prior_destination_sha256": "002ae8e89dc74caefc20bd4be38c657e51693a489b64c2724b00c9baf27953b8",
+          "destination_sha256": "037a1104697c54450f14eb5377cfb3e28d614abcdf2eb0699db9ba66a2998392",
+          "destination_bytes": 56608,
+          "mode": "0644"
         }
       ]
     },
@@ -8011,11 +8258,20 @@
     },
     {
       "path": "scripts/trim-ps4-diagnostix-root",
-      "destination_sha256": "222f336406e645a9b61c20b1dd5a0b868cf7be4ea052af5fcccf42120f361d76",
-      "destination_bytes": 6812,
+      "destination_sha256": "4ae340ad93307de0329dd0ccee8249ebf954a4882b2168bd85ba7c3d6d04e35a",
+      "destination_bytes": 7247,
       "mode": "0755",
       "purpose": "Chromium replaces Firefox in the RAM image (owner decision, 2026-11-10); trimmed provider, boot step and root pin.",
-      "origin": "New Linux psX source after diagnostic import"
+      "origin": "New Linux psX source after diagnostic import",
+      "destination_adaptations": [
+        {
+          "reason": "Also remove console firmware from the root image.",
+          "prior_destination_sha256": "222f336406e645a9b61c20b1dd5a0b868cf7be4ea052af5fcccf42120f361d76",
+          "destination_sha256": "4ae340ad93307de0329dd0ccee8249ebf954a4882b2168bd85ba7c3d6d04e35a",
+          "destination_bytes": 7247,
+          "mode": "0755"
+        }
+      ]
     },
     {
       "path": "diagnostics/ps4/fpkg/console_read.cpp",
@@ -8090,6 +8346,22 @@
       "destination_bytes": 2412,
       "mode": "0644",
       "purpose": "Masked the console's LAN address in the session log and recorded the staging check before publishing source.",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/fpkg-loader/uvd-firmware.patch",
+      "destination_sha256": "6a264930b1678e22c71bc5d9546af5a1f53d929934b7069178cc2a3e434b3b29",
+      "destination_bytes": 3242,
+      "mode": "0644",
+      "purpose": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "origin": "New Linux psX source after diagnostic import"
+    },
+    {
+      "path": "diagnostics/ps4/fpkg-loader/test_uvd.c",
+      "destination_sha256": "b24b7bd9183db77757d74a47e82c14672a87bbb879afdf75068ec1476d6f1c71",
+      "destination_bytes": 2540,
+      "mode": "0644",
+      "purpose": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
       "origin": "New Linux psX source after diagnostic import"
     }
   ],
@@ -9936,6 +10208,272 @@
       "paths": [
         "diagnostics/SESSIONS.md",
         "diagnostics/ps4/fpkg-loader/staging/check.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Document the DiagnostiX run screen and its demo scenes; no code change.",
+      "paths": [
+        "diagnostics/ps4/tui/README.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+      "paths": [
+        "docs/PS4-DIAGNOSTIC-CHROMIUM.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+      "paths": [
+        "manifests/ps4-chromium-provider.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+      "paths": [
+        "rootfs/ps4-diagnostics-desktop/launch-chromium-provider"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Chromium provider psx3 blocks name resolution except the local lab, so the browser test contacts no outside service.",
+      "paths": [
+        "tests/test_ps4_chromium_provider.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+      "paths": [
+        "docs/DIAGNOSTIX-FPKG.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Bring the documentation up to date with version 0.16; no behaviour change.",
+      "paths": [
+        "diagnostics/ps4/fpkg/README.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record the owner firmware decision: pinned sources in scripts, included at build, never in Git",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record the owner firmware decision: pinned sources in scripts, included at build, never in Git",
+      "paths": [
+        "docs/DIAGNOSTIX-FPKG.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/uvd-firmware.patch"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/test_uvd.c"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/build.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/check.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Read the UVD firmware from the running 12.02 kernel at boot, checksum-gated",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/provenance.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+      "paths": [
+        "diagnostics/ps4/fpkg-loader/README.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-008: UVD firmware from the running kernel at boot",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-009: GPU firmware from the running kernel at boot",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-009: GPU firmware from the running kernel at boot",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record the owner decision to fetch the MediaTek Wi-Fi files at build time",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Expose the loader's UVD file at the root path now that the package carries no console firmware.",
+      "paths": [
+        "rootfs/ps4-diagnostics/init-ram"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Refuse to package firmware that each console's loader supplies.",
+      "paths": [
+        "diagnostics/ps4/fpkg/build.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Pin the root image without Firefox and console firmware.",
+      "paths": [
+        "diagnostics/ps4/ram_boot.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Drop GPU, UVD, VCE and Marvell firmware members.",
+      "paths": [
+        "scripts/repack-ps4-diagnostix"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Cover the firmware-free package steps.",
+      "paths": [
+        "tests/test_ps4_diagnostics_benchmark.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Also remove console firmware from the root image.",
+      "paths": [
+        "scripts/trim-ps4-diagnostix-root"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Describe the firmware-free package.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Build the Chromium image against the firmware-free root.",
+      "paths": [
+        "manifests/ps4-chromium-provider.json"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-010.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Describe the firmware-free package and its test result.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Refuse a Chromium image built for another root.",
+      "paths": [
+        "scripts/repack-ps4-diagnostix"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Cover the Chromium root guard.",
+      "paths": [
+        "tests/test_ps4_diagnostics_benchmark.py"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-011 and the firmware-free release state.",
+      "paths": [
+        "diagnostics/SESSIONS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record EXP-20261110-011 and the firmware-free release state.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record that linux-ps4 went private and update the DiagnostiX release status.",
+      "paths": [
+        "docs/DIAGNOSTICS.md"
+      ],
+      "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
+    },
+    {
+      "reason": "Record that linux-ps4 went private and update the DiagnostiX release status.",
+      "paths": [
+        "docs/DIAGNOSTIX-RELEASE.md"
       ],
       "validation": "Source identities recorded; run the affected checks before use. Historical artifact verification is unchanged."
     }

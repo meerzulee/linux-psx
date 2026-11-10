@@ -10,6 +10,19 @@ no kernel panic was observed. Verdict: **PASS_KERNEL_RAM_ROOT_MENU_PENDING**.
 This does not qualify graphics, networking, export, UVD, Power or repeated boots.
 Existing USB appliance and public artifacts retain their separate status.
 
+## Version 0.16: southbridge read and a shorter run
+
+Version 0.16 reads only `/data/diagnostix/versions/0.16/boot`. Its loader differs
+from 0.15 only by the version digits in that path and the build ID. The app now
+reads the southbridge through GoldHEN's public SDK, because the kernel refuses that
+value to an installed app. The run no longer asks the Picture or Controller
+questions. This kernel cannot tell whether a picture is visible, and a controller
+is reported simply as found or not found.
+
+One Automatic run completed on the build just before 0.16, on one Baikal B1 console
+(EXP-20261110-006). Version 0.16 has opened on that console and read Baikal B1
+(EXP-20261110-007). Its own Automatic run is still to do.
+
 ## Version 0.15: payload size and transport correction
 
 EXP036 showed the 0.14 stage-only loader arriving completely at GoldHEN and
@@ -488,10 +501,10 @@ fetch pinned inputs or carry licensed adaptations rather than require an
 Omarchy checkout. Native Linux FPKG packaging still needs qualification.
 
 The intended package can carry the launcher, loader, kernel, full RAM image,
-fonts, local tests and browser/graphics components. The owner's local build
-can use the firmware already supplied for that console. A public FPKG retains
-the firmware-provisioning boundary of [the public image kit](DIAGNOSTIX-RELEASE.md);
-the current firmware-free template is not a complete bootable package.
+fonts, local tests and browser/graphics components. It also includes firmware,
+which scripts fetch from pinned public sources at build time and Git never holds
+(owner decision, 2026-11-10). The working UVD firmware is the project's own file
+and enters the build as a hash-pinned input; see [the release state](DIAGNOSTIX-RELEASE.md).
 
 Implementation order:
 

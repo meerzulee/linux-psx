@@ -37,6 +37,8 @@ The original references remain in the unchanged imported patch headers and
 record and exact alternative locations are in
 [provenance/upstreams.json](provenance/upstreams.json). A comparison reference
 is not automatically a patch import; the inherited ledger explains each use.
+`meerzulee/linux-ps4` went private on 2026-11-10, so links to it no longer open
+for the public. Its commit IDs remain the record of origin.
 
 ## PS5 community import and research references
 

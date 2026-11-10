@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Remove Firefox from the frozen DiagnostiX RAM root, and nothing else.
+"""Remove Firefox and the console firmware from the frozen DiagnostiX RAM root.
 
-Chromium replaces it (owner decision, 2026-11-10), because the loader refuses an
-initramfs over 512 MiB and the two browsers do not fit together. The image is
-edited as a file: nothing is mounted and no root privilege is needed.
+Chromium replaces Firefox (owner decision, 2026-11-10), because the loader refuses
+an initramfs over 512 MiB and the two browsers do not fit together. Each console
+now supplies its own GPU and UVD firmware through the loader, and the Marvell
+files are for Wi-Fi chips this package does not use. The image is edited as a
+file: nothing is mounted and no root privilege is needed.
 """
 import argparse
 import gzip
@@ -27,8 +29,11 @@ CHUNK_COUNT = 8
 WINDOW_LOG = 21
 EPOCH = '1794084766'
 ICON_SIZES = ('128x128', '16x16', '192x192', '22x22', '24x24', '256x256', '32x32', '384x384', '48x48', '64x64')
-TREES = ('/usr/lib/firefox',)
-FILES = ('/usr/bin/firefox',
+GPU_FIRMWARE = ('ce', 'me', 'mec', 'mec2', 'pfp', 'rlc', 'sdma', 'sdma1', 'uvd', 'vce')
+TREES = ('/usr/lib/firefox', '/usr/lib/firmware/mrvl')
+# The amdgpu directory itself stays: init binds the loader's UVD file over it.
+FILES = (*(f'/usr/lib/firmware/amdgpu/liverpool_{name}.bin' for name in GPU_FIRMWARE),
+         '/usr/bin/firefox',
          '/usr/share/applications/firefox.desktop',
          '/usr/share/gnome-shell/search-providers/firefox.search-provider.ini',
          '/usr/share/metainfo/org.mozilla.firefox.metainfo.xml',

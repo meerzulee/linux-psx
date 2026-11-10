@@ -12,6 +12,7 @@ import shutil
 import stat
 import struct
 import subprocess
+import sys
 import tarfile
 import xml.etree.ElementTree as ET
 
@@ -228,6 +229,8 @@ def build(bundle, output, sdk, archive, apply=False, openssl_runtime=OPENSSL):
             'content_id': CONTENT_ID, 'bundle': facts, 'sdk': {'url': SDK_URL, 'sha256': SDK_SHA, 'members_verified': checked},
             'host_openssl': compatibility, 'hardware_acceptance': False, 'console_operations': False, 'apply': apply}
     if not apply: return plan
+    # A package never carries the firmware each console's loader supplies.
+    subprocess.run([sys.executable, '-B', str(HERE.parents[2] / 'scripts/check-ps4-package-firmware'), str(bundle / 'initramfs.cpio.gz')], check=True)
     # PkgTool maps both inner and outer PFS temporary files while stage and
     # package coexist. Keep those files on the explicitly budgeted output FS.
     needed = sum(x['bytes'] for x in facts.values()) * 4 + (64 << 20)

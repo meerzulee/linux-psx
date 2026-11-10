@@ -232,6 +232,25 @@ install_owner_ssh_keys() {
         say 'Owner SSH keys could not be installed.'
     fi
 }
+install_loader_firmware() {
+    # The package carries no console firmware. The loader adds this file to early
+    # boot from the running system, and Video decoding reads it at the root path.
+    # A missing file must not stop the boot: that test reports it instead.
+    firmware=/lib/firmware/amdgpu/liverpool_uvd.bin
+    target=/newroot/usr/lib/firmware/amdgpu
+    if [ ! -f "$firmware" ] || [ -L "$firmware" ] || [ ! -d "$target" ]; then
+        say 'No UVD firmware from the loader; Video decoding will report this.'
+        return 0
+    fi
+    if mkdir -p /run/psx-writable/firmware-amdgpu \
+            && cp "$firmware" /run/psx-writable/firmware-amdgpu/liverpool_uvd.bin \
+            && chmod 0644 /run/psx-writable/firmware-amdgpu/liverpool_uvd.bin \
+            && mount --bind /run/psx-writable/firmware-amdgpu "$target"; then
+        say 'UVD firmware from the loader is ready for Video decoding.'
+    else
+        say 'UVD firmware from the loader could not be installed.'
+    fi
+}
 mount -t proc proc /proc || rescue 'Cannot mount proc.'
 mount -t sysfs sysfs /sys || rescue 'Cannot mount sysfs.'
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
@@ -355,6 +374,7 @@ install_data_assets
 install_benchmark_tools
 install_chromium_pack
 install_owner_ssh_keys
+install_loader_firmware
 mount --move /dev /newroot/dev || rescue 'Cannot move dev.'
 mount --move /proc /newroot/proc || rescue 'Cannot move proc.'
 mount --move /sys /newroot/sys || rescue 'Cannot move sys.'

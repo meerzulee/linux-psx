@@ -19,7 +19,8 @@ ARCHIVE_SHA='0650db2830f918625d7768a604b8f7c702339c1d716330d08d10748992e32e4a'
 CHANGED=('linux/main-aio.c','linux/ps4-kexec-common/kernel.c',
          'linux/ps4-kexec-common/kernel.h','linux/ps4-kexec-common/kexec.c',
          'linux/ps4-kexec-common/acpi.h','linux/ps4-kexec-common/linux_boot.c',
-         'linux/ps4-kexec-common/linux_boot.h')
+         'linux/ps4-kexec-common/linux_boot.h',
+         'linux/ps4-kexec-common/firmware.c','linux/ps4-kexec-common/firmware.h')
 SCATTER_CHANGED=('linux/Makefile','linux/ps4-kexec-common/Makefile',
                  'linux/ps4-kexec-common/linux_thunk.S')
 OVERLAYS=('diagnostix_pages.inc','diagnostix_scatter.c','diagnostix_scatter.h','linux_thunk.S')
@@ -67,7 +68,7 @@ def build(args):
     slim_patch=HERE/'slim-loader.patch'
     subprocess.run(['git','apply','--check','--whitespace=error',str(slim_patch)],cwd=source,check=True)
     subprocess.run(['git','apply','--whitespace=error',str(slim_patch)],cwd=source,check=True)
-    for version_patch in (HERE/'version-0.15.patch',HERE/'version-0.16.patch'):
+    for version_patch in (HERE/'version-0.15.patch',HERE/'version-0.16.patch',HERE/'uvd-firmware.patch'):
         subprocess.run(['git','apply','--check','--whitespace=error',str(version_patch)],cwd=source,check=True)
         subprocess.run(['git','apply','--whitespace=error',str(version_patch)],cwd=source,check=True)
     for name in OVERLAYS:
@@ -102,7 +103,9 @@ def build(args):
                  'initramfs_staged_generation_must_remain_immutable':True,
                  'physical_end_exclusive':'0x27f000000','replacement_identity_bytes':16*1024**3,
                  'separate_dmap_pdpt':True,'native_alias_page_checks':True,
-                 'original_live_identity_entries':4},
+                 'original_live_identity_entries':4,
+                 'uvd_firmware':{'source':'running FW12.00/12.02 kernel read-only segment','offset':'0x8cbff0',
+                                 'raw_bytes':313912,'raw_crc32':'a465ba07','on_mismatch':'left out; boot continues'}},
       'host_checks':check,'hardware_acceptance':False,'artifacts':{}}
     receipt=output/'BUILD.json';receipt.write_text(json.dumps(metadata,indent=2)+'\n')
     command=['make',f'-j{args.jobs}','FIRMWARES=1200']
