@@ -2,7 +2,8 @@
   <h1>Linux psX</h1>
   <p><strong>Linux kernels for PlayStation 4 and PlayStation 5, with PS4 graphics drivers and diagnostics.</strong></p>
   <p>
-    <a href="https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2">PS4 kernel 7.2.11</a>
+    <a href="https://linux.mrz.sh/">The manual</a>
+    &middot; <a href="https://github.com/meerzulee/linux-psx/releases/tag/v7.2.11-psx-ps4-baikal-beta2">PS4 kernel 7.2.11</a>
     &middot; <a href="https://github.com/meerzulee/linux-psx/releases/tag/diagnostix-0.16-beta1">DiagnostiX app</a>
     &middot; <a href="docs/BUILDING.md">Build</a>
     &middot; <a href="https://github.com/meerzulee/linux-psx/wiki">Wiki</a>

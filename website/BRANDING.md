@@ -9,6 +9,11 @@ is one solid theme color, and the SVG outlines stay sharp without a web font.
 
 - `assets/linux-psx.svg` is the mark used in the header and masthead.
 - `assets/favicon.svg` is the letter L on a dark Tokyo Night tile.
+- `assets/og-image.png` is the 1200-by-630 card that link previews show. It
+  has the same lettering with LINUX in Tokyo Night blue `#7aa2f7` and PSX in
+  purple `#bb9af7`, the colors of the Omarchy psX avatar, on `#1a1b26`, with
+  JetBrains Mono text. `og-image.mjs` renders it with Chromium. Run
+  `bun og-image.mjs` again rather than editing the PNG.
 - `assets/LICENSE-omarchy.txt` preserves the upstream MIT notice unchanged.
 
 ## How the lettering was made

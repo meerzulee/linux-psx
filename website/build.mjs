@@ -16,7 +16,40 @@ if (origin && (!['https:', 'http:'].includes(origin.protocol) || origin.pathname
 const sourceRoot = 'https://github.com/meerzulee/linux-psx';
 const releases = `${sourceRoot}/releases`;
 const desktopSite = 'https://omarchy.mrz.sh/';
+// Search, link-preview and llms.txt text. Keep it to what the manual itself says.
+const site = {
+  name: 'Linux psX',
+  homeTitle: 'Linux psX — Linux on PS4: kernels and hardware tests',
+  titleSuffix: 'Linux psX · Linux on PS4',
+  description: 'Linux kernels and DiagnostiX hardware tests for the PlayStation 4. Check whether your PS4 is supported, download a kernel and boot your own Linux system.',
+  about: 'Linux psX is an independent community project. Features are listed as working only after a test on a real console, and the compatibility chapter records which consoles have been tested. For a ready-made desktop, see Omarchy psX.',
+  imageAlt: 'LINUX PSX lettering on a dark Tokyo Night background, with the line: Linux kernels and hardware tests for the PS4.',
+  links: [
+    ['Source on GitHub', sourceRoot, 'kernel patches, configurations, build tools and DiagnostiX source'],
+    ['Releases', releases, 'published kernel builds and DiagnostiX releases'],
+    ['Omarchy psX', desktopSite + 'llms.txt', 'the Omarchy desktop distribution for PS4, which uses these kernels'],
+  ],
+};
 const escape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const plain = inline => (inline?.children || []).map(child => /break$/.test(child.type) ? ' ' : child.content).join('').replace(/\s+/g, ' ').trim();
+// A search-result-length summary that ends on a sentence when one fits.
+function summarize(text, limit = 160) {
+  if (text.length <= limit) return text;
+  const sentence = text.slice(0, limit).lastIndexOf('. ');
+  if (sentence > 80) return text.slice(0, sentence + 1);
+  const cut = text.slice(0, limit - 1);
+  return cut.slice(0, cut.lastIndexOf(' ')).replace(/[\s,;:.]+$/, '') + '…';
+}
+// The date of a chapter's last commit, or today when it has uncommitted edits.
+function modified(file) {
+  try {
+    const relative = path.relative(repo, file);
+    if (execFileSync('git', ['-C', repo, 'status', '--porcelain', '--', relative], { encoding: 'utf8' }).trim()) return new Date().toISOString().slice(0, 10);
+    return execFileSync('git', ['-C', repo, 'log', '-1', '--format=%cs', '--', relative], { encoding: 'utf8' }).trim() || null;
+  } catch {
+    return null;
+  }
+}
 const slug = value => value.toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').trim().replace(/\s/g, '-');
 // The publication allowlist. The table of contents stays last.
 const manifest = [
@@ -60,7 +93,9 @@ const pages = await Promise.all(manifest.map(async ([file, route, title]) => {
   }
   const paragraphs = tokens.filter(token => token.type === 'inline').map(token => token.children?.map(child => child.content).join('') || token.content);
   const sections = tokens.flatMap((token, i) => token.type === 'heading_open' ? [tokens[i + 1].content] : []);
-  return { file, source, route, title, text, tokens, headings, sections, body: paragraphs.join(' '), description: paragraphs[1]?.slice(0, 220) || title, url: base + (route ? route + '/' : '') };
+  const lead = tokens.findIndex(token => token.type === 'paragraph_open' && !token.hidden);
+  const description = route ? (lead >= 0 && summarize(plain(tokens[lead + 1]))) || title : site.description;
+  return { file, source, route, title, text, tokens, headings, sections, body: paragraphs.join(' '), description, modified: modified(source), hrefs: new Map(), markdownName: (route || 'index') + '.md', url: base + (route ? route + '/' : '') };
 }));
 const bySource = new Map(pages.map(page => [page.source, page]));
 const links = new Set();
@@ -94,9 +129,15 @@ async function rewrite(url, page, image = false) {
 }
 async function visit(tokens, page) {
   for (const token of tokens) {
-    if (token.type === 'link_open') token.attrSet('href', await rewrite(token.attrGet('href'), page));
+    if (token.type === 'link_open') {
+      const href = await rewrite(token.attrGet('href'), page);
+      page.hrefs.set(token.attrGet('href'), href);
+      token.attrSet('href', href);
+    }
     if (token.type === 'image') {
-      token.attrSet('src', await rewrite(token.attrGet('src'), page, true));
+      const src = await rewrite(token.attrGet('src'), page, true);
+      page.hrefs.set(token.attrGet('src'), src);
+      token.attrSet('src', src);
       token.attrSet('loading', 'lazy');
       token.attrSet('decoding', 'async');
     }
@@ -104,6 +145,27 @@ async function visit(tokens, page) {
   }
 }
 for (const page of pages) await visit(page.tokens, page);
+
+// Each chapter is also published as Markdown for LLM tools. Every link is made
+// absolute, so a copy read on its own still leads back to the site.
+const absolute = url => origin ? new URL(url, origin).href : url;
+function markdownFor(page) {
+  const unresolved = [];
+  let fenced = false;
+  const text = page.text.split('\n').map(line => {
+    if (/^\s*(?:```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced) return line;
+    return line.replace(/\]\(\s*<?([^)\s>]+)>?/g, (match, destination) => {
+      const href = page.hrefs.get(md.normalizeLink(destination)) ?? page.hrefs.get(destination);
+      if (href) return `](${absolute(href)}`;
+      if (!/^(?:https?:|mailto:)/i.test(destination)) unresolved.push(destination);
+      return match;
+    });
+  }).join('\n').trim() + '\n';
+  if (unresolved.length) throw new Error(`Unresolved Markdown links in ${page.file}: ${unresolved.join(', ')}`);
+  return text;
+}
+for (const page of pages) page.markdown = markdownFor(page);
 
 // Source links resolve to GitHub, so a file that exists only in this working
 // tree would pass the check above and still be a dead link on the site.
@@ -131,21 +193,56 @@ md.renderer.rules.code_inline = (tokens, i, options, env, self) => {
 // LINUX PSX in Delta Corps Priest 1, as a static SVG; see BRANDING.md.
 const wordmarkSvg = (await fs.readFile(path.join(here, 'assets/linux-psx.svg'), 'utf8')).trim();
 const wordmark = `<div class="wordmark">${wordmarkSvg}</div><p class="manual-label">THE PLAYSTATION KERNEL MANUAL</p>`;
+const image = base + 'assets/og-image.png';
+const json = value => JSON.stringify(value).replace(/</g, '\\u003c');
+// Canonical URL, link previews and structured data need the public origin.
+function social(page) {
+  if (!origin) return '';
+  const home = page.route === '';
+  const url = absolute(page.url);
+  const title = home ? site.homeTitle : `${page.title} — ${site.name}`;
+  const website = { '@type': 'WebSite', '@id': absolute(base) + '#website', name: site.name, alternateName: site.name.toUpperCase(), url: absolute(base), description: site.description, inLanguage: 'en' };
+  const graph = home ? [website] : [
+    { '@type': page === pages[chapterCount] ? 'WebPage' : 'TechArticle', headline: page.title, name: page.title, description: page.description, url, inLanguage: 'en', image: absolute(image), ...(page.modified && { dateModified: page.modified }), isPartOf: { '@id': website['@id'] } },
+    { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: site.name, item: absolute(base) }, { '@type': 'ListItem', position: 2, name: page.title, item: url }] },
+  ];
+  return [
+    `<link rel="canonical" href="${escape(url)}">`,
+    `<link rel="alternate" type="text/markdown" href="${escape(absolute(base + page.markdownName))}" title="This page as Markdown">`,
+    '<meta name="robots" content="index, follow, max-image-preview:large">',
+    `<meta property="og:type" content="${home ? 'website' : 'article'}">`,
+    `<meta property="og:site_name" content="${escape(site.name)}">`,
+    `<meta property="og:title" content="${escape(title)}">`,
+    `<meta property="og:description" content="${escape(page.description)}">`,
+    `<meta property="og:url" content="${escape(url)}">`,
+    '<meta property="og:locale" content="en_US">',
+    `<meta property="og:image" content="${escape(absolute(image))}">`,
+    '<meta property="og:image:type" content="image/png">',
+    '<meta property="og:image:width" content="1200">',
+    '<meta property="og:image:height" content="630">',
+    `<meta property="og:image:alt" content="${escape(site.imageAlt)}">`,
+    '<meta name="twitter:card" content="summary_large_image">',
+    `<meta name="twitter:title" content="${escape(title)}">`,
+    `<meta name="twitter:description" content="${escape(page.description)}">`,
+    `<meta name="twitter:image" content="${escape(absolute(image))}">`,
+    `<meta name="twitter:image:alt" content="${escape(site.imageAlt)}">`,
+    `<script type="application/ld+json">${json({ '@context': 'https://schema.org', '@graph': graph })}</script>`,
+  ].join('\n');
+}
 function template(page, index) {
   const chapters = pages.slice(0, chapterCount);
   const toc = pages[chapterCount];
   const previous = index > 0 && index < chapterCount ? chapters[index - 1] : null;
   const next = index < chapterCount - 1 ? chapters[index + 1] : null;
   const navigation = chapters.map((item, n) => `<li><a href="${item.url}"${item === page ? ' aria-current="page"' : ''}><span class="chapter-number">${String(n + 1).padStart(2, '0')}</span>${escape(item.title.replace(/!$/, ''))}</a></li>`).join('\n');
-  const canonical = origin ? `<link rel="canonical" href="${escape(new URL(page.url, origin).href)}">` : '';
   return `<!doctype html>
 <html lang="en" data-site-base="${base}">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escape(page.title)} — Linux psX</title>
+<title>${escape(page.route ? `${page.title} — ${site.titleSuffix}` : site.homeTitle)}</title>
 <meta name="description" content="${escape(page.description)}">
 <meta name="theme-color" content="#1a1b26">
-${canonical}
+${social(page)}
 <link rel="icon" href="${base}assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="${base}assets/manual.css">
 <script src="${base}assets/manual.js" defer></script>
@@ -183,16 +280,31 @@ if (process.argv.includes('--check')) {
     await fs.mkdir(folder, { recursive: true });
     await fs.writeFile(path.join(folder, 'index.html'), html[i]);
   }
-  for (const name of ['manual.css', 'manual.js', 'favicon.svg', 'linux-psx.svg', 'LICENSE-omarchy.txt']) await fs.copyFile(path.join(here, 'assets', name), path.join(temporary, 'assets', name));
-  await fs.copyFile(path.join(here, '_headers'), path.join(temporary, '_headers'));
+  for (const name of ['manual.css', 'manual.js', 'favicon.svg', 'linux-psx.svg', 'og-image.png', 'LICENSE-omarchy.txt']) await fs.copyFile(path.join(here, 'assets', name), path.join(temporary, 'assets', name));
+  let headers = await fs.readFile(path.join(here, '_headers'), 'utf8');
   await fs.copyFile(path.join(here, 'LICENSE'), path.join(temporary, 'LICENSE.txt'));
   for (const image of images) await fs.copyFile(image, path.join(temporary, 'assets/images', path.basename(image)));
   await fs.writeFile(path.join(temporary, 'search-index.json'), JSON.stringify(pages.map(({ title, url, body, sections }) => ({ title, url, body, sections }))) + '\n');
   await fs.writeFile(path.join(temporary, '.nojekyll'), '');
   if (origin) {
-    await fs.writeFile(path.join(temporary, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(page => `<url><loc>${escape(new URL(page.url, origin).href)}</loc></url>`).join('')}</urlset>\n`);
-    await fs.writeFile(path.join(temporary, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${new URL(base + 'sitemap.xml', origin).href}\n`);
+    await fs.writeFile(path.join(temporary, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map(page => `<url><loc>${escape(absolute(page.url))}</loc>${page.modified ? `<lastmod>${page.modified}</lastmod>` : ''}</url>`).join('')}</urlset>\n`);
+    await fs.writeFile(path.join(temporary, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${absolute(base + 'sitemap.xml')}\n# A summary for LLM tools (llmstxt.org): ${absolute(base + 'llms.txt')}\n`);
+    // llms.txt follows https://llmstxt.org/: a title, a summary, then link lists.
+    const chapters = pages.slice(0, chapterCount);
+    await fs.writeFile(path.join(temporary, 'llms.txt'), [
+      `# ${site.name}`, '', `> ${site.description}`, '', site.about, '',
+      '## Manual', '', ...chapters.map(page => `- [${page.title}](${absolute(base + page.markdownName)}): ${page.description}`), '',
+      '## Project', '', ...site.links.map(([name, url, note]) => `- [${name}](${url}): ${note}`), '',
+      '## Optional', '', `- [The whole manual](${absolute(base + 'llms-full.txt')}): every chapter in one Markdown file`, '',
+    ].join('\n'));
+    await fs.writeFile(path.join(temporary, 'llms-full.txt'), `# ${site.name} manual\n\n> ${site.description}\n\n${site.about}\n` + chapters.map(page => `\n---\n\nSource: ${absolute(page.url)}\n\n${page.markdown}`).join(''));
+    // Search engines should index the HTML page, not its Markdown copy.
+    for (const page of pages) {
+      await fs.writeFile(path.join(temporary, page.markdownName), page.markdown);
+      headers += `\n${base}${page.markdownName}\n  Link: <${absolute(page.url)}>; rel="canonical"\n`;
+    }
   }
+  await fs.writeFile(path.join(temporary, '_headers'), headers);
   await fs.rm(output, { recursive: true, force: true });
   await fs.rename(temporary, output);
   console.log(`Built ${report}\nOutput: ${output}`);

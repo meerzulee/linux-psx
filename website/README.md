@@ -39,6 +39,29 @@ results. Nothing becomes `beta` or `working` without a recorded hardware test.
 A problem goes in the manual only after we've reproduced it. An open issue or a
 single unexplained failure isn't enough.
 
+## Search engines, link previews and LLM tools
+
+With `SITE_URL` set, as the deploy build does, the build also writes:
+
+- a canonical link, Open Graph and X card tags, and JSON-LD structured data on
+  every page: `WebSite` on the home page, `TechArticle` and breadcrumbs on
+  chapters;
+- the share image `assets/og-image.png`, 1200 by 630. Regenerate it with
+  `bun og-image.mjs` after the wordmark changes; see `BRANDING.md`;
+- a Markdown copy of each page at `/<chapter>.md`, and `/index.md` for the home
+  page, with absolute links. The generated `_headers` names each copy's HTML
+  page as canonical, so search engines index the HTML;
+- `llms.txt` in the https://llmstxt.org/ format, and `llms-full.txt` with the
+  whole manual in one file;
+- `sitemap.xml` with each chapter's last commit date, and `robots.txt`.
+
+Titles and descriptions come from the `site` object in `build.mjs` and from
+each chapter's first paragraph, so keep that paragraph a plain summary.
+
+Cloudflare can add its own rules in front of `robots.txt` and block AI
+crawlers before they reach the site. Those are zone settings in the Cloudflare
+dashboard, not files in this directory.
+
 ## Deploying
 
 The manual is hosted as static assets on the `linux-psx` Cloudflare Worker, with
